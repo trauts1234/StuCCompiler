@@ -6,6 +6,7 @@ pub enum Token {
     OPERATOR(Operator),
     STRING(CString),
     NUMBERLITERAL(NumberLiteral),
+    //IDENTIFIER(Identifier) //TODO
 }
 
 impl Token {
@@ -35,5 +36,9 @@ impl Token {
         }
 
         panic!();
+    }
+
+    pub fn is_non_identifier_token(potential: &str) -> bool {
+        todo!()
     }
 }
