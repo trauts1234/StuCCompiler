@@ -1,0 +1,7 @@
+
+pub enum Punctuation{
+    OPENCURLY,CLOSECURLY,// ( )
+    OPENSQUIGGLY,CLOSESQUIGGLY,// { }
+    OPENSQUARE,CLOSESQUARE,// [ ]
+    HASHTAG,DOUBLEHASHTAG//# ##
+}
