@@ -5,4 +5,3 @@ pub mod cstring;
 pub mod operator;
 pub mod number_literal;
 pub mod identifier;
-pub mod all_tokens;
