@@ -1,0 +1,33 @@
+[
+    {
+        "name": "external declaration",
+        "choice": [
+            {
+                "can repeat": false,
+                "optional": false,
+                "name": "function definition"
+            },
+            {
+                "can repeat": false,
+                "optional": false,
+                "name": "declaration"
+            }
+        ]
+    },
+
+    {
+        "name": "function definition",
+        "required": [
+            {
+                "can repeat": true,
+                "optional": false,
+                "name": "type info"
+            },
+            {
+                "can repeat": false,
+                "optional": false,
+                "name": "identifier"
+            }
+        ]
+    }
+]
