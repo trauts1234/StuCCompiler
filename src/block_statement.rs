@@ -1,4 +1,4 @@
-use crate::{declaration::Declaration, statement::Statement};
+use crate::statement::Statement;
 
 
 /**
@@ -7,5 +7,5 @@ use crate::{declaration::Declaration, statement::Statement};
  */
 pub enum BlockStatement {
     STATEMENT(Statement),
-    DECLARATION(Declaration)
+    //DECLARATION(Declaration)
 }
