@@ -1,4 +1,12 @@
+use crate::token::keyword::Keyword;
+
 use super::token::Token;
+
+fn is_keyword(text: &str) -> bool {
+    let possible_keywords = vec!["break", "case", "continue", "default", "do", "else", "enum", "for", "goto", "if", "return", "sizeof", "struct", "switch", "typedef", "union", "while", "_Bool"];
+    
+    return possible_keywords.contains(&text);
+}
 
 pub struct Lexer{
     data: String,
@@ -43,7 +51,12 @@ impl Lexer {
 
         assert!(letters.len() > 0);
 
-        Token::KWORDORIDENT(letters)
+        //try to match with a known keyword
+        if is_keyword(&letters) {
+            Token::KEYWORD(letters)
+        } else {
+            Token::IDENTIFIER(letters)
+        }
     }
 
     fn consume_punctuation(&mut self) -> Token{
@@ -65,7 +78,7 @@ impl Lexer {
         self.skip_whitespace();
 
         match self.peek()? {
-            c if c.is_alphanumeric() || c == '_' => Some(self.consume_identifier_or_keyword()),
+            c if c.is_alphanumeric() || c == '_' => Some(self.consume_identifier_or_keyword()),//TODO can identifiers and keywords start with a number
             c if "(){};".contains(c) => Some(self.consume_punctuation()),
             _ => None
         }

@@ -10,6 +10,7 @@ mod r_value;
 mod l_value;
 mod translation_unit;
 mod lexer;
+pub mod control_flow_statement;
 
 fn main() {
     let tu = TranslationUnit::new("test.c");

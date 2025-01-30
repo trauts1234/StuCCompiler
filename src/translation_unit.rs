@@ -1,5 +1,5 @@
 use crate::{function_definition::FunctionDefinition, lexer::lexer::Lexer};
-use std::fs;
+use std::{collections::VecDeque, fs};
 
 
 pub struct TranslationUnit {
@@ -17,18 +17,17 @@ impl TranslationUnit {
 
         data = data.replace("\\\n", "");//remove \ newline, a feature in c
 
-        let mut tokens = Vec::new();
+        let mut tokens = VecDeque::new();
         let mut lexer = Lexer::new(&data);
         while let Some(t) = lexer.next_token() {
-            tokens.push(t);
+            tokens.push_back(t);
         }
 
         let mut funcs = Vec::new();
 
         while tokens.len() > 0 {
-            if let Some((next_func_definition, remaining_tokens)) = FunctionDefinition::try_consume_func_definition(&tokens){
+            if let Some(next_func_definition) = FunctionDefinition::try_consume_func_definition(&mut tokens){
                 funcs.push(next_func_definition);
-                tokens = remaining_tokens;//parse what's left
             } else {
                 panic!("unknown remaining data in translation unit:\n{:?}", tokens);
             }

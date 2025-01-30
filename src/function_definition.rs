@@ -1,4 +1,4 @@
-use crate::{lexer::token::Token, statement::Statement, token::type_info::TypeInfo};
+use crate::{lexer::{token::Token, token_walk::TokenQueue}, statement::Statement, token::type_info::TypeInfo};
 
 
 /**
@@ -17,15 +17,64 @@ impl FunctionDefinition {
      * consumes tokens to try and make a function definition
      * returns some(function found, remaining tokens) if found, else None
      */
-    pub fn try_consume_func_definition(tokens: &Vec<Token>) -> Option<(FunctionDefinition, Vec<Token>)> {
-        let mut tokens_clone = tokens.clone();//so we can mess with it
+    pub fn try_consume_func_definition(tokens_queue: &mut TokenQueue) -> Option<FunctionDefinition> {
 
-        //TODO try to pop type infos
-        //then pop an identifier, check it is not a keyword
-        //then pop a "("
-        //then pop until ")" as params are not implemented
-        //then call to pop a Statement (should usually match a scope)
-        //then return Some(definition, tokens_clone)
-        todo!()
+        tokens_queue.save_checkpoint();//if things go pear-shaped in this function, go back to this checkpoint to restore progress
+
+        let mut return_data = Vec::new();
+
+        //try and consume as many type specifiers as possible
+        loop {
+            if let Token::TYPESPECIFIER(ts) = tokens_queue.peek()? {
+                return_data.push(ts.clone());
+                tokens_queue.consume();
+            } else {
+                break;
+            }
+        }
+
+        if return_data.len() == 0 {
+            tokens_queue.pop_checkpoint();
+            return None;//missing type info
+        }
+
+        //try to match an identifier, to find out the function name
+
+        let func_name = 
+        if let Token::IDENTIFIER(ident) = tokens_queue.consume()? {
+            ident.to_string()
+        }
+        else {
+            tokens_queue.pop_checkpoint();
+            return None;
+        };
+
+        //pop the ( after the function name
+        if Token::PUNCTUATION("(".to_owned()) != tokens_queue.consume()? {
+            tokens_queue.pop_checkpoint();
+            return None;
+        }
+
+        //skip over params for now (TODO function params)
+        loop {
+            if Token::PUNCTUATION(")".to_owned()) == tokens_queue.consume()? {
+                break;
+            }
+        }
+
+        //read the next statement (statement includes a scope)
+        if let Some(function_code) = Statement::try_consume_statement(tokens_queue) {
+            tokens_queue.pop_checkpoint();
+            return Some(
+                FunctionDefinition {
+                    return_type:return_data,
+                    function_name: func_name,
+                    code: function_code
+                }
+            );
+        }
+
+        tokens_queue.pop_checkpoint();
+        None
     }
 }

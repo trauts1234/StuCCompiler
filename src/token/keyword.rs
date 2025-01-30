@@ -1,4 +1,5 @@
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Keyword{
     BREAK,//break from loop
     CASE,//case: in switch statement
