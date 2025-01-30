@@ -17,7 +17,7 @@ impl FunctionDefinition {
      * consumes tokens to try and make a function definition
      * returns some(function found, remaining tokens) if found, else None
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueLocation) -> Option<FunctionDefinition> {//TODO return tuple
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueLocation) -> Option<(FunctionDefinition, TokenQueueLocation)> {
         let mut curr_queue_idx = TokenQueueLocation::from_previous_savestate(previous_queue_idx);
 
         let mut return_data = Vec::new();
@@ -60,13 +60,13 @@ impl FunctionDefinition {
 
         //read the next statement (statement includes a scope)
         if let Some((function_code, remaining_tokens_idx)) = Statement::try_consume(tokens_queue, &curr_queue_idx) {
-            return Some(
+            return Some((
                 FunctionDefinition {
                     return_type:return_data,
                     function_name: func_name,
                     code: function_code
-                }
-            );
+                },
+                remaining_tokens_idx));
         }
         
         None

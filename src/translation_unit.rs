@@ -1,5 +1,5 @@
-use crate::{function_definition::FunctionDefinition, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
-use std::{collections::VecDeque, fs};
+use crate::{function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
+use std::fs;
 
 
 pub struct TranslationUnit {
@@ -33,7 +33,7 @@ impl TranslationUnit {
                 funcs.push(next_func_definition);
                 token_idx = remaining_tokens;
             } else {
-                panic!("unknown remaining data in translation unit:\n{:?}", tokens);
+                panic!("unknown remaining data in translation unit");
             }
         }
 

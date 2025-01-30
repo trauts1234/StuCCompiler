@@ -5,7 +5,6 @@ pub struct NumberLiteral {
 
 impl NumberLiteral {
     pub fn try_new(to_token: &str) -> Option<NumberLiteral> {
-        //TODO: match if this is a number
 
         if to_token.parse::<f64>().is_ok() {
             Some(NumberLiteral {

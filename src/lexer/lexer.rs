@@ -47,6 +47,7 @@ impl Lexer {
                 break;
             }
             letters.push(c);
+            self.consume();
         }
 
         assert!(letters.len() > 0);
@@ -78,6 +79,7 @@ impl Lexer {
         self.skip_whitespace();
 
         match self.peek()? {
+            //TODO type info
             c if c.is_alphanumeric() || c == '_' => Some(self.consume_identifier_or_keyword()),//TODO can identifiers and keywords start with a number
             c if "(){};".contains(c) => Some(self.consume_punctuation()),
             _ => None
