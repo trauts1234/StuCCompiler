@@ -1,4 +1,4 @@
-use crate::{function_definition::FunctionDefinition, lexer::lexer::Lexer};
+use crate::{function_definition::FunctionDefinition, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
 use std::{collections::VecDeque, fs};
 
 
@@ -17,17 +17,21 @@ impl TranslationUnit {
 
         data = data.replace("\\\n", "");//remove \ newline, a feature in c
 
-        let mut tokens = VecDeque::new();
+        let mut tokens = Vec::new();
         let mut lexer = Lexer::new(&data);
         while let Some(t) = lexer.next_token() {
-            tokens.push_back(t);
+            tokens.push(t);
         }
+
+        let mut token_queue = TokenQueue::new(tokens);
+        let mut token_idx = TokenQueueLocation::new();
 
         let mut funcs = Vec::new();
 
-        while tokens.len() > 0 {
-            if let Some(next_func_definition) = FunctionDefinition::try_consume_func_definition(&mut tokens){
+        while token_queue.peek(&token_idx).is_some() {
+            if let Some((next_func_definition, remaining_tokens)) = FunctionDefinition::try_consume(&mut token_queue, &token_idx){
                 funcs.push(next_func_definition);
+                token_idx = remaining_tokens;
             } else {
                 panic!("unknown remaining data in translation unit:\n{:?}", tokens);
             }

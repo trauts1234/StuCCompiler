@@ -1,4 +1,4 @@
-use crate::{lexer::token_walk::TokenQueue, statement::Statement};
+use crate::{lexer::{token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, statement::Statement};
 
 
 /**
@@ -11,15 +11,17 @@ pub enum StatementOrDeclaration {
 }
 
 impl StatementOrDeclaration {
-    pub fn try_consume(tokens_queue: &mut TokenQueue) -> Option<StatementOrDeclaration> {
-        tokens_queue.save_checkpoint();
+    /**
+     * tries to parse the tokens queue starting at previous_queue_idx, to find either a declaration or statement
+     * returns a StatementOrDeclaration and the remaining tokens as a queue location, else none
+     */
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueLocation) -> Option<(StatementOrDeclaration, TokenQueueLocation)> {
+        let curr_queue_idx = TokenQueueLocation::from_previous_savestate(previous_queue_idx);
 
-        if let Some(stat) = Statement::try_consume_statement(tokens_queue) {
-            tokens_queue.pop_checkpoint();
-            return Some(Self::STATEMENT(stat));
+        if let Some((stat, remaining_tokens)) = Statement::try_consume(tokens_queue, &curr_queue_idx) {
+            return Some((Self::STATEMENT(stat), remaining_tokens));
         }
 
-        tokens_queue.pop_checkpoint();
         None
     }
 }

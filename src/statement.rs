@@ -1,4 +1,4 @@
-use crate::{compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, lexer::token_walk::TokenQueue};
+use crate::{compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, lexer::{token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
 
 
 pub enum Statement {
@@ -11,17 +11,21 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn try_consume_statement(tokens_queue: &mut TokenQueue) -> Option<Statement> {
-        tokens_queue.save_checkpoint();
+    /**
+     * tries to parse the tokens queue starting at previous_queue_idx, to find a statement
+     * returns a statement and the remaining tokens as a queue location, else none
+     */
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueLocation) -> Option<(Statement, TokenQueueLocation)> {
+        let curr_queue_idx = TokenQueueLocation::from_previous_savestate(previous_queue_idx);
 
-        if let Some(ss) = ScopeStatements::try_consume_statements(tokens_queue){
-            tokens_queue.pop_checkpoint();
-            return Some(Self::COMPOUND(ss));
+        if let Some((ss, remaining_tokens)) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx){
+            return Some((Self::COMPOUND(ss), remaining_tokens));
         }
 
-        if let Some(command) = tokens_queue;
+        if let Some((command, remaining_tokens)) = ControlFlowChange::try_consume(tokens_queue, &curr_queue_idx){
+            return Some((Self::CONTROLFLOW(command), remaining_tokens));
+        }
 
-        tokens_queue.pop_checkpoint();
         todo!()
     }
 }

@@ -6,8 +6,6 @@ mod compound_statement;
 mod statement;
 mod block_statement;
 mod expression;
-mod r_value;
-mod l_value;
 mod translation_unit;
 mod lexer;
 pub mod control_flow_statement;
