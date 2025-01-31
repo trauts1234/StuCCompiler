@@ -1,5 +1,5 @@
-use crate::{lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, statement::Statement, type_info::TypeInfo};
-
+use crate::{asm_boilerplate, lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, statement::Statement, type_info::TypeInfo};
+use std::fmt::Write;
 
 /**
  * This is a definition of a function
@@ -69,5 +69,25 @@ impl FunctionDefinition {
                 code: function_code
             },
             remaining_tokens_idx));
+    }
+
+    pub fn generate_assembly(&self) -> String {
+        //this uses a custom calling convention
+        //all params passed on the stack, right to left (caller cleans these up)
+        //return value in RAX
+        let mut result = String::new();
+
+        //set label as same as function name
+        writeln!(result, "{}:", self.function_name).unwrap();
+        //create stack frame
+        writeln!(result, "push rbp").unwrap();
+        writeln!(result, "mov rbp, rsp").unwrap();
+
+        //TODO generate stack information, and pass it to the code
+        write!(result, "{}", self.code.generate_assembly()).unwrap();
+
+        writeln!(result, "{}", asm_boilerplate::func_exit_boilerplate()).unwrap();
+
+        return result;
     }
 }

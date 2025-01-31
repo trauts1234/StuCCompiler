@@ -1,5 +1,5 @@
-use crate::{function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
-use std::fs;
+use crate::{asm_boilerplate, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
+use std::{fs::{self, File}, io::Write};
 
 #[derive(Debug)]
 pub struct TranslationUnit {
@@ -40,5 +40,17 @@ impl TranslationUnit {
         TranslationUnit {
             functions: funcs
         }
+    }
+
+    pub fn generate_assembly(&self, output_filename: &str) {
+        let mut output_file = File::create(output_filename).unwrap();
+
+        let instructions = self.functions.iter()
+            .map(|x| x.generate_assembly())
+            .collect::<String>();
+
+        let assembly_code = asm_boilerplate::add_boilerplate(instructions);
+
+        output_file.write(&assembly_code.into_bytes()).unwrap();
     }
 }

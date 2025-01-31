@@ -25,4 +25,10 @@ impl StatementOrDeclaration {
 
         None
     }
+
+    pub fn generate_assembly(&self) -> String {
+        match self {
+            Self::STATEMENT(statement) => statement.generate_assembly()
+        }
+    }
 }

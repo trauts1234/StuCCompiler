@@ -1,7 +1,6 @@
 
 use crate::{block_statement::StatementOrDeclaration, lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
-
-
+use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
  */
@@ -41,5 +40,15 @@ impl ScopeStatements {
         Some((ScopeStatements {
             statements
         }, curr_queue_idx))
+    }
+
+    pub fn generate_assembly(&self) -> String {
+        let mut result = String::new();
+
+        for statement in &self.statements {
+            write!(result, "{}", statement.generate_assembly()).unwrap();
+        }
+
+        result
     }
 }

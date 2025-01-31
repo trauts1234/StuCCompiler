@@ -1,5 +1,5 @@
-use crate::{expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
-
+use crate::{asm_boilerplate, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
+use std::fmt::Write;
 
 /**
  * this handles break, continue and return statements
@@ -36,5 +36,21 @@ impl ControlFlowChange {
             }
             _ => None
         }
+    }
+
+    pub fn generate_assembly(&self) -> String {
+        let mut result = String::new();
+
+        match self {
+            ControlFlowChange::RETURN(expression) => {
+                if let Some(expr) = expression {
+                    write!(result, "{}", expr.generate_assembly()).unwrap();
+                }
+                //warning: ensure result is in the correct register and correctly sized
+                write!(result, "{}", asm_boilerplate::func_exit_boilerplate()).unwrap();
+            },
+        }
+
+        result
     }
 }

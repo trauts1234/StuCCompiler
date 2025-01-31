@@ -1,5 +1,5 @@
 use crate::{lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, number_literal::NumberLiteral};
-
+use std::fmt::Write;
 
 #[derive(Debug)]
 pub enum Expression {
@@ -22,5 +22,20 @@ impl Expression {
         }
 
         None
+    }
+
+    /**
+     * puts the result of the expression in rax
+     */
+    pub fn generate_assembly(&self) -> String{
+        let mut result = String::new();
+
+        match self {
+            Expression::NUMBER(number_literal) => {
+                writeln!(result, "mov rax, {}", number_literal.nasm_format()).unwrap();
+            },
+        }
+
+        result
     }
 }

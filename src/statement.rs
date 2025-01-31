@@ -1,4 +1,5 @@
-use crate::{compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, lexer::{token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
+use crate::{compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, lexer::{token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
+use std::fmt::Write;
 
 #[derive(Debug)]
 pub enum Statement {
@@ -27,5 +28,20 @@ impl Statement {
         }
 
         None
+    }
+
+    pub fn generate_assembly(&self) -> String {
+        let mut result = String::new();
+
+        match self {
+            Self::COMPOUND(scope) => {
+                write!(result, "{}", scope.generate_assembly()).unwrap();
+            }
+            Self::CONTROLFLOW(command) => {
+                write!(result, "{}", command.generate_assembly()).unwrap();
+            }
+        }
+
+        return result;
     }
 }
