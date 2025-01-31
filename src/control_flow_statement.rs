@@ -16,9 +16,24 @@ impl ControlFlowChange {
         
         match kw.as_str() {
             "return" => {
-                todo!("parse return data")
+
+                //try and match with an expression for what to return, but don't worry if not as some functions return void
+                let ret_value = match Expression::try_consume(tokens_queue, &curr_queue_idx) {
+                    None => None,
+                    Some((return_expr, remaining_tokens)) => {
+                        curr_queue_idx = remaining_tokens;
+                        Some(return_expr)
+                    }
+                };
+
+                //ensure return ends with ;
+                if Token::PUNCTUATION(";".to_owned()) != tokens_queue.consume(&mut curr_queue_idx)?{
+                    return None;
+                }
+
+                Some((Self::RETURN(ret_value), curr_queue_idx))
             }
-            _ => todo!()
+            _ => None
         }
     }
 }

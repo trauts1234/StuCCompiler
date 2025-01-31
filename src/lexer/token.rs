@@ -1,10 +1,10 @@
-use crate::token::type_info::TypeInfo;
+use crate::token::{number_literal::NumberLiteral, type_info::TypeInfo};
 
 
 #[derive(Debug, Clone, PartialEq)]//for debug printing
 pub enum Token {
     //CSTRING(String),
-    NUMBER(String),
+    NUMBER(NumberLiteral),
     //OPERATOR(String),
     PUNCTUATION(String),
     TYPESPECIFIER(TypeInfo),

@@ -1,4 +1,5 @@
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct NumberLiteral {
     unformatted_text: String
 }

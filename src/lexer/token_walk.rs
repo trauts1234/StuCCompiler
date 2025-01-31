@@ -30,6 +30,9 @@ impl TokenQueue {
     pub fn consume(&mut self, location: &mut TokenQueueLocation) -> Option<Token> {
         let next = self.peek(&location);
         location.next();
+        if location.get_index() > self.tokens.len(){
+            panic!("continued consuming tokens after end of array")
+        }
         return next;
     }
 }

@@ -1,4 +1,4 @@
-use crate::token::keyword::Keyword;
+use crate::token::{number_literal::NumberLiteral, type_info::TypeInfo};
 
 use super::token::Token;
 
@@ -39,7 +39,7 @@ impl Lexer {
         }
     }
 
-    fn consume_identifier_or_keyword(&mut self) -> Token {
+    fn consume_generic_text(&mut self) -> Token {
         let mut letters = String::new();
 
         while let Some(c) = self.peek() {
@@ -55,6 +55,10 @@ impl Lexer {
         //try to match with a known keyword
         if is_keyword(&letters) {
             Token::KEYWORD(letters)
+        } else if let Some(type_data) = TypeInfo::try_new(&letters) {
+            Token::TYPESPECIFIER(type_data)
+        } else if let Some(num) = NumberLiteral::try_new(&letters) {
+            Token::NUMBER(num)
         } else {
             Token::IDENTIFIER(letters)
         }
@@ -79,8 +83,7 @@ impl Lexer {
         self.skip_whitespace();
 
         match self.peek()? {
-            //TODO type info
-            c if c.is_alphanumeric() || c == '_' => Some(self.consume_identifier_or_keyword()),//TODO can identifiers and keywords start with a number
+            c if c.is_alphanumeric() || c == '_' => Some(self.consume_generic_text()),//TODO can identifiers and keywords start with a number
             c if "(){};".contains(c) => Some(self.consume_punctuation()),
             _ => None
         }

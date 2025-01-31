@@ -59,16 +59,14 @@ impl FunctionDefinition {
         }
 
         //read the next statement (statement includes a scope)
-        if let Some((function_code, remaining_tokens_idx)) = Statement::try_consume(tokens_queue, &curr_queue_idx) {
-            return Some((
-                FunctionDefinition {
-                    return_type:return_data,
-                    function_name: func_name,
-                    code: function_code
-                },
-                remaining_tokens_idx));
-        }
+        let (function_code, remaining_tokens_idx) = Statement::try_consume(tokens_queue, &curr_queue_idx)?;
         
-        None
+        return Some((
+            FunctionDefinition {
+                return_type:return_data,
+                function_name: func_name,
+                code: function_code
+            },
+            remaining_tokens_idx));
     }
 }

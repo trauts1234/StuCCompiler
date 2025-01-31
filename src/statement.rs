@@ -3,7 +3,7 @@ use crate::{compound_statement::ScopeStatements, control_flow_statement::Control
 
 pub enum Statement {
     //LABEL,//for goto, or switch cases
-    EXPRESSION(Option<Expression>),
+    //EXPRESSION(Expression),
     COMPOUND(ScopeStatements),//this is a scope (not nescessarily for a function)
     //SELECTION,
     //ITERATION,
@@ -26,6 +26,6 @@ impl Statement {
             return Some((Self::CONTROLFLOW(command), remaining_tokens));
         }
 
-        todo!()
+        None
     }
 }

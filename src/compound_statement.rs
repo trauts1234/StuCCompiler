@@ -19,10 +19,9 @@ impl ScopeStatements {
 
         let mut statements = Vec::new();
 
-        if Some(Token::PUNCTUATION("{".to_owned())) != tokens_queue.peek(&curr_queue_idx) {
+        if Token::PUNCTUATION("{".to_owned()) != tokens_queue.consume(&mut curr_queue_idx)? {
             return None;//not enclosed in { }, so can't be a scope
         }
-        tokens_queue.consume(&mut curr_queue_idx);
 
         //greedily consume as many statements as possible
         while let Some((statement_or_decl, remaining_tokens)) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx) {
@@ -31,11 +30,15 @@ impl ScopeStatements {
         }
 
         if statements.len() == 0 {
-            None
-        } else {
-            Some((ScopeStatements {
-                statements
-            }, curr_queue_idx))
+            return None;
         }
+
+        if Token::PUNCTUATION("}".to_owned()) != tokens_queue.consume(&mut curr_queue_idx)? {
+            return None;//not enclosed in { }, so can't be a scope
+        }
+
+        Some((ScopeStatements {
+            statements
+        }, curr_queue_idx))
     }
 }
