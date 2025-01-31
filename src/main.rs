@@ -1,6 +1,5 @@
 use translation_unit::TranslationUnit;
 
-mod token;
 mod function_definition;
 mod compound_statement;
 mod statement;
@@ -9,6 +8,8 @@ mod expression;
 mod translation_unit;
 mod lexer;
 pub mod control_flow_statement;
+pub mod number_literal;
+pub mod type_info;
 
 fn main() {
     let tu = TranslationUnit::new("test.c");

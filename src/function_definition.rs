@@ -1,4 +1,4 @@
-use crate::{lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, statement::Statement, token::type_info::TypeInfo};
+use crate::{lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, statement::Statement, type_info::TypeInfo};
 
 
 /**

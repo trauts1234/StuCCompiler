@@ -1,4 +1,4 @@
-use crate::token::{number_literal::NumberLiteral, type_info::TypeInfo};
+use crate::{number_literal::NumberLiteral, type_info::TypeInfo};
 
 use super::token::Token;
 

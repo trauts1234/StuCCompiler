@@ -1,4 +1,4 @@
-use crate::{lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, token::number_literal::NumberLiteral};
+use crate::{lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, number_literal::NumberLiteral};
 
 
 #[derive(Debug)]

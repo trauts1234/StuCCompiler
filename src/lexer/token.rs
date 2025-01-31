@@ -1,5 +1,4 @@
-use crate::token::{number_literal::NumberLiteral, type_info::TypeInfo};
-
+use crate::{number_literal::NumberLiteral, type_info::TypeInfo};
 
 #[derive(Debug, Clone, PartialEq)]//for debug printing
 pub enum Token {
