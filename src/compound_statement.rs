@@ -5,6 +5,7 @@ use crate::{block_statement::StatementOrDeclaration, lexer::{token::Token, token
 /**
  * this represents all the code inside a scope (i.e function definition)
  */
+#[derive(Debug)]
 pub struct ScopeStatements {
     statements: Vec<StatementOrDeclaration>
 }

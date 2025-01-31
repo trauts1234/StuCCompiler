@@ -1,7 +1,7 @@
 use crate::{function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
 use std::fs;
 
-
+#[derive(Debug)]
 pub struct TranslationUnit {
     //variables: Vec<Declaration>,
     functions: Vec<FunctionDefinition>

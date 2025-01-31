@@ -12,4 +12,6 @@ pub mod control_flow_statement;
 
 fn main() {
     let tu = TranslationUnit::new("test.c");
+
+    println!("{:#?}", tu);
 }

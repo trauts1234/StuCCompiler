@@ -1,6 +1,7 @@
 use crate::{lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, token::number_literal::NumberLiteral};
 
 
+#[derive(Debug)]
 pub enum Expression {
     //RVALUE(RValue),
     NUMBER(NumberLiteral),

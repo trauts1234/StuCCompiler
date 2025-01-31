@@ -4,6 +4,7 @@ use crate::{lexer::{token::Token, token_savepoint::TokenQueueLocation, token_wal
 /**
  * This is a definition of a function
  */
+#[derive(Debug)]
 pub struct FunctionDefinition {
     return_type: Vec<TypeInfo>,
     function_name: String,

@@ -1,6 +1,6 @@
 use crate::{compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, lexer::{token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
 
-
+#[derive(Debug)]
 pub enum Statement {
     //LABEL,//for goto, or switch cases
     //EXPRESSION(Expression),

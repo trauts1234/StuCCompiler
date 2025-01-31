@@ -4,6 +4,7 @@ use crate::{expression::Expression, lexer::{token::Token, token_savepoint::Token
 /**
  * this handles break, continue and return statements
  */
+#[derive(Debug)]
 pub enum ControlFlowChange {
     RETURN(Option<Expression>)
 }
