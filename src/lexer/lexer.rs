@@ -1,4 +1,4 @@
-use crate::{number_literal::NumberLiteral, type_info::TypeInfo};
+use crate::{number_literal::NumberLiteral, operator::Operator, type_info::TypeInfo};
 
 use super::token::Token;
 
@@ -6,6 +6,12 @@ fn is_keyword(text: &str) -> bool {
     let possible_keywords = vec!["break", "case", "continue", "default", "do", "else", "enum", "for", "goto", "if", "return", "sizeof", "struct", "switch", "typedef", "union", "while", "_Bool"];
     
     return possible_keywords.contains(&text);
+}
+
+fn is_operator(text: &str) -> bool {
+    let possible_operators = vec!["+"];
+
+    return possible_operators.contains(&text);
 }
 
 pub struct Lexer{
@@ -77,6 +83,17 @@ impl Lexer {
         Token::PUNCTUATION(c.to_string())
     }
 
+    fn consume_operator(&mut self) -> Token {
+        let c = self.consume().unwrap();
+
+        if c == '+' && self.peek() == Some('+') {
+            //this is actually ++, not +
+            panic!("unary operators not implemented")
+        }
+        
+        Token::OPERATOR(Operator::try_new(&c.to_string()).unwrap())
+    }
+
 
 
     pub fn next_token(&mut self) -> Option<Token> {
@@ -85,6 +102,7 @@ impl Lexer {
         match self.peek()? {
             c if c.is_alphanumeric() || c == '_' => Some(self.consume_generic_text()),//TODO can identifiers and keywords start with a number
             c if "(){};".contains(c) => Some(self.consume_punctuation()),
+            c if "+".contains(c) => Some(self.consume_operator()),
             _ => None
         }
     }

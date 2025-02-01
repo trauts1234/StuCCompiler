@@ -11,6 +11,7 @@ pub mod control_flow_statement;
 pub mod number_literal;
 pub mod type_info;
 pub mod asm_boilerplate;
+pub mod operator;
 
 fn main() {
     let tu = TranslationUnit::new("test.c");

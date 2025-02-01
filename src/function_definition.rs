@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}, statement::Statement, type_info::TypeInfo};
+use crate::{asm_boilerplate, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement, type_info::TypeInfo};
 use std::fmt::Write;
 
 /**
@@ -18,8 +18,8 @@ impl FunctionDefinition {
      * consumes tokens to try and make a function definition
      * returns some(function found, remaining tokens) if found, else None
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueLocation) -> Option<(FunctionDefinition, TokenQueueLocation)> {
-        let mut curr_queue_idx = TokenQueueLocation::from_previous_savestate(previous_queue_idx);
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<(FunctionDefinition, TokenQueueSlice)> {
+        let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut return_data = Vec::new();
 

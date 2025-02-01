@@ -1,5 +1,5 @@
 
-use crate::{block_statement::StatementOrDeclaration, lexer::{token::Token, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
+use crate::{block_statement::StatementOrDeclaration, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
@@ -14,8 +14,8 @@ impl ScopeStatements {
      * tries to parse the tokens queue starting at previous_queue_idx, to find a scope, for a function or other
      * returns a ScopeStatements and the remaining tokens as a queue location, else none
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueLocation) -> Option<(ScopeStatements, TokenQueueLocation)> {
-        let mut curr_queue_idx = TokenQueueLocation::from_previous_savestate(previous_queue_idx);
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<(ScopeStatements, TokenQueueSlice)> {
+        let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut statements = Vec::new();
 

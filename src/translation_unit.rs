@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueLocation, token_walk::TokenQueue}};
+use crate::{asm_boilerplate, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
 use std::{fs::{self, File}, io::Write};
 
 #[derive(Debug)]
@@ -24,7 +24,7 @@ impl TranslationUnit {
         }
 
         let mut token_queue = TokenQueue::new(tokens);
-        let mut token_idx = TokenQueueLocation::new();
+        let mut token_idx = TokenQueueSlice::new();
 
         let mut funcs = Vec::new();
 

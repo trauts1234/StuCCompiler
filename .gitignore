@@ -3,3 +3,4 @@ a.asm
 a.o
 a.out
 make_it.sh
+tests/writing-a-c-compiler-tests
