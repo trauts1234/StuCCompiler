@@ -1,4 +1,4 @@
-use crate::{lexer::{token::{self, Token}, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, operator::Operator};
+use crate::{lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, operator::Operator};
 use std::fmt::Write;
 
 #[derive(Debug)]

@@ -1,5 +1,3 @@
-use std::num::NonZeroUsize;
-
 use super::{token::Token, token_savepoint::TokenQueueSlice};
 
 /**

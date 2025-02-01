@@ -8,12 +8,6 @@ fn is_keyword(text: &str) -> bool {
     return possible_keywords.contains(&text);
 }
 
-fn is_operator(text: &str) -> bool {
-    let possible_operators = vec!["+"];
-
-    return possible_operators.contains(&text);
-}
-
 pub struct Lexer{
     data: String,
     next_to_eat: usize//index of next character to consume
