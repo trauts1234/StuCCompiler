@@ -18,21 +18,21 @@ impl ControlFlowChange {
         match kw.as_str() {
             "return" => {
 
-                //try and match with an expression for what to return, but don't worry if not as some functions return void
-                let ret_value = match Expression::try_consume(tokens_queue, &curr_queue_idx) {
-                    None => None,
-                    Some((return_expr, remaining_tokens)) => {
-                        curr_queue_idx = remaining_tokens;
-                        Some(return_expr)
-                    }
-                };
+                //try to find semicolon at end of return statement
+                let semicolon_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATION(";".to_owned()))?;
 
-                //ensure return ends with ;
-                if Token::PUNCTUATION(";".to_owned()) != tokens_queue.consume(&mut curr_queue_idx)?{
-                    return None;
+                let return_value_slice = TokenQueueSlice::new_from_bounds(curr_queue_idx.get_index(), semicolon_idx.get_index());//between return statement and ; non inclusive
+
+                if return_value_slice.get_slice_size() == 0 {
+                    //func returned nothing(void)
+                    //return slice of all tokens after the semicolon
+                    return Some((Self::RETURN(None), semicolon_idx.next_clone()))
                 }
 
-                Some((Self::RETURN(ret_value), curr_queue_idx))
+                //try and match with an expression for what to return
+                let ret_value = Expression::try_consume_whole_expr(tokens_queue, &return_value_slice).unwrap();
+
+                Some((Self::RETURN(Some(ret_value)), semicolon_idx.next_clone()))
             }
             _ => None
         }

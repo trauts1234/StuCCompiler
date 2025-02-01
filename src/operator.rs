@@ -14,14 +14,14 @@ impl Operator {
     pub fn get_precedence_level(&self) -> i32 {
         match self {
             Self::ADD => 2,
-            _ => panic!("unknown operator precedence for this operator")
         }
     }
 
     /**
      * calculates direction(true is left to right) from a precedence level
+     * note that associativity (l->r) implies searching the tokens r->l
      */
-    pub fn get_precedence_direction(level: i32) -> bool {
+    pub fn get_associativity_direction(level: i32) -> bool {
         match level {
             1 => true,
             2 => false,

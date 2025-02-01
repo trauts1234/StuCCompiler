@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use super::{token::Token, token_savepoint::TokenQueueSlice};
 
 /**
@@ -37,6 +39,39 @@ impl TokenQueue {
     }
 
     pub fn get_slice(&self, slice: &TokenQueueSlice) -> &[Token] {
-        &self.tokens[slice.get_index()..slice.get_slice_max_idx()]
+        let max_idx = slice.get_slice_max_idx().min(self.tokens.len());//whichever is smaller: list size, slice max index
+        &self.tokens[slice.get_index()..max_idx]
+    }
+
+    /**
+     * tries to find where a closure is first true within the slice
+     * returns a slice from the matched token to the end of the input slice
+     */
+    pub fn find_closure_in_slice<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher) -> Option<TokenQueueSlice> 
+    where Matcher: Fn(&Token) -> bool
+    {
+        let min_index = 0.max(slice.get_index());//either start of list, or start of slice
+        let max_index = self.tokens.len().min(slice.get_slice_max_idx());//end of array or end of slice
+
+        //conditionally reverse the loop
+        let range: Box<dyn Iterator<Item = _>> = if scan_backwards {Box::new((min_index..max_index).rev())} else {Box::new(min_index..max_index)};
+
+        for i in range {
+            if predicate(&self.tokens[i]) {
+                return Some(TokenQueueSlice::new_from_bounds(i, slice.get_slice_max_idx()));
+            }
+        }
+
+        None
+    }
+
+    /**
+     * splits the section of the token queue within bounds by the index specified
+     */
+    pub fn split_to_slices(&self, index: &TokenQueueSlice, bounds: &TokenQueueSlice) -> (TokenQueueSlice, TokenQueueSlice) {
+        (
+            TokenQueueSlice::new_from_bounds(bounds.get_index(), index.get_index()),//up to but not including index
+            TokenQueueSlice::new_from_bounds(index.get_index() + 1, bounds.get_slice_max_idx())//from past index to end of bounds
+        )
     }
 }
