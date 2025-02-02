@@ -1,4 +1,4 @@
-use crate::{lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_type::MemoryType, number_literal::NumberLiteral, operator::Operator};
+use crate::{lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, operator::Operator};
 use std::fmt::Write;
 
 #[derive(Debug)]
@@ -71,27 +71,20 @@ impl Expression {
     }
 
     /**
-     * puts the result of the expression in rax
+     * puts the result of the expression on top of the stack
      */
-    pub fn generate_assembly(&self, to_location: MemoryType) -> String{
+    pub fn generate_assembly(&self) -> String{
         let mut result = String::new();
 
         match self {
             Expression::NUMBER(number_literal) => {
-                match to_location {
-                    MemoryType::_AX => writeln!(result, "mov rax, {}", number_literal.nasm_format()).unwrap(),
-                    MemoryType::PUSHTOSTACK => {
-                        //save data to the AX register, then push to stack
-                        write!(result, "{}", self.generate_assembly(MemoryType::_AX)).unwrap();
-                        writeln!(result, "push rax").unwrap();
-                    }
-                }
+                writeln!(result, "push {}", number_literal.nasm_format()).unwrap()
             },
             Expression::BINARYEXPR(lhs, operator, rhs) => {
                 //push left and right hand sides on to the stack
                 //warning: data type can cause headaches, especially in division + right shifts
-                write!(result, "{}", lhs.generate_assembly(MemoryType::PUSHTOSTACK)).unwrap();
-                write!(result, "{}", rhs.generate_assembly(MemoryType::PUSHTOSTACK)).unwrap();
+                write!(result, "{}", lhs.generate_assembly()).unwrap();
+                write!(result, "{}", rhs.generate_assembly()).unwrap();
 
                 match operator {
                     Operator::ADD => {
@@ -101,10 +94,7 @@ impl Expression {
                         //calculate the sum
                         writeln!(result, "add rax, rbx").unwrap();
                         //save the result
-                        match to_location {
-                            MemoryType::PUSHTOSTACK => writeln!(result, "push rax").unwrap(),
-                            MemoryType::_AX => {}//result already in RAX
-                        }
+                        writeln!(result, "push rax").unwrap()
                         
                     }
                 }
