@@ -1,0 +1,14 @@
+[
+    {
+        "filename":"minimal.c",
+        "testcases":[
+            {"args": null,"output_code":0}
+        ]
+    },
+    {
+        "filename":"nonzeroreturncode.c",
+        "testcases":[
+            {"args":null,"output_code":69}
+        ]
+    }
+]
