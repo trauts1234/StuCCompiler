@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
+use crate::{asm_boilerplate, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_type::MemoryType};
 use std::fmt::Write;
 
 /**
@@ -44,7 +44,7 @@ impl ControlFlowChange {
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    write!(result, "{}", expr.generate_assembly()).unwrap();
+                    write!(result, "{}", expr.generate_assembly(MemoryType::_AX)).unwrap();
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 write!(result, "{}", asm_boilerplate::func_exit_boilerplate()).unwrap();
