@@ -30,7 +30,8 @@ pub mod test {
 
         for testfile in test_files {
             let filename = format!("{}/{}", test_folder, testfile.filename);
-            compile::compile(&filename, "test_output");
+            compile::compile(&filename, "test_output").unwrap();
+
             for testcase in testfile.testcases {
                 let binary_status = Command::new("./test_output.out")
                     .status()

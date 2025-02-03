@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
+use crate::{asm_boilerplate, compilation_error::CompilationError, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
 use std::{fs::{self, File}, io::Write};
 
 #[derive(Debug)]
@@ -8,10 +8,9 @@ pub struct TranslationUnit {
 }
 
 impl TranslationUnit {
-    pub fn new(filename: &str) -> TranslationUnit {
+    pub fn new(filename: &str) -> Result<TranslationUnit, CompilationError> {
 
-        let data = fs::read_to_string(filename)
-            .expect("can't read file");
+        let data = fs::read_to_string(filename)?;
 
         let mut tokens = Vec::new();
         let mut lexer = Lexer::new(&data);
@@ -29,13 +28,13 @@ impl TranslationUnit {
                 funcs.push(next_func_definition);
                 token_idx = remaining_tokens;
             } else {
-                panic!("unknown remaining data in translation unit");
+                return Err(CompilationError::PARSE("unknown remaining data in translation unit".to_string()));
             }
         }
 
-        TranslationUnit {
+        Ok(TranslationUnit {
             functions: funcs
-        }
+        })
     }
 
     pub fn generate_assembly(&self, output_filename: &str) {
