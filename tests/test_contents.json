@@ -10,5 +10,17 @@
         "testcases":[
             {"args":null,"output_code":69}
         ]
+    },
+    {
+        "filename":"addition.c",
+        "testcases":[
+            {"args":null, "output_code":8}
+        ]
+    },
+    {
+        "filename":"comments.c",
+        "testcases":[
+            {"args":null, "output_code":0}
+        ]
     }
 ]
