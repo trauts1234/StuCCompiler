@@ -28,8 +28,10 @@ impl NumberLiteral {
         }
 
         if self.unformatted_text.starts_with("0") && self.unformatted_text.len() > 1 {
-            println!("warning: octal number detected");
-            return self.unformatted_text.to_string() + "o";//nasm octal needs "o"
+            panic!("octal numbers are not supported");
+        }
+        if self.unformatted_text.starts_with("-0") && self.unformatted_text.len() > 2 {
+            panic!("negative octal numbers are not supported")
         }
 
 
