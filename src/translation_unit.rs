@@ -10,12 +10,8 @@ pub struct TranslationUnit {
 impl TranslationUnit {
     pub fn new(filename: &str) -> TranslationUnit {
 
-        let mut data = fs::read_to_string(filename)
-            .expect("can't read file")
-            .replace("\r\n", "\n")//fix weird newlines
-            .replace("\t", " ");//make all whitespace a space character or newline
-
-        data = data.replace("\\\n", "");//remove \ newline, a feature in c
+        let data = fs::read_to_string(filename)
+            .expect("can't read file");
 
         let mut tokens = Vec::new();
         let mut lexer = Lexer::new(&data);

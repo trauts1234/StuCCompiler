@@ -78,7 +78,7 @@ impl FunctionDefinition {
         let mut result = String::new();
 
         //set label as same as function name
-        writeln!(result, "{}:", self.function_name).unwrap();
+        writeln!(result, "func_{}:", self.function_name).unwrap();
         //create stack frame
         writeln!(result, "push rbp").unwrap();
         writeln!(result, "mov rbp, rsp").unwrap();
