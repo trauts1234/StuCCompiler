@@ -22,5 +22,11 @@
         "testcases":[
             {"args":null, "output_code":0}
         ]
+    },
+    {
+        "filename":"negativeaddition.c",
+        "testcases":[
+            {"args":null, "output_code":8}
+        ]
     }
 ]

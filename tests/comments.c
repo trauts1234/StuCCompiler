@@ -1,5 +1,5 @@
 //this file has all sorts of comments \
-and uses trailing \ to connect lines /*with nested comments*/
+and uses trailing \ to connect lines /*with nested comments even though the language calls them dubiously legal*/
 
 int/*totally whitespace*/main(){
     //function body
