@@ -17,6 +17,9 @@ impl Lexer {
     fn peek(&self) -> Option<char> {
         self.data.chars().nth(self.next_to_eat)
     }
+    fn peek_after_next(&self) -> Option<char> {
+        self.data.chars().nth(self.next_to_eat+1)
+    }
     fn consume(&mut self) -> Option<char> {
         let c = self.peek();
         if c.is_some() {
@@ -62,8 +65,6 @@ impl Lexer {
             Token::KEYWORD(letters)
         } else if let Some(type_data) = TypeInfo::try_new(&letters) {
             Token::TYPESPECIFIER(type_data)
-        } else if let Some(num) = NumberLiteral::try_new(&letters) {
-            Token::NUMBER(num)
         } else {
             Token::IDENTIFIER(letters)
         }
@@ -80,6 +81,31 @@ impl Lexer {
 
         //all other punctuation is single-character
         Token::PUNCTUATION(c.to_string())
+    }
+
+    fn consume_number(&mut self) -> Token {
+        let mut letters = String::new();
+
+        if Some('-') == self.peek() {
+            letters.push('-');
+            self.consume();//consume initial negative sign
+        }
+
+        while let Some(c) = self.peek() {
+            if !("0123456789.".contains(c)) {
+                break;
+            }
+            letters.push(c);
+            self.consume();
+        }
+
+        if Some('f') == self.peek() {
+            panic!("float suffix not implemented")
+        }
+
+        assert!(letters.len() > 0);
+        
+        return Token::NUMBER(NumberLiteral::try_new(&letters).unwrap());
     }
 
     fn consume_operator(&mut self) -> Token {
@@ -99,7 +125,10 @@ impl Lexer {
         self.skip_whitespace();
 
         match self.peek()? {
-            c if c.is_alphanumeric() || c == '_' => Some(self.consume_generic_text()),//TODO can identifiers and keywords start with a number
+            c if c.is_numeric() || //starts with number
+                (c == '-' && self.peek_after_next().is_some_and(|x| x.is_numeric()))//starts with -(number)
+                    => Some(self.consume_number()),
+            c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
             c if "(){};".contains(c) => Some(self.consume_punctuation()),
             c if "+".contains(c) => Some(self.consume_operator()),
             _ => None
