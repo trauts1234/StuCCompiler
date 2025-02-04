@@ -34,5 +34,17 @@
         "testcases":[
             {"args":null, "output_code":12}
         ]
+    },
+    {
+        "filename":"addmultiply.c",
+        "testcases":[
+            {"args":null, "output_code":10}
+        ]
+    },
+    {
+        "filename":"multiplyadd.c",
+        "testcases":[
+            {"args":null, "output_code":10}
+        ]
     }
 ]
