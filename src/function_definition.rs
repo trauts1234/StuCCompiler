@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement, type_info::TypeInfo};
+use crate::{asm_boilerplate, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_parsing_info::StackInfo, statement::Statement, type_info::TypeInfo};
 use std::fmt::Write;
 
 /**
@@ -22,6 +22,7 @@ impl FunctionDefinition {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut return_data = Vec::new();
+        let mut local_variables = StackInfo::new();//TODO
 
         //try and consume as many type specifiers as possible
         loop {

@@ -1,3 +1,4 @@
 int main() {
-    return -10 * -2;
+    int x = 1;
+    return x;
 }

@@ -13,6 +13,8 @@ pub mod operator;
 pub mod compile;
 pub mod test;
 pub mod compilation_error;
+pub mod declaration;
+pub mod stack_parsing_info;
 
 fn main() {
     compile::compile("test.c", "a").unwrap();

@@ -1,4 +1,4 @@
-use crate::{lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
+use crate::{declaration::Declaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
 
 
 /**
@@ -8,7 +8,7 @@ use crate::{lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, s
 #[derive(Debug)]
 pub enum StatementOrDeclaration {
     STATEMENT(Statement),
-    //DECLARATION(Declaration)
+    DECLARATION(Declaration)
 }
 
 impl StatementOrDeclaration {
@@ -23,12 +23,17 @@ impl StatementOrDeclaration {
             return Some((Self::STATEMENT(stat), remaining_tokens));
         }
 
+        if let Some((decl, remaining_tokens)) = Declaration::try_consume(tokens_queue, &curr_queue_idx) {
+            return Some((Self::DECLARATION(decl), remaining_tokens));
+        }
+
         None
     }
 
     pub fn generate_assembly(&self) -> String {
         match self {
-            Self::STATEMENT(statement) => statement.generate_assembly()
+            Self::STATEMENT(statement) => statement.generate_assembly(),
+            Self::DECLARATION(decl) => decl.generate_assembly(),
         }
     }
 }

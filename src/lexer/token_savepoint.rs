@@ -2,6 +2,7 @@
 /**
  * specifies a slice of the token list
  */
+#[derive(Clone)]
 pub struct TokenQueueSlice {
     index: usize,
     max_index: usize//where the end of the list is (so that you can slice)
@@ -37,6 +38,10 @@ impl TokenQueueSlice {
      */
     pub fn copy_start_index(&mut self, to_copy: &TokenQueueSlice) {
         self.index = to_copy.get_index();
+    }
+
+    pub fn copy_end_index(&mut self, to_copy: &TokenQueueSlice) {
+        self.max_index = to_copy.get_slice_max_idx();
     }
 
     pub fn get_index(&self) -> usize{
