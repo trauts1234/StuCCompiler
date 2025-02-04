@@ -2,18 +2,21 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operator {
     ADD,
+    MULTIPLY,
 }
 
 impl Operator {
     pub fn try_new(to_token: &str) -> Option<Operator> {
         match to_token {
             "+" => Some(Self::ADD),
+            "*" => Some(Self::MULTIPLY),
             _ => None
         }
     }
     pub fn get_precedence_level(&self) -> i32 {
         match self {
             Self::ADD => 2,
+            Self::MULTIPLY => 3
         }
     }
 
@@ -25,6 +28,7 @@ impl Operator {
         match level {
             1 => true,
             2 => false,
+            3 => true,
             _ => panic!("unknown precedence level")
         }
     }

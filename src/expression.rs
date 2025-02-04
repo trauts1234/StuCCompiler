@@ -33,19 +33,19 @@ impl Expression {
                 //TODO handle brackets outside of operator
 
                 //find highest precendence level
-                let max_precedence = tokens_queue.get_slice(&curr_queue_idx).iter()
+                let highest_precedence = tokens_queue.get_slice(&curr_queue_idx).iter()
                     .filter_map(|x| {
                         if let Token::OPERATOR(op) = x {Some(op.get_precedence_level())} else {None} //get the precedence level if it is an operator, else skip
                     })
-                    .fold(std::i32::MIN, |a,b| a.max(b));
+                    .fold(std::i32::MAX, |a,b| a.min(b));//small number = great precedence
 
                 //find which direction the operators should be considered
-                let associative_direction = Operator::get_associativity_direction(max_precedence);
+                let associative_direction = Operator::get_associativity_direction(highest_precedence);
 
                 //make a closure that detects tokens that match what we want
                 let operator_matching_closure = |x: &Token| {
                     match x {
-                        Token::OPERATOR(op) => {op.get_precedence_level() == max_precedence},
+                        Token::OPERATOR(op) => {op.get_precedence_level() == highest_precedence},
                         _ => false
                     }
                 };
@@ -96,6 +96,15 @@ impl Expression {
                         //save the result
                         writeln!(result, "push rax").unwrap()
                         
+                    }
+                    Operator::MULTIPLY => {
+                        //load values from stack
+                        writeln!(result, "pop rax").unwrap();
+                        writeln!(result, "pop rbx").unwrap();
+                        //calculate the sum
+                        writeln!(result, "imul rax, rbx").unwrap();//warning: signed only
+                        //save the result
+                        writeln!(result, "push rax").unwrap()
                     }
                 }
             },

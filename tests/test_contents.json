@@ -28,5 +28,11 @@
         "testcases":[
             {"args":null, "output_code":8}
         ]
+    },
+    {
+        "filename":"multiplication.c",
+        "testcases":[
+            {"args":null, "output_code":12}
+        ]
     }
 ]
