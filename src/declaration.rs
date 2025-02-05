@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, type_info::TypeInfo};
+use crate::{ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables, type_info::TypeInfo};
 use std::fmt::Write;
 
 #[derive(Debug)]
@@ -12,7 +12,7 @@ pub struct Declaration {
 }
 
 impl Declaration {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<(Declaration, TokenQueueSlice)> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<Declaration>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut data_type_info = Vec::new();
@@ -48,14 +48,15 @@ impl Declaration {
         };
 
         //todo handle comma separated declarations
-        Some((
-            Declaration {
+        Some(ASTMetadata {
+            resultant_tree: Declaration {
                 data_type: data_type_info,
                 var_name,
-                bytes_sub_from_bp: todo!(),
-                initialisation: Expression::try_consume_whole_expr(tokens_queue, &expression_slice)//pointers break this maybe
-            }, curr_queue_idx
-        ))
+                bytes_sub_from_bp: todo!(),//TODO propogate variables upwards
+                initialisation: Expression::try_consume_whole_expr(tokens_queue, &expression_slice, local_variables)//pointers break this maybe
+            }, 
+            remaining_slice: curr_queue_idx
+        })
     }
     
     pub fn generate_assembly(&self) -> String {

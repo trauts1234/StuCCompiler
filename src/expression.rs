@@ -1,4 +1,4 @@
-use crate::{lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, operator::Operator};
+use crate::{lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, operator::Operator, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug)]
@@ -14,7 +14,7 @@ impl Expression {
      * tries to parse the tokens queue starting at previous_queue_idx, to find an expression
      * returns an expression(entirely consumed), else none
      */
-    pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<Expression> {
+    pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<Expression> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         match curr_queue_idx.get_slice_size() {
@@ -26,6 +26,7 @@ impl Expression {
                     tokens_queue.consume(&mut curr_queue_idx);
                     return Some(Expression::NUMBER(num));
                 }
+                //TODO match a variable
                 None
             },
 
@@ -57,8 +58,8 @@ impl Expression {
                 let (left_part, right_part) = tokens_queue.split_to_slices(&first_operator_location, &curr_queue_idx);
 
                 //try and parse the left and right hand sides, propogating errors
-                let parsed_left = Expression::try_consume_whole_expr(tokens_queue, &left_part)?;
-                let parsed_right = Expression::try_consume_whole_expr(tokens_queue, &right_part)?;
+                let parsed_left = Expression::try_consume_whole_expr(tokens_queue, &left_part, local_variables)?;
+                let parsed_right = Expression::try_consume_whole_expr(tokens_queue, &right_part, local_variables)?;
 
                 let operator = match tokens_queue.peek(&first_operator_location).unwrap() {
                     Token::OPERATOR(op) => op,

@@ -14,7 +14,8 @@ pub mod compile;
 pub mod test;
 pub mod compilation_error;
 pub mod declaration;
-pub mod stack_parsing_info;
+mod stack_variables;
+mod ast_metadata;
 
 fn main() {
     compile::compile("test.c", "a").unwrap();

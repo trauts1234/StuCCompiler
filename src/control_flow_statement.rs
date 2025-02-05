@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
+use crate::{asm_boilerplate, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables};
 use std::fmt::Write;
 
 /**
@@ -10,7 +10,7 @@ pub enum ControlFlowChange {
 }
 
 impl ControlFlowChange {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<(ControlFlowChange, TokenQueueSlice)> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<(ControlFlowChange, TokenQueueSlice)> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
@@ -30,7 +30,7 @@ impl ControlFlowChange {
                 }
 
                 //try and match with an expression for what to return
-                let ret_value = Expression::try_consume_whole_expr(tokens_queue, &return_value_slice).unwrap();
+                let ret_value = Expression::try_consume_whole_expr(tokens_queue, &return_value_slice, local_variables).unwrap();
 
                 Some((Self::RETURN(Some(ret_value)), semicolon_idx.next_clone()))
             }

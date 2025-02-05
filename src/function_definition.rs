@@ -1,4 +1,6 @@
-use crate::{asm_boilerplate, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_parsing_info::StackInfo, statement::Statement, type_info::TypeInfo};
+use memory_size::MemoryLayout;
+
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables, statement::Statement, type_info::TypeInfo};
 use std::fmt::Write;
 
 /**
@@ -8,8 +10,9 @@ use std::fmt::Write;
 pub struct FunctionDefinition {
     return_type: Vec<TypeInfo>,
     function_name: String,
-    code: Statement//statement could be a scope if it wants
+    code: Statement,//statement could be a scope if it wants
     //params: Declaration,
+    stack_required: MemoryLayout
     
 }
 
@@ -22,7 +25,7 @@ impl FunctionDefinition {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut return_data = Vec::new();
-        let mut local_variables = StackInfo::new();//TODO
+        let mut local_variables = StackVariables{stack_height:MemoryLayout::new()};
 
         //try and consume as many type specifiers as possible
         loop {
@@ -61,13 +64,14 @@ impl FunctionDefinition {
         }
 
         //read the next statement (statement includes a scope)
-        let (function_code, remaining_tokens_idx) = Statement::try_consume(tokens_queue, &curr_queue_idx)?;
+        let ASTMetadata{resultant_tree: function_code, remaining_slice: remaining_tokens_idx} = Statement::try_consume(tokens_queue, &curr_queue_idx, &mut local_variables)?;
         
         return Some((
             FunctionDefinition {
                 return_type:return_data,
                 function_name: func_name,
-                code: function_code
+                code: function_code,
+                stack_required: todo!()
             },
             remaining_tokens_idx));
     }
@@ -83,6 +87,7 @@ impl FunctionDefinition {
         //create stack frame
         writeln!(result, "push rbp").unwrap();
         writeln!(result, "mov rbp, rsp").unwrap();
+        writeln!(result, "sub rsp, {}", self.stack_required.size_bytes()).unwrap();
 
         //TODO generate stack information, and pass it to the code
         write!(result, "{}", self.code.generate_assembly()).unwrap();
