@@ -1,10 +1,10 @@
-use crate::{ast_metadata::ASTMetadata, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables};
+use crate::{ast_metadata::ASTMetadata, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug)]
 pub enum Statement {
     //LABEL,//for goto, or switch cases
-    //EXPRESSION(Expression),
+    EXPRESSION(Expression),//TODO
     COMPOUND(ScopeStatements),//this is a scope (not nescessarily for a function)
     //SELECTION,
     //ITERATION,
@@ -27,6 +27,8 @@ impl Statement {
             return Some(ASTMetadata{resultant_tree: Self::CONTROLFLOW(resultant_tree), remaining_slice, extra_stack_used});
         }
 
+        
+
         None
     }
 
@@ -39,6 +41,9 @@ impl Statement {
             }
             Self::CONTROLFLOW(command) => {
                 write!(result, "{}", command.generate_assembly()).unwrap();
+            }
+            Self::EXPRESSION(expr) => {
+                write!(result, "{}", expr.generate_assembly()).unwrap();
             }
         }
 

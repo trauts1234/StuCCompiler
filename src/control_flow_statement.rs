@@ -23,7 +23,10 @@ impl ControlFlowChange {
                 //try to find semicolon at end of return statement
                 let semicolon_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATION(";".to_owned()))?;
 
-                let return_value_slice = TokenQueueSlice::new_from_bounds(curr_queue_idx.get_index(), semicolon_idx.get_index());//between return statement and ; non inclusive
+                let return_value_slice = TokenQueueSlice{//between return statement and ; non inclusive
+                    index: curr_queue_idx.index, 
+                    max_index: semicolon_idx.index
+                };
 
                 if return_value_slice.get_slice_size() == 0 {
                     //func returned nothing(void)

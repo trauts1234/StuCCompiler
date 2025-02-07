@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, compilation_error::CompilationError, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, compilation_error::CompilationError, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
 use std::{fs::{self, File}, io::Write};
 
 #[derive(Debug)]
@@ -24,11 +24,13 @@ impl TranslationUnit {
         let mut token_idx = TokenQueueSlice::new();
 
         let mut funcs = Vec::new();
+        let mut stack_needed = MemoryLayout::new();
 
         while token_queue.peek(&token_idx).is_some() {
-            if let Some(ASTMetadata{resultant_tree: next_func_definition, remaining_slice:remaining_tokens}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx){
-                funcs.push(next_func_definition);
-                token_idx = remaining_tokens;
+            if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx){
+                funcs.push(resultant_tree);
+                token_idx = remaining_slice;
+                stack_needed += extra_stack_used;
             } else {
                 return Err(CompilationError::PARSE("unknown remaining data in translation unit".to_string()));
             }
@@ -36,6 +38,7 @@ impl TranslationUnit {
 
         Ok(TranslationUnit {
             functions: funcs
+            //TODO use stack_needed
         })
     }
 

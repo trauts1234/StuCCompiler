@@ -25,7 +25,6 @@ impl FunctionDefinition {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut return_data = Vec::new();
-        let mut local_variables = StackVariables{stack_height:MemoryLayout::new()};
 
         //try and consume as many type specifiers as possible
         loop {
@@ -64,16 +63,17 @@ impl FunctionDefinition {
         }
 
         //read the next statement (statement includes a scope)
-        let ASTMetadata{resultant_tree: function_code, remaining_slice: remaining_tokens_idx} = Statement::try_consume(tokens_queue, &curr_queue_idx, &mut local_variables)?;
+        let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &curr_queue_idx, &mut StackVariables::new())?;
         
         return Some(ASTMetadata{
             resultant_tree: FunctionDefinition {
                 return_type:return_data,
                 function_name: func_name,
-                code: function_code,
-                stack_required: todo!()
+                code: resultant_tree,
+                stack_required: extra_stack_used
             },
-            remaining_slice: remaining_tokens_idx});
+            extra_stack_used,
+            remaining_slice});
     }
 
     pub fn generate_assembly(&self) -> String {

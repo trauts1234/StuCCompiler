@@ -1,15 +1,36 @@
-use crate::{lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, operator::Operator, stack_variables::StackVariables};
+use crate::{ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, operator::Operator, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug)]
 pub enum Expression {
-    //RVALUE(RValue),
+    STACKVAR(MemoryLayout),//a variable that is on the stack
     NUMBER(NumberLiteral),
     BINARYEXPR(Box<Expression>, Operator, Box<Expression>)
     //ASSIGNMENT(LValue, Operator, Box<Expression>)// a = b;
 }
 
 impl Expression {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<Expression>> {
+        let semicolon_idx = tokens_queue.find_closure_in_slice(&previous_queue_idx, false, |x| *x == Token::PUNCTUATION(";".to_owned()))?;
+        //define the slice that we are going to try and parse
+        let attempt_slice = TokenQueueSlice {
+            index: previous_queue_idx.index,
+            max_index: semicolon_idx.index
+        };
+
+        //warning! the line of code:
+        //1+1;
+        //will cause a memory leak on the stack?!
+        //as 1, 1 are pushed, popped, added, then 2 is pushed but nothing pops it
+        //is this a problem? probably not, but it is a memory leak
+
+        match Expression::try_consume_whole_expr(tokens_queue, &attempt_slice, local_variables) {
+            Some(expr) => {
+                Some(ASTMetadata{resultant_tree: expr, remaining_slice: semicolon_idx.next_clone(), extra_stack_used: MemoryLayout::new()})
+            },
+            None => None
+        }
+    }
     /**
      * tries to parse the tokens queue starting at previous_queue_idx, to find an expression
      * returns an expression(entirely consumed), else none
@@ -81,6 +102,10 @@ impl Expression {
             Expression::NUMBER(number_literal) => {
                 writeln!(result, "push {}", number_literal.nasm_format()).unwrap()
             },
+            Expression::STACKVAR(stack_var) => {
+                writeln!(result, "lea rax, [rbp-{}]", stack_var.size_bytes()).unwrap();//calculate the address of the variable
+                writeln!(result, "push rax").unwrap();//push the address on to the stack
+            },
             Expression::BINARYEXPR(lhs, operator, rhs) => {
                 //push left and right hand sides on to the stack
                 //warning: data type can cause headaches, especially in division + right shifts
@@ -92,8 +117,10 @@ impl Expression {
                         //load values from stack
                         writeln!(result, "pop rax").unwrap();
                         writeln!(result, "pop rbx").unwrap();
-                        //calculate the sum
-                        writeln!(result, "add rax, rbx").unwrap();
+                        //calculate the sum (32 bit)
+                        writeln!(result, "add eax, ebx").unwrap();
+                        //sign extend 32 bit result to 64 bits
+                        writeln!(result, "cdq").unwrap();
                         //save the result
                         writeln!(result, "push rax").unwrap()
                         
@@ -102,10 +129,20 @@ impl Expression {
                         //load values from stack
                         writeln!(result, "pop rax").unwrap();
                         writeln!(result, "pop rbx").unwrap();
-                        //calculate the sum
-                        writeln!(result, "imul rax, rbx").unwrap();//warning: signed only
+                        //calculate the product (32 bit)
+                        writeln!(result, "imul eax, ebx").unwrap();//warning: signed only
+                        //sign extend 32 bit result to 64 bits
+                        writeln!(result, "cdq").unwrap();
                         //save the result
                         writeln!(result, "push rax").unwrap()
+                    }
+                    Operator::ASSIGN => {
+                        //pop the value to assign
+                        writeln!(result, "pop rax").unwrap();
+                        //get address to assign to
+                        writeln!(result, "pop rbx").unwrap();
+                        //save to memory
+                        writeln!(result, "mov [rbx], rax").unwrap();
                     }
                 }
             },

@@ -112,14 +112,19 @@ impl Lexer {
     }
 
     fn consume_operator(&mut self) -> Token {
-        let c = self.consume().unwrap();
+        let curr_char = self.consume().unwrap();
 
-        if c == '+' && self.peek() == Some('+') {
-            //this is actually ++, not +
-            panic!("unary operators not implemented")
+        let next_char = match self.peek(){
+            Some(x) => x,
+            None => return Token::OPERATOR(Operator::try_new(&curr_char.to_string()).unwrap())//run out of chars, return this one
+        };
+
+        match (curr_char, next_char) {
+            ('+', '+') => panic!("unary operators not implemented"),//found x++ or similar
+            _ => {}//do nothing
         }
         
-        Token::OPERATOR(Operator::try_new(&c.to_string()).unwrap())
+        Token::OPERATOR(Operator::try_new(&curr_char.to_string()).unwrap())
     }
 
 
@@ -133,7 +138,7 @@ impl Lexer {
                     => Some(self.consume_number()),
             c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
             c if "(){};".contains(c) => Some(self.consume_punctuation()),
-            c if "+*".contains(c) => Some(self.consume_operator()),
+            c if "+*=".contains(c) => Some(self.consume_operator()),
             _ => None
         }
     }

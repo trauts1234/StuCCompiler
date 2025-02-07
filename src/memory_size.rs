@@ -1,6 +1,6 @@
 use std::ops::{Add, Sub, Neg, AddAssign, SubAssign};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct MemoryLayout {
     size_bits: isize
 }

@@ -3,6 +3,7 @@
 pub enum Operator {
     ADD,
     MULTIPLY,
+    ASSIGN,
 }
 
 impl Operator {
@@ -10,13 +11,15 @@ impl Operator {
         match to_token {
             "+" => Some(Self::ADD),
             "*" => Some(Self::MULTIPLY),
+            "=" => Some(Self::ASSIGN),
             _ => None
         }
     }
     pub fn get_precedence_level(&self) -> i32 {
         match self {
             Self::ADD => 2,
-            Self::MULTIPLY => 3
+            Self::MULTIPLY => 3,
+            Self::ASSIGN => 14,
         }
     }
 
@@ -29,6 +32,7 @@ impl Operator {
             1 => true,
             2 => false,
             3 => true,
+            14 => false,
             _ => panic!("unknown precedence level")
         }
     }
