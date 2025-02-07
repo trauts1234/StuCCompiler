@@ -1,60 +1,42 @@
 [
     {
-        "filename":"minimal.c",
-        "testcases":[
-            {"args": null,"output_code":0}
-        ]
+        "filename": "minimal.c",
+        "return_code": 0
     },
     {
-        "filename":"nonzeroreturncode.c",
-        "testcases":[
-            {"args":null,"output_code":69}
-        ]
+        "filename": "nonzeroreturncode.c",
+        "return_code": 69
     },
     {
-        "filename":"addition.c",
-        "testcases":[
-            {"args":null, "output_code":8}
-        ]
+        "filename": "addition.c",
+        "return_code": 8
     },
     {
-        "filename":"comments.c",
-        "testcases":[
-            {"args":null, "output_code":0}
-        ]
+        "filename": "comments.c",
+        "return_code": 0
     },
     {
-        "filename":"negativeaddition.c",
-        "testcases":[
-            {"args":null, "output_code":8}
-        ]
+        "filename": "negativeaddition.c",
+        "return_code": 8
     },
     {
-        "filename":"multiplication.c",
-        "testcases":[
-            {"args":null, "output_code":12}
-        ]
+        "filename": "multiplication.c",
+        "return_code": 12
     },
     {
-        "filename":"addmultiply.c",
-        "testcases":[
-            {"args":null, "output_code":10}
-        ]
+        "filename": "addmultiply.c",
+        "return_code": 10
     },
     {
-        "filename":"multiplyadd.c",
-        "testcases":[
-            {"args":null, "output_code":10}
-        ]
+        "filename": "multiplyadd.c",
+        "return_code": 10
     },
     {
-        "filename":"var_no_initialisation.c",
-        "testcases":[
-            {"args":null, "output_code":69}
-        ]
+        "filename": "var_no_initialisation.c",
+        "return_code": 69
     },
     {
-        "filename":"var_addition.c",
-        "output_code":6
+        "filename": "var_addition.c",
+        "return_code": 6
     }
 ]

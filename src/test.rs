@@ -6,17 +6,10 @@ pub mod test {
 
     use crate::compile;
 
-
-    #[derive(Serialize, Deserialize, Debug)]
-    struct TestCase {
-        args: Option<Vec<String>>,
-        output_code: i32,
-    }
-
     #[derive(Serialize, Deserialize, Debug)]
     struct TestFile {
         filename: String,
-        testcases: Vec<TestCase>,
+        return_code: i32,
     }
 
     #[test]
@@ -32,12 +25,10 @@ pub mod test {
             let filename = format!("{}/{}", test_folder, testfile.filename);
             compile::compile(&filename, "test_output").unwrap();
 
-            for testcase in testfile.testcases {
-                let binary_status = Command::new("./test_output.out")
+            let binary_status = Command::new("./test_output.out")
                     .status()
                     .expect("Failed to run the compiled binary");
-                assert_eq!(binary_status.code().expect("binary was terminated by OS signal?"), testcase.output_code);
-            }
+                assert_eq!(binary_status.code().expect("binary was terminated by OS signal?"), testfile.return_code);
         }
     }
 }
