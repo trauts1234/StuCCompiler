@@ -39,18 +39,7 @@ impl Declaration {
         if data_type_info.len() == 0 {
             return None;//missing type info
         }
-
-        //find a slice that has the initialisation expression (the x=0 bit from int x=0;)
-        //warning: int *x=0; is not the same as int *x; *x=0; as you are setting the pointer address to 0 in the first example but setting the pointer value in the second
-        let semicolon_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx.clone(), false, |x| *x == Token::PUNCTUATION(";".to_owned()))?;
-    
-        let expression_slice = TokenQueueSlice {
-            index: curr_queue_idx.index,
-            max_index: semicolon_idx.index
-        };
-
-        assert!(expression_slice.get_slice_size() == 0, "declaration expression slice is not empty, and I can't parse int x=0; or similar");
-
+        
         //try to match an identifier, to find out the variable
 
         let var_name = 
@@ -60,6 +49,8 @@ impl Declaration {
         else {
             return None;
         };
+
+        tokens_queue.consume(&mut curr_queue_idx);//consume the semicolon
 
         let extra_stack_needed = MemoryLayout::from_bytes(8);//same as get_memory_usage, default for now
         let var_sub_from_bp = local_variables.get_stack_used() + extra_stack_needed;//how far from bp is this variable

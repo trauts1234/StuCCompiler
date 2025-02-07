@@ -27,7 +27,9 @@ impl Statement {
             return Some(ASTMetadata{resultant_tree: Self::CONTROLFLOW(resultant_tree), remaining_slice, extra_stack_used});
         }
 
-        
+        if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = Expression::try_consume(tokens_queue, &curr_queue_idx, local_variables){
+            return Some(ASTMetadata{resultant_tree: Self::EXPRESSION(resultant_tree), remaining_slice, extra_stack_used});
+        }
 
         None
     }

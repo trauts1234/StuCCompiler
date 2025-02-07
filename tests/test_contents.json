@@ -46,5 +46,15 @@
         "testcases":[
             {"args":null, "output_code":10}
         ]
+    },
+    {
+        "filename":"var_no_initialisation.c",
+        "testcases":[
+            {"args":null, "output_code":69}
+        ]
+    },
+    {
+        "filename":"var_addition.c",
+        "output_code":6
     }
 ]

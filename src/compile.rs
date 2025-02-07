@@ -21,6 +21,7 @@ pub fn compile(input_path: &str, output_name: &str) -> Result<(),CompilationErro
     //assemble
     let nasm_status = Command::new("nasm")
         .arg("-f elf64")
+        .arg("-O0").arg("-g")
         .arg("-o")
         .arg(object_filename.clone())
         .arg(assembly_filename)

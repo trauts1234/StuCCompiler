@@ -3,7 +3,7 @@ use std::fmt::Write;
 
 #[derive(Debug)]
 pub enum Expression {
-    STACKVAR(MemoryLayout),//a variable that is on the stack
+    STACKVAR(MemoryLayout),//offset from bp
     NUMBER(NumberLiteral),
     BINARYEXPR(Box<Expression>, Operator, Box<Expression>)
     //ASSIGNMENT(LValue, Operator, Box<Expression>)// a = b;
@@ -43,12 +43,16 @@ impl Expression {
 
             1 => {
                 //1 token left, check if it is a number
-                if let Token::NUMBER(num) = tokens_queue.peek(& curr_queue_idx)? {
-                    tokens_queue.consume(&mut curr_queue_idx);
-                    return Some(Expression::NUMBER(num));
+                match tokens_queue.peek(& curr_queue_idx)? {
+                    Token::NUMBER(num) => {
+                        tokens_queue.consume(&mut curr_queue_idx);
+                        Some(Expression::NUMBER(num))
+                    },
+                    Token::IDENTIFIER(var_name) => {
+                        Some(Expression::STACKVAR(local_variables.get_variable_bp_offset(&var_name).unwrap()))
+                    },
+                    _ => None
                 }
-                //TODO match a variable
-                None
             },
 
             _ => {
@@ -60,6 +64,10 @@ impl Expression {
                         if let Token::OPERATOR(op) = x {Some(op.get_precedence_level())} else {None} //get the precedence level if it is an operator, else skip
                     })
                     .fold(std::i32::MAX, |a,b| a.min(b));//small number = great precedence
+
+                if highest_precedence == std::i32::MAX {
+                    return None;//no operators found
+                }
 
                 //find which direction the operators should be considered
                 let associative_direction = Operator::get_associativity_direction(highest_precedence);
@@ -95,25 +103,23 @@ impl Expression {
     /**
      * puts the result of the expression on top of the stack
      */
-    pub fn generate_assembly(&self) -> String{
+    pub fn generate_assembly(&self) -> String {
         let mut result = String::new();
 
         match self {
+            Expression::STACKVAR(stack_offset) => {
+                writeln!(result, "mov rax, [rbp-{}]", stack_offset.size_bytes()).unwrap();//load the value from memory
+                writeln!(result, "push rax").unwrap();//push the value on to the stack
+            },
             Expression::NUMBER(number_literal) => {
                 writeln!(result, "push {}", number_literal.nasm_format()).unwrap()
             },
-            Expression::STACKVAR(stack_var) => {
-                writeln!(result, "lea rax, [rbp-{}]", stack_var.size_bytes()).unwrap();//calculate the address of the variable
-                writeln!(result, "push rax").unwrap();//push the address on to the stack
-            },
             Expression::BINARYEXPR(lhs, operator, rhs) => {
-                //push left and right hand sides on to the stack
-                //warning: data type can cause headaches, especially in division + right shifts
-                write!(result, "{}", lhs.generate_assembly()).unwrap();
-                write!(result, "{}", rhs.generate_assembly()).unwrap();
-
                 match operator {
                     Operator::ADD => {
+                        //put values on stack
+                        write!(result, "{}", lhs.generate_assembly()).unwrap();
+                        write!(result, "{}", rhs.generate_assembly()).unwrap();
                         //load values from stack
                         writeln!(result, "pop rax").unwrap();
                         writeln!(result, "pop rbx").unwrap();
@@ -126,6 +132,9 @@ impl Expression {
                         
                     }
                     Operator::MULTIPLY => {
+                        //put values on stack
+                        write!(result, "{}", lhs.generate_assembly()).unwrap();
+                        write!(result, "{}", rhs.generate_assembly()).unwrap();
                         //load values from stack
                         writeln!(result, "pop rax").unwrap();
                         writeln!(result, "pop rbx").unwrap();
@@ -137,17 +146,33 @@ impl Expression {
                         writeln!(result, "push rax").unwrap()
                     }
                     Operator::ASSIGN => {
+                        //put address of lvalue on stack
+                        write!(result, "{}", lhs.put_lvalue_addr_on_stack()).unwrap();
+                        //put the value to assign on stack
+                        write!(result, "{}", rhs.generate_assembly()).unwrap();
                         //pop the value to assign
                         writeln!(result, "pop rax").unwrap();
-                        //get address to assign to
+                        //pop address to assign to
                         writeln!(result, "pop rbx").unwrap();
                         //save to memory
                         writeln!(result, "mov [rbx], rax").unwrap();
                     }
                 }
             },
-        }
+        };
+        result
+    }
 
+    fn put_lvalue_addr_on_stack(&self) -> String {
+        let mut result = String::new();
+
+        match self {
+            Expression::STACKVAR(stack_offset) => {
+                writeln!(result, "lea rax, [rbp-{}]", stack_offset.size_bytes()).unwrap();//calculate the address of the variable
+                writeln!(result, "push rax").unwrap();//push the address on to the stack
+            },
+            _ => panic!("tried to generate assembly to assign to a non-lvalue")
+        };
         result
     }
 }

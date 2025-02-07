@@ -28,9 +28,9 @@ impl TokenQueueSlice {
      */
     pub fn get_slice_size(&self) -> usize {
         if self.index > self.max_index {
-            return 0;
+            panic!("backwards slice detected!");
         }
-        self.max_index - self.index - 1//since max_index is one past the end
+        self.max_index - self.index//max_index is one past the end
     }
 
     /**
