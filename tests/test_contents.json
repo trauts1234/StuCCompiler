@@ -38,5 +38,21 @@
     {
         "filename": "var_addition.c",
         "return_code": 6
+    },
+    {
+        "filename":"division.c",
+        "return_code": 250
+    },
+    {
+        "filename":"divisiontozero.c",
+        "return_code": 0
+    },
+    {
+        "filename":"divmulbidmas.c",
+        "return_code": 9
+    },
+    {
+        "filename":"divmulbidmas2.c",
+        "return_code": 10
     }
 ]

@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, operator::Operator, stack_variables::StackVariables};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, operator::Operator, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug)]
@@ -81,7 +81,7 @@ impl Expression {
                 };
 
                 //find first occurence of this operator, taking into account which way we have to search the array
-                let first_operator_location = tokens_queue.find_closure_in_slice(&curr_queue_idx, !associative_direction, operator_matching_closure).unwrap();
+                let first_operator_location = tokens_queue.find_closure_in_slice(&curr_queue_idx, associative_direction, operator_matching_closure).unwrap();
 
                 //split to before and after the operator
                 let (left_part, right_part) = tokens_queue.split_to_slices(&first_operator_location, &curr_queue_idx);
@@ -112,7 +112,8 @@ impl Expression {
                 writeln!(result, "push rax").unwrap();//push the value on to the stack
             },
             Expression::NUMBER(number_literal) => {
-                writeln!(result, "push {}", number_literal.nasm_format()).unwrap()
+                writeln!(result, "mov rax, {}", number_literal.nasm_format()).unwrap();
+                writeln!(result, "push rax").unwrap();
             },
             Expression::BINARYEXPR(lhs, operator, rhs) => {
                 match operator {
@@ -120,31 +121,17 @@ impl Expression {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();
-                        //load values from stack
-                        writeln!(result, "pop rax").unwrap();
-                        writeln!(result, "pop rbx").unwrap();
-                        //calculate the sum (32 bit)
-                        writeln!(result, "add eax, ebx").unwrap();
-                        //sign extend 32 bit result to 64 bits
-                        writeln!(result, "cdq").unwrap();
-                        //save the result
-                        writeln!(result, "push rax").unwrap()
+
+                        writeln!(result, "{}", asm_boilerplate::I32_ADD).unwrap();
                         
-                    }
+                    },
                     Operator::MULTIPLY => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();
-                        //load values from stack
-                        writeln!(result, "pop rax").unwrap();
-                        writeln!(result, "pop rbx").unwrap();
-                        //calculate the product (32 bit)
-                        writeln!(result, "imul eax, ebx").unwrap();//warning: signed only
-                        //sign extend 32 bit result to 64 bits
-                        writeln!(result, "cdq").unwrap();
-                        //save the result
-                        writeln!(result, "push rax").unwrap()
-                    }
+
+                        writeln!(result, "{}", asm_boilerplate::I32_MULTIPLY).unwrap();
+                    },
                     Operator::ASSIGN => {
                         //put address of lvalue on stack
                         write!(result, "{}", lhs.put_lvalue_addr_on_stack()).unwrap();
@@ -156,6 +143,13 @@ impl Expression {
                         writeln!(result, "pop rbx").unwrap();
                         //save to memory
                         writeln!(result, "mov [rbx], rax").unwrap();
+                    },
+                    Operator::DIVIDE => {
+                        //put values on stack
+                        write!(result, "{}", lhs.generate_assembly()).unwrap();
+                        write!(result, "{}", rhs.generate_assembly()).unwrap();
+
+                        writeln!(result, "{}", asm_boilerplate::I32_DIVIDE).unwrap();
                     }
                 }
             },

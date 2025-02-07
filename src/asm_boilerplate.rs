@@ -32,3 +32,42 @@ pub fn func_exit_boilerplate() -> String {
 
     result
 }
+
+pub const I32_ADD: &str =
+";add two i32s
+pop rax
+pop rbx
+add eax, ebx
+movsxd rax, eax
+push rax";
+
+/**
+ * read the two numbers
+ * multiply them to edx:eax (64 bit register pair)
+ * sign extend the bottom 32 bits to 64 bits
+ * then push to stack
+ */
+pub const I32_MULTIPLY: &str =
+";multiply two i32s
+pop rax
+pop rbx
+imul eax, ebx
+movsxd rax, eax
+push rax";
+
+/**
+ * read the denominator to rbx
+ * read the numerator to rax
+ * extend rax to rdx:rax (128 bit register pair)
+ * divide rdx:rax by rbx
+ * sign extend the result, then push to stack
+ */
+pub const I32_DIVIDE: &str =
+";divide two i32s
+pop rbx
+pop rax
+cdq
+idiv ebx
+movsxd rax, eax
+push rax
+";

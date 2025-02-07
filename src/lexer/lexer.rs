@@ -138,7 +138,7 @@ impl Lexer {
                     => Some(self.consume_number()),
             c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
             c if "(){};".contains(c) => Some(self.consume_punctuation()),
-            c if "+*=".contains(c) => Some(self.consume_operator()),
+            c if "+*/=".contains(c) => Some(self.consume_operator()),
             _ => None
         }
     }

@@ -3,6 +3,7 @@
 pub enum Operator {
     ADD,
     MULTIPLY,
+    DIVIDE,
     ASSIGN,
 }
 
@@ -11,6 +12,7 @@ impl Operator {
         match to_token {
             "+" => Some(Self::ADD),
             "*" => Some(Self::MULTIPLY),
+            "/" => Some(Self::DIVIDE),
             "=" => Some(Self::ASSIGN),
             _ => None
         }
@@ -19,6 +21,7 @@ impl Operator {
         match self {
             Self::ADD => 2,
             Self::MULTIPLY => 3,
+            Self::DIVIDE => 3,
             Self::ASSIGN => 14,
         }
     }
