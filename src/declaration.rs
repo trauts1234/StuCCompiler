@@ -1,13 +1,11 @@
 use memory_size::MemoryLayout;
 
 use crate::{ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, type_info::TypeInfo};
-use std::fmt::Write;
 
 #[derive(Debug, Clone)]
 pub struct Declaration {
     data_type: Vec<TypeInfo>,
     var_name: String,
-    bytes_sub_from_bp: MemoryLayout,//the number of qwords subtracted from RBP
     //initialisation: Option<Expression>//for int x=0; the declaration is split into int x; x=0;
 }
 
@@ -21,7 +19,7 @@ impl Declaration {
     pub fn get_memory_usage(&self) -> MemoryLayout {
         MemoryLayout::from_bytes(8)
     }
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<Declaration>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, _local_variables: &StackVariables) -> Option<ASTMetadata<Declaration>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut data_type_info = Vec::new();
@@ -53,14 +51,12 @@ impl Declaration {
         tokens_queue.consume(&mut curr_queue_idx);//consume the semicolon
 
         let extra_stack_needed = MemoryLayout::from_bytes(8);//same as get_memory_usage, default for now
-        let var_sub_from_bp = local_variables.get_stack_used() + extra_stack_needed;//how far from bp is this variable
 
         //todo handle comma separated declarations
         Some(ASTMetadata {
             resultant_tree: Declaration {
                 data_type: data_type_info,
                 var_name,
-                bytes_sub_from_bp: var_sub_from_bp,
                 //initialisation: Expression::try_consume_whole_expr(tokens_queue, &expression_slice, local_variables)//pointers break this maybe
             }, 
             remaining_slice: curr_queue_idx,
