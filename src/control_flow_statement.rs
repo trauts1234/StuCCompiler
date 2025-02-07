@@ -1,4 +1,6 @@
-use crate::{asm_boilerplate, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables};
+use memory_size::MemoryLayout;
+
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
 use std::fmt::Write;
 
 /**
@@ -10,7 +12,7 @@ pub enum ControlFlowChange {
 }
 
 impl ControlFlowChange {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<(ControlFlowChange, TokenQueueSlice)> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<ControlFlowChange>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
@@ -26,13 +28,13 @@ impl ControlFlowChange {
                 if return_value_slice.get_slice_size() == 0 {
                     //func returned nothing(void)
                     //return slice of all tokens after the semicolon
-                    return Some((Self::RETURN(None), semicolon_idx.next_clone()))
+                    return Some(ASTMetadata{resultant_tree: Self::RETURN(None),remaining_slice: semicolon_idx.next_clone(), extra_stack_used: MemoryLayout::new()});
                 }
 
                 //try and match with an expression for what to return
                 let ret_value = Expression::try_consume_whole_expr(tokens_queue, &return_value_slice, local_variables).unwrap();
 
-                Some((Self::RETURN(Some(ret_value)), semicolon_idx.next_clone()))
+                Some(ASTMetadata { resultant_tree: Self::RETURN(Some(ret_value)), remaining_slice: semicolon_idx.next_clone(), extra_stack_used: MemoryLayout::new() })
             }
             _ => None
         }

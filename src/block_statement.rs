@@ -20,12 +20,12 @@ impl StatementOrDeclaration {
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<StatementOrDeclaration>> {
         let curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-        if let Some(ASTMetadata {remaining_slice: remaining_tokens, resultant_tree: stat}) = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables) {
-            return Some(ASTMetadata{remaining_slice: remaining_tokens, resultant_tree: Self::STATEMENT(stat)});
+        if let Some(ASTMetadata {remaining_slice, resultant_tree, extra_stack_used}) = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables) {
+            return Some(ASTMetadata{remaining_slice, resultant_tree: Self::STATEMENT(resultant_tree), extra_stack_used});
         }
 
-        if let Some(ASTMetadata {remaining_slice: remaining_tokens, resultant_tree: decl}) = Declaration::try_consume(tokens_queue, &curr_queue_idx, local_variables) {
-            return Some(ASTMetadata{remaining_slice: remaining_tokens, resultant_tree: Self::DECLARATION(decl)});
+        if let Some(ASTMetadata {remaining_slice, resultant_tree, extra_stack_used}) = Declaration::try_consume(tokens_queue, &curr_queue_idx, local_variables) {
+            return Some(ASTMetadata{remaining_slice, resultant_tree: Self::DECLARATION(resultant_tree), extra_stack_used});
         }
 
         None

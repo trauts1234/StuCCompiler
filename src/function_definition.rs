@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables, statement::Statement, type_info::TypeInfo};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, statement::Statement, type_info::TypeInfo};
 use std::fmt::Write;
 
 /**
@@ -21,7 +21,7 @@ impl FunctionDefinition {
      * consumes tokens to try and make a function definition
      * returns some(function found, remaining tokens) if found, else None
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<(FunctionDefinition, TokenQueueSlice)> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<ASTMetadata<FunctionDefinition>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut return_data = Vec::new();
@@ -66,14 +66,14 @@ impl FunctionDefinition {
         //read the next statement (statement includes a scope)
         let ASTMetadata{resultant_tree: function_code, remaining_slice: remaining_tokens_idx} = Statement::try_consume(tokens_queue, &curr_queue_idx, &mut local_variables)?;
         
-        return Some((
-            FunctionDefinition {
+        return Some(ASTMetadata{
+            resultant_tree: FunctionDefinition {
                 return_type:return_data,
                 function_name: func_name,
                 code: function_code,
                 stack_required: todo!()
             },
-            remaining_tokens_idx));
+            remaining_slice: remaining_tokens_idx});
     }
 
     pub fn generate_assembly(&self) -> String {

@@ -16,6 +16,7 @@ pub mod compilation_error;
 pub mod declaration;
 mod stack_variables;
 mod ast_metadata;
+mod memory_size;
 
 fn main() {
     compile::compile("test.c", "a").unwrap();

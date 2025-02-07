@@ -1,6 +1,8 @@
 
 
-use crate::{ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables};
+use memory_size::MemoryLayout;
+
+use crate::{ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
@@ -20,15 +22,17 @@ impl ScopeStatements {
 
         let mut statements = Vec::new();
         let mut all_scope_vars = local_variables.clone();
+        let mut stack_used = MemoryLayout::new();
 
         if Token::PUNCTUATION("{".to_owned()) != tokens_queue.consume(&mut curr_queue_idx)? {
             return None;//not enclosed in { }, so can't be a scope
         }
 
         //greedily consume as many statements as possible
-        while let Some(ASTMetadata{resultant_tree: statement_or_decl, remaining_slice: remaining_tokens}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &all_scope_vars) {
-            statements.push(statement_or_decl);
-            curr_queue_idx = remaining_tokens;//jump to next one
+        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &all_scope_vars) {
+            statements.push(resultant_tree);
+            curr_queue_idx = remaining_slice;//jump to next one
+            stack_used += extra_stack_used;
         }
 
         if statements.len() == 0 {

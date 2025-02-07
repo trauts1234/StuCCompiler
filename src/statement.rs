@@ -19,12 +19,12 @@ impl Statement {
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<Statement>> {
         let curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-        if let Some(ASTMetadata{resultant_tree: ss, remaining_slice: remaining_tokens}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, local_variables){
-            return Some(ASTMetadata{resultant_tree: Self::COMPOUND(ss), remaining_slice: remaining_tokens});
+        if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, local_variables){
+            return Some(ASTMetadata{resultant_tree: Self::COMPOUND(resultant_tree), remaining_slice, extra_stack_used});
         }
 
-        if let Some((command, remaining_tokens)) = ControlFlowChange::try_consume(tokens_queue, &curr_queue_idx, local_variables){
-            return Some(ASTMetadata{resultant_tree: Self::CONTROLFLOW(command), remaining_slice: remaining_tokens});
+        if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = ControlFlowChange::try_consume(tokens_queue, &curr_queue_idx, local_variables){
+            return Some(ASTMetadata{resultant_tree: Self::CONTROLFLOW(resultant_tree), remaining_slice, extra_stack_used});
         }
 
         None

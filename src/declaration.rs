@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables, type_info::TypeInfo};
+use crate::{ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, type_info::TypeInfo};
 use std::fmt::Write;
 
 #[derive(Debug)]
