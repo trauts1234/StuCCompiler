@@ -1,5 +1,5 @@
 
-use crate::{ast_metadata::ASTMetadata, declaration::Declaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables, statement::Statement};
+use crate::{ast_metadata::ASTMetadata, declaration::Declaration, label_generator::LabelGenerator, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables, statement::Statement};
 
 
 /**
@@ -31,9 +31,9 @@ impl StatementOrDeclaration {
         None
     }
 
-    pub fn generate_assembly(&self) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
         match self {
-            Self::STATEMENT(statement) => statement.generate_assembly(),
+            Self::STATEMENT(statement) => statement.generate_assembly(label_gen),
             Self::DECLARATION(decl) => decl.generate_assembly(),
         }
     }

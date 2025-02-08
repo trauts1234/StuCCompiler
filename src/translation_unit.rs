@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, compilation_error::CompilationError, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, compilation_error::CompilationError, function_definition::FunctionDefinition, label_generator::LabelGenerator, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
 use std::{fs::{self, File}, io::Write};
 
 #[derive(Debug)]
@@ -29,10 +29,11 @@ impl TranslationUnit {
         while token_queue.peek(&token_idx).is_some() {
             if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx){
                 funcs.push(resultant_tree);
+                assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
                 stack_needed += extra_stack_used;
             } else {
-                return Err(CompilationError::PARSE("unknown remaining data in translation unit".to_string()));
+                return Err(CompilationError::PARSE(format!("unknown remaining data in translation unit: tokens {} and onwards", token_idx.index)));
             }
         }
 
@@ -46,7 +47,7 @@ impl TranslationUnit {
         let mut output_file = File::create(output_filename).unwrap();
 
         let instructions = self.functions.iter()
-            .map(|x| x.generate_assembly())
+            .map(|x| x.generate_assembly(&mut LabelGenerator::new()))
             .collect::<String>();
 
         let assembly_code = asm_boilerplate::add_boilerplate(instructions);

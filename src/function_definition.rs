@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, statement::Statement, type_info::TypeInfo};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, statement::Statement, type_info::TypeInfo};
 use std::fmt::Write;
 
 /**
@@ -76,7 +76,7 @@ impl FunctionDefinition {
             remaining_slice});
     }
 
-    pub fn generate_assembly(&self) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
         //this uses a custom calling convention
         //all params passed on the stack, right to left (caller cleans these up)
         //return value in RAX
@@ -90,7 +90,7 @@ impl FunctionDefinition {
         writeln!(result, "sub rsp, {}", self.stack_required.size_bytes()).unwrap();
 
         //TODO generate stack information, and pass it to the code
-        write!(result, "{}", self.code.generate_assembly()).unwrap();
+        write!(result, "{}", self.code.generate_assembly(label_gen)).unwrap();
 
         writeln!(result, "{}", asm_boilerplate::func_exit_boilerplate()).unwrap();
 

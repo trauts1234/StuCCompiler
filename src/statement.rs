@@ -1,12 +1,11 @@
-use crate::{ast_metadata::ASTMetadata, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables};
+use crate::{ast_metadata::ASTMetadata, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, label_generator::LabelGenerator, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, selection_statement::SelectionStatement, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug)]
 pub enum Statement {
-    //LABEL,//for goto, or switch cases
     EXPRESSION(Expression),//TODO
     COMPOUND(ScopeStatements),//this is a scope (not nescessarily for a function)
-    //SELECTION,
+    SELECTION(SelectionStatement),
     //ITERATION,
     CONTROLFLOW(ControlFlowChange),
 }
@@ -31,21 +30,28 @@ impl Statement {
             return Some(ASTMetadata{resultant_tree: Self::EXPRESSION(resultant_tree), remaining_slice, extra_stack_used});
         }
 
+        if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = SelectionStatement::try_consume(tokens_queue, &curr_queue_idx, local_variables){
+            return Some(ASTMetadata{resultant_tree: Self::SELECTION(resultant_tree), remaining_slice, extra_stack_used});
+        }
+
         None
     }
 
-    pub fn generate_assembly(&self) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
         let mut result = String::new();
 
         match self {
             Self::COMPOUND(scope) => {
-                write!(result, "{}", scope.generate_assembly()).unwrap();
+                write!(result, "{}", scope.generate_assembly(label_gen)).unwrap();
             }
             Self::CONTROLFLOW(command) => {
                 write!(result, "{}", command.generate_assembly()).unwrap();
             }
             Self::EXPRESSION(expr) => {
                 write!(result, "{}", expr.generate_assembly()).unwrap();
+            }
+            Self::SELECTION(selection) => {
+                write!(result, "{}", selection.generate_assembly(label_gen)).unwrap();
             }
         }
 

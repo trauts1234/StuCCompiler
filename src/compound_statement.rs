@@ -2,7 +2,7 @@
 
 use memory_size::MemoryLayout;
 
-use crate::{ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
+use crate::{ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
@@ -56,11 +56,11 @@ impl ScopeStatements {
         })
     }
 
-    pub fn generate_assembly(&self) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
         let mut result = String::new();
 
         for statement in &self.statements {
-            write!(result, "{}", statement.generate_assembly()).unwrap();
+            write!(result, "{}", statement.generate_assembly(label_gen)).unwrap();
         }
 
         result

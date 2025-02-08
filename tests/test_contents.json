@@ -54,5 +54,17 @@
     {
         "filename":"divmulbidmas2.c",
         "return_code": 10
+    },
+    {
+        "filename":"returninifstatement.c",
+        "return_code": 1
+    },
+    {
+        "filename":"branchifvariable.c",
+        "return_code": 0
+    },
+    {
+        "filename":"ifelse.c",
+        "return_code": 0
     }
 ]

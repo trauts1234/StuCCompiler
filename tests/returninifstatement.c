@@ -1,7 +1,5 @@
 int main() {
-    int x;
-    x = 1;
-    if (x){
+    if(1) {
         return 1;
     }
     return 0;

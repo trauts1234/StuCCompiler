@@ -18,6 +18,7 @@ mod stack_variables;
 mod ast_metadata;
 mod memory_size;
 mod selection_statement;
+mod label_generator;
 
 fn main() {
     compile::compile("test.c", "a").unwrap();
