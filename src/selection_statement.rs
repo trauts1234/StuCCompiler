@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{token::{self, Token}, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
+use crate::{ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
 use std::fmt::Write;
 
 /**

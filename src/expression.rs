@@ -1,7 +1,7 @@
 use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, operator::Operator, stack_variables::StackVariables};
 use std::fmt::Write;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     STACKVAR(MemoryLayout),//offset from bp
     NUMBER(NumberLiteral),

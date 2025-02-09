@@ -9,7 +9,7 @@ use crate::{ast_metadata::ASTMetadata, declaration::Declaration, label_generator
 #[derive(Debug)]
 pub enum StatementOrDeclaration {
     STATEMENT(Statement),
-    DECLARATION(Declaration)
+    DECLARATION(Vec<Declaration>)
 }
 
 impl StatementOrDeclaration {
@@ -34,7 +34,11 @@ impl StatementOrDeclaration {
     pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
         match self {
             Self::STATEMENT(statement) => statement.generate_assembly(label_gen),
-            Self::DECLARATION(decl) => decl.generate_assembly(),
+            Self::DECLARATION(decl) => {
+                //declare each variable individually
+                //no intermediate newline as generate_assembly puts in a trailing newline
+                decl.iter().map(|x| x.generate_assembly()).collect::<Vec<String>>().join("")
+            },
         }
     }
 }

@@ -30,8 +30,7 @@ impl ScopeStatements {
         //greedily consume as many statements as possible
         while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &all_scope_vars) {
             if let StatementOrDeclaration::DECLARATION(decl) = &resultant_tree {
-                assert!(extra_stack_used == decl.get_memory_usage());
-                all_scope_vars.add_variable(decl.clone());//it was a variable, save it
+                all_scope_vars.add_variables(decl.clone());//variables were declared, so add them to the stack
             } else {
                 assert!(extra_stack_used == MemoryLayout::new());//not creating a new variable, so no extra stack used
             }

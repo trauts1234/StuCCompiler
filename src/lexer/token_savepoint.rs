@@ -15,6 +15,12 @@ impl TokenQueueSlice {
             max_index: usize::max_value()
         }
     }
+    pub fn empty() -> TokenQueueSlice{
+        TokenQueueSlice{
+            index:0,
+            max_index:0
+        }
+    }
 
     pub fn from_previous_savestate(previous_location: &TokenQueueSlice) -> TokenQueueSlice {
         TokenQueueSlice{

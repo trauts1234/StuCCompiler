@@ -27,7 +27,7 @@ impl TokenQueue {
         Some(self.tokens[next_idx].clone())
     }
 
-    pub fn consume(&mut self, location: &mut TokenQueueSlice) -> Option<Token> {
+    pub fn consume(&self, location: &mut TokenQueueSlice) -> Option<Token> {
         let next = self.peek(&location);
         location.next();
         if location.index > self.tokens.len() || location.index > location.max_index{
@@ -75,5 +75,35 @@ impl TokenQueue {
                 index: split_location.index + 1, max_index: bounds.max_index
             }//from past index to end of bounds
         )
+    }
+
+    pub fn split_outside_parentheses<Matcher>(&self, bounds: &TokenQueueSlice, predicate: Matcher) -> Vec<TokenQueueSlice> 
+    where Matcher: Fn(&Token) -> bool
+    {
+        let mut inside_parentheses = 0;
+        let mut prev_slice_end = bounds.index;//start slice at beginning of the bounds
+        let mut slices = Vec::new();
+
+        for i in bounds.index..bounds.max_index {
+            match &self.tokens[i] {
+                Token::PUNCTUATION(x) if x == "(" => {
+                    inside_parentheses += 1;
+                },
+                Token::PUNCTUATION(x) if x == ")" => {
+                    inside_parentheses -= 1;
+                },
+                
+                tok if predicate(tok) && inside_parentheses == 0 => {//match predicate and not inside parentheses
+                    slices.push(TokenQueueSlice{index: prev_slice_end, max_index: i});
+                    prev_slice_end = i + 1;
+                },
+
+                _ => {}
+            }
+        }
+
+        slices.push(TokenQueueSlice{index: prev_slice_end, max_index: bounds.max_index});//add remaining characters
+
+        slices
     }
 }
