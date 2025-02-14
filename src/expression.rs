@@ -57,10 +57,6 @@ impl Expression {
                 }
             },
 
-            2 => {
-                None//TODO match unary operators
-            }
-
             _ => {
                 //TODO handle brackets outside of operator
 
