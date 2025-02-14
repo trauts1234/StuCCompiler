@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, Punctuator::{MathematicalOperator, Punctuator}}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, punctuator::{MathematicalOperator, Punctuator}}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
@@ -6,10 +6,12 @@ pub enum Expression {
     STACKVAR(MemoryLayout),//offset from bp
     NUMBER(NumberLiteral),
     BINARYEXPR(Box<Expression>, MathematicalOperator, Box<Expression>)
-    //ASSIGNMENT(LValue, Operator, Box<Expression>)// a = b;
 }
 
 impl Expression {
+    /**
+     * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
+     */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<Expression>> {
         let semicolon_idx = tokens_queue.find_closure_in_slice(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
         //define the slice that we are going to try and parse
@@ -55,48 +57,45 @@ impl Expression {
                 }
             },
 
+            2 => {
+                None//TODO match unary operators
+            }
+
             _ => {
                 //TODO handle brackets outside of operator
 
-                //find highest precendence level
-                let highest_precedence = tokens_queue.get_slice(&curr_queue_idx).iter()
-                    .filter_map(|x| {
-                        x.as_punctuator()
-                            .and_then(|punc| punc.as_mathematical_operator())
-                            .and_then(|op| Some(op.get_precedence_level()))//get the precedence level if it is an operator
-                    })
-                    .fold(std::i32::MAX, |a,b| a.min(b));//small number = great precedence
+                for precedence_required in MathematicalOperator::min_precedence()..=MathematicalOperator::max_precedence() {
+                    //try to find an operator, starting with the operators that bind the hardest (small precedence)
 
-                if highest_precedence == std::i32::MAX {
-                    return None;//no operators found
+                    //find which direction the operators should be considered
+                    let associative_direction = MathematicalOperator::get_associativity_direction(precedence_required);
+
+                    //make a closure that detects operators that match what we want
+                    let operator_matching_closure = |x: &Token| {
+                        x.as_punctuator()//get punctuator if it can
+                        .and_then(|punc| punc.as_mathematical_operator())//get operator from the punctuator if it can
+                        .and_then(|op| Some(op.get_precedence_level()))//get precedence level
+                        .is_some_and(|precedence| precedence == precedence_required)//ensure that it is the correct precedence level
+                    };
+
+                    let operator_indexes = tokens_queue.find_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure);
+
+                    for operator_idx in operator_indexes {
+                        //try to find an operator
+                        //note that the operator_idx is a slice of just the operator
+
+                        match try_parse_binary_expr(tokens_queue, &curr_queue_idx, &operator_idx, local_variables) {
+                            Some(x) => {return Some(x);}
+                            None => {
+                                println!("failed to match at precedence {}, even though I found an operator at index {}", precedence_required, operator_idx.index);
+                                continue;
+                            }
+                        }
+
+                    }
                 }
 
-                //find which direction the operators should be considered
-                let associative_direction = MathematicalOperator::get_associativity_direction(highest_precedence);
-
-                //make a closure that detects tokens that match what we want
-                let operator_matching_closure = |x: &Token| {
-                    x.as_punctuator()//get punctuator if it can
-                    .and_then(|punc| punc.as_mathematical_operator())//get operator from the punctuator if it can
-                    .and_then(|op| Some(op.get_precedence_level()))//get precedence level
-                    .is_some_and(|precedence| precedence == highest_precedence)
-                };
-
-                //find first occurence of this operator, taking into account which way we have to search the array
-                let first_operator_location = tokens_queue.find_closure_in_slice(&curr_queue_idx, associative_direction, operator_matching_closure).unwrap();
-
-                //split to before and after the operator
-                let (left_part, right_part) = tokens_queue.split_to_slices(&first_operator_location, &curr_queue_idx);
-
-                //try and parse the left and right hand sides, propogating errors
-                let parsed_left = Expression::try_consume_whole_expr(tokens_queue, &left_part, local_variables)?;
-                let parsed_right = Expression::try_consume_whole_expr(tokens_queue, &right_part, local_variables)?;
-
-                let operator = tokens_queue.peek(&first_operator_location).unwrap()
-                    .as_punctuator().unwrap()
-                    .as_mathematical_operator().unwrap();
-
-                Some(Expression::BINARYEXPR(Box::new(parsed_left), operator, Box::new(parsed_right)))
+                None//tried everything and still failed
             }
         }
     }
@@ -170,4 +169,26 @@ impl Expression {
         };
         result
     }
+}
+
+/**
+ * tries to parse the left and right hand side of operator_idx.index, as a binary expression e.g 1 + 2 split by "+"
+ * if this parse was successful, an expression is returned
+ * else, you get None
+ */
+fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<Expression> {
+    //split to before and after the operator
+    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx, curr_queue_idx);
+
+    assert!(right_part.get_slice_size() != 2);
+
+    //try and parse the left and right hand sides, propogating errors
+    let parsed_left = Expression::try_consume_whole_expr(tokens_queue, &left_part, local_variables)?;
+    let parsed_right = Expression::try_consume_whole_expr(tokens_queue, &right_part, local_variables)?;
+
+    let operator = tokens_queue.peek(&operator_idx).expect("couldn't peek")
+        .as_punctuator().expect("couldn't cast to punctuator")
+        .as_mathematical_operator().expect("couldn't cast to operator");
+
+    Some(Expression::BINARYEXPR(Box::new(parsed_left), operator, Box::new(parsed_right)))
 }

@@ -1,6 +1,6 @@
 use crate::{number_literal::NumberLiteral, type_info::TypeInfo};
 
-use super::{remove_comments::remove_comments, token::Token, Punctuator::Punctuator};
+use super::{remove_comments::remove_comments, token::Token, punctuator::Punctuator};
 
 fn is_keyword(text: &str) -> bool {
     let possible_keywords = vec!["break", "case", "continue", "default", "do", "else", "enum", "for", "goto", "if", "return", "sizeof", "struct", "switch", "typedef", "union", "while", "_Bool"];

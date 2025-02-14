@@ -1,6 +1,6 @@
 use crate::{number_literal::NumberLiteral, type_info::TypeInfo};
 
-use super::Punctuator::Punctuator;
+use super::punctuator::Punctuator;
 
 #[derive(Debug, Clone, PartialEq)]//for debug printing
 pub enum Token {

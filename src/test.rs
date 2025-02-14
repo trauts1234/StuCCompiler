@@ -28,7 +28,9 @@ pub mod test {
             let binary_status = Command::new("./test_output.out")
                     .status()
                     .expect("Failed to run the compiled binary");
-                assert_eq!(binary_status.code().expect("binary was terminated by OS signal?"), testfile.return_code);
+
+            println!("testing file name: {}", testfile.filename);
+            assert_eq!(binary_status.code().expect("binary was terminated by OS signal?"), testfile.return_code);
         }
     }
 }
