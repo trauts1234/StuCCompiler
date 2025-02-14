@@ -78,5 +78,9 @@
     {
         "filename":"temperatureconversions.c",
         "return_code":68
+    },
+    {
+        "filename":"subtraction.c",
+        "return_code":60
     }
 ]

@@ -121,6 +121,13 @@ impl Expression {
                         writeln!(result, "{}", asm_boilerplate::I32_ADD).unwrap();
                         
                     },
+                    MathematicalOperator::SUBTRACT => {
+                        //put values on stack
+                        write!(result, "{}", lhs.generate_assembly()).unwrap();
+                        write!(result, "{}", rhs.generate_assembly()).unwrap();
+
+                        writeln!(result, "{}", asm_boilerplate::I32_SUBTRACT).unwrap();
+                    }
                     MathematicalOperator::MULTIPLY => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();

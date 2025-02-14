@@ -2,6 +2,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum MathematicalOperator {
     ADD,
+    SUBTRACT,
     MULTIPLY,
     DIVIDE,
     ASSIGN,
@@ -10,6 +11,7 @@ pub enum MathematicalOperator {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Punctuator {
     PLUS,
+    DASH,
     ASTERISK,
     FORWARDSLASH,
     EQUALS,
@@ -25,6 +27,7 @@ impl Punctuator {
     pub fn try_new(to_token: &str) -> Option<Punctuator> {
         match to_token {
             "+" => Some(Self::PLUS),
+            "-" => Some(Self::DASH),
             "*" => Some(Self::ASTERISK),
             "/" => Some(Self::FORWARDSLASH),
             "=" => Some(Self::EQUALS),
@@ -43,7 +46,8 @@ impl Punctuator {
     pub fn as_mathematical_operator(&self) -> Option<MathematicalOperator> {
         match self {
             Self::PLUS => Some(MathematicalOperator::ADD),
-            Self::ASTERISK => Some(MathematicalOperator::MULTIPLY),
+            Self::DASH => Some(MathematicalOperator::SUBTRACT),
+            Self::ASTERISK => Some(MathematicalOperator::MULTIPLY),//be careful this isn't a pointer
             Self::FORWARDSLASH => Some(MathematicalOperator::DIVIDE),
             Self::EQUALS => Some(MathematicalOperator::ASSIGN),
             _ => None
@@ -64,6 +68,7 @@ impl MathematicalOperator {
     pub fn get_precedence_level(&self) -> i32 {
         match self {
             Self::ADD => 2,
+            Self::SUBTRACT => 2,
             Self::MULTIPLY => 3,
             Self::DIVIDE => 3,
             Self::ASSIGN => 14,

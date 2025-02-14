@@ -42,6 +42,17 @@ movsxd rax, eax
 push rax";
 
 /**
+ * note the order that operands are popped off the stack
+ */
+pub const I32_SUBTRACT: &str =
+";subtract two i32s
+pop rbx
+pop rax
+sub eax, ebx
+movsxd rax, eax
+push rax";
+
+/**
  * read the two numbers
  * multiply them to edx:eax (64 bit register pair)
  * sign extend the bottom 32 bits to 64 bits
