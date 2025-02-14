@@ -1,8 +1,4 @@
-
-
-use memory_size::MemoryLayout;
-
-use crate::{ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
+use crate::{ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, Punctuator::Punctuator}, stack_variables::StackVariables};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
@@ -23,17 +19,12 @@ impl ScopeStatements {
         let mut statements = Vec::new();
         let mut all_scope_vars = outer_variables.clone();
 
-        if Token::PUNCTUATION("{".to_owned()) != tokens_queue.consume(&mut curr_queue_idx)? {
+        if Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx)? {
             return None;//not enclosed in { }, so can't be a scope
         }
 
         //greedily consume as many statements as possible
-        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &all_scope_vars) {
-            if let StatementOrDeclaration::DECLARATION(decl) = &resultant_tree {
-                all_scope_vars.add_variables(decl.clone());//variables were declared, so add them to the stack
-            } else {
-                assert!(extra_stack_used == MemoryLayout::new());//not creating a new variable, so no extra stack used
-            }
+        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used: _}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut all_scope_vars) {
 
             statements.push(resultant_tree);
             curr_queue_idx = remaining_slice;//jump to next one
@@ -43,7 +34,7 @@ impl ScopeStatements {
             return None;
         }
 
-        if Token::PUNCTUATION("}".to_owned()) != tokens_queue.consume(&mut curr_queue_idx)? {
+        if Token::PUNCTUATOR(Punctuator::CLOSESQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx)? {
             return None;//not enclosed in { }, so can't be a scope
         }
 

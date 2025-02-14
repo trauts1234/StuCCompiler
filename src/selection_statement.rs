@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
+use crate::{ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, Punctuator::Punctuator}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -21,9 +21,9 @@ impl SelectionStatement {
         
         match kw.as_str() {
             "if" => {
-                assert!(Token::PUNCTUATION("(".to_owned()) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
+                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
                 
-                let closecurly_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATION(")".to_owned())).unwrap();
+                let closecurly_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::CLOSECURLY)).unwrap();
 
                 let condition_slice = TokenQueueSlice{
                     index: curr_queue_idx.index,

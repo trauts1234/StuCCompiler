@@ -69,5 +69,4 @@ pop rax
 cdq
 idiv ebx
 movsxd rax, eax
-push rax
-";
+push rax";

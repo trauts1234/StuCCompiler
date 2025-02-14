@@ -1,4 +1,4 @@
-use super::{token::Token, token_savepoint::TokenQueueSlice};
+use super::{token::Token, token_savepoint::TokenQueueSlice, Punctuator::Punctuator};
 
 /**
  * this steps through each token
@@ -86,10 +86,10 @@ impl TokenQueue {
 
         for i in bounds.index..bounds.max_index {
             match &self.tokens[i] {
-                Token::PUNCTUATION(x) if x == "(" => {
+                Token::PUNCTUATOR(x) if *x == Punctuator::OPENCURLY => {
                     inside_parentheses += 1;
                 },
-                Token::PUNCTUATION(x) if x == ")" => {
+                Token::PUNCTUATOR(x) if *x == Punctuator::CLOSECURLY => {
                     inside_parentheses -= 1;
                 },
                 

@@ -66,5 +66,17 @@
     {
         "filename":"ifelse.c",
         "return_code": 0
+    },
+    {
+        "filename":"initialisedecl.c",
+        "return_code":69
+    },
+    {
+        "filename":"multipledecl.c",
+        "return_code":13
+    },
+    {
+        "filename":"temperatureconversions.c",
+        "return_code":68
     }
 ]

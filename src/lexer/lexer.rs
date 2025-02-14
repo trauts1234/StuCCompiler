@@ -1,6 +1,6 @@
-use crate::{number_literal::NumberLiteral, operator::Operator, type_info::TypeInfo};
+use crate::{number_literal::NumberLiteral, type_info::TypeInfo};
 
-use super::{remove_comments::remove_comments, token::Token};
+use super::{remove_comments::remove_comments, token::Token, Punctuator::Punctuator};
 
 fn is_keyword(text: &str) -> bool {
     let possible_keywords = vec!["break", "case", "continue", "default", "do", "else", "enum", "for", "goto", "if", "return", "sizeof", "struct", "switch", "typedef", "union", "while", "_Bool"];
@@ -71,16 +71,19 @@ impl Lexer {
     }
 
     fn consume_punctuation(&mut self) -> Token{
-        let c = self.consume().unwrap();
+        let curr_char = self.consume().unwrap();
 
-        if c == '#' && self.peek() == Some('#') {
-            self.consume();//remove the second hashtag
-            //infamous double hashtag
-            return Token::PUNCTUATION("##".to_owned());
+        let next_char = match self.peek(){
+            Some(x) => x,
+            None => ' '//run out of chars, use whitespace
+        };
+
+        match (curr_char, next_char) {
+            ('+', '+') => panic!("unary operators not implemented"),//found x++ or similar
+            _ => {}//do nothing
         }
 
-        //all other punctuation is single-character
-        Token::PUNCTUATION(c.to_string())
+        Token::PUNCTUATOR(Punctuator::try_new(&curr_char.to_string()).unwrap())
     }
 
     fn consume_number(&mut self) -> Token {
@@ -111,24 +114,6 @@ impl Lexer {
         return Token::NUMBER(NumberLiteral::try_new(&letters).unwrap());
     }
 
-    fn consume_operator(&mut self) -> Token {
-        let curr_char = self.consume().unwrap();
-
-        let next_char = match self.peek(){
-            Some(x) => x,
-            None => return Token::OPERATOR(Operator::try_new(&curr_char.to_string()).unwrap())//run out of chars, return this one
-        };
-
-        match (curr_char, next_char) {
-            ('+', '+') => panic!("unary operators not implemented"),//found x++ or similar
-            _ => {}//do nothing
-        }
-        
-        Token::OPERATOR(Operator::try_new(&curr_char.to_string()).unwrap())
-    }
-
-
-
     pub fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
 
@@ -137,8 +122,7 @@ impl Lexer {
                 (c == '-' && self.peek_after_next().is_some_and(|x| x.is_numeric()))//starts with -(number)
                     => Some(self.consume_number()),
             c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
-            c if "(){};".contains(c) => Some(self.consume_punctuation()),
-            c if "+*/=".contains(c) => Some(self.consume_operator()),
+            c if "(){};,+*/=".contains(c) => Some(self.consume_punctuation()),
             _ => None
         }
     }

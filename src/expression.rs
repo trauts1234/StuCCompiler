@@ -1,17 +1,17 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, operator::Operator, stack_variables::StackVariables};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, Punctuator::{MathematicalOperator, Punctuator}}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
     STACKVAR(MemoryLayout),//offset from bp
     NUMBER(NumberLiteral),
-    BINARYEXPR(Box<Expression>, Operator, Box<Expression>)
+    BINARYEXPR(Box<Expression>, MathematicalOperator, Box<Expression>)
     //ASSIGNMENT(LValue, Operator, Box<Expression>)// a = b;
 }
 
 impl Expression {
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<Expression>> {
-        let semicolon_idx = tokens_queue.find_closure_in_slice(&previous_queue_idx, false, |x| *x == Token::PUNCTUATION(";".to_owned()))?;
+        let semicolon_idx = tokens_queue.find_closure_in_slice(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
         //define the slice that we are going to try and parse
         let attempt_slice = TokenQueueSlice {
             index: previous_queue_idx.index,
@@ -61,7 +61,9 @@ impl Expression {
                 //find highest precendence level
                 let highest_precedence = tokens_queue.get_slice(&curr_queue_idx).iter()
                     .filter_map(|x| {
-                        if let Token::OPERATOR(op) = x {Some(op.get_precedence_level())} else {None} //get the precedence level if it is an operator, else skip
+                        x.as_punctuator()
+                            .and_then(|punc| punc.as_mathematical_operator())
+                            .and_then(|op| Some(op.get_precedence_level()))//get the precedence level if it is an operator
                     })
                     .fold(std::i32::MAX, |a,b| a.min(b));//small number = great precedence
 
@@ -70,14 +72,14 @@ impl Expression {
                 }
 
                 //find which direction the operators should be considered
-                let associative_direction = Operator::get_associativity_direction(highest_precedence);
+                let associative_direction = MathematicalOperator::get_associativity_direction(highest_precedence);
 
                 //make a closure that detects tokens that match what we want
                 let operator_matching_closure = |x: &Token| {
-                    match x {
-                        Token::OPERATOR(op) => {op.get_precedence_level() == highest_precedence},
-                        _ => false
-                    }
+                    x.as_punctuator()//get punctuator if it can
+                    .and_then(|punc| punc.as_mathematical_operator())//get operator from the punctuator if it can
+                    .and_then(|op| Some(op.get_precedence_level()))//get precedence level
+                    .is_some_and(|precedence| precedence == highest_precedence)
                 };
 
                 //find first occurence of this operator, taking into account which way we have to search the array
@@ -90,10 +92,9 @@ impl Expression {
                 let parsed_left = Expression::try_consume_whole_expr(tokens_queue, &left_part, local_variables)?;
                 let parsed_right = Expression::try_consume_whole_expr(tokens_queue, &right_part, local_variables)?;
 
-                let operator = match tokens_queue.peek(&first_operator_location).unwrap() {
-                    Token::OPERATOR(op) => op,
-                    _ => panic!("operator token is not an operator")
-                };
+                let operator = tokens_queue.peek(&first_operator_location).unwrap()
+                    .as_punctuator().unwrap()
+                    .as_mathematical_operator().unwrap();
 
                 Some(Expression::BINARYEXPR(Box::new(parsed_left), operator, Box::new(parsed_right)))
             }
@@ -117,7 +118,7 @@ impl Expression {
             },
             Expression::BINARYEXPR(lhs, operator, rhs) => {
                 match operator {
-                    Operator::ADD => {
+                    MathematicalOperator::ADD => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();
@@ -125,14 +126,14 @@ impl Expression {
                         writeln!(result, "{}", asm_boilerplate::I32_ADD).unwrap();
                         
                     },
-                    Operator::MULTIPLY => {
+                    MathematicalOperator::MULTIPLY => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();
 
                         writeln!(result, "{}", asm_boilerplate::I32_MULTIPLY).unwrap();
                     },
-                    Operator::ASSIGN => {
+                    MathematicalOperator::ASSIGN => {
                         //put address of lvalue on stack
                         write!(result, "{}", lhs.put_lvalue_addr_on_stack()).unwrap();
                         //put the value to assign on stack
@@ -144,7 +145,7 @@ impl Expression {
                         //save to memory
                         writeln!(result, "mov [rbx], rax").unwrap();
                     },
-                    Operator::DIVIDE => {
+                    MathematicalOperator::DIVIDE => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();

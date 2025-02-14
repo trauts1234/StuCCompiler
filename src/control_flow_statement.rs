@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, Punctuator::Punctuator}, memory_size, stack_variables::StackVariables};
 use std::fmt::Write;
 
 /**
@@ -21,7 +21,7 @@ impl ControlFlowChange {
             "return" => {
 
                 //try to find semicolon at end of return statement
-                let semicolon_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATION(";".to_owned()))?;
+                let semicolon_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
 
                 let return_value_slice = TokenQueueSlice{//between return statement and ; non inclusive
                     index: curr_queue_idx.index, 
