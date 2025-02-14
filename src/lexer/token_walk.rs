@@ -1,4 +1,4 @@
-use super::{token::Token, token_savepoint::TokenQueueSlice, Punctuator::Punctuator};
+use super::{token::Token, token_savepoint::TokenQueueSlice, punctuator::Punctuator};
 
 /**
  * this steps through each token
@@ -61,6 +61,29 @@ impl TokenQueue {
         }
 
         None
+    }
+
+    /**
+     * returns a list of zero size slices, that have an index of each token matching the predicate
+     */
+    pub fn find_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher) -> Vec<TokenQueueSlice> 
+    where Matcher: Fn(&Token) -> bool
+    {
+
+        let min_index = 0.max(slice.index);//either start of list, or start of slice
+        let max_index = self.tokens.len().min(slice.max_index);//end of array or end of slice
+
+        //conditionally reverse the loop
+        let range: Box<dyn Iterator<Item = _>> = if scan_backwards {Box::new((min_index..max_index).rev())} else {Box::new(min_index..max_index)};
+        let mut found_matches = Vec::new();
+
+        for i in range {
+            if predicate(&self.tokens[i]) {
+                found_matches.push(TokenQueueSlice {index: i, max_index: i+1});
+            }
+        }
+
+        found_matches
     }
 
     /**
