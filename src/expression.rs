@@ -1,11 +1,11 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, punctuator::{MathematicalOperator, Punctuator}}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
     STACKVAR(MemoryLayout),//offset from bp
     NUMBER(NumberLiteral),
-    BINARYEXPR(Box<Expression>, MathematicalOperator, Box<Expression>)
+    BINARYEXPR(Box<Expression>, Punctuator, Box<Expression>)
 }
 
 impl Expression {
@@ -60,17 +60,18 @@ impl Expression {
             _ => {
                 //TODO handle brackets outside of operator
 
-                for precedence_required in MathematicalOperator::min_precedence()..=MathematicalOperator::max_precedence() {
+                for precedence_required in precedence::min_precedence()..=precedence::max_precedence() {
                     //try to find an operator, starting with the operators that bind the hardest (small precedence)
 
                     //find which direction the operators should be considered
-                    let associative_direction = MathematicalOperator::get_associativity_direction(precedence_required);
+                    let associative_direction = precedence::get_associativity_direction(precedence_required);
+
+                    //TODO depending on the associativity direction, look for unary prefix and suffix at the beginning or end of tokens
 
                     //make a closure that detects operators that match what we want
                     let operator_matching_closure = |x: &Token| {
-                        x.as_punctuator()//get punctuator if it can
-                        .and_then(|punc| punc.as_mathematical_operator())//get operator from the punctuator if it can
-                        .and_then(|op| Some(op.get_precedence_level()))//get precedence level
+                        x.as_punctuator()//get punctuator
+                        .and_then(|punc| punc.as_binary_operator_precedence())//try and get the punctuator as a binary operator's precedence
                         .is_some_and(|precedence| precedence == precedence_required)//ensure that it is the correct precedence level
                     };
 
@@ -113,7 +114,7 @@ impl Expression {
             },
             Expression::BINARYEXPR(lhs, operator, rhs) => {
                 match operator {
-                    MathematicalOperator::ADD => {
+                    Punctuator::PLUS => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();
@@ -121,21 +122,21 @@ impl Expression {
                         writeln!(result, "{}", asm_boilerplate::I32_ADD).unwrap();
                         
                     },
-                    MathematicalOperator::SUBTRACT => {
+                    Punctuator::DASH => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();
 
                         writeln!(result, "{}", asm_boilerplate::I32_SUBTRACT).unwrap();
                     }
-                    MathematicalOperator::MULTIPLY => {
+                    Punctuator::ASTERISK => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();
 
                         writeln!(result, "{}", asm_boilerplate::I32_MULTIPLY).unwrap();
                     },
-                    MathematicalOperator::ASSIGN => {
+                    Punctuator::EQUALS => {//assign
                         //put address of lvalue on stack
                         write!(result, "{}", lhs.put_lvalue_addr_on_stack()).unwrap();
                         //put the value to assign on stack
@@ -147,13 +148,14 @@ impl Expression {
                         //save to memory
                         writeln!(result, "mov [rbx], rax").unwrap();
                     },
-                    MathematicalOperator::DIVIDE => {
+                    Punctuator::FORWARDSLASH => {
                         //put values on stack
                         write!(result, "{}", lhs.generate_assembly()).unwrap();
                         write!(result, "{}", rhs.generate_assembly()).unwrap();
 
                         writeln!(result, "{}", asm_boilerplate::I32_DIVIDE).unwrap();
-                    }
+                    },
+                    _ => panic!("operator to binary expression is invalid")
                 }
             },
         };
@@ -190,8 +192,7 @@ fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
     let parsed_right = Expression::try_consume_whole_expr(tokens_queue, &right_part, local_variables)?;
 
     let operator = tokens_queue.peek(&operator_idx).expect("couldn't peek")
-        .as_punctuator().expect("couldn't cast to punctuator")
-        .as_mathematical_operator().expect("couldn't cast to operator");
+        .as_punctuator().expect("couldn't cast to punctuator");
 
     Some(Expression::BINARYEXPR(Box::new(parsed_left), operator, Box::new(parsed_right)))
 }

@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, punctuator::{MathematicalOperator, Punctuator}}, memory_size, stack_variables::StackVariables, type_info::TypeInfo};
+use crate::{ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, punctuator::Punctuator}, memory_size, stack_variables::StackVariables, type_info::TypeInfo};
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
@@ -162,7 +162,7 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     //this should also work for pointer intitialisation, as that sets the address of the pointer
     Some(Expression::BINARYEXPR(
         Box::new(Expression::STACKVAR(local_variables.get_variable_bp_offset(var_name).unwrap())),
-        MathematicalOperator::ASSIGN,
+        Punctuator::EQUALS,
         Box::new(Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables)?)
     ))
 }

@@ -1,13 +1,3 @@
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MathematicalOperator {
-    ADD,
-    SUBTRACT,
-    MULTIPLY,
-    DIVIDE,
-    ASSIGN,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Punctuator {
     PLUS,
@@ -43,51 +33,31 @@ impl Punctuator {
         }
     }
 
-    pub fn as_mathematical_operator(&self) -> Option<MathematicalOperator> {
+     /**
+     * if this punctuator can be a binary operator:
+     * returns Some(precedence number)
+     * if it can't: None
+     */
+    pub fn as_binary_operator_precedence(&self) -> Option<i32> {
+
         match self {
-            Self::PLUS => Some(MathematicalOperator::ADD),
-            Self::DASH => Some(MathematicalOperator::SUBTRACT),
-            Self::ASTERISK => Some(MathematicalOperator::MULTIPLY),//be careful this isn't a pointer
-            Self::FORWARDSLASH => Some(MathematicalOperator::DIVIDE),
-            Self::EQUALS => Some(MathematicalOperator::ASSIGN),
+            Self::PLUS => Some(2),
+            Self::DASH => Some(2),
+            Self::ASTERISK => Some(3),//binary operator as in multiply
+            Self::FORWARDSLASH => Some(3),
+            Self::EQUALS => Some(14),
             _ => None
         }
     }
-}
-
-impl MathematicalOperator {
     /**
-     * the precedence of the token in expressions that is the least binding (like a comma or "=")
+     * if this punctuator can be a unary prefix operator:
+     * returns Some(precedence number)
+     * if it can't: None
      */
-    pub fn max_precedence() -> i32 {14}
-    /**
-     * the precedence of the token in expressions that is the most binding (like indexing, or pointer dereference)
-     */
-    pub fn min_precedence() -> i32 {1}
-    
-    pub fn get_precedence_level(&self) -> i32 {
+    pub fn as_unary_prefix_precedence(&self) -> Option<i32> {
         match self {
-            Self::ADD => 2,
-            Self::SUBTRACT => 2,
-            Self::MULTIPLY => 3,
-            Self::DIVIDE => 3,
-            Self::ASSIGN => 14,
-        }
-    }
-
-    /**
-     * calculates direction(true is left to right) from a precedence level
-     * note that associativity (l->r) implies searching the tokens r->l
-     */
-    pub fn get_associativity_direction(level: i32) -> bool {
-        match level {
-            1 => true,
-            2 => false,
-            3..=12 => true,
-            13 => false,
-            14 => false,
-            15 => true,
-            _ => panic!("unknown precedence level")
+            Self::ASTERISK => Some(2),
+            _ => None
         }
     }
 }
