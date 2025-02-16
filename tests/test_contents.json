@@ -82,5 +82,9 @@
     {
         "filename":"subtraction.c",
         "return_code":60
+    },
+    {
+        "filename":"ptrrefderef.c",
+        "return_code":69
     }
 ]

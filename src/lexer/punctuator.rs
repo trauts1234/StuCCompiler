@@ -6,6 +6,7 @@ pub enum Punctuator {
     FORWARDSLASH,
     EQUALS,
     SEMICOLON,
+    AMPERSAND,
     OPENCURLY,
     CLOSECURLY,
     OPENSQUIGGLY,
@@ -22,6 +23,7 @@ impl Punctuator {
             "/" => Some(Self::FORWARDSLASH),
             "=" => Some(Self::EQUALS),
             ";" => Some(Self::SEMICOLON),
+            "&" => Some(Self::AMPERSAND),
 
             "(" => Some(Self::OPENCURLY),
             ")" => Some(Self::CLOSECURLY),
@@ -46,6 +48,7 @@ impl Punctuator {
             Self::ASTERISK => Some(3),//binary operator as in multiply
             Self::FORWARDSLASH => Some(3),
             Self::EQUALS => Some(14),
+            //TODO ampersand
             _ => None
         }
     }
@@ -57,6 +60,7 @@ impl Punctuator {
     pub fn as_unary_prefix_precedence(&self) -> Option<i32> {
         match self {
             Self::ASTERISK => Some(2),
+            Self::AMPERSAND => Some(2),
             _ => None
         }
     }

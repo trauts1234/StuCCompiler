@@ -5,7 +5,8 @@ use std::fmt::Write;
 pub enum Expression {
     STACKVAR(MemoryLayout),//offset from bp
     NUMBER(NumberLiteral),
-    BINARYEXPR(Box<Expression>, Punctuator, Box<Expression>)
+    BINARYEXPR(Box<Expression>, Punctuator, Box<Expression>),
+    PREFIXEXPR(Punctuator, Box<Expression>)
 }
 
 impl Expression {
@@ -40,6 +41,10 @@ impl Expression {
     pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<Expression> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
+        if tokens_queue.peek(&curr_queue_idx) == Some(Token::PUNCTUATOR(Punctuator::AMPERSAND)){
+            println!("found the ampersand");//debugging
+        }
+
         match curr_queue_idx.get_slice_size() {
             0 => panic!("not expecting this, maybe it is not an expression"),
 
@@ -66,7 +71,26 @@ impl Expression {
                     //find which direction the operators should be considered
                     let associative_direction = precedence::get_associativity_direction(precedence_required);
 
-                    //TODO depending on the associativity direction, look for unary prefix and suffix at the beginning or end of tokens
+                    if associative_direction {
+                        //look for unary postfixes as association is left to right
+                    } else {
+                        //look for unary prefix as association is right to left
+                        let first_token = tokens_queue.peek(&curr_queue_idx)?;
+
+                        let starts_with_valid_prefix = first_token
+                            .as_punctuator()
+                            .and_then(|punc| punc.as_unary_prefix_precedence())
+                            .is_some_and(|precedence| precedence == precedence_required);
+
+                        if starts_with_valid_prefix {
+                            match try_parse_unary_prefix(tokens_queue, &curr_queue_idx, local_variables) {
+                                Some(x) => {return Some(x);},
+                                None => {
+                                    println!("failed to parse unary prefix")
+                                }
+                            }
+                        }
+                    }
 
                     //make a closure that detects operators that match what we want
                     let operator_matching_closure = |x: &Token| {
@@ -112,6 +136,25 @@ impl Expression {
                 writeln!(result, "mov rax, {}", number_literal.nasm_format()).unwrap();
                 writeln!(result, "push rax").unwrap();
             },
+            Expression::PREFIXEXPR(operator, rhs) => {
+                match operator {
+                    Punctuator::AMPERSAND => {
+                        //put address of the right hand side on the stack
+                        write!(result, "{}", rhs.put_lvalue_addr_on_stack()).unwrap();
+                    },
+                    Punctuator::ASTERISK => {
+                        // put the _pointer's_ memory location on the stack
+                        write!(result, "{}", rhs.put_lvalue_addr_on_stack()).unwrap();
+                        writeln!(result, "pop rax").unwrap();//put the pointer's address into RAX
+
+                        writeln!(result, "mov rax, [rax]").unwrap();//load the pointer into RAX
+                        writeln!(result, "mov rax, [rax]").unwrap();//load the value being pointed to into RAX
+                        
+                        writeln!(result, "push rax").unwrap();//push the value on to the stack
+                    },
+                    _ => panic!("operator to unary prefix is invalid")
+                }
+            }
             Expression::BINARYEXPR(lhs, operator, rhs) => {
                 match operator {
                     Punctuator::PLUS => {
@@ -177,6 +220,23 @@ impl Expression {
 }
 
 /**
+ * tries to parse the expression as a unary prefix and the operand, for example ++x or *(x->foo)
+ * if the parse was successful, an expression is returned
+ * else, you get None
+ */
+fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<Expression> {
+    let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+    
+    let punctuator = tokens_queue.consume(&mut curr_queue_idx)?.as_punctuator()?;//get punctuator
+
+    punctuator.as_unary_prefix_precedence()?;//ensure the punctuator is a valid unary prefix
+
+    let operand = Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables)?;
+
+    Some(Expression::PREFIXEXPR(punctuator, Box::new(operand)))
+}
+
+/**
  * tries to parse the left and right hand side of operator_idx.index, as a binary expression e.g 1 + 2 split by "+"
  * if this parse was successful, an expression is returned
  * else, you get None
@@ -184,8 +244,6 @@ impl Expression {
 fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<Expression> {
     //split to before and after the operator
     let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx, curr_queue_idx);
-
-    assert!(right_part.get_slice_size() != 2);
 
     //try and parse the left and right hand sides, propogating errors
     let parsed_left = Expression::try_consume_whole_expr(tokens_queue, &left_part, local_variables)?;
