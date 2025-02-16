@@ -21,6 +21,12 @@ pub struct Declaration {
     modifiers: Vec<DeclModifier>
 }
 
+#[derive(Debug, Clone)]
+pub struct AddressedDeclaration {
+    pub(crate) decl: Declaration,
+    pub(crate) stack_offset: MemoryLayout
+}
+
 impl InitialisedDeclaration {
     /**
      * local_variables is mut as variables are added
@@ -161,7 +167,7 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer
     Some(Expression::BINARYEXPR(
-        Box::new(Expression::STACKVAR(local_variables.get_variable_bp_offset(var_name).unwrap())),
+        Box::new(Expression::STACKVAR(local_variables.get_variable(var_name).unwrap())),
         Punctuator::EQUALS,
         Box::new(Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables)?)
     ))

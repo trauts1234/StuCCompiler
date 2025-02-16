@@ -1,9 +1,10 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, declaration::AddressedDeclaration, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
 use std::fmt::Write;
+use crate::asm_generation::asm_line;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
-    STACKVAR(MemoryLayout),//offset from bp
+    STACKVAR(AddressedDeclaration),
     NUMBER(NumberLiteral),
     BINARYEXPR(Box<Expression>, Punctuator, Box<Expression>),
     PREFIXEXPR(Punctuator, Box<Expression>)
@@ -56,7 +57,7 @@ impl Expression {
                         Some(Expression::NUMBER(num))
                     },
                     Token::IDENTIFIER(var_name) => {
-                        Some(Expression::STACKVAR(local_variables.get_variable_bp_offset(&var_name).unwrap()))
+                        Some(Expression::STACKVAR(local_variables.get_variable(&var_name).unwrap()))
                     },
                     _ => None
                 }
@@ -128,29 +129,29 @@ impl Expression {
         let mut result = String::new();
 
         match self {
-            Expression::STACKVAR(stack_offset) => {
-                writeln!(result, "mov rax, [rbp-{}]", stack_offset.size_bytes()).unwrap();//load the value from memory
-                writeln!(result, "push rax").unwrap();//push the value on to the stack
+            Expression::STACKVAR(decl) => {
+                asm_line!(result, "mov rax, [rbp-{}]", decl.stack_offset.size_bytes());//load the value from memory
+                asm_line!(result, "push rax");//push the value on to the stack
             },
             Expression::NUMBER(number_literal) => {
-                writeln!(result, "mov rax, {}", number_literal.nasm_format()).unwrap();
-                writeln!(result, "push rax").unwrap();
+                asm_line!(result, "mov rax, {}", number_literal.nasm_format());
+                asm_line!(result, "push rax");
             },
             Expression::PREFIXEXPR(operator, rhs) => {
                 match operator {
                     Punctuator::AMPERSAND => {
                         //put address of the right hand side on the stack
-                        write!(result, "{}", rhs.put_lvalue_addr_on_stack()).unwrap();
+                        asm_line!(result, "{}", rhs.put_lvalue_addr_on_stack());
                     },
                     Punctuator::ASTERISK => {
                         // put the _pointer's_ memory location on the stack
-                        write!(result, "{}", rhs.put_lvalue_addr_on_stack()).unwrap();
-                        writeln!(result, "pop rax").unwrap();//put the pointer's address into RAX
+                        asm_line!(result, "{}", rhs.put_lvalue_addr_on_stack());
+                        asm_line!(result, "pop rax");//put the pointer's address into RAX
 
-                        writeln!(result, "mov rax, [rax]").unwrap();//load the pointer into RAX
-                        writeln!(result, "mov rax, [rax]").unwrap();//load the value being pointed to into RAX
+                        asm_line!(result, "mov rax, [rax]");//load the pointer into RAX
+                        asm_line!(result, "mov rax, [rax]");//load the value being pointed to into RAX
                         
-                        writeln!(result, "push rax").unwrap();//push the value on to the stack
+                        asm_line!(result, "push rax");//push the value on to the stack
                     },
                     _ => panic!("operator to unary prefix is invalid")
                 }
@@ -159,44 +160,44 @@ impl Expression {
                 match operator {
                     Punctuator::PLUS => {
                         //put values on stack
-                        write!(result, "{}", lhs.generate_assembly()).unwrap();
-                        write!(result, "{}", rhs.generate_assembly()).unwrap();
+                        asm_line!(result, "{}", lhs.generate_assembly());
+                        asm_line!(result, "{}", rhs.generate_assembly());
 
-                        writeln!(result, "{}", asm_boilerplate::I32_ADD).unwrap();
+                        asm_line!(result, "{}", asm_boilerplate::I32_ADD);
                         
                     },
                     Punctuator::DASH => {
                         //put values on stack
-                        write!(result, "{}", lhs.generate_assembly()).unwrap();
-                        write!(result, "{}", rhs.generate_assembly()).unwrap();
+                        asm_line!(result, "{}", lhs.generate_assembly());
+                        asm_line!(result, "{}", rhs.generate_assembly());
 
-                        writeln!(result, "{}", asm_boilerplate::I32_SUBTRACT).unwrap();
+                        asm_line!(result, "{}", asm_boilerplate::I32_SUBTRACT);
                     }
                     Punctuator::ASTERISK => {
                         //put values on stack
-                        write!(result, "{}", lhs.generate_assembly()).unwrap();
-                        write!(result, "{}", rhs.generate_assembly()).unwrap();
+                        asm_line!(result, "{}", lhs.generate_assembly());
+                        asm_line!(result, "{}", rhs.generate_assembly());
 
-                        writeln!(result, "{}", asm_boilerplate::I32_MULTIPLY).unwrap();
+                        asm_line!(result, "{}", asm_boilerplate::I32_MULTIPLY);
                     },
                     Punctuator::EQUALS => {//assign
                         //put address of lvalue on stack
-                        write!(result, "{}", lhs.put_lvalue_addr_on_stack()).unwrap();
+                        asm_line!(result, "{}", lhs.put_lvalue_addr_on_stack());
                         //put the value to assign on stack
-                        write!(result, "{}", rhs.generate_assembly()).unwrap();
+                        asm_line!(result, "{}", rhs.generate_assembly());
                         //pop the value to assign
-                        writeln!(result, "pop rax").unwrap();
+                        asm_line!(result, "pop rax");
                         //pop address to assign to
-                        writeln!(result, "pop rbx").unwrap();
+                        asm_line!(result, "pop rbx");
                         //save to memory
-                        writeln!(result, "mov [rbx], rax").unwrap();
+                        asm_line!(result, "mov [rbx], rax");
                     },
                     Punctuator::FORWARDSLASH => {
                         //put values on stack
-                        write!(result, "{}", lhs.generate_assembly()).unwrap();
-                        write!(result, "{}", rhs.generate_assembly()).unwrap();
+                        asm_line!(result, "{}", lhs.generate_assembly());
+                        asm_line!(result, "{}", rhs.generate_assembly());
 
-                        writeln!(result, "{}", asm_boilerplate::I32_DIVIDE).unwrap();
+                        asm_line!(result, "{}", asm_boilerplate::I32_DIVIDE);
                     },
                     _ => panic!("operator to binary expression is invalid")
                 }
@@ -209,9 +210,9 @@ impl Expression {
         let mut result = String::new();
 
         match self {
-            Expression::STACKVAR(stack_offset) => {
-                writeln!(result, "lea rax, [rbp-{}]", stack_offset.size_bytes()).unwrap();//calculate the address of the variable
-                writeln!(result, "push rax").unwrap();//push the address on to the stack
+            Expression::STACKVAR(decl) => {
+                asm_line!(result, "lea rax, [rbp-{}]", decl.stack_offset.size_bytes());//calculate the address of the variable
+                asm_line!(result, "push rax");//push the address on to the stack
             },
             _ => panic!("tried to generate assembly to assign to a non-lvalue")
         };

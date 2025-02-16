@@ -1,8 +1,11 @@
 use memory_size::MemoryLayout;
 
-use crate::{declaration::Declaration, memory_size};
+use crate::{declaration::{AddressedDeclaration, Declaration}, memory_size};
 
 
+/**
+ * a list of all the variables found so far
+ */
 #[derive(Clone)]
 pub struct StackVariables {
     vars: Vec<(Declaration, MemoryLayout)>,//the variable, and offset from bp
@@ -20,10 +23,13 @@ impl StackVariables {
     pub fn get_stack_used(&self) -> MemoryLayout {
         self.stack_used
     }
-    pub fn get_variable_bp_offset(&self, var_name: &str) -> Option<MemoryLayout> {
+    pub fn get_variable(&self, var_name: &str) -> Option<AddressedDeclaration> {
         for (var, location) in &self.vars {
             if var.get_name() == var_name {
-                return Some(*location);
+                return Some(AddressedDeclaration {
+                    decl: var.clone(),
+                    stack_offset: location.clone()
+                });
             }
         }
         None
