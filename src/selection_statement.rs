@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, punctuator::Punctuator}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -72,21 +72,21 @@ impl SelectionStatement {
                 let else_label = format!("{}_else", generic_label);//jump for the else branch
                 let if_end_label = format!("{}_not_taken", generic_label);//rendevous point for the if and else branches
 
-                write!(result, "{}", condition.generate_assembly()).unwrap();//generate the condition
-                writeln!(result, "pop rax").unwrap();
-                writeln!(result, "cmp rax, 0").unwrap();//compare the result to 0
-                writeln!(result, "je {}", if_end_label).unwrap();//if the result is 0, jump to the else block
+                asm_line!(result, "{}", condition.generate_assembly());//generate the condition
+                asm_line!(result, "pop rax");
+                asm_line!(result, "cmp rax, 0");//compare the result to 0
+                asm_line!(result, "je {}", if_end_label);//if the result is 0, jump to the else block
 
-                write!(result, "{}", if_body.generate_assembly(label_gen)).unwrap();//generate the body of the if statement
-                writeln!(result, "jmp {}", if_end_label).unwrap();//jump to the end of the if/else block
+                asm_line!(result, "{}", if_body.generate_assembly(label_gen));//generate the body of the if statement
+                asm_line!(result, "jmp {}", if_end_label);//jump to the end of the if/else block
 
                 if let Some(else_body) = else_body {
                     //there is code in the else block
-                    writeln!(result, "{}:", else_label).unwrap();//start of the else block
-                    write!(result, "{}", else_body.generate_assembly(label_gen)).unwrap();//generate the body of the else statement
+                    asm_line!(result, "{}:", else_label);//start of the else block
+                    asm_line!(result, "{}", else_body.generate_assembly(label_gen));//generate the body of the else statement
                 }
 
-                writeln!(result, "{}:", if_end_label).unwrap();//after if/else are complete, jump here
+                asm_line!(result, "{}:", if_end_label);//after if/else are complete, jump here
 
             }
         }

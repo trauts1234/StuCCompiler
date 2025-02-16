@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{ast_metadata::ASTMetadata, expression::Expression, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, punctuator::Punctuator}, memory_size, stack_variables::StackVariables, type_info::TypeInfo};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, type_info::TypeInfo};
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
@@ -82,7 +82,7 @@ impl InitialisedDeclaration {
         let mut result = String::new();
 
         if let Some(init) = &self.initialisation {
-            write!(result, "{}", init.generate_assembly()).unwrap();//init is an expression that assigns to the variable, so no more work for me
+            asm_line!(result, "{}", init.generate_assembly());//init is an expression that assigns to the variable, so no more work for me
         }
 
         result

@@ -1,5 +1,7 @@
 use std::fmt::Write;
 
+use crate::asm_generation::asm_line;
+
 pub fn add_boilerplate(instructions: String) -> String {
     /*
     * set up some boilerplate, including:
@@ -26,9 +28,9 @@ _start:
 pub fn func_exit_boilerplate() -> String {
     let mut result = String::new();
     //remove stack frame
-    writeln!(result, "mov rsp, rbp").unwrap();
-    writeln!(result, "pop rbp").unwrap();
-    writeln!(result, "ret").unwrap();
+    asm_line!(result, "mov rsp, rbp");
+    asm_line!(result, "pop rbp");
+    asm_line!(result, "ret");
 
     result
 }

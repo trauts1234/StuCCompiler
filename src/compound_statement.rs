@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, punctuator::Punctuator}, stack_variables::StackVariables};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
@@ -50,7 +50,7 @@ impl ScopeStatements {
         let mut result = String::new();
 
         for statement in &self.statements {
-            write!(result, "{}", statement.generate_assembly(label_gen)).unwrap();
+            asm_line!(result, "{}", statement.generate_assembly(label_gen));
         }
 
         result

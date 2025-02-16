@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, label_generator::LabelGenerator, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, selection_statement::SelectionStatement, stack_variables::StackVariables};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, label_generator::LabelGenerator, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, selection_statement::SelectionStatement, stack_variables::StackVariables};
 use std::fmt::Write;
 
 #[derive(Debug)]
@@ -42,16 +42,16 @@ impl Statement {
 
         match self {
             Self::COMPOUND(scope) => {
-                write!(result, "{}", scope.generate_assembly(label_gen)).unwrap();
+                asm_line!(result, "{}", scope.generate_assembly(label_gen));
             }
             Self::CONTROLFLOW(command) => {
-                write!(result, "{}", command.generate_assembly()).unwrap();
+                asm_line!(result, "{}", command.generate_assembly());
             }
             Self::EXPRESSION(expr) => {
-                write!(result, "{}", expr.generate_assembly()).unwrap();
+                asm_line!(result, "{}", expr.generate_assembly());
             }
             Self::SELECTION(selection) => {
-                write!(result, "{}", selection.generate_assembly(label_gen)).unwrap();
+                asm_line!(result, "{}", selection.generate_assembly(label_gen));
             }
         }
 

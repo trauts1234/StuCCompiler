@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, label_generator::LabelGenerator, lexer::{token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue, punctuator::Punctuator}, memory_size, stack_variables::StackVariables, statement::Statement, type_info::TypeInfo};
+use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, statement::Statement, type_info::TypeInfo};
 use std::fmt::Write;
 
 /**
@@ -83,16 +83,15 @@ impl FunctionDefinition {
         let mut result = String::new();
 
         //set label as same as function name
-        writeln!(result, "func_{}:", self.function_name).unwrap();
+        asm_line!(result, "func_{}:", self.function_name);
         //create stack frame
-        writeln!(result, "push rbp").unwrap();
-        writeln!(result, "mov rbp, rsp").unwrap();
-        writeln!(result, "sub rsp, {}", self.stack_required.size_bytes()).unwrap();
+        asm_line!(result, "push rbp");
+        asm_line!(result, "mov rbp, rsp");
+        asm_line!(result, "sub rsp, {}", self.stack_required.size_bytes());
 
-        //TODO generate stack information, and pass it to the code
-        write!(result, "{}", self.code.generate_assembly(label_gen)).unwrap();
+        asm_line!(result, "{}", self.code.generate_assembly(label_gen));
 
-        writeln!(result, "{}", asm_boilerplate::func_exit_boilerplate()).unwrap();
+        asm_line!(result, "{}", asm_boilerplate::func_exit_boilerplate());
 
         return result;
     }
