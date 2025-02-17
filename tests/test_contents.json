@@ -86,5 +86,9 @@
     {
         "filename":"ptrrefderef.c",
         "return_code":69
+    },
+    {
+        "filename": "ptrinlined.c",
+        "return_code":69
     }
 ]

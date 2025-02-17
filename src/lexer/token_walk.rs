@@ -129,4 +129,38 @@ impl TokenQueue {
 
         slices
     }
+
+    /**
+     * given a slice that starts with an open curly, and contains a close curly
+     * consume from location all the parenthesis data including ( )
+     * and return a slice of all the tokens inside the parenthesis excluding ( )
+     */
+    pub fn consume_inside_parenthesis(&self, location: &mut TokenQueueSlice) -> TokenQueueSlice {
+        assert!(self.peek(location) == Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)));
+
+        let mut inside_parentheses = 0;
+        let parenthesis_open_idx = location.index;
+
+        for i in parenthesis_open_idx..location.max_index {
+            match &self.tokens[i] {
+                Token::PUNCTUATOR(Punctuator::OPENCURLY) => {
+                    inside_parentheses += 1;
+                },
+
+                Token::PUNCTUATOR(Punctuator::CLOSECURLY) => {
+                    inside_parentheses -= 1;
+
+                    if inside_parentheses == 0 {
+                        //bracket takes us outside of all brackets, must be matching bracket
+                        location.index = i+1;//consume until the token after close bracket
+                        return TokenQueueSlice {index: parenthesis_open_idx+1, max_index: i};//return slice of inside the brackets
+                    }
+                },
+
+                _ => {}
+            }
+        }
+
+        panic!("close bracket not found")
+    }
 }

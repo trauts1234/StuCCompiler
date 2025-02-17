@@ -37,4 +37,8 @@ impl NumberLiteral {
 
         self.unformatted_text.to_string()
     }
+
+    pub fn as_usize(&self) -> Option<usize> {
+        self.unformatted_text.parse::<usize>().ok()
+    }
 }

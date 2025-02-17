@@ -11,6 +11,8 @@ pub enum Punctuator {
     CLOSECURLY,
     OPENSQUIGGLY,
     CLOSESQUIGGLY,
+    OPENSQUARE,
+    CLOSESQUARE,
     COMMA
 }
 
@@ -29,6 +31,8 @@ impl Punctuator {
             ")" => Some(Self::CLOSECURLY),
             "{" => Some(Self::OPENSQUIGGLY),
             "}" => Some(Self::CLOSESQUIGGLY),
+            "[" => Some(Self::OPENSQUARE),
+            "]" => Some(Self::CLOSESQUARE),
 
             "," => Some(Self::COMMA),
             _ => None
