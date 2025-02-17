@@ -94,5 +94,9 @@
     {
         "filename": "brackets.c",
         "return_code":20
+    },
+    {
+        "filename":"pointerbidmas.c",
+        "return_code":3
     }
 ]

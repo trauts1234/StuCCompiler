@@ -52,7 +52,7 @@ impl Expression {
         }
 
         match curr_queue_idx.get_slice_size() {
-            0 => panic!("not expecting this, maybe it is not an expression"),
+            0 => None,//panic!("not expecting this, maybe it is not an expression"),
 
             1 => {
                 //1 token left, check if it is a number
@@ -69,12 +69,12 @@ impl Expression {
             },
 
             _ => {
-                //TODO handle brackets outside of operator
 
-                for precedence_required in precedence::min_precedence()..=precedence::max_precedence() {
-                    //try to find an operator, starting with the operators that bind the hardest (small precedence)
+                for precedence_required in (precedence::min_precedence()..=precedence::max_precedence()).rev() {
+                    //try to find an operator to split the expression by, starting with the operators that bind the weakest (high precedence)
 
                     //find which direction the operators should be considered
+                    //true is l->r, which means that if true, scan direction for splitting points should be reversed
                     let associative_direction = precedence::get_associativity_direction(precedence_required);
 
                     if associative_direction {
@@ -120,7 +120,6 @@ impl Expression {
                         match try_parse_binary_expr(tokens_queue, &curr_queue_idx, &operator_idx, local_variables) {
                             Some(x) => {return Some(x);}
                             None => {
-                                println!("failed to match at precedence {}, even though I found an operator at index {}", precedence_required, operator_idx.index);
                                 continue;
                             }
                         }

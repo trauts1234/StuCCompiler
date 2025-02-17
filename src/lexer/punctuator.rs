@@ -47,8 +47,8 @@ impl Punctuator {
     pub fn as_binary_operator_precedence(&self) -> Option<i32> {
 
         match self {
-            Self::PLUS => Some(2),
-            Self::DASH => Some(2),
+            Self::PLUS => Some(4),
+            Self::DASH => Some(4),
             Self::ASTERISK => Some(3),//binary operator as in multiply
             Self::FORWARDSLASH => Some(3),
             Self::EQUALS => Some(14),
