@@ -90,5 +90,9 @@
     {
         "filename": "ptrinlined.c",
         "return_code":69
+    },
+    {
+        "filename": "brackets.c",
+        "return_code":20
     }
 ]

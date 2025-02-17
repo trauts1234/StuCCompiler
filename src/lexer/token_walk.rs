@@ -7,6 +7,14 @@ pub struct TokenQueue {
     tokens: Vec<Token>,
 }
 
+/**
+ * a struct for where to search when searching for a closure in a TokenQueue
+ */
+pub struct TokenSearchType {
+    pub(crate) skip_in_curly_brackets: bool,
+    pub(crate) skip_in_square_brackets: bool,
+}
+
 impl TokenQueue {
     pub fn new(token_list: Vec<Token>) -> TokenQueue{
         TokenQueue {
@@ -66,9 +74,10 @@ impl TokenQueue {
     /**
      * returns a list of zero size slices, that have an index of each token matching the predicate
      */
-    pub fn find_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher) -> Vec<TokenQueueSlice> 
+    pub fn find_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Vec<TokenQueueSlice> 
     where Matcher: Fn(&Token) -> bool
     {
+        let mut bracket_depth = 0;//how many sets of brackets I am in
 
         let min_index = 0.max(slice.index);//either start of list, or start of slice
         let max_index = self.tokens.len().min(slice.max_index);//end of array or end of slice
@@ -78,8 +87,26 @@ impl TokenQueue {
         let mut found_matches = Vec::new();
 
         for i in range {
-            if predicate(&self.tokens[i]) {
-                found_matches.push(TokenQueueSlice {index: i, max_index: i+1});
+            match &self.tokens[i] {
+                Token::PUNCTUATOR(Punctuator::OPENCURLY) if exclusions.skip_in_curly_brackets => {
+                    bracket_depth += 1;//I should avoid being in brackets if that flag is set
+                }
+                Token::PUNCTUATOR(Punctuator::CLOSECURLY) if exclusions.skip_in_curly_brackets => {
+                    bracket_depth -= 1;
+                }
+
+                Token::PUNCTUATOR(Punctuator::OPENSQUARE) if exclusions.skip_in_square_brackets => {
+                    bracket_depth += 1;
+                }
+                Token::PUNCTUATOR(Punctuator::CLOSESQUARE) if exclusions.skip_in_square_brackets => {
+                    bracket_depth -= 1;
+                }
+
+                tok if bracket_depth == 0 && predicate(&tok) => {//outside of brackets, matching the predicate, and bracket depth was not just changed
+                    found_matches.push(TokenQueueSlice {index: i, max_index: i+1});
+                }
+                
+                _ => {}
             }
         }
 
@@ -162,5 +189,27 @@ impl TokenQueue {
         }
 
         panic!("close bracket not found")
+    }
+
+    /**
+     * detects if the slice passed is all the text: (anything) including brackets on both sides
+     */
+    pub fn slice_is_parenthesis(&self, slice: &TokenQueueSlice) -> bool {
+        //ensure the start is an open bracket
+        if self.peek(slice) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)){
+            return false;
+        }
+
+        //sum open and close brackets
+        let resultant_bracket_level = 
+        self.tokens[slice.index..slice.max_index].iter()
+            .map(|x| match x {
+                Token::PUNCTUATOR(Punctuator::OPENCURLY) => 1,
+                Token::PUNCTUATOR(Punctuator::CLOSECURLY) => -1,
+                _ => 0
+            }).sum::<i32>();
+
+        //ensure this equals 0
+        return resultant_bracket_level == 0;
     }
 }

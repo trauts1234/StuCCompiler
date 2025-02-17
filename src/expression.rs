@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, declaration::AddressedDeclaration, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, declaration::AddressedDeclaration, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables};
 use std::fmt::Write;
 use crate::asm_generation::asm_line;
 
@@ -42,8 +42,13 @@ impl Expression {
     pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<Expression> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-        if tokens_queue.peek(&curr_queue_idx) == Some(Token::PUNCTUATOR(Punctuator::AMPERSAND)){
-            println!("found the ampersand");//debugging
+        if tokens_queue.slice_is_parenthesis(&curr_queue_idx) {
+            //we are an expression surrounded by brackets
+            //remove the outer brackets and continue
+            curr_queue_idx = TokenQueueSlice {
+                index: curr_queue_idx.index+1,
+                max_index: curr_queue_idx.max_index-1
+            };
         }
 
         match curr_queue_idx.get_slice_size() {
@@ -100,7 +105,13 @@ impl Expression {
                         .is_some_and(|precedence| precedence == precedence_required)//ensure that it is the correct precedence level
                     };
 
-                    let operator_indexes = tokens_queue.find_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure);
+                    //when searching, avoid splitting by something found inside brackets
+                    let exclusions = TokenSearchType{
+                        skip_in_curly_brackets: true,
+                        skip_in_square_brackets: true,
+                    };
+
+                    let operator_indexes = tokens_queue.find_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure, &exclusions);
 
                     for operator_idx in operator_indexes {
                         //try to find an operator
