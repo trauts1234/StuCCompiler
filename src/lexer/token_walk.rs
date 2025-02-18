@@ -35,6 +35,16 @@ impl TokenQueue {
         Some(self.tokens[next_idx].clone())
     }
 
+    pub fn peek_back(&self, location: &TokenQueueSlice) -> Option<Token> {
+        let max_idx = location.max_index.min(self.tokens.len());
+
+        if location.index >= location.max_index {
+            return None;
+        }
+
+        Some(self.tokens[max_idx].clone())
+    }
+
     pub fn consume(&self, location: &mut TokenQueueSlice) -> Option<Token> {
         let next = self.peek(&location);
         location.next();

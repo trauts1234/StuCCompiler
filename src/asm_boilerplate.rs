@@ -35,6 +35,13 @@ pub fn func_exit_boilerplate() -> String {
     result
 }
 
+pub const PUSH_EAX: &str = 
+"sub rsp, 4
+mov [rsp], eax";
+pub const POP_EAX: &str = 
+"mov eax, [rsp]
+add rsp, 4";
+
 pub const I32_ADD: &str =
 ";add two i32s
 pop rax

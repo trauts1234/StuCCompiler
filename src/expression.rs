@@ -79,6 +79,12 @@ impl Expression {
 
                     if associative_direction {
                         //look for unary postfixes as association is left to right
+                        let last_token = tokens_queue.peek_back(&curr_queue_idx)?;
+
+                        //handle array indexing as that is a special case of binary operator
+                        if last_token == Token::PUNCTUATOR(Punctuator::CLOSESQUARE) && precedence_required == 1 {
+                            todo!("implement array indexing")
+                        }
                     } else {
                         //look for unary prefix as association is right to left
                         let first_token = tokens_queue.peek(&curr_queue_idx)?;
@@ -140,12 +146,17 @@ impl Expression {
 
         match self {
             Expression::STACKVAR(decl) => {
-                asm_line!(result, "mov rax, [rbp-{}]", decl.stack_offset.size_bytes());//load the value from memory
-                asm_line!(result, "push rax");//push the value on to the stack
+                match decl.decl.get_memory_usage().size_bytes() {
+                    4 => {
+                        asm_line!(result, "mov eax, [rbp-{}]", decl.stack_offset.size_bytes());
+                        asm_line!(result, "{}", asm_boilerplate::PUSH_EAX);
+                    },
+                    _ => panic!("unknown data size")
+                }
             },
             Expression::NUMBER(number_literal) => {
-                asm_line!(result, "mov rax, {}", number_literal.nasm_format());
-                asm_line!(result, "push rax");
+                asm_line!(result, "mov eax, {}", number_literal.nasm_format());
+                asm_line!(result, "{}", asm_boilerplate::PUSH_EAX);
             },
             Expression::PREFIXEXPR(operator, rhs) => {
                 match operator {
