@@ -224,6 +224,10 @@ impl Expression {
                 asm_line!(result, "lea rax, [rbp-{}]", decl.stack_offset.size_bytes());//calculate the address of the variable
                 asm_line!(result, "push rax");//push the address on to the stack
             },
+            Expression::PREFIXEXPR(Punctuator::ASTERISK, expr_box) => {
+                //&*x == x
+                asm_line!(result, "{}", &expr_box.generate_assembly());
+            }
             _ => panic!("tried to generate assembly to assign to a non-lvalue")
         };
         result

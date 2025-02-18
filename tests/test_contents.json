@@ -98,5 +98,9 @@
     {
         "filename":"pointerbidmas.c",
         "return_code":3
+    },
+    {
+        "filename":"setpointer.c",
+        "return_code":3
     }
 ]
