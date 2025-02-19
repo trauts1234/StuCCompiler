@@ -203,10 +203,8 @@ impl Expression {
                     Punctuator::ASTERISK => {
                         asm_comment!(result, "dereferencing pointer");
                         // put the _pointer's_ memory location on the stack
-                        asm_line!(result, "{}", rhs.put_lvalue_addr_on_stack());
-                        asm_line!(result, "{}", asm_boilerplate::pop_reg("rax"));//put the pointer's address into RAX
-
-                        asm_line!(result, "mov rax, [rax]");//load the pointer into RAX
+                        asm_line!(result, "{}", rhs.generate_assembly());
+                        asm_line!(result, "{}", asm_boilerplate::pop_reg("rax"));//load the pointer into RAX
 
                         let temp_register = asm_generation::generate_reg_name(&rhs.get_data_type().memory_size(), "ax");//choose which register to temporarily store the value into
                         
