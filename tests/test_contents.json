@@ -114,5 +114,13 @@
     {
         "filename":"addpointer.c",
         "return_code":1
+    },
+    {
+        "filename":"arrayindex.c",
+        "return_code":2
+    },
+    {
+        "filename":"equalsintpromotion.c",
+        "return_code":2
     }
 ]

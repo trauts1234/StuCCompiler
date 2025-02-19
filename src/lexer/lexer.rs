@@ -1,6 +1,6 @@
 use crate::{number_literal::NumberLiteral, type_info::TypeInfo};
 
-use super::{remove_comments::remove_comments, token::Token, punctuator::Punctuator};
+use super::{token::Token, punctuator::Punctuator};
 
 fn is_keyword(text: &str) -> bool {
     let possible_keywords = vec!["break", "case", "continue", "default", "do", "else", "enum", "for", "goto", "if", "return", "sizeof", "struct", "switch", "typedef", "union", "while", "_Bool"];
@@ -39,10 +39,9 @@ impl Lexer {
      * take in raw data from a file, to generate a tokenizing lexer
      * note: automatically deals with \ \n and comments etc.
      */
-    pub fn new(file_data: &str) -> Lexer{
-        let comment_adjusted_data = remove_comments(file_data);
+    pub fn new(sanitised_file: &str) -> Lexer{
         Lexer{
-            data: comment_adjusted_data,
+            data: sanitised_file.to_string(),
             next_to_eat:0
         }
     }

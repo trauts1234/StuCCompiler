@@ -54,6 +54,9 @@ pub fn push_reg(reg_name: &str) -> String {
 }
 
 pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
+    if original == new_type {
+        return String::new();//no casting needed
+    }
     if let Some(ptr) = original.decay_array_to_pointer() {
         //arrays are just pointers in disguise
         return cast_from_stack(&ptr, new_type);
@@ -113,3 +116,7 @@ pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
 pub const I32_DIVIDE: &str =
 "cdq
 idiv ebx";
+
+pub const I64_DIVIDE: &str =
+"cqo
+idiv rbx";

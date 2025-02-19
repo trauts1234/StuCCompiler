@@ -78,13 +78,15 @@ impl Expression {
                     let associative_direction = precedence::get_associativity_direction(precedence_required);
 
                     if associative_direction {
-                        //look for unary postfixes as association is left to right
-                        let last_token = tokens_queue.peek_back(&curr_queue_idx)?;
+                        assert!(curr_queue_idx.max_index <= tokens_queue.tokens.len());
 
-                        //handle array indexing as that is a special case of binary operator
-                        if last_token == Token::PUNCTUATOR(Punctuator::CLOSESQUARE) && precedence_required == 1 {
-                            todo!("implement array indexing")
+                        if precedence_required == 1 {
+                            match try_parse_array_index(tokens_queue, &curr_queue_idx, local_variables) {
+                                Some(x) => {return Some(x)},
+                                None => {}
+                            }
                         }
+
                     } else {
                         //look for unary prefix as association is right to left
                         let first_token = tokens_queue.peek(&curr_queue_idx)?;
@@ -181,11 +183,19 @@ impl Expression {
 
         match self {
             Expression::STACKVAR(decl) => {
-                let reg_name = asm_generation::generate_reg_name(&decl.decl.data_type.memory_size(), "ax");//decide which register size is appropriate for this variable
-                asm_comment!(result, "reading variable: {} to register {}", decl.decl.name, reg_name);
 
-                asm_line!(result, "mov {}, [rbp-{}]", reg_name, decl.stack_offset.size_bytes());//get the value from its address on the stack
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&reg_name));//push on to top of stack
+                if decl.decl.data_type.is_array() {
+                    //getting an array, decays to a pointer
+                    asm_comment!(result, "decaying array {} to pointer", decl.decl.name);
+                    asm_line!(result, "lea rax, [rbp-{}]", decl.stack_offset.size_bytes());
+                    asm_line!(result, "{}", asm_boilerplate::push_reg("rax"));
+                } else {
+                    let reg_name = asm_generation::generate_reg_name(&decl.decl.data_type.memory_size(), "ax");//decide which register size is appropriate for this variable
+                    asm_comment!(result, "reading variable: {} to register {}", decl.decl.name, reg_name);
+
+                    asm_line!(result, "mov {}, [rbp-{}]", reg_name, decl.stack_offset.size_bytes());//get the value from its address on the stack
+                    asm_line!(result, "{}", asm_boilerplate::push_reg(&reg_name));//push on to top of stack
+                }
             },
             Expression::NUMBER(number_literal) => {
                 let reg_name = asm_generation::generate_reg_name(&number_literal.get_data_type().data_type.memory_size(), "ax");//decide which register should be used temporarily to push the value
@@ -339,9 +349,15 @@ impl Expression {
 
                         asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_secondary_register), asm_boilerplate::pop_reg(&promoted_register));
 
-                        assert!(!promoted_type.underlying_type_is_unsigned() || promoted_type.is_pointer());//unsigned multiply??
-
-                        asm_line!(result, "{}", asm_boilerplate::I32_DIVIDE);
+                        match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type_is_unsigned()) {
+                            (4,false) => {
+                                asm_line!(result, "{}", asm_boilerplate::I32_DIVIDE);
+                            },
+                            (8,false) => {
+                                asm_line!(result, "{}", asm_boilerplate::I64_DIVIDE);
+                            }
+                            _ => panic!("unsupported operands")
+                        }
 
                         asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_register));
                     },
@@ -406,4 +422,35 @@ fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
         .as_punctuator().expect("couldn't cast to punctuator");
 
     Some(Expression::BINARYEXPR(Box::new(parsed_left), operator, Box::new(parsed_right)))
+}
+
+fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<Expression> {
+    //look for unary postfixes as association is left to right
+    let last_token = tokens_queue.peek_back(&curr_queue_idx)?;
+
+    //handle array indexing as that is a special case of binary operator
+    if last_token == Token::PUNCTUATOR(Punctuator::CLOSESQUARE) {
+        let square_open_idx = tokens_queue.find_matching_open_square_bracket(curr_queue_idx.max_index-1);//-1 as max index is exclusive
+
+        let index_slice = TokenQueueSlice {//index to array, pointer etc
+            index: square_open_idx+1,
+            max_index: curr_queue_idx.max_index-1
+        };
+        let array_slice = TokenQueueSlice {//array or pointer etc.
+            index: curr_queue_idx.index,
+            max_index: square_open_idx
+        };
+
+        let index_expr = Expression::try_consume_whole_expr(tokens_queue, &index_slice, local_variables)?;
+        let array_expr = Expression::try_consume_whole_expr(tokens_queue, &array_slice, local_variables)?;
+
+        //a[b] == *(a+b) in C
+        return Some(
+            Expression::PREFIXEXPR(Punctuator::ASTERISK, Box::new(//dereference
+                Expression::BINARYEXPR(Box::new(array_expr), Punctuator::PLUS, Box::new(index_expr))//pointer plus index
+            ))
+        )
+    }
+
+    None
 }

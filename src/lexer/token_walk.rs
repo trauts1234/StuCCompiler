@@ -4,7 +4,7 @@ use super::{token::Token, token_savepoint::TokenQueueSlice, punctuator::Punctuat
  * this steps through each token
  */
 pub struct TokenQueue {
-    tokens: Vec<Token>,
+    pub(crate) tokens: Vec<Token>,
 }
 
 /**
@@ -36,9 +36,9 @@ impl TokenQueue {
     }
 
     pub fn peek_back(&self, location: &TokenQueueSlice) -> Option<Token> {
-        let max_idx = location.max_index.min(self.tokens.len());
+        let max_idx = location.max_index-1;
 
-        if location.index >= location.max_index {
+        if location.index >= location.max_index || location.max_index > self.tokens.len() {
             return None;
         }
 
@@ -221,5 +221,22 @@ impl TokenQueue {
 
         //ensure this equals 0
         return resultant_bracket_level == 0;
+    }
+
+    pub fn find_matching_open_square_bracket(&self, close_idx: usize) -> usize {
+        let mut bracket_depth = 0;
+        assert!(self.tokens[close_idx] == Token::PUNCTUATOR(Punctuator::CLOSESQUARE));
+
+        for i in (0..=close_idx).rev() {
+            match self.tokens[i] {
+                Token::PUNCTUATOR(Punctuator::OPENSQUARE) => {bracket_depth += 1;},
+                Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => {bracket_depth -= 1;},
+                _ => {}
+            }
+
+            if bracket_depth == 0 {return i;}
+        }
+
+        panic!("matching [ not found");
     }
 }

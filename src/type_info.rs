@@ -6,7 +6,6 @@ pub enum TypeInfo{
     INT,
     UNSIGNED,
     LONG,
-    //CHAR,//TODO
     //missing some, should have "static", and other bits that suggest the type of a variable
 }
 
@@ -19,7 +18,7 @@ pub enum DeclModifier {
 /**
  * an entire type to describe anything's type
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DataType {
     pub(crate) type_info: Vec<TypeInfo>,
     pub(crate) modifiers: Vec<DeclModifier>//apply top to bottom of stack, so [POINTER, ARRAY(4)] is an (array of 4) pointer
@@ -71,6 +70,17 @@ impl DataType {
         }
         
         return self.modifiers[0] == DeclModifier::POINTER;//pointer to anything
+    }
+    pub fn is_array(&self) -> bool {
+        if self.modifiers.len() == 0{
+            return false;
+        }
+
+        if let DeclModifier::ARRAY(_) = self.modifiers[0] {
+            return true;
+        }
+
+        false
     }
 
     /**
