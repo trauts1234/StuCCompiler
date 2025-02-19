@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::{self, asm_line}, ast_metadata::ASTMetadata, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
+use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
 use std::fmt::Write;
 
 /**

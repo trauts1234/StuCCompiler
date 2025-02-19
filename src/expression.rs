@@ -1,5 +1,4 @@
 use crate::{asm_boilerplate, asm_generation, ast_metadata::ASTMetadata, declaration::AddressedDeclaration, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, stack_variables::StackVariables, type_info::{DataType, DeclModifier}};
-use core::num;
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 

@@ -1,4 +1,4 @@
-use crate::{memory_size::MemoryLayout, type_info};
+use crate::memory_size::MemoryLayout;
 
 
 #[derive(Debug, Clone, PartialEq)]
