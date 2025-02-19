@@ -19,6 +19,7 @@ mod memory_size;
 mod selection_statement;
 mod label_generator;
 pub mod asm_generation;
+pub mod preprocessor;
 fn main() {
     compile::compile("test.c", "a").unwrap();
 }

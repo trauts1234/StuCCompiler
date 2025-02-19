@@ -15,4 +15,7 @@ pub enum CompilationError {
 
     #[error("Misc. error: {0}")]
     MISC(String),
+
+    #[error("#error found in source code")]
+    HASHERR
 }
