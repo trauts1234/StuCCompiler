@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
+use crate::{asm_boilerplate, asm_generation::{self, asm_line}, ast_metadata::ASTMetadata, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables};
 use std::fmt::Write;
 
 /**
@@ -50,10 +50,14 @@ impl ControlFlowChange {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
                     asm_line!(result, "{}", expr.generate_assembly());
-                    asm_line!(result, "pop rax");
+                    //TODO cast here
+                    asm_line!(result, "{}", asm_boilerplate::pop_reg("eax"))
                 }
                 //warning: ensure result is in the correct register and correctly sized
-                asm_line!(result, "{}", asm_boilerplate::func_exit_boilerplate());
+                //destroy stack frame and return
+                asm_line!(result, "mov rsp, rbp");
+                asm_line!(result, "pop rbp");
+                asm_line!(result, "ret");
             },
         }
 

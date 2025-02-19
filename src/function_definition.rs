@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, statement::Statement, type_info::TypeInfo};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, statement::Statement, type_info::DataType};
 use std::fmt::Write;
 
 /**
@@ -8,7 +8,7 @@ use std::fmt::Write;
  */
 #[derive(Debug)]
 pub struct FunctionDefinition {
-    return_type: Vec<TypeInfo>,
+    return_type: DataType,
     function_name: String,
     code: Statement,//statement could be a scope if it wants
     //params: Declaration,
@@ -35,6 +35,7 @@ impl FunctionDefinition {
                 break;
             }
         }
+        //TODO pointer etc
 
         if return_data.len() == 0 {
             return None;//missing type info
@@ -67,7 +68,10 @@ impl FunctionDefinition {
         
         return Some(ASTMetadata{
             resultant_tree: FunctionDefinition {
-                return_type:return_data,
+                return_type:DataType{
+                    type_info: return_data,
+                    modifiers: Vec::new(),
+                },
                 function_name: func_name,
                 code: resultant_tree,
                 stack_required: extra_stack_used
@@ -91,7 +95,9 @@ impl FunctionDefinition {
 
         asm_line!(result, "{}", self.code.generate_assembly(label_gen));
 
-        asm_line!(result, "{}", asm_boilerplate::func_exit_boilerplate());
+        asm_line!(result, "mov rsp, rbp");
+        asm_line!(result, "pop rbp");
+        asm_line!(result, "ret");
 
         return result;
     }

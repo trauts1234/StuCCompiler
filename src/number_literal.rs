@@ -1,3 +1,7 @@
+use std::thread::panicking;
+
+use crate::{declaration::Declaration, type_info::{DataType, TypeInfo}};
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberLiteral {
@@ -36,6 +40,20 @@ impl NumberLiteral {
 
 
         self.unformatted_text.to_string()
+    }
+
+    pub fn get_data_type(&self) -> Declaration {
+        if self.unformatted_text.contains("."){
+            panic!("floats not implemented")
+        } else {
+            Declaration {
+                data_type: DataType {
+                    type_info: vec![TypeInfo::INT],
+                    modifiers: Vec::new(),
+                },
+                name: String::new(),
+            }
+        }
     }
 
     pub fn as_usize(&self) -> Option<usize> {

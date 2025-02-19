@@ -1,4 +1,4 @@
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
+use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -73,7 +73,11 @@ impl SelectionStatement {
                 let if_end_label = format!("{}_not_taken", generic_label);//rendevous point for the if and else branches
 
                 asm_line!(result, "{}", condition.generate_assembly());//generate the condition
-                asm_line!(result, "pop rax");
+                match condition.get_data_type().memory_size().size_bytes() {
+                    4 => {asm_line!(result, "{}", asm_boilerplate::pop_reg("eax"))},
+                    8 => {asm_line!(result, "{}", asm_boilerplate::pop_reg("rax"))},
+                    _ => panic!("unknown data size in if statement")
+                }
                 asm_line!(result, "cmp rax, 0");//compare the result to 0
                 asm_line!(result, "je {}", if_end_label);//if the result is 0, jump to the else block
 

@@ -1,6 +1,6 @@
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line}, type_info::{DataType, TypeInfo}};
 use std::fmt::Write;
 
-use crate::asm_generation::asm_line;
 
 pub fn add_boilerplate(instructions: String) -> String {
     /*
@@ -25,68 +25,91 @@ _start:
 
 }
 
-pub fn func_exit_boilerplate() -> String {
-    let mut result = String::new();
-    //remove stack frame
-    asm_line!(result, "mov rsp, rbp");
-    asm_line!(result, "pop rbp");
-    asm_line!(result, "ret");
+pub fn pop_reg(reg_name: &str) -> String {
+    let prefix = reg_name.chars().next().unwrap();
 
-    result
+    let bytes_sub_from_sp = match prefix {
+        'e' => 4,
+        'r' => 8,
+        _ => panic!("undefined register prefix {}", prefix)
+    };
+
+    format!(
+        ";pop {}\nmov {}, [rsp]\nadd rsp, {}",reg_name, reg_name, bytes_sub_from_sp
+    )
 }
 
-pub const PUSH_EAX: &str = 
-"sub rsp, 4
-mov [rsp], eax";
-pub const POP_EAX: &str = 
-"mov eax, [rsp]
-add rsp, 4";
+pub fn push_reg(reg_name: &str) -> String {
+    let prefix = reg_name.chars().next().unwrap();
 
-pub const I32_ADD: &str =
-";add two i32s
-pop rax
-pop rbx
-add eax, ebx
-movsxd rax, eax
-push rax";
+    let bytes_sub_from_sp = match prefix {
+        'e' => 4,
+        'r' => 8,
+        _ => panic!("undefined register prefix {}", prefix)
+    };
+
+    format!(
+        ";push {}\nsub rsp, {}\nmov [rsp], {}", reg_name, bytes_sub_from_sp, reg_name
+    )
+}
+
+pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
+    if let Some(ptr) = original.decay_array_to_pointer() {
+        //arrays are just pointers in disguise
+        return cast_from_stack(&ptr, new_type);
+    }
+
+    let mut result = String::new();
+
+    if original.is_pointer() {
+        //cast pointer to u64
+        //pointers are stored in memory just like u64, so no modifications needed
+        let original_implicitly_as_u64 = DataType {
+            type_info: vec![TypeInfo::UNSIGNED, TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
+            modifiers: Vec::new(),
+        };
+        //cast from
+        return cast_from_stack(&original_implicitly_as_u64, new_type);
+    }
+
+    if original.underlying_type_is_integer() && new_type.underlying_type_is_integer() {
+        match (original.memory_size().size_bytes(), original.underlying_type_is_unsigned()) {
+            (8, _) => {
+                asm_comment!(result, "casting 64 bit integer to {} bit integer", new_type.memory_size().size_bytes());
+                asm_line!(result, "{}", asm_boilerplate::pop_reg("rax"));//grab the unsigned 64 bit number
+
+                let resultant_reg_name = asm_generation::generate_reg_name(&new_type.memory_size(), "ax");//which type of ax register will the value be in
+
+                //no matter the signedness of original, you just need to get the bottom few bits of it,
+                //because positive numbers are the same for uxx and ixx in original
+                //negative numbers are already sign extended, so need no special treatment
+                asm_line!(result, "{}", asm_boilerplate::push_reg(&resultant_reg_name));
+            }
+            (4, false) => {
+                asm_comment!(result, "casting i32 to i64");
+                asm_line!(result, "{}", asm_boilerplate::pop_reg("eax"));//32 bit input -> eax
+                asm_line!(result, "movsxd rax, eax");//sign extend eax -> rax
+                asm_line!(result, "{}", asm_boilerplate::push_reg("rax"));//rax -> 64 bit output
+
+                let original_now_as_i64 = DataType {
+                    type_info:vec![TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
+                    modifiers: Vec::new(),
+                };
+                asm_line!(result, "{}", cast_from_stack(&original_now_as_i64, new_type));//cast the i64 back down to whatever new_type is
+            },
+            (size, unsigned) => panic!("casting this type of integer is not implemented: {} bytes, unsigned?: {}", size, unsigned)
+        }
+        return result;
+    }
+
+
+    panic!("can't cast these");
+}
 
 /**
- * note the order that operands are popped off the stack
- */
-pub const I32_SUBTRACT: &str =
-";subtract two i32s
-pop rbx
-pop rax
-sub eax, ebx
-movsxd rax, eax
-push rax";
-
-/**
- * read the two numbers
- * multiply them to edx:eax (64 bit register pair)
- * sign extend the bottom 32 bits to 64 bits
- * then push to stack
- */
-pub const I32_MULTIPLY: &str =
-";multiply two i32s
-pop rax
-pop rbx
-imul eax, ebx
-movsxd rax, eax
-push rax";
-
-/**
- * read the denominator to rbx
- * read the numerator to rax
- * extend rax to rdx:rax (128 bit register pair)
- * divide rdx:rax by rbx
- * sign extend the result, then push to stack
+ * extend eax to edx:eax (64 bit register pair)
+ * divide edx:eax by ebx
  */
 pub const I32_DIVIDE: &str =
-";divide two i32s
-pop rbx
-pop rax
-cdq
-idiv ebx
-movsxd rax, eax
-push rax";
+"cdq
+idiv ebx";

@@ -36,7 +36,7 @@ impl StackVariables {
     }
 
     pub fn add_variable(&mut self, decl: Declaration) {
-        self.stack_used += decl.get_memory_usage();//decrement the stack pointer first
+        self.stack_used += decl.get_type().memory_size();//decrement the stack pointer first
         self.vars.push((decl, self.stack_used));//then add the variable as I don't want to overwrite the return value
     }
     pub fn add_variables(&mut self, decls: Vec<Declaration>) {

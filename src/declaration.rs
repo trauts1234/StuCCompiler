@@ -1,13 +1,7 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, type_info::TypeInfo};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, type_info::{DataType, DeclModifier, TypeInfo}};
 use std::fmt::Write;
-
-#[derive(Debug, Clone)]
-pub enum DeclModifier {
-    POINTER,//this declaration is for a pointer to something
-    ARRAY(usize),//an array with usize elements
-}
 
 #[derive(Debug, Clone)]
 pub struct InitialisedDeclaration{
@@ -17,9 +11,8 @@ pub struct InitialisedDeclaration{
 
 #[derive(Debug, Clone)]
 pub struct Declaration {
-    data_type: Vec<TypeInfo>,
-    name: String,
-    modifiers_stack: Vec<DeclModifier>//apply top to bottom of stack, so [POINTER, ARRAY(4)] is an (array of 4) pointer
+    pub(crate) data_type: DataType,
+    pub(crate) name: String,
 }
 
 #[derive(Debug, Clone)]
@@ -91,11 +84,9 @@ impl InitialisedDeclaration {
 }
 
 impl Declaration {
-    pub fn get_type(&self) -> &Vec<TypeInfo> {
+    pub fn get_type(&self) -> &DataType {
+        //maybe unused
         &self.data_type
-    }
-    pub fn get_memory_usage(&self) -> MemoryLayout {
-        return MemoryLayout::from_bytes(8);//default for all data is 64 bits
     }
     pub fn get_name(&self) -> &str {
         &self.name
@@ -111,16 +102,20 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
-    let ASTMetadata{resultant_tree: Declaration { data_type: _, name: var_name, modifiers_stack }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, local_variables, data_type)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, local_variables, data_type)?;
 
     assert!(tokens_queue.peek(&curr_queue_idx) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
-    let extra_stack_needed = data_size_from_modifiers(MemoryLayout::from_bytes(8), &modifiers_stack);//default for all data is 64 bits, and then apply all the modifiers, see how big it should be then
+    let data_type = DataType{
+        type_info: data_type.clone(),
+        modifiers: modifiers.modifiers,
+    };
+
+    let extra_stack_needed = data_type.memory_size();//get the size of this variable
 
     let decl = Declaration {
         name: var_name.to_string(),
-        data_type: data_type.clone(),
-        modifiers_stack
+        data_type
     };
 
     local_variables.add_variable(decl.clone());//save variable to variable list early, so that I can reference it in the initialisation
@@ -175,9 +170,11 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
             tokens_queue.consume(&mut curr_queue_idx);//consume token
             //identifier name in the middle, grab it
             Declaration {
-                data_type: data_type.clone(),
+                data_type: DataType {
+                    type_info: data_type.clone(),
+                    modifiers: Vec::new(),
+                },
                 name: ident.to_string(),
-                modifiers_stack: Vec::new()
             }
         }
         _ => panic!("unknown token in the middle of a declaration")
@@ -201,7 +198,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
 
     //take the example int *(*foo)[10]
     let ordered_modifiers: Vec<DeclModifier> = //foo is a:
-        inner_data.modifiers_stack.into_iter()//pointer to
+        inner_data.data_type.modifiers.into_iter()//pointer to
         .chain(pointer_modifiers.into_iter())//pointer to
         .chain(array_modifiers.into_iter())//array of 10 integers
         .collect();
@@ -209,9 +206,11 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
     Some(ASTMetadata {
         remaining_slice: curr_queue_idx,
         resultant_tree: Declaration {
-            data_type: data_type.clone(),
+            data_type: DataType {
+                type_info: data_type.clone(),
+                modifiers: ordered_modifiers,
+            },
             name: inner_data.name,//inner always contains a name
-            modifiers_stack: ordered_modifiers
         },
         extra_stack_used: MemoryLayout::new()//not my job
     })
@@ -238,14 +237,4 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
         Punctuator::EQUALS,
         Box::new(Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables)?)
     ))
-}
-/**
- * base_dtype_size: the size of int or similar
- */
-fn data_size_from_modifiers(base_dtype_size: MemoryLayout, modifiers: &[DeclModifier]) -> MemoryLayout {
-    modifiers.iter()
-    .fold(base_dtype_size, |acc,x| match x {
-        DeclModifier::POINTER => MemoryLayout::from_bytes(8),//pointer to anything is always 8 bytes
-        DeclModifier::ARRAY(arr_elements) => MemoryLayout::from_bytes(acc.size_bytes() * arr_elements),
-    })
 }
