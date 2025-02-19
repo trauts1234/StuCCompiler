@@ -102,5 +102,9 @@
     {
         "filename":"setpointer.c",
         "return_code":3
+    },
+    {
+        "filename":"longlongintaddition.c",
+        "return_code":6
     }
 ]

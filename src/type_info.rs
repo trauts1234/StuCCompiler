@@ -137,7 +137,7 @@ impl TypeInfo {
     pub fn try_new(to_token: &str) -> Option<TypeInfo>{
         match to_token {
             "int" => Some(Self::INT),
-            //"char" => Some(Self::CHAR),
+            "long" => Some(Self::LONG),
             _ => None
         }
     }
