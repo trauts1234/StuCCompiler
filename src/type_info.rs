@@ -89,6 +89,21 @@ impl DataType {
             None
         }
     }
+
+    /**
+     * removes the outer layer of modifier
+     * e.g int* -> int
+     * *int[] -> int* (I think)
+     */
+    pub fn remove_outer_modifier(&self) -> DataType {
+        let mut result = self.clone();
+
+        if result.modifiers.len() > 0 {
+            result.modifiers.remove(0);//remove the first modifier
+        }
+
+        result
+    }
     
     /**
      * calculates the data type when simple arithmetic is applied to lhs and rhs

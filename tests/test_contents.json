@@ -106,5 +106,9 @@
     {
         "filename":"longlongintaddition.c",
         "return_code":6
+    },
+    {
+        "filename":"pointeradd.c",
+        "return_code":1
     }
 ]
