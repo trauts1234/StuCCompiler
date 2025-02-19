@@ -110,5 +110,9 @@
     {
         "filename":"pointeradd.c",
         "return_code":1
+    },
+    {
+        "filename":"addpointer.c",
+        "return_code":1
     }
 ]
