@@ -75,7 +75,7 @@ pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
     if original.underlying_type_is_integer() && new_type.underlying_type_is_integer() {
         match (original.memory_size().size_bytes(), original.underlying_type_is_unsigned()) {
             (8, _) => {
-                asm_comment!(result, "casting 64 bit integer to {} bit integer", new_type.memory_size().size_bytes());
+                asm_comment!(result, "casting 64 bit integer to {} bit integer", new_type.memory_size().size_bits());
                 asm_line!(result, "{}", asm_boilerplate::pop_reg("rax"));//grab the unsigned 64 bit number
 
                 let resultant_reg_name = asm_generation::generate_reg_name(&new_type.memory_size(), "ax");//which type of ax register will the value be in
