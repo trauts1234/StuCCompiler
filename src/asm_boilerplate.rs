@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line}, type_info::{DataType, TypeInfo}};
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, Register}, memory_size::MemoryLayout, type_info::{DataType, TypeInfo}};
 use std::fmt::Write;
 
 
@@ -54,9 +54,7 @@ pub fn push_reg(reg_name: &str) -> String {
 }
 
 pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
-    if original == new_type {
-        return String::new();//no casting needed
-    }
+
     if let Some(ptr) = original.decay_array_to_pointer() {
         //arrays are just pointers in disguise
         return cast_from_stack(&ptr, new_type);
@@ -78,10 +76,17 @@ pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
     if original.underlying_type_is_integer() && new_type.underlying_type_is_integer() {
         match (original.memory_size().size_bytes(), original.underlying_type_is_unsigned()) {
             (8, _) => {
-                asm_comment!(result, "casting 64 bit integer to {} bit integer", new_type.memory_size().size_bits());
-                asm_line!(result, "{}", asm_boilerplate::pop_reg("rax"));//grab the unsigned 64 bit number
 
-                let resultant_reg_name = asm_generation::generate_reg_name(&new_type.memory_size(), "ax");//which type of ax register will the value be in
+                let initial_reg_name = asm_generation::generate_reg_name(&MemoryLayout::from_bytes(8), Register::ACC);
+                let resultant_reg_name = asm_generation::generate_reg_name(&new_type.memory_size(), Register::ACC);
+
+                if initial_reg_name == resultant_reg_name{
+                    return String::new();//we would just be popping a register just to put it back again??? return here
+                }
+
+                asm_comment!(result, "casting 64 bit integer to {} bit integer", new_type.memory_size().size_bits());
+
+                asm_line!(result, "{}", asm_boilerplate::pop_reg(&initial_reg_name));//grab the unsigned 64 bit number
 
                 //no matter the signedness of original, you just need to get the bottom few bits of it,
                 //because positive numbers are the same for uxx and ixx in original
@@ -111,12 +116,12 @@ pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
 
 /**
  * extend eax to edx:eax (64 bit register pair)
- * divide edx:eax by ebx
+ * divide edx:eax by ecx
  */
-pub const I32_DIVIDE: &str =
+pub const I32_DIVIDE_AX_BY_CX: &str =
 "cdq
-idiv ebx";
+idiv ecx";
 
-pub const I64_DIVIDE: &str =
+pub const I64_DIVIDE_AX_BY_CX: &str =
 "cqo
-idiv rbx";
+idiv rcx";

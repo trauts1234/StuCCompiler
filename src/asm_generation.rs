@@ -28,12 +28,22 @@ macro_rules! asm_comment {
 }
 pub(crate) use asm_comment;
 
-pub fn generate_reg_name(data_size: &MemoryLayout, register_suffix: &str) -> String{
+pub enum Register{
+    ACC,
+    SECONDARY,
+}
+
+pub fn generate_reg_name(data_size: &MemoryLayout, register: Register) -> String{
     let prefix = match data_size.size_bytes() {
         4 => "e",
         8 => "r",
-        _ => panic!("tried to create a register for {} bytes with suffix {}", data_size.size_bytes(), register_suffix)
+        _ => panic!("tried to create a register for {} bytes", data_size.size_bytes())
     };
 
-    return prefix.to_string() + register_suffix;
+    let suffix = match register {
+        Register::ACC => "ax",
+        Register::SECONDARY => "cx",//next register that is NOT callee saved, so I can overwrite it
+    };
+
+    return prefix.to_string() + suffix;
 }

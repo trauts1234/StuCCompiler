@@ -1,4 +1,5 @@
-use crate::{compilation_state::{functions::FunctionList, stack_variables::StackVariables}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, type_info::DataType};
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, Register}, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, type_info::DataType};
+use std::fmt::Write;
 
 #[derive(Debug, Clone)]
 pub struct FunctionCall {
@@ -39,7 +40,20 @@ impl FunctionCall {
         }
     }
 
+    /**
+     * puts the return value on the stack
+     */
     pub fn generate_assembly(&self) -> String {
-        format!("call {}", self.func_name)
+        //system V ABI
+        let mut result = String::new();
+
+        let return_reg_name = asm_generation::generate_reg_name(&self.return_type.memory_size(), Register::ACC);//most integer and pointer args are returned in _AX register
+
+        asm_comment!(result, "calling function: {}", self.func_name);
+        asm_line!(result, "call {}", self.func_name);
+        asm_line!(result, "{}", asm_boilerplate::push_reg(&return_reg_name));//put return value on stack
+
+        result
+        
     }
 }
