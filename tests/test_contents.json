@@ -126,5 +126,21 @@
     {
         "filename":"functions.c",
         "return_code":69
+    },
+    {
+        "filename":"ifdefpreprocessor.c",
+        "return_code":69
+    },
+    {
+        "filename":"ifndefpreprocessor.c",
+        "return_code":69
+    },
+    {
+        "filename":"ifdefelsepreprocessor.c",
+        "return_code":69
+    },
+    {
+        "filename":"nestedifdefpreprocessor.c",
+        "return_code":69
     }
 ]

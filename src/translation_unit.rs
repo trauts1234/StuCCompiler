@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, compilation_error::CompilationError, function_definition::FunctionDefinition, compilation_state::functions::FunctionList, compilation_state::label_generator::LabelGenerator, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, preprocessor::preprocessor::preprocess};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, preprocessor::preprocessor::preprocess_c_file};
 use std::{fs::File, io::Write};
 
 #[derive(Debug)]
@@ -10,7 +10,7 @@ pub struct TranslationUnit {
 impl TranslationUnit {
     pub fn new(filename: &str) -> Result<TranslationUnit, CompilationError> {
 
-        let data = preprocess(10, filename)?;
+        let data = preprocess_c_file(filename)?;
 
         let mut tokens = Vec::new();
         let mut lexer = Lexer::new(&data);
