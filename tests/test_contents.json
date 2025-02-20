@@ -122,5 +122,9 @@
     {
         "filename":"equalsintpromotion.c",
         "return_code":2
+    },
+    {
+        "filename":"functions.c",
+        "return_code":69
     }
 ]

@@ -1,4 +1,3 @@
-mod function_definition;
 mod compound_statement;
 mod statement;
 mod block_statement;
@@ -13,13 +12,14 @@ pub mod compile;
 pub mod test;
 pub mod compilation_error;
 pub mod declaration;
-mod stack_variables;
 mod ast_metadata;
 mod memory_size;
 mod selection_statement;
-mod label_generator;
 pub mod asm_generation;
 pub mod preprocessor;
+mod function_call;
+mod compilation_state;
+mod function_definition;
 fn main() {
     compile::compile("test.c", "a").unwrap();
 }

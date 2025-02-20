@@ -1,5 +1,5 @@
 
-use crate::{ast_metadata::ASTMetadata, declaration::InitialisedDeclaration, label_generator::LabelGenerator, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables, statement::Statement};
+use crate::{ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
 
 
 /**
@@ -18,14 +18,14 @@ impl StatementOrDeclaration {
      * returns a StatementOrDeclaration and the remaining tokens as a queue location, else none
      * local_variables must be mut, as declarations can modify this
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &mut StackVariables) -> Option<ASTMetadata<StatementOrDeclaration>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &mut StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<StatementOrDeclaration>> {
         let curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-        if let Some(ASTMetadata {remaining_slice, resultant_tree, extra_stack_used}) = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables) {
+        if let Some(ASTMetadata {remaining_slice, resultant_tree, extra_stack_used}) = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs) {
             return Some(ASTMetadata{remaining_slice, resultant_tree: Self::STATEMENT(resultant_tree), extra_stack_used});
         }
 
-        if let Some(ASTMetadata {remaining_slice, resultant_tree, extra_stack_used}) = InitialisedDeclaration::try_consume(tokens_queue, &curr_queue_idx, local_variables) {
+        if let Some(ASTMetadata {remaining_slice, resultant_tree, extra_stack_used}) = InitialisedDeclaration::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs) {
             return Some(ASTMetadata{remaining_slice, resultant_tree: Self::DECLARATION(resultant_tree), extra_stack_used});
         }
 

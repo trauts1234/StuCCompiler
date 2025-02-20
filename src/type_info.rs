@@ -13,6 +13,7 @@ pub enum TypeInfo{
 pub enum DeclModifier {
     POINTER,//this declaration is for a pointer to something
     ARRAY(usize),//an array with usize elements
+    FUNCTION,//rarely used, preparing for function pointers
 }
 
 /**
@@ -43,6 +44,7 @@ impl DataType {
         .fold(base_size, |acc,x| match x {
             DeclModifier::POINTER => MemoryLayout::from_bytes(8),//pointer to anything is always 8 bytes
             DeclModifier::ARRAY(arr_elements) => MemoryLayout::from_bytes(acc.size_bytes() * arr_elements),
+            DeclModifier::FUNCTION => panic!("tried to calculate size of function???")
         })
     }
 

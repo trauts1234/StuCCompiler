@@ -223,14 +223,19 @@ impl TokenQueue {
         return resultant_bracket_level == 0;
     }
 
-    pub fn find_matching_open_square_bracket(&self, close_idx: usize) -> usize {
+    pub fn find_matching_open_bracket(&self, close_idx: usize) -> usize {
         let mut bracket_depth = 0;
-        assert!(self.tokens[close_idx] == Token::PUNCTUATOR(Punctuator::CLOSESQUARE));
+
+        let (open_bracket, close_bracket) = match self.tokens[close_idx] {
+            Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => (Punctuator::OPENSQUARE, Punctuator::CLOSESQUARE),
+            Token::PUNCTUATOR(Punctuator::CLOSECURLY) => (Punctuator::OPENCURLY, Punctuator::CLOSECURLY),
+            _ => {panic!("unknown close bracket that I am trying to match")}
+        };
 
         for i in (0..=close_idx).rev() {
-            match self.tokens[i] {
-                Token::PUNCTUATOR(Punctuator::OPENSQUARE) => {bracket_depth += 1;},
-                Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => {bracket_depth -= 1;},
+            match &self.tokens[i] {
+                Token::PUNCTUATOR(br) if *br == close_bracket => {bracket_depth += 1;},//add here as I am scanning backwards
+                Token::PUNCTUATOR(br) if *br == open_bracket => {bracket_depth -= 1;},
                 _ => {}
             }
 

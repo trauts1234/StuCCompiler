@@ -1,4 +1,4 @@
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, stack_variables::StackVariables};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
@@ -13,7 +13,7 @@ impl ScopeStatements {
      * tries to parse the tokens queue starting at previous_queue_idx, to find a scope, for a function or other
      * returns a ScopeStatements and the remaining tokens as a queue location, else none
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, outer_variables: &StackVariables) -> Option<ASTMetadata<ScopeStatements>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, outer_variables: &StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<ScopeStatements>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut statements = Vec::new();
@@ -24,7 +24,7 @@ impl ScopeStatements {
         }
 
         //greedily consume as many statements as possible
-        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used: _}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut all_scope_vars) {
+        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used: _}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut all_scope_vars, accessible_funcs) {
 
             statements.push(resultant_tree);
             curr_queue_idx = remaining_slice;//jump to next one

@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, label_generator::LabelGenerator, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, stack_variables::StackVariables, statement::Statement};
+use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -14,7 +14,7 @@ pub enum SelectionStatement{
 }
 
 impl SelectionStatement {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables) -> Option<ASTMetadata<SelectionStatement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<SelectionStatement>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
@@ -30,7 +30,7 @@ impl SelectionStatement {
                     max_index: closecurly_idx.index
                 };
 
-                let condition = Expression::try_consume_whole_expr(tokens_queue, &condition_slice, local_variables).unwrap();
+                let condition = Expression::try_consume_whole_expr(tokens_queue, &condition_slice, local_variables, accessible_funcs).unwrap();
 
                 //consume the condition
                 curr_queue_idx = TokenQueueSlice{
@@ -39,7 +39,7 @@ impl SelectionStatement {
                 };
 
                 //consume the function body
-                let ASTMetadata{ remaining_slice, resultant_tree: taken_body, .. } = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: taken_body, .. } = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 let has_else_branch = tokens_queue.peek(&curr_queue_idx).is_some_and(|x| x == Token::KEYWORD("else".to_string()));
@@ -47,7 +47,7 @@ impl SelectionStatement {
                 //try and consume the else branch
                 let not_taken_body: Option<Box<Statement>> = if has_else_branch {
                     tokens_queue.consume(&mut curr_queue_idx);//consume the else keyword
-                    let ASTMetadata{ remaining_slice, resultant_tree: else_body, .. } = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables).unwrap();
+                    let ASTMetadata{ remaining_slice, resultant_tree: else_body, .. } = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs).unwrap();
                     curr_queue_idx = remaining_slice;//consume the else
                     Some(Box::new(else_body))
                 } else {

@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, stack_variables::StackVariables, type_info::{DataType, DeclModifier, TypeInfo}};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, type_info::{DataType, DeclModifier, TypeInfo}};
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
@@ -25,7 +25,7 @@ impl InitialisedDeclaration {
     /**
      * local_variables is mut as variables are added
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, _local_variables: &mut StackVariables) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, _local_variables: &mut StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut data_type_info = Vec::new();
@@ -55,7 +55,7 @@ impl InitialisedDeclaration {
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator
-            if let Some(ASTMetadata { remaining_slice: _, resultant_tree, extra_stack_used }) = try_consume_declarator(tokens_queue, &declarator_segment, _local_variables, &data_type_info) {
+            if let Some(ASTMetadata { remaining_slice: _, resultant_tree, extra_stack_used }) = try_consume_declarator(tokens_queue, &declarator_segment, _local_variables, &data_type_info, accessible_funcs) {
                 declarations.push(resultant_tree);//the declarator consumption actaully gives us a full declaration
                 extra_stack_needed += extra_stack_used;
             }
@@ -98,7 +98,7 @@ impl Declaration {
 /**
  * claims to consume a declarator, but actaully takes in the data type too, and gives back a full declaration
  */
-pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, local_variables: &mut StackVariables, data_type: &Vec<TypeInfo>) -> Option<ASTMetadata<InitialisedDeclaration>> {
+pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, local_variables: &mut StackVariables, data_type: &Vec<TypeInfo>, accessible_funcs: &FunctionList) -> Option<ASTMetadata<InitialisedDeclaration>> {
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
@@ -123,7 +123,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 
     //try to match an initialisation expression
-    let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, local_variables, &var_name);
+    let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, local_variables, &var_name, accessible_funcs);
 
     Some(ASTMetadata {
         resultant_tree: InitialisedDeclaration {decl, initialisation}, 
@@ -221,7 +221,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
  * curr_queue_idx is mutable as this consumes tokens for the calling function
  * var_name what the name of the variable we are assigning to is
  */
-fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, local_variables: &StackVariables, var_name: &str) -> Option<Expression> {
+fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, local_variables: &StackVariables, var_name: &str, accessible_funcs: &FunctionList) -> Option<Expression> {
     
     if tokens_queue.peek(&curr_queue_idx)? !=Token::PUNCTUATOR(Punctuator::EQUALS){
         return None;
@@ -235,6 +235,6 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     Some(Expression::BINARYEXPR(
         Box::new(Expression::STACKVAR(local_variables.get_variable(var_name).unwrap())),
         Punctuator::EQUALS,
-        Box::new(Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables)?)
+        Box::new(Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs)?)
     ))
 }

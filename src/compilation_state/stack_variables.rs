@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{declaration::{AddressedDeclaration, Declaration}, memory_size};
+use crate::{declaration::{AddressedDeclaration, Declaration}, memory_size, type_info::DataType};
 
 
 /**
@@ -9,14 +9,17 @@ use crate::{declaration::{AddressedDeclaration, Declaration}, memory_size};
 #[derive(Clone)]
 pub struct StackVariables {
     vars: Vec<(Declaration, MemoryLayout)>,//the variable, and offset from bp
-    stack_used: MemoryLayout
+    stack_used: MemoryLayout,
+
+    outer_function_return_type: DataType
 }
 
 impl StackVariables {
-    pub fn new() -> StackVariables {
-        StackVariables{
+    pub fn new_in_func_body(func_return_value: &DataType) -> StackVariables {
+        StackVariables {
             vars: Vec::new(),
-            stack_used: MemoryLayout::new()
+            stack_used: MemoryLayout::new(),
+            outer_function_return_type: func_return_value.clone()
         }
     }
 

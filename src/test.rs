@@ -33,4 +33,15 @@ pub mod test {
             assert_eq!(binary_status.code().expect("binary was terminated by OS signal?"), testfile.return_code);
         }
     }
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct MultiFileTest {
+        filename: String,
+        return_code: i32,
+    }
+
+    /*#[test]
+    fn test_multifile() {
+        todo!()
+    }*/
 }

@@ -16,7 +16,7 @@ pub fn add_boilerplate(instructions: String) -> String {
 
 SECTION .text
 _start:
-    call func_main
+    call main
     mov edi, eax
     mov rax, 60
     syscall
