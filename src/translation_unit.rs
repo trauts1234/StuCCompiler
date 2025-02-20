@@ -51,6 +51,10 @@ impl TranslationUnit {
 
         let assembly_code = asm_boilerplate::add_boilerplate(instructions);
 
+        let banned_registers = ["rbx", "r12", "r13", "r14", "r15"];//these ones are callee saved and could cause problems
+        assert!(!banned_registers.iter()
+            .any(|reg| assembly_code.contains(reg)));//ensure my code does not contain the bad registers
+
         output_file.write(&assembly_code.into_bytes()).unwrap();
     }
 }

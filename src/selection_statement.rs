@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, statement::Statement};
+use crate::{asm_boilerplate, asm_generation::{self, asm_line, Register}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -73,12 +73,13 @@ impl SelectionStatement {
                 let if_end_label = format!("{}_not_taken", generic_label);//rendevous point for the if and else branches
 
                 asm_line!(result, "{}", condition.generate_assembly());//generate the condition
-                match condition.get_data_type().memory_size().size_bytes() {
-                    4 => {asm_line!(result, "{}", asm_boilerplate::pop_reg("eax"))},
-                    8 => {asm_line!(result, "{}", asm_boilerplate::pop_reg("rax"))},
-                    _ => panic!("unknown data size in if statement")
-                }
-                asm_line!(result, "cmp rax, 0");//compare the result to 0
+                
+                let condition_reg = asm_generation::generate_reg_name(&condition.get_data_type().memory_size(), Register::ACC);
+                asm_line!(result, "{}", asm_boilerplate::pop_reg(&condition_reg));
+
+                assert!(condition.get_data_type().underlying_type_is_integer());//cmp 0 may not work for float. but may work for pointers????
+  
+                asm_line!(result, "cmp {}, 0", condition_reg);//compare the result to 0
                 asm_line!(result, "je {}", if_end_label);//if the result is 0, jump to the else block
 
                 asm_line!(result, "{}", if_body.generate_assembly(label_gen));//generate the body of the if statement

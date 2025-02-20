@@ -197,10 +197,11 @@ impl Expression {
             Expression::STACKVAR(decl) => {
 
                 if decl.decl.data_type.is_array() {
+                    let ptr_reg = asm_generation::generate_reg_name(&MemoryLayout::from_bytes(8), Register::ACC);
                     //getting an array, decays to a pointer
                     asm_comment!(result, "decaying array {} to pointer", decl.decl.name);
-                    asm_line!(result, "lea rax, [rbp-{}]", decl.stack_offset.size_bytes());
-                    asm_line!(result, "{}", asm_boilerplate::push_reg("rax"));
+                    asm_line!(result, "lea {}, [rbp-{}]", ptr_reg, decl.stack_offset.size_bytes());
+                    asm_line!(result, "{}", asm_boilerplate::push_reg(&ptr_reg));
                 } else {
                     let reg_name = asm_generation::generate_reg_name(&decl.decl.data_type.memory_size(), Register::ACC);//decide which register size is appropriate for this variable
                     asm_comment!(result, "reading variable: {} to register {}", decl.decl.name, reg_name);

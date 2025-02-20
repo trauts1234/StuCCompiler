@@ -50,7 +50,10 @@ impl ControlFlowChange {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
                     asm_line!(result, "{}", expr.generate_assembly());
-                    //TODO cast here
+
+                    //asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&expr.get_data_type(), todo!()));
+                    //TODO cast here - how do I know the function's return type???
+                    
                     asm_line!(result, "{}", asm_boilerplate::pop_reg("eax"))
                 }
                 //warning: ensure result is in the correct register and correctly sized
