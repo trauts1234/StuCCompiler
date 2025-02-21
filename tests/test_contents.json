@@ -142,5 +142,9 @@
     {
         "filename":"nestedifdefpreprocessor.c",
         "return_code":69
+    },
+    {
+        "filename": "undefpreprocessor.c",
+        "return_code":69
     }
 ]
