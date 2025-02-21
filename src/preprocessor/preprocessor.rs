@@ -129,7 +129,7 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, line_of_f
         line if line.starts_with("#else") => {
             match ctx.get_scan_type() {
                 ScanType::NORMAL => {
-                    ctx.set_scan_type(ScanType::SKIPPINGBRANCH(ctx.selection_depth()));//the previous branch was taken, so this else must be skipped
+                    ctx.set_scan_type(ScanType::SKIPPINGBRANCH(ctx.selection_depth() - 1));//the previous branch was taken, so this else must be skipped (note selection depth minus one)
                 }
                 ScanType::FINDINGTRUEBRANCH(depth) if ctx.selection_depth() - 1 == *depth => {//found an else that I should take in the correct level
                     ctx.set_scan_type(ScanType::NORMAL);
@@ -146,11 +146,10 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, line_of_f
             ctx.dec_selection_depth();//all scan types require decrementing the branch counter
 
             match ctx.get_scan_type() {
-                ScanType::SKIPPINGBRANCH(x) => {println!("{}", x);}
-                ScanType::SKIPPINGBRANCH(depth) if ctx.selection_depth() == *depth => {
+                ScanType::SKIPPINGBRANCH(depth) if ctx.selection_depth() <= *depth => {
                     ctx.set_scan_type(ScanType::NORMAL);//reached end of an if statement I was skipping
                 },
-                ScanType::FINDINGTRUEBRANCH(depth) if ctx.selection_depth() == *depth => {
+                ScanType::FINDINGTRUEBRANCH(depth) if ctx.selection_depth() <= *depth => {
                     ctx.set_scan_type(ScanType::NORMAL);//looking for true branch, but reached end of if statement
                 }
 
