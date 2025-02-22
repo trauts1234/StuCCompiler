@@ -7,7 +7,7 @@ int g() {
 }
 
 #ifdef bar
-#error
+#error 1
 #else
 int f() {
     return 68;
@@ -15,7 +15,7 @@ int f() {
 #endif
 
 #else
-#error
+#error 2
 #endif
 
 int main(){

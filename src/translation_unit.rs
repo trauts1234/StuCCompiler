@@ -10,7 +10,7 @@ pub struct TranslationUnit {
 impl TranslationUnit {
     pub fn new(filename: &str) -> Result<TranslationUnit, CompilationError> {
 
-        let data = preprocess_c_file(filename)?;
+        let data = preprocess_c_file(filename);
 
         let mut tokens = Vec::new();
         let mut lexer = Lexer::new(&data);

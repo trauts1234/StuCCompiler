@@ -3,7 +3,9 @@ use std::collections::HashMap;
 pub struct PreprocessContext {
     defined: HashMap<String, String>,//for simple define
     selection_depth: i32,//how many if statements deep this is
-    scan_type: ScanType//am I skipping code inside a failed #if statement?
+    scan_type: ScanType,//am I skipping code inside a failed #if statement?
+    pub(crate) inside_string: bool,
+    pub(crate) inside_char: bool,
 }
 
 impl PreprocessContext {
@@ -11,7 +13,9 @@ impl PreprocessContext {
         PreprocessContext {
             defined: HashMap::new(),
             selection_depth:0,
-            scan_type: ScanType::NORMAL
+            scan_type: ScanType::NORMAL,
+            inside_string:false,
+            inside_char: false
         }
     }
 
@@ -32,6 +36,9 @@ impl PreprocessContext {
     pub fn is_defined(&self, name: &str) -> bool {
         return self.defined.contains_key(name);
     }
+    pub fn get_definition(&self, name: &str) -> Option<String> {
+        self.defined.get(name).map(|x| x.to_string())
+    }
 
     pub fn selection_depth(&self) -> i32 {
         self.selection_depth
@@ -45,6 +52,11 @@ impl PreprocessContext {
 
     pub fn is_expr_true(&self, expr: &str) -> bool {
         assert!(expr.starts_with("defined"));//others are not implemented
+
+        assert!(!expr.contains("|"));//can't actually do proper expressions
+        assert!(!expr.contains("&"));
+
+        assert!(!self.inside_char && !self.inside_string);//#if commands are not in strings?
         
         let split_idx = smallest_option(expr.find("("), expr.find(" ")).expect("failed to find splitting point in #if defined");
 

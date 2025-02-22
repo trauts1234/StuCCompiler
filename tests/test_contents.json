@@ -146,5 +146,9 @@
     {
         "filename": "undefpreprocessor.c",
         "return_code":69
+    },
+    {
+        "filename": "definesubstitutenumber.c",
+        "return_code":42
     }
 ]
