@@ -55,12 +55,15 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
         return substituted_line;//this line started as being inside a string, so can't possibly be any preprocessor directive
     }
 
-    match substituted_line.trim_matches(|x: char| x == '\n' || x == ' ') {
+    let unsubstituted_line_trim = unsubstituted_line.trim_matches(|x: char| x == '\n' || x == ' ');
+    let substituted_line_trim = substituted_line.trim_matches(|x: char| x == '\n' || x == ' ');
+
+    match unsubstituted_line_trim {//match on the raw line
         line if line.starts_with("#define") => {
 
             match ctx.get_scan_type() {
                 ScanType::NORMAL => {
-                    let mut split = line.split(" ");
+                    let mut split = unsubstituted_line_trim.split(" ");//raw line as substitutions don't happen in #define statements
                     split.next();//consume the #define
 
                     let name = split.next().expect("tried to get name from #define but couldn't find it");
@@ -75,7 +78,7 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
         line if line.starts_with("#undef") => {
             match ctx.get_scan_type() {
                 ScanType::NORMAL => {
-                    let name = line.split_once(" ").unwrap().1;
+                    let name = unsubstituted_line_trim.split_once(" ").unwrap().1;//raw line as substitutions don't happen in #undef statements
                     ctx.undefine(name);
                 }
                 _ => {}
@@ -83,12 +86,12 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
         }
 
         line if line.starts_with("#include") => {
-            return manage_include_directive(include_limit, ctx, &substituted_line);
+            return manage_include_directive(include_limit, ctx, &unsubstituted_line);//no macros in #include statements
         }
 
         line if line.starts_with("#ifdef") => {
 
-            let name = line.split_once(" ").unwrap().1;
+            let name = unsubstituted_line_trim.split_once(" ").unwrap().1; //no macros expanded in #ifdef, as I am looking for the macro name to see if it is defined
             let defined = ctx.is_defined(name);
 
             match ctx.get_scan_type() {
@@ -102,7 +105,7 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
         }
 
         line if line.starts_with("#ifndef") => {
-            let name = line.split_once(" ").unwrap().1;
+            let name = unsubstituted_line_trim.split_once(" ").unwrap().1;//no macros expanded in #ifndef, as I am looking for the macro name to see if it is defined
             let defined = ctx.is_defined(name);
 
             match ctx.get_scan_type() {
@@ -117,7 +120,7 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
 
         //this one should be lower as #if* matches #ifdef and others
         line if line.starts_with("#if") => {
-            let expr = line.split_once(" ").unwrap().1;
+            let expr = unsubstituted_line_trim.split_once(" ").unwrap().1; todo!("expand macros except those in #if defined(x), as I want to look for the raw macro name like in #ifdef");
             let is_true = ctx.is_expr_true(expr);
 
             match ctx.get_scan_type() {
@@ -213,7 +216,7 @@ fn substitute_defines(ctx: &mut PreprocessContext, line_of_file: &str) -> String
                     && ctx.is_defined(&longest_substitution) {//and there is a #define match
                     
                     let substitution = ctx.get_definition(&longest_substitution).unwrap();
-                    let before_substitution = &line_of_file[..=i];
+                    let before_substitution = &line_of_file[..i];
                     let after_substitution = &line_of_file[(i+longest_substitution.len())..];
                     //put all the text before the match, then run the rest recursively, in case there are remaining substitutions or a substitution contains another substitution
                     //TODO stop the *same* substitution being used recursively on substitution?
