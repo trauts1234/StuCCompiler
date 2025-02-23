@@ -1,4 +1,4 @@
-use std::{fs, path::{Path, PathBuf}, thread::panicking};
+use std::{fs, path::{Path, PathBuf}};
 
 use regex::Regex;
 
@@ -121,7 +121,7 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
         //this one should be lower as #if* matches #ifdef and others
         line if line.starts_with("#if") => {
             let expr = unsubstituted_line_trim.split_once(" ").unwrap().1;
-            let is_true = evaluate_const_expr(expr, ctx) != 0;
+            let is_true = evaluate_const_expr(&expr.replace([' ', '\t', '\n'], ""), ctx) != 0;
 
             match ctx.get_scan_type() {
                 ScanType::NORMAL if !is_true => {
@@ -266,6 +266,11 @@ fn evaluate_const_expr(expr: &str, ctx: &PreprocessContext) -> i64 {//or should 
     assert!(!ctx.inside_char && !ctx.inside_string);//#if commands are not in strings?
     assert!(!expr.contains(" ") && !expr.contains("\t") && !expr.contains("\n"));//whitespace not permitted. remove it first
 
+    //if the expr is just a number, return it
+    if let Ok(value) = expr.parse::<i64>() {
+        return value;
+    }
+
     let defined_command = "defined";
     if let Some(defined_idx) = expr.find(defined_command) {
         let defined_and_onwards = &expr[defined_idx+defined_command.len()..];
@@ -314,7 +319,7 @@ fn evaluate_const_expr(expr: &str, ctx: &PreprocessContext) -> i64 {//or should 
     for (binary_op_text, binary_op_function) in get_binary_numerical_text_and_functions() {
         if let Some(op_idx) = expr.rfind(binary_op_text) {//rfind as the associativity of the operators is left to right
             let before_op = &expr[..op_idx];
-            let after_op = &expr[..op_idx+binary_op_text.len()];
+            let after_op = &expr[op_idx+binary_op_text.len()..];
 
             let lhs = evaluate_const_expr(before_op, ctx);
             let rhs = evaluate_const_expr(after_op, ctx);

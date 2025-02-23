@@ -150,5 +150,17 @@
     {
         "filename": "definesubstitutenumber.c",
         "return_code":42
+    },
+    {
+        "filename":"booleanandpreprocessor.c",
+        "return_code":69
+    },
+    {
+        "filename":"booleanorlhspreprocessor.c",
+        "return_code":69
+    },
+    {
+        "filename":"booleanorrhspreprocessor.c",
+        "return_code":69
     }
 ]
