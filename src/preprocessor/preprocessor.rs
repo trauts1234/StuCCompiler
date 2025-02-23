@@ -2,7 +2,7 @@ use std::{fs, path::{Path, PathBuf}, thread::panicking};
 
 use regex::Regex;
 
-use crate::preprocessor::preprocess_context::ScanType;
+use crate::preprocessor::{preprocess_boolean_operators::get_binary_numerical_text_and_functions, preprocess_context::ScanType};
 
 use super::{preprocess_context::PreprocessContext, string_apply::Apply};
 
@@ -120,14 +120,14 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
 
         //this one should be lower as #if* matches #ifdef and others
         line if line.starts_with("#if") => {
-            let expr = unsubstituted_line_trim.split_once(" ").unwrap().1; todo!("expand macros except those in #if defined(x), as I want to look for the raw macro name like in #ifdef");
-            let is_true = ctx.is_expr_true(expr);
+            let expr = unsubstituted_line_trim.split_once(" ").unwrap().1;
+            let is_true = evaluate_const_expr(expr, ctx) != 0;
 
             match ctx.get_scan_type() {
-                ScanType::NORMAL if is_true => {
-                    todo!()
+                ScanType::NORMAL if !is_true => {
+                    ctx.set_scan_type(ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()));//skip this branch as #if failed, so scan for else/elif etc.
                 }
-                _ => {todo!()}
+                _ => {}
             }
         }
 
@@ -204,8 +204,6 @@ fn substitute_defines(ctx: &mut PreprocessContext, line_of_file: &str) -> String
             (curr, remaining) if !ctx.inside_string && !ctx.inside_char => {
                 //not inside a string or char, try matching a #define
 
-                let is_identifier_token = |c: &char| c.is_alphanumeric() || *c == '_';//matches chars that could be part of an identifier
-
                 //find the longest alphanumeric chain, as that will be matched
                 //this also prevents matching: DEFINEDTEXTremainingvariablename as you cannot match in the middle of variable names etc.
                 let longest_substitution: String = remaining.chars()
@@ -260,6 +258,109 @@ fn manage_include_directive(include_limit: i32, ctx: &mut PreprocessContext, lin
     }
 }
 
+/**
+ * detects whether an expression in a #if preprocessor statement is true or not
+ * note: needs spaces removed from expr first
+ */
+fn evaluate_const_expr(expr: &str, ctx: &PreprocessContext) -> i64 {//or should it be i32??
+    assert!(!ctx.inside_char && !ctx.inside_string);//#if commands are not in strings?
+    assert!(!expr.contains(" ") && !expr.contains("\t") && !expr.contains("\n"));//whitespace not permitted. remove it first
+
+    let defined_command = "defined";
+    if let Some(defined_idx) = expr.find(defined_command) {
+        let defined_and_onwards = &expr[defined_idx+defined_command.len()..];
+        let before_defined = &expr[..defined_idx];
+
+        let (macro_name, remaining_text) = if defined_and_onwards.starts_with("(") {
+            //#if defined(x)
+            let closing_bracket_idx = defined_and_onwards.find(")").expect("failed to find closing bracket in #if defined(x) statement");
+            let macro_name = defined_and_onwards[1..closing_bracket_idx].to_string();//skip (, consume until )
+            let remaining = &defined_and_onwards[closing_bracket_idx+1..];//get after the )
+
+            (macro_name, remaining)
+        } else {
+            //#if defined x
+            let macro_name = match_identifier_str(&defined_and_onwards);
+            let remaining = &defined_and_onwards[macro_name.len()..];
+
+            (macro_name, remaining)
+        };
+
+        let macro_substitution = if ctx.is_defined(&macro_name) { "1" } else { "0" };
+
+        let substituted_macro = format!("{}{}{}", before_defined, macro_substitution, remaining_text);//replaced the defined(x) with the result (1 or 0)
+
+        return evaluate_const_expr(&substituted_macro, ctx);//recursively scan the rest of the macro
+    }
+
+    //code executed beyond this point has no defined(x) as that has been substituted already
+
+    if let Some(last_open_bracket) = expr.rfind("("){
+        //bracketed expression
+        let before_bracket = &expr[..last_open_bracket];
+        let in_and_after_bracket = &expr[last_open_bracket+1..];//contents of the bracket)remaining text
+        let close_bracket_idx = in_and_after_bracket.find(")").expect("failed to find matching close bracket in #if expression");
+        let in_bracket = &in_and_after_bracket[..close_bracket_idx];
+        let after_bracket = &in_and_after_bracket[close_bracket_idx+1..];
+
+        let bracket_substitution = evaluate_const_expr(in_bracket, ctx).to_string();
+
+        return evaluate_const_expr(&format!("{}{}{}", before_bracket, bracket_substitution, after_bracket), ctx);
+    }
+
+    //todo ? : operator
+
+    //this handles && || | & ^ operators
+    for (binary_op_text, binary_op_function) in get_binary_numerical_text_and_functions() {
+        if let Some(op_idx) = expr.rfind(binary_op_text) {//rfind as the associativity of the operators is left to right
+            let before_op = &expr[..op_idx];
+            let after_op = &expr[..op_idx+binary_op_text.len()];
+
+            let lhs = evaluate_const_expr(before_op, ctx);
+            let rhs = evaluate_const_expr(after_op, ctx);
+
+            return binary_op_function(lhs, rhs);//take the function associated with this operator, and apply it to both sides
+        }
+    }
+
+    match (expr.rfind("=="), expr.rfind("!=")) {
+        (None, None) => {}//no equality operators to deal with
+
+        (Some(eq_idx), y) if y.is_none_or(|neq_idx| neq_idx < eq_idx) => {//where the == comes last or is the only one
+            let before_equals = &expr[..eq_idx];
+            let after_equals = &expr[eq_idx+2..];
+
+            let lhs = evaluate_const_expr(&before_equals, ctx);
+            let rhs = evaluate_const_expr(&after_equals, ctx);
+
+            return if lhs == rhs {1} else {0};
+        },
+
+        (x, Some(neq_idx)) if x.is_none_or(|eq_idx| eq_idx < neq_idx) => {//where != comes last or is the only one
+            let before_neq = &expr[..neq_idx];
+            let after_neq = &expr[neq_idx+2..];
+
+            let lhs = evaluate_const_expr(&before_neq, ctx);
+            let rhs = evaluate_const_expr(&after_neq, ctx);
+
+            return if lhs != rhs {1} else {0};
+        }
+
+        _ => {panic!("unknown match arm when trying to resolve == and != in #if statement")}
+    }
+
+    //find furthest right relational >, <, >=, <=, and then use that
+    //see preprocess_boolean_operators for help
+
+    todo!()
+}
+
+fn match_identifier_str(expr: &str) -> String {
+    expr.chars()
+    .take_while(is_identifier_token)
+    .collect()
+}
+
 fn find_first_working_path(folders: Vec<&str>, filename: &str) -> Option<PathBuf> {
     for folder in folders {
         let path = Path::new(folder).join(filename);
@@ -270,4 +371,8 @@ fn find_first_working_path(folders: Vec<&str>, filename: &str) -> Option<PathBuf
     }
 
     None
+}
+
+fn is_identifier_token(c: &char) -> bool{
+    c.is_alphanumeric() || *c == '_'//matches chars that could be part of an identifier
 }

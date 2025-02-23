@@ -49,21 +49,6 @@ impl PreprocessContext {
     pub fn dec_selection_depth(&mut self) {
         self.selection_depth -= 1;
     }
-
-    pub fn is_expr_true(&self, expr: &str) -> bool {
-        assert!(expr.starts_with("defined"));//others are not implemented
-
-        assert!(!expr.contains("|"));//can't actually do proper expressions
-        assert!(!expr.contains("&"));
-
-        assert!(!self.inside_char && !self.inside_string);//#if commands are not in strings?
-        
-        let split_idx = smallest_option(expr.find("("), expr.find(" ")).expect("failed to find splitting point in #if defined");
-
-        let is_defined = expr.split_at(split_idx).1.trim_matches(|x: char| x == '\n' || x == ' ');//includes the char at split_idx
-
-        self.is_defined(is_defined)
-    }
 }
 
 #[derive(PartialEq)]
