@@ -242,6 +242,28 @@ impl TokenQueue {
             if bracket_depth == 0 {return i;}
         }
 
-        panic!("matching [ not found");
+        panic!("matching [/( not found");
+    }
+
+    pub fn find_matching_close_bracket(&self, open_idx: usize) -> usize {
+        let mut bracket_depth = 0;
+
+        let (open_bracket, close_bracket) = match self.tokens[open_idx] {
+            Token::PUNCTUATOR(Punctuator::OPENSQUARE) => (Punctuator::OPENSQUARE, Punctuator::CLOSESQUARE),
+            Token::PUNCTUATOR(Punctuator::OPENCURLY) => (Punctuator::OPENCURLY, Punctuator::CLOSECURLY),
+            _ => {panic!("unknown open bracket that I am trying to match")}
+        };
+
+        for i in open_idx..self.tokens.len() {
+            match &self.tokens[i] {
+                Token::PUNCTUATOR(br) if *br == open_bracket => {bracket_depth += 1;},
+                Token::PUNCTUATOR(br) if *br == close_bracket => {bracket_depth -= 1;},
+                _ => {}
+            }
+
+            if bracket_depth == 0 {return i;}
+        }
+
+        panic!("matching )/] not found");
     }
 }
