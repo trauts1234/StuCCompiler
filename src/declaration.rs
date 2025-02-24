@@ -102,7 +102,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, local_variables, data_type)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, data_type)?;
 
     assert!(tokens_queue.peek(&curr_queue_idx) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
@@ -135,9 +135,10 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
 /**
  * takes the *x[3] part of int *x[3] = {1,2,3};
  * and parses the modifiers in order
+ * also used in function params
  * TODO function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, local_variables: &mut StackVariables, data_type: &Vec<TypeInfo>) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, data_type: &Vec<TypeInfo>) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
@@ -159,7 +160,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
             //find the corresponding close bracket, and deal with it
             let in_brackets_tokens = tokens_queue.consume_inside_parenthesis(&mut curr_queue_idx);
 
-            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, local_variables, data_type)?;
+            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, data_type)?;
 
             //curr queue idx is already advanced from consuming the parenthesis
 

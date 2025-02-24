@@ -2,6 +2,7 @@ use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
+ * TODO clone scope variables, as this has its own scope
  */
 #[derive(Debug)]
 pub struct ScopeStatements {

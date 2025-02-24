@@ -1,4 +1,4 @@
-use crate::function_definition::FunctionDefinition;
+use crate::{function_declaration::FunctionDeclaration, function_definition::FunctionDefinition};
 
 
 
@@ -21,8 +21,9 @@ impl FunctionList {
         self.funcs.push(toadd);
     }
 
-    pub fn get_function(&self, func_name: &str) -> Option<&FunctionDefinition> {
+    pub fn get_function(&self, func_name: &str) -> Option<FunctionDeclaration> {
         self.funcs.iter()
         .find(|func| func.get_name() == func_name)
+        .map(|x| x.as_decl())
     }
 }
