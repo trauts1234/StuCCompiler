@@ -6,6 +6,8 @@ use crate::preprocessor::{preprocess_boolean_operators::get_binary_numerical_tex
 
 use super::{preprocess_context::PreprocessContext, string_apply::Apply};
 
+const INCLUDE_FOLDERS: &[&str] = &["c_lib"];//local custom version of glibc 
+
 pub fn preprocess_c_file(filename: &str) -> String {
     let file_text = fs::read_to_string(filename).expect("failed to open c file");
     preprocess(10, &mut PreprocessContext::new(), file_text)
@@ -248,9 +250,8 @@ fn manage_include_directive(include_limit: i32, ctx: &mut PreprocessContext, lin
             let close_bracket = line.find(">").expect("can't find close bracket in #include");
 
             let include_filename = &line[anglebracket_start + 1..close_bracket];
-            let include_folders = vec!["/usr/include", "/usr/local/include", "/usr/include/x86_64-linux-gnu"];
 
-            let working_folder = find_first_working_path(include_folders, &include_filename).expect("couldn't find a folder that had that header");
+            let working_folder = find_first_working_path(INCLUDE_FOLDERS, &include_filename).expect("couldn't find a folder that had that header");
             let file_text = fs::read_to_string(working_folder).expect("found header file in folder, but couldn't open it");
 
             preprocess(include_limit, ctx, file_text)
@@ -328,6 +329,7 @@ fn evaluate_const_expr(expr: &str, ctx: &PreprocessContext) -> i64 {//or should 
         }
     }
 
+    //TODO test these
     match (expr.rfind("=="), expr.rfind("!=")) {
         (None, None) => {}//no equality operators to deal with
 
@@ -366,7 +368,7 @@ fn match_identifier_str(expr: &str) -> String {
     .collect()
 }
 
-fn find_first_working_path(folders: Vec<&str>, filename: &str) -> Option<PathBuf> {
+fn find_first_working_path(folders: &[&str], filename: &str) -> Option<PathBuf> {
     for folder in folders {
         let path = Path::new(folder).join(filename);
 
