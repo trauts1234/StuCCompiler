@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, Register}, memory_size::MemoryLayout, type_info::{DataType, TypeInfo}};
+use crate::{asm_boilerplate, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, memory_size::MemoryLayout, type_info::{DataType, TypeInfo}};
 use std::fmt::Write;
 
 
@@ -25,31 +25,19 @@ _start:
 
 }
 
-pub fn pop_reg(reg_name: &str) -> String {
-    let prefix = reg_name.chars().next().unwrap();
-
-    let bytes_sub_from_sp = match prefix {
-        'e' => 4,
-        'r' => 8,
-        _ => panic!("undefined register prefix {}", prefix)
-    };
+pub fn pop_reg<T: RegisterName>(reg_size: &MemoryLayout, reg_type: &T) -> String {
+    let reg_name = reg_type.generate_reg_name(reg_size);
 
     format!(
-        ";pop {}\nmov {}, [rsp]\nadd rsp, {}",reg_name, reg_name, bytes_sub_from_sp
+        ";pop {}\nmov {}, [rsp]\nadd rsp, {}",reg_name, reg_name, reg_size.size_bytes()
     )
 }
 
-pub fn push_reg(reg_name: &str) -> String {
-    let prefix = reg_name.chars().next().unwrap();
-
-    let bytes_sub_from_sp = match prefix {
-        'e' => 4,
-        'r' => 8,
-        _ => panic!("undefined register prefix {}", prefix)
-    };
+pub fn push_reg<T: RegisterName>(reg_size: &MemoryLayout, reg_type: &T) -> String {
+    let reg_name = reg_type.generate_reg_name(reg_size);
 
     format!(
-        ";push {}\nsub rsp, {}\nmov [rsp], {}", reg_name, bytes_sub_from_sp, reg_name
+        ";push {}\nsub rsp, {}\nmov [rsp], {}", reg_name, reg_size.size_bytes(), reg_name
     )
 }
 
@@ -77,27 +65,24 @@ pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
         match (original.memory_size().size_bytes(), original.underlying_type_is_unsigned()) {
             (8, _) => {
 
-                let initial_reg_name = asm_generation::generate_reg_name(&MemoryLayout::from_bytes(8), Register::ACC);
-                let resultant_reg_name = asm_generation::generate_reg_name(&new_type.memory_size(), Register::ACC);
-
-                if initial_reg_name == resultant_reg_name{
+                if new_type.memory_size().size_bytes() == 8{
                     return String::new();//we would just be popping a register just to put it back again??? return here
                 }
 
                 asm_comment!(result, "casting 64 bit integer to {} bit integer", new_type.memory_size().size_bits());
 
-                asm_line!(result, "{}", asm_boilerplate::pop_reg(&initial_reg_name));//grab the unsigned 64 bit number
+                asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//grab the unsigned 64 bit number
 
                 //no matter the signedness of original, you just need to get the bottom few bits of it,
                 //because positive numbers are the same for uxx and ixx in original
                 //negative numbers are already sign extended, so need no special treatment
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&resultant_reg_name));
+                asm_line!(result, "{}", asm_boilerplate::push_reg(&new_type.memory_size(), &LogicalRegister::ACC));
             }
             (4, false) => {
                 asm_comment!(result, "casting i32 to i64");
-                asm_line!(result, "{}", asm_boilerplate::pop_reg("eax"));//32 bit input -> eax
+                asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(4), &LogicalRegister::ACC));//32 bit input -> eax
                 asm_line!(result, "movsxd rax, eax");//sign extend eax -> rax
-                asm_line!(result, "{}", asm_boilerplate::push_reg("rax"));//rax -> 64 bit output
+                asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//rax -> 64 bit output
 
                 let original_now_as_i64 = DataType {
                     type_info:vec![TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],

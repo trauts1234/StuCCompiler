@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
+use crate::{asm_boilerplate, asm_generation::{asm_line, LogicalRegister}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
 use std::fmt::Write;
 
 /**
@@ -54,7 +54,7 @@ impl ControlFlowChange {
                     //asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&expr.get_data_type(), todo!()));
                     //TODO cast here - how do I know the function's return type???
                     
-                    asm_line!(result, "{}", asm_boilerplate::pop_reg("eax"))
+                    asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC))
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return

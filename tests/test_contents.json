@@ -162,5 +162,13 @@
     {
         "filename":"booleanorrhspreprocessor.c",
         "return_code":69
+    },
+    {
+        "filename":"simplefunccall.c",
+        "return_code":69
+    },
+    {
+        "filename":"functionsumsix.c",
+        "return_code":21
     }
 ]

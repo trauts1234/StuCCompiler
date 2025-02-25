@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::{asm_comment, asm_line}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, declaration::{try_consume_declaration_modifiers, Declaration}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, statement::Statement, type_info::{DataType, DeclModifier}};
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, declaration::{try_consume_declaration_modifiers, Declaration}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, statement::Statement, type_info::{DataType, DeclModifier}};
 use std::fmt::Write;
 
 /**
@@ -91,7 +91,8 @@ impl FunctionDefinition {
             modifiers: return_modifiers
         };
 
-        let mut func_body_stack = StackVariables::new_in_func_body(args.clone(), &return_type);//create a stack and tell it the params and return type of the function
+        //put args on stack variables backwards as args are pushed r->l
+        let mut func_body_stack = StackVariables::new_in_func_body(args.iter().rev().cloned().collect(), &return_type);//create a stack and tell it the params and return type of the function
 
         //read the next statement (statement includes a scope)
         let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &curr_queue_idx, &mut func_body_stack, accessible_funcs)?;
@@ -125,12 +126,18 @@ impl FunctionDefinition {
 
         asm_comment!(result, "popping args");
         for param_idx in (0..self.decl.params.len()).rev() {
+            let param = &self.decl.params[param_idx];
             //args on stack are pushed r->l, so work backwards pushing the register values to the stack
             //calculate smaller register size as data is not 64 bits
-            asm_line!(result, "{}", todo!());
-        }
+            
+            if param_idx >= 6 {
+                let below_bp_offset = MemoryLayout::from_bytes(16);//8 bytes for return addr, 8 bytes for old bp
+                todo!("get offset, put on my stack");//remember 64 bit numbers are args, but I don't want it as 64 bit
+            }
 
-        todo!("read stack and register params to the stack");
+            let param_reg = asm_generation::generate_param_reg(param_idx);
+            asm_line!(result, "{}", asm_boilerplate::push_reg(&param.data_type.memory_size(), &param_reg));//truncate param reg to desired size, then push to stack
+        }
 
         asm_line!(result, "{}", self.code.generate_assembly(label_gen));
 
