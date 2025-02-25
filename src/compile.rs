@@ -36,10 +36,20 @@ pub fn compile(input_path: &str, output_name: &str) -> Result<(),CompilationErro
 
     //link
     let ld_status = Command::new("ld")
-        .arg(object_filename)
         .arg("-o")
-        .arg(binary_filename)
-        .status();//todo log if fail, etc 
+        .arg(binary_filename)//link to the binary file name using:
+
+        .arg("/usr/lib/x86_64-linux-gnu/crt1.o")//link c runtime
+        .arg("/usr/lib/x86_64-linux-gnu/crti.o")//..
+
+        .arg(object_filename)//link my code with the library
+        .arg("-lc")//link with libc
+        .arg("/usr/lib/x86_64-linux-gnu/crtn.o")//c runtime termination
+
+        .arg("--dynamic-linker")
+        .arg("/lib64/ld-linux-x86-64.so.2")//add a dynamic linker?
+        
+        .status();
 
     match ld_status {
         Ok(status) if status.success() => {},

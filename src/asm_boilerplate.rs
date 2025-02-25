@@ -12,15 +12,11 @@ pub fn add_boilerplate(instructions: String) -> String {
     * * set up exit syscall with return code grabbed from eax(assuming that main returns int)
     */
     format!(
-"global _start
+"
+global main
 
+SECTION .note.GNU-stack ;disable executing the stack
 SECTION .text
-_start:
-    call main
-    mov edi, eax
-    mov rax, 60
-    syscall
-
 {}",instructions)
 
 }

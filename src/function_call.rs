@@ -77,6 +77,7 @@ impl FunctionCall {
 
         asm_line!(result, "sub rsp, {} ;align the stack", self.extra_stack_for_alignment.size_bytes());
 
+        //put args on the stack as 64 bits
         for (i, arg) in self.args.iter().enumerate().rev() {//go through each arg and param right to left
             let param_type = &self.decl.params[i.min(self.decl.params.len()-1)];//when len(params) > len(args), grab the last of params, as it could be a varadic param
             assert!(i < self.decl.params.len());//varadic params not supported yet
@@ -87,17 +88,19 @@ impl FunctionCall {
             asm_line!(result, "{}", asm_boilerplate::pop_reg(&param_type.get_type().memory_size(), &LogicalRegister::ACC));//pop to accumulator temporarily
             
             asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//extend to 8 bytes, without conversion/casting
+        }
 
-            if i >= 6 {
-                continue;//arg already on stack, and no more registers available
-            }
-
-            //else, variable has to go in a 64 bit register
+        //loop thru args that could be put in registers (any params up to 6)
+        for i in 0..self.args.len().min(6) {//note no reversal because the stack is LIFO, so the last param(param on lhs) is the first here
             asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &asm_generation::generate_param_reg(i)));//store the param in the correct register
         }
 
         asm_line!(result, "call {}", self.func_name);
 
+        if self.args.len() > 6 {
+            //some args were put on the stack
+            asm_line!(result, "add rsp, {} ;remove stack params", 8*(self.args.len()-6));
+        }
         asm_line!(result, "add rsp, {} ;remove alignment gap from the stack", self.extra_stack_for_alignment.size_bytes());
 
         asm_line!(result, "{}", asm_boilerplate::push_reg(&self.decl.return_type.memory_size(), &LogicalRegister::ACC));//put return value on stack

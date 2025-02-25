@@ -54,7 +54,7 @@ impl ControlFlowChange {
                     //asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&expr.get_data_type(), todo!()));
                     //TODO cast here - how do I know the function's return type???
                     
-                    asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC))
+                    asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(4), &LogicalRegister::ACC))
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return

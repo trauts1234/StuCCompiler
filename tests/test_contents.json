@@ -170,5 +170,9 @@
     {
         "filename":"functionsumsix.c",
         "return_code":21
+    },
+    {
+        "filename":"functionsumseven.c",
+        "return_code":28
     }
 ]
