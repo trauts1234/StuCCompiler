@@ -174,5 +174,9 @@
     {
         "filename":"functionsumseven.c",
         "return_code":28
+    },
+    {
+        "filename":"charoverflow.c",
+        "return_code":1
     }
 ]

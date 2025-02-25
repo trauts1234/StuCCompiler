@@ -4,7 +4,7 @@ use super::punctuator::Punctuator;
 
 #[derive(Debug, Clone, PartialEq)]//for debug printing
 pub enum Token {
-    //CSTRING(String),
+    STRING(StringLiteral),
     NUMBER(NumberLiteral),
     PUNCTUATOR(Punctuator),
     TYPESPECIFIER(TypeInfo),

@@ -48,7 +48,7 @@ impl FunctionCall {
         };
 
         if let Token::IDENTIFIER(func_name) = tokens_queue.peek(&func_slice)? {
-            let func_decl = accessible_funcs.get_function(&func_name).expect("found function call but no corresponding function definition");//for recursive functions this is fine, right?
+            let func_decl = accessible_funcs.get_function_declaration(&func_name).expect("found function call but no corresponding function declaration");//for recursive functions this is fine, right?
             let num_args_on_stack = if args.len() <= 6 {0} else {args.len() - 6};//first 6 args in registers
             let stack_used_by_args = MemoryLayout::from_bytes(8*num_args_on_stack);//stack args on stack in 8 byte chunks
             let stack_height_bytes = local_variables.get_stack_used() + stack_used_by_args;
@@ -58,7 +58,7 @@ impl FunctionCall {
             Some(FunctionCall {
                 func_name, 
                 args,
-                decl: func_decl,
+                decl: func_decl.clone(),
                 extra_stack_for_alignment: wanted_extra_stack
             })
         } else {

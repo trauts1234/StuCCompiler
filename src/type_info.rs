@@ -4,8 +4,10 @@ use crate::memory_size::MemoryLayout;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeInfo{
     INT,
+    CHAR,
     UNSIGNED,
     LONG,
+    EXTERN,
     //missing some, should have "static", and other bits that suggest the type of a variable
 }
 
@@ -28,16 +30,7 @@ pub struct DataType {
 impl DataType {
     pub fn memory_size(&self) -> MemoryLayout {
 
-        let base_size = 
-        if self.underlying_type_is_integer() {
-            if self.underlying_type_is_long_long() {
-                MemoryLayout::from_bits(64)//unsigned long long and long long int are both 64 bits
-            } else {
-                MemoryLayout::from_bits(32)//only i32 is implemented
-            }
-        } else {
-            panic!("not implemented: size of non-integers")
-        };
+        let base_size = self.calculate_base_type_size();
 
         //take into account if this is a pointer, array, etc.
         self.modifiers.iter()
@@ -158,6 +151,22 @@ impl DataType {
         };
 
     }
+
+    fn calculate_base_type_size(&self) -> MemoryLayout {
+        if self.underlying_type_is_integer() {
+            if self.underlying_type_is_long_long() {
+                return MemoryLayout::from_bits(64);//unsigned long long and long long int are both 64 bits
+            }
+
+            if self.type_info.contains(&TypeInfo::CHAR) {
+                return MemoryLayout::from_bits(8);//signed and unsigned char are both 8 bits
+            }
+            
+            return MemoryLayout::from_bits(32);//i32 assumed here
+        } else {
+            panic!("not implemented: size of non-integers")
+        }
+    }
 }
 
 impl TypeInfo {
@@ -165,6 +174,8 @@ impl TypeInfo {
         match to_token {
             "int" => Some(Self::INT),
             "long" => Some(Self::LONG),
+            "char" => Some(Self::CHAR),
+            "extern" => Some(Self::EXTERN),
             _ => None
         }
     }
