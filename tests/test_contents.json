@@ -187,5 +187,10 @@
         "filename":"printarg.c",
         "args": ["hello world"],
         "stdout": "hello world\n"
+    },
+    {
+        "filename":"printmyname.c",
+        "args": ["Stu"],
+        "stdout": "my name is:\nStu\n"
     }
 ]

@@ -360,7 +360,9 @@ impl Expression {
             Expression::FUNCCALL(call_data) => {
                 asm_line!(result, "{}", call_data.generate_assembly());
             },
-            Expression::STRINGLIT(_) => panic!("tried to put string on the stack")
+            Expression::STRINGLIT(_) => {
+                asm_line!(result, "{}", self.put_lvalue_addr_on_stack());
+            }
         };
         result
     }
