@@ -178,5 +178,9 @@
     {
         "filename":"charoverflow.c",
         "return_code":1
+    },
+    {
+        "filename":"helloworldstringliteral.c",
+        "stdout": "hello world\n"
     }
 ]

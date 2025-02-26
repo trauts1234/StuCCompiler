@@ -1,6 +1,6 @@
 #[cfg(test)]
 pub mod test {
-    use std::{fs, process::Command};
+    use std::{fs, process::{Command, Stdio}};
 
     use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,8 @@ pub mod test {
     #[derive(Serialize, Deserialize, Debug)]
     struct TestFile {
         filename: String,
-        return_code: i32,
+        return_code: Option<i32>,
+        stdout: Option<String>
     }
 
     #[test]
@@ -25,12 +26,19 @@ pub mod test {
             let filename = format!("{}/{}", test_folder, testfile.filename);
             compile::compile(&filename, "test_output").unwrap();
 
-            let binary_status = Command::new("./test_output.out")
-                    .status()
-                    .expect("Failed to run the compiled binary");
+            let binary_command = Command::new("./test_output.out")
+            .stdout(Stdio::piped())
+            .spawn()
+            .and_then(|cmd| cmd.wait_with_output()).expect("Failed to run the compiled binary");
 
             println!("testing file name: {}", testfile.filename);
-            assert_eq!(binary_status.code().expect("binary was terminated by OS signal?"), testfile.return_code);
+
+            if let Some(ret_code) = testfile.return_code {
+                assert_eq!(binary_command.status.code().expect("binary was terminated by OS signal?"), ret_code);
+            }
+            if let Some(text_output) = testfile.stdout {
+                assert_eq!(String::from_utf8_lossy(&binary_command.stdout), text_output);
+            }
         }
     }
 
