@@ -31,10 +31,6 @@ impl ScopeStatements {
             curr_queue_idx = remaining_slice;//jump to next one
         }
 
-        if statements.len() == 0 {
-            //return None;//you can have an empty scope?
-        }
-
         if Token::PUNCTUATOR(Punctuator::CLOSESQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx)? {
             return None;//not enclosed in { }, so can't be a scope
         }
