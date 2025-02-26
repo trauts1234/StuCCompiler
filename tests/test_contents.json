@@ -212,5 +212,9 @@
     {
         "filename":"emptyscope.c",
         "return_code":0
+    },
+    {
+        "filename":"paramsandlocalvars.c",
+        "return_code":11
     }
 ]

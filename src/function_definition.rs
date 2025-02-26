@@ -60,9 +60,8 @@ impl FunctionDefinition {
         //set label as same as function name
         asm_line!(result, "{}:", self.decl.function_name);
         //create stack frame
-        asm_line!(result, "push rbp");
-        asm_line!(result, "mov rbp, rsp");
-        asm_line!(result, "sub rsp, {}", self.stack_required.size_bytes());
+        asm_line!(result, "push rbp ;create stack frame");
+        asm_line!(result, "mov rbp, rsp ;''");
 
         asm_comment!(result, "popping args");
         for param_idx in (0..self.decl.params.len()).rev() {
@@ -83,6 +82,8 @@ impl FunctionDefinition {
             }
 
         }
+
+        asm_line!(result, "sub rsp, {} ;allocate stack for local variables", self.stack_required.size_bytes());
 
         asm_line!(result, "{}", self.code.generate_assembly(label_gen));
 
