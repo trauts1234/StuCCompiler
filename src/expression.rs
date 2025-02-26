@@ -238,8 +238,6 @@ impl Expression {
                         // put the _pointer's_ memory location on the stack
                         asm_line!(result, "{}", rhs.generate_assembly());
                         asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::ACC));//load the pointer into RAX
-
-                        assert!(rhs.get_data_type().memory_size().size_bits() == 64);//must be a 64 bit address
                         
                         asm_line!(result, "mov rax, [rax]");
                         asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
@@ -464,6 +462,8 @@ fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, promoted
 
         return result;//all done here
     }
+
+    assert!(!lhs.get_data_type().is_array());
     //maybe more special cases for pointer assignment etc
 
     //put address of lvalue on stack
