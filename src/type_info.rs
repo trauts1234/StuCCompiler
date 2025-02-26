@@ -9,6 +9,7 @@ pub enum TypeInfo{
     UNSIGNED,
     LONG,
     EXTERN,
+    VOID
     //missing some, should have "static", and other bits that suggest the type of a variable
 }
 
@@ -42,12 +43,22 @@ impl DataType {
         })
     }
 
+    pub fn is_void(&self) -> bool {
+        if self.type_info.len() == 0 {
+            true
+        } else if self.type_info.contains(&TypeInfo::VOID) {
+            true
+        } else {
+            false
+        }
+    }
+
     /**
      * returns true if the value is any size or type of integer
      * including unsigned
      */
     pub fn underlying_type_is_integer(&self) -> bool {
-        true
+        !self.type_info.contains(&TypeInfo::VOID)//can't be void
     }
 
     pub fn underlying_type_is_unsigned(&self) -> bool {
@@ -154,6 +165,9 @@ impl DataType {
     }
 
     fn calculate_base_type_size(&self) -> MemoryLayout {
+        if self.is_void() {
+            return MemoryLayout::from_bits(0);
+        }
         if self.underlying_type_is_integer() {
             if self.underlying_type_is_long_long() {
                 return MemoryLayout::from_bits(64);//unsigned long long and long long int are both 64 bits
@@ -182,6 +196,7 @@ impl TypeInfo {
             "char" => Some(Self::CHAR),
             "_Bool" => Some(Self::_BOOL),
             "extern" => Some(Self::EXTERN),
+            "void" => Some(Self::VOID),
             _ => None
         }
     }

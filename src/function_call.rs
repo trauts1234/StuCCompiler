@@ -103,7 +103,9 @@ impl FunctionCall {
         }
         asm_line!(result, "add rsp, {} ;remove alignment gap from the stack", self.extra_stack_for_alignment.size_bytes());
 
-        asm_line!(result, "{}", asm_boilerplate::push_reg(&self.decl.return_type.memory_size(), &LogicalRegister::ACC));//put return value on stack
+        if !self.decl.return_type.is_void() {
+            asm_line!(result, "{}", asm_boilerplate::push_reg(&self.decl.return_type.memory_size(), &LogicalRegister::ACC));//put return value on stack
+        }
 
         result
         
