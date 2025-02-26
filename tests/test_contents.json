@@ -216,5 +216,13 @@
     {
         "filename":"paramsandlocalvars.c",
         "return_code":11
+    },
+    {
+        "filename":"elif.c",
+        "return_code":0
+    },
+    {
+        "filename":"multilinecomment.c",
+        "return_code":0
     }
 ]

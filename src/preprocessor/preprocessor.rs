@@ -34,7 +34,7 @@ fn preprocess(include_limit: i32, ctx: &mut PreprocessContext, file_text: String
  * this replaces all comments in the text_file with " " as whitespace
  */
 pub fn remove_comments(text_file: String) -> String {
-    let multiline_comment_regex = Regex::new(r"/\*.*?\*/").unwrap();
+    let multiline_comment_regex = Regex::new(r"/\*[\s\S]*?\*/").unwrap();
     let singleline_comment_regex = Regex::new(r"\/\/[^\n]*").unwrap();
     
     text_file
