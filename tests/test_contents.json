@@ -204,5 +204,9 @@
     {
         "filename":"pointercmp.c",
         "return_code":0
+    },
+    {
+        "filename":"modulus.c",
+        "return_code":1
     }
 ]

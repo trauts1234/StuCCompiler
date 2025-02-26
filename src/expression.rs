@@ -172,11 +172,11 @@ impl Expression {
             },
             Expression::BINARYEXPR(lhs, op, rhs) => {
                 match op {
-                    Punctuator::PLUS => DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type()),
-                    Punctuator::DASH => DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type()),
-
-                    Punctuator::ASTERISK => DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type()),
-                    Punctuator::FORWARDSLASH => DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type()),
+                    Punctuator::PLUS |
+                    Punctuator::DASH |
+                    Punctuator::ASTERISK | 
+                    Punctuator::FORWARDSLASH | 
+                    Punctuator::PERCENT => DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type()),
 
                     Punctuator::EQUALS => lhs.get_data_type(),//assigning, rhs must be converted to lhs
 
@@ -356,6 +356,32 @@ impl Expression {
 
                         asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
                     },
+
+                    Punctuator::PERCENT => {
+                        asm_comment!(result, "calculating modulus");
+                        //put values on stack
+                        asm_line!(result, "{}", lhs.generate_assembly());
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&lhs.get_data_type(), &promoted_type));
+
+                        asm_line!(result, "{}", rhs.generate_assembly());
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
+
+                        asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY), asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+
+                        //modulus is calculated using a DIV
+                        match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type_is_unsigned()) {
+                            (4,false) => {
+                                asm_line!(result, "{}", asm_boilerplate::I32_DIVIDE_AX_BY_CX);
+                            },
+                            (8,false) => {
+                                asm_line!(result, "{}", asm_boilerplate::I64_DIVIDE_AX_BY_CX);
+                            }
+                            _ => panic!("unsupported operands")
+                        }
+
+                        //mod is returned in RDX
+                        asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &PhysicalRegister::_DX));
+                    }
 
                     comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
                         asm_comment!(result, "comparing numbers");

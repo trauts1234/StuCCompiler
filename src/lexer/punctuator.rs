@@ -6,7 +6,9 @@ pub enum Punctuator {
     FORWARDSLASH,
     EQUALS,
     SEMICOLON,
+
     AMPERSAND,
+    PERCENT,
 
     ANGLERIGHT,
     ANGLELEFT,
@@ -29,7 +31,9 @@ impl Punctuator {
             "/" => Some(Self::FORWARDSLASH),
             "=" => Some(Self::EQUALS),
             ";" => Some(Self::SEMICOLON),
+
             "&" => Some(Self::AMPERSAND),
+            "%" => Some(Self::PERCENT),
 
             ">" => Some(Self::ANGLERIGHT),
             "<" => Some(Self::ANGLELEFT),
@@ -66,10 +70,8 @@ impl Punctuator {
     pub fn as_binary_operator_precedence(&self) -> Option<i32> {
 
         match self {
-            Self::PLUS => Some(4),
-            Self::DASH => Some(4),
-            Self::ASTERISK => Some(3),//binary operator as in multiply
-            Self::FORWARDSLASH => Some(3),
+            Self::PLUS | Self::DASH => Some(4),
+            Self::ASTERISK | Self::FORWARDSLASH | Self::PERCENT => Some(3),//binary operator as in multiply
             Self::EQUALS => Some(14),
 
             Self::ANGLELEFT | Self::ANGLERIGHT => Some(6),
