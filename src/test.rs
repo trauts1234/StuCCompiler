@@ -9,8 +9,9 @@ pub mod test {
     #[derive(Serialize, Deserialize, Debug)]
     struct TestFile {
         filename: String,
+        args: Option<Vec<String>>,
+        stdout: Option<String>,
         return_code: Option<i32>,
-        stdout: Option<String>
     }
 
     #[test]
@@ -26,8 +27,11 @@ pub mod test {
             let filename = format!("{}/{}", test_folder, testfile.filename);
             compile::compile(&filename, "test_output").unwrap();
 
+            let fixed_args  = testfile.args.or(Some(Vec::new())).unwrap();
+
             let binary_command = Command::new("./test_output.out")
             .stdout(Stdio::piped())
+            .args(fixed_args)
             .spawn()
             .and_then(|cmd| cmd.wait_with_output()).expect("Failed to run the compiled binary");
 

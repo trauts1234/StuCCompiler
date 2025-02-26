@@ -182,5 +182,10 @@
     {
         "filename":"helloworldstringliteral.c",
         "stdout": "hello world\n"
+    },
+    {
+        "filename":"printarg.c",
+        "args": ["hello world"],
+        "stdout": "hello world\n"
     }
 ]
