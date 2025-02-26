@@ -1,1 +1,57 @@
-//TODO
+use crate::{compilation_state::label_generator::LabelGenerator, type_info::{DataType, DeclModifier, TypeInfo}};
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringLiteral {
+    text: Vec<i8>,//text plus zero terminator
+    label: String
+}
+
+impl StringLiteral {
+    pub fn get_label(&self) -> &str {
+        &self.label
+    }
+    pub fn get_comma_separated_bytes(&self) -> String {
+        self.text.iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
+    }
+    pub fn try_new(to_token: &str, string_label_generator: &mut LabelGenerator) -> Option<StringLiteral> {
+        if !to_token.starts_with("\"") || !to_token.ends_with("\"") {
+            return None;
+        }
+    
+        let inside_speechmarks = &to_token[1..(to_token.len()-1)];//remove outer speech marks
+    
+        assert!(inside_speechmarks.is_ascii());
+    
+        Some(StringLiteral {
+            label: format!("string_{}", string_label_generator.generate_label_number()),
+            text: 
+            inside_speechmarks
+            .replace("\\a", "\u{07}")//replace bell
+            .replace("\\b", "\u{08}")//replace backspace
+            .replace("\\f", "\u{0C}")//replace end page (form feed)
+            .replace("\\n", "\n")//replace \n with an actual newline
+            .replace("\\r", "\r")//replace \r
+            .replace("\\t", "\t")//replace tab
+            .replace("\\v", "\u{0B}")//replace vertical tab
+            .replace("\\\\", "\\")//replace backslash (awkward because rust has to have escaped backslash too)
+            .replace("\\'", "\'")//replace single quote
+            .replace("\\\"", "\"")//replace double quote
+            .replace("\\?", "?")//defend against trigraphs with \?
+            //TODO hex escape sequences etc.
+            .chars()
+            .map(|x| x as i8)//convert to integers
+            .chain(std::iter::once(0))//add null terminator 0
+            .collect()
+        })
+    }
+
+    pub fn get_data_type(&self) -> DataType {
+        DataType {
+            type_info: vec![TypeInfo::CHAR],//should also be const!
+            modifiers: vec![DeclModifier::ARRAY(self.text.len())],
+        }
+    }
+}

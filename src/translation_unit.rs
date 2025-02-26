@@ -1,9 +1,10 @@
-use crate::{asm_boilerplate, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, preprocessor::preprocessor::preprocess_c_file};
+use crate::{asm_boilerplate, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
 use std::{fs::File, io::Write};
 
 #[derive(Debug)]
 pub struct TranslationUnit {
     functions: FunctionList,
+    string_literals: Vec<StringLiteral>
 }
 
 impl TranslationUnit {
@@ -16,6 +17,11 @@ impl TranslationUnit {
         while let Some(t) = lexer.next_token() {
             tokens.push(t);
         }
+
+        let string_literals: Vec<StringLiteral> = tokens.iter()
+            .filter_map(|tok| if let Token::STRING(str_lit) = tok {Some(str_lit)} else {None})//get all strings from the token list
+            .cloned()
+            .collect();
 
         println!("{:#?}", tokens);
 
@@ -39,7 +45,8 @@ impl TranslationUnit {
         }
 
         Ok(TranslationUnit {
-            functions: funcs
+            functions: funcs,
+            string_literals:string_literals
         })
     }
 
@@ -58,11 +65,22 @@ impl TranslationUnit {
             })
             .collect::<String>();
 
+        let string_literals = self.string_literals.iter()
+            .map(|x| format!("{} db {}\n", x.get_label(), x.get_comma_separated_bytes()))
+            .collect::<String>();
+
         let instructions = self.functions.func_definitions_as_slice().iter()
             .map(|x| x.generate_assembly(&mut LabelGenerator::new()))
             .collect::<String>();
 
-        let assembly_code = asm_boilerplate::add_boilerplate(instructions, global_funcs);
+        let assembly_code = format!(
+"
+{}
+SECTION .rodata
+{}
+SECTION .note.GNU-stack ;disable executing the stack
+SECTION .text
+{}", global_funcs, string_literals, instructions);
 
         let banned_registers = ["rbx", "r12", "r13", "r14", "r15"];//these ones are callee saved and could cause problems
         assert!(!banned_registers.iter()

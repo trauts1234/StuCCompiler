@@ -21,6 +21,7 @@ mod function_call;
 mod compilation_state;
 mod function_definition;
 mod function_declaration;
+mod string_literal;
 fn main() {
     compile::compile("test.c", "a").unwrap();
 }

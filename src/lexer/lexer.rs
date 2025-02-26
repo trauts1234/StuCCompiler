@@ -1,4 +1,4 @@
-use crate::{number_literal::NumberLiteral, type_info::TypeInfo};
+use crate::{compilation_state::label_generator::LabelGenerator, number_literal::NumberLiteral, string_literal::StringLiteral, type_info::TypeInfo};
 
 use super::{token::Token, punctuator::Punctuator};
 
@@ -10,7 +10,8 @@ fn is_keyword(text: &str) -> bool {
 
 pub struct Lexer{
     data: String,
-    next_to_eat: usize//index of next character to consume
+    next_to_eat: usize,//index of next character to consume
+    string_label_generator: LabelGenerator
 }
 
 impl Lexer {
@@ -42,7 +43,8 @@ impl Lexer {
     pub fn new(sanitised_file: &str) -> Lexer{
         Lexer{
             data: sanitised_file.to_string(),
-            next_to_eat:0
+            next_to_eat:0,
+            string_label_generator: LabelGenerator::new()
         }
     }
 
@@ -66,6 +68,22 @@ impl Lexer {
             Token::TYPESPECIFIER(type_data)
         } else {
             Token::IDENTIFIER(letters)
+        }
+    }
+
+    fn consume_str(&mut self) -> Token {
+        let mut result_text = String::new();
+        loop {
+            let curr_char = self.consume().unwrap();
+            let next_char = self.peek().unwrap();
+            result_text += &curr_char.to_string();
+
+            if next_char == '"' && curr_char != '\\' {
+                //non escaped speech mark
+                self.consume();//consume last speech mark
+                result_text += "\"";//add the close speech mark
+                return Token::STRING(StringLiteral::try_new(&result_text, &mut self.string_label_generator).unwrap());
+            }
         }
     }
 
@@ -122,6 +140,7 @@ impl Lexer {
                     => Some(self.consume_number()),
             c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
             c if "(){}[];,+-*/=&".contains(c) => Some(self.consume_punctuation()),
+            '"' => Some(self.consume_str()),
             _ => None//maybe panic here?
         }
     }

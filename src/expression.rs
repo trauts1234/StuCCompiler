@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{self, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, declaration::AddressedDeclaration, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, type_info::{DataType, DeclModifier}};
+use crate::{asm_boilerplate, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, declaration::AddressedDeclaration, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, string_literal::StringLiteral, type_info::{DataType, DeclModifier}};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -8,6 +8,7 @@ const PTR_SIZE: MemoryLayout = MemoryLayout::from_bytes(8);
 pub enum Expression {
     STACKVAR(AddressedDeclaration),
     NUMBER(NumberLiteral),
+    STRINGLIT(StringLiteral),
     BINARYEXPR(Box<Expression>, Punctuator, Box<Expression>),
     PREFIXEXPR(Punctuator, Box<Expression>),
     FUNCCALL(FunctionCall)
@@ -67,6 +68,9 @@ impl Expression {
                     Token::IDENTIFIER(var_name) => {
                         Some(Expression::STACKVAR(local_variables.get_variable(&var_name).unwrap()))
                     },
+                    Token::STRING(string_lit) => {
+                        Some(Expression::STRINGLIT(string_lit))
+                    }
                     _ => None
                 }
             },
@@ -152,6 +156,7 @@ impl Expression {
         match self {
             Expression::STACKVAR(decl) => decl.decl.data_type.clone(),
             Expression::NUMBER(num_literal) => num_literal.get_data_type().data_type,
+            Expression::STRINGLIT(str_literal) => str_literal.get_data_type(),
             Expression::PREFIXEXPR(prefix, rhs) => {
                 match prefix {
                     Punctuator::AMPERSAND => DataType {
@@ -324,21 +329,7 @@ impl Expression {
                         asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
                     },
                     Punctuator::EQUALS => {//assign
-                        //put address of lvalue on stack
-                        asm_line!(result, "{}", lhs.put_lvalue_addr_on_stack());
-                        //put the value to assign on stack
-                        asm_line!(result, "{}", rhs.generate_assembly());
-                        //cast to the same type as lhs
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
-
-                        asm_comment!(result, "assigning to a stack variable");
-
-                        //pop the value to assign
-                        asm_line!(result, "{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
-                        //pop address to assign to
-                        asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::SECONDARY));
-                        //save to memory
-                        asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_reg_name(&PTR_SIZE), LogicalRegister::ACC.generate_reg_name(promoted_size));
+                        asm_line!(result, "{}", generate_assembly_for_assignment(lhs, rhs, &promoted_type, promoted_size));
                     },
                     Punctuator::FORWARDSLASH => {
                         asm_comment!(result, "dividing numbers");
@@ -368,7 +359,8 @@ impl Expression {
             },
             Expression::FUNCCALL(call_data) => {
                 asm_line!(result, "{}", call_data.generate_assembly());
-            }
+            },
+            Expression::STRINGLIT(_) => panic!("tried to put string on the stack")
         };
         result
     }
@@ -386,11 +378,55 @@ impl Expression {
                 //&*x == x
                 asm_comment!(result, "getting address of a dereference");
                 asm_line!(result, "{}", &expr_box.generate_assembly());
+            },
+
+            Expression::STRINGLIT(string_lit) => {
+                asm_comment!(result, "getting address of string");
+                asm_line!(result, "lea rax, [rel {}]", string_lit.get_label());
+                asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
             }
             _ => panic!("tried to generate assembly to assign to a non-lvalue")
         };
         result
     }
+}
+
+fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, promoted_type: &DataType, promoted_size: &MemoryLayout) -> String {
+    let mut result = String::new();
+
+    if lhs.get_data_type().is_array() && rhs.get_data_type().is_array() {
+        //initialising an array? char[12] x = "hello world";//for example
+        asm_line!(result, "{}", lhs.put_lvalue_addr_on_stack());//get dest address
+        asm_line!(result, "{}", rhs.put_lvalue_addr_on_stack());//get src address
+        asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &PhysicalRegister::_SI));//put source in RSI
+        asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &PhysicalRegister::_DI));//put destination in RDI
+
+        asm_line!(result, "mov rcx, {}", rhs.get_data_type().memory_size().size_bytes());//put number of bytes to copy in RCX
+
+        asm_line!(result, "cld");//reset copy direction flag
+        asm_line!(result, "rep movsb");//copy the data
+
+        return result;//all done here
+    }
+    //maybe more special cases for pointer assignment etc
+
+    //put address of lvalue on stack
+    asm_line!(result, "{}", lhs.put_lvalue_addr_on_stack());
+    //put the value to assign on stack
+    asm_line!(result, "{}", rhs.generate_assembly());
+    //cast to the same type as lhs
+    asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
+
+    asm_comment!(result, "assigning to a stack variable");
+
+    //pop the value to assign
+    asm_line!(result, "{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+    //pop address to assign to
+    asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::SECONDARY));
+    //save to memory
+    asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_reg_name(&PTR_SIZE), LogicalRegister::ACC.generate_reg_name(promoted_size));
+
+    result
 }
 
 /**
