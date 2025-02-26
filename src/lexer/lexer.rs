@@ -139,7 +139,7 @@ impl Lexer {
                 (c == '-' && self.peek_after_next().is_some_and(|x| x.is_numeric()))//starts with -(number)
                     => Some(self.consume_number()),
             c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
-            c if "(){}[];,+-*/=&".contains(c) => Some(self.consume_punctuation()),
+            c if "(){}[];,+-*/=&><".contains(c) => Some(self.consume_punctuation()),
             '"' => Some(self.consume_str()),
             _ => None//maybe panic here?
         }

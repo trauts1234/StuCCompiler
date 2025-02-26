@@ -192,5 +192,17 @@
         "filename":"printmyname.c",
         "args": ["Stu"],
         "stdout": "my name is:\nStu\n"
+    },
+    {
+        "filename":"cmpgreaterthan.c",
+        "return_code":0
+    },
+    {
+        "filename":"cmplessthan.c",
+        "return_code":0
+    },
+    {
+        "filename":"pointercmp.c",
+        "return_code":0
     }
 ]

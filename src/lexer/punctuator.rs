@@ -7,6 +7,10 @@ pub enum Punctuator {
     EQUALS,
     SEMICOLON,
     AMPERSAND,
+
+    ANGLERIGHT,
+    ANGLELEFT,
+
     OPENCURLY,
     CLOSECURLY,
     OPENSQUIGGLY,
@@ -27,6 +31,9 @@ impl Punctuator {
             ";" => Some(Self::SEMICOLON),
             "&" => Some(Self::AMPERSAND),
 
+            ">" => Some(Self::ANGLERIGHT),
+            "<" => Some(Self::ANGLELEFT),
+
             "(" => Some(Self::OPENCURLY),
             ")" => Some(Self::CLOSECURLY),
             "{" => Some(Self::OPENSQUIGGLY),
@@ -37,6 +44,18 @@ impl Punctuator {
             "," => Some(Self::COMMA),
             _ => None
         }
+    }
+
+    /**
+     * if this punctuator is a comparison operator, what instruction would
+     * returns the correct setcc instruction
+     */
+    pub fn as_comparator_instr(&self) -> Option<String> {
+        match self {
+            Self::ANGLELEFT => Some("setl"),
+            Self::ANGLERIGHT => Some("setg"),
+            _ => None,
+        }.map(|x| x.to_string())
     }
 
      /**
@@ -52,6 +71,8 @@ impl Punctuator {
             Self::ASTERISK => Some(3),//binary operator as in multiply
             Self::FORWARDSLASH => Some(3),
             Self::EQUALS => Some(14),
+
+            Self::ANGLELEFT | Self::ANGLERIGHT => Some(6),
             //TODO ampersand
             _ => None
         }

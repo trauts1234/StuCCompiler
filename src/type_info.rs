@@ -5,6 +5,7 @@ use crate::memory_size::MemoryLayout;
 pub enum TypeInfo{
     INT,
     CHAR,
+    _BOOL,
     UNSIGNED,
     LONG,
     EXTERN,
@@ -161,6 +162,10 @@ impl DataType {
             if self.type_info.contains(&TypeInfo::CHAR) {
                 return MemoryLayout::from_bits(8);//signed and unsigned char are both 8 bits
             }
+
+            if self.type_info.contains(&TypeInfo::_BOOL) {
+                return MemoryLayout::from_bits(8);//bool is 8 bits (only lsb is used)
+            }
             
             return MemoryLayout::from_bits(32);//i32 assumed here
         } else {
@@ -175,6 +180,7 @@ impl TypeInfo {
             "int" => Some(Self::INT),
             "long" => Some(Self::LONG),
             "char" => Some(Self::CHAR),
+            "_Bool" => Some(Self::_BOOL),
             "extern" => Some(Self::EXTERN),
             _ => None
         }

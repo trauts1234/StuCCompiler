@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, declaration::AddressedDeclaration, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, string_literal::StringLiteral, type_info::{DataType, DeclModifier}};
+use crate::{asm_boilerplate, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, declaration::AddressedDeclaration, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, string_literal::StringLiteral, type_info::{DataType, DeclModifier, TypeInfo}};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -180,6 +180,8 @@ impl Expression {
 
                     Punctuator::EQUALS => lhs.get_data_type(),//assigning, rhs must be converted to lhs
 
+                    Punctuator::ANGLELEFT | Punctuator::ANGLERIGHT => DataType { type_info: vec![TypeInfo::_BOOL], modifiers: Vec::new() },
+
                     _ => panic!("data type calculation for this binary operator is not implemented")
                 }
             },
@@ -354,6 +356,32 @@ impl Expression {
 
                         asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
                     },
+
+                    comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
+                        asm_comment!(result, "comparing numbers");
+                        //put values on stack
+                        asm_line!(result, "{}", lhs.generate_assembly());
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&lhs.get_data_type(), &promoted_type));
+
+                        asm_line!(result, "{}", rhs.generate_assembly());
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
+
+                        //pop the results
+                        asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY), asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+
+                        let lhs_reg = LogicalRegister::ACC.generate_reg_name(promoted_size);
+                        let rhs_reg = LogicalRegister::SECONDARY.generate_reg_name(promoted_size);
+
+                        let result_size = MemoryLayout::from_bytes(1);
+                        let result_reg = LogicalRegister::ACC;
+
+                        asm_line!(result, "cmp {}, {}", lhs_reg, rhs_reg);//compare the two
+
+                        asm_line!(result, "{} {}", comparison.as_comparator_instr().unwrap(), result_reg.generate_reg_name(&result_size));//create the correct set instruction
+
+                        asm_line!(result, "{}", asm_boilerplate::push_reg(&result_size, &result_reg));//push the result
+                    },
+
                     _ => panic!("operator to binary expression is invalid")
                 }
             },
