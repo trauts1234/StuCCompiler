@@ -208,5 +208,9 @@
     {
         "filename":"modulus.c",
         "return_code":1
+    },
+    {
+        "filename":"emptyscope.c",
+        "return_code":0
     }
 ]

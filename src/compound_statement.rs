@@ -32,7 +32,7 @@ impl ScopeStatements {
         }
 
         if statements.len() == 0 {
-            return None;
+            //return None;//you can have an empty scope?
         }
 
         if Token::PUNCTUATOR(Punctuator::CLOSESQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx)? {
