@@ -12,6 +12,7 @@ pub enum Punctuator {
 
     ANGLERIGHT,
     ANGLELEFT,
+    DOUBLEEQUALS,
 
     OPENCURLY,
     CLOSECURLY,
@@ -37,6 +38,7 @@ impl Punctuator {
 
             ">" => Some(Self::ANGLERIGHT),
             "<" => Some(Self::ANGLELEFT),
+            "==" =>Some(Self::DOUBLEEQUALS),
 
             "(" => Some(Self::OPENCURLY),
             ")" => Some(Self::CLOSECURLY),
@@ -58,6 +60,7 @@ impl Punctuator {
         match self {
             Self::ANGLELEFT => Some("setl"),
             Self::ANGLERIGHT => Some("setg"),
+            Self::DOUBLEEQUALS => Some("sete"),
             _ => None,
         }.map(|x| x.to_string())
     }
@@ -75,6 +78,7 @@ impl Punctuator {
             Self::EQUALS => Some(14),
 
             Self::ANGLELEFT | Self::ANGLERIGHT => Some(6),
+            Self::DOUBLEEQUALS => Some(7),
             //TODO ampersand
             _ => None
         }

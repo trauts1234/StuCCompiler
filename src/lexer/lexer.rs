@@ -95,12 +95,15 @@ impl Lexer {
             None => ' '//run out of chars, use whitespace
         };
 
-        match (curr_char, next_char) {
-            ('+', '+') => panic!("unary operators not implemented"),//found x++ or similar
-            _ => {}//do nothing
-        }
-
-        Token::PUNCTUATOR(Punctuator::try_new(&curr_char.to_string()).unwrap())
+        Token::PUNCTUATOR(
+            match (curr_char.to_string() + &next_char.to_string()).as_str() {
+                "==" => Punctuator::DOUBLEEQUALS,
+                "++" => panic!("unary operators not implemented"),
+                _ => {//no double char match
+                    Punctuator::try_new(&curr_char.to_string()).unwrap()//just this one
+                }
+            }
+        )
     }
 
     fn consume_number(&mut self) -> Token {

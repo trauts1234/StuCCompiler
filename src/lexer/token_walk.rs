@@ -251,6 +251,7 @@ impl TokenQueue {
         let (open_bracket, close_bracket) = match self.tokens[open_idx] {
             Token::PUNCTUATOR(Punctuator::OPENSQUARE) => (Punctuator::OPENSQUARE, Punctuator::CLOSESQUARE),
             Token::PUNCTUATOR(Punctuator::OPENCURLY) => (Punctuator::OPENCURLY, Punctuator::CLOSECURLY),
+            Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => (Punctuator::OPENSQUIGGLY, Punctuator::CLOSESQUIGGLY),
             _ => {panic!("unknown open bracket that I am trying to match")}
         };
 
@@ -261,7 +262,7 @@ impl TokenQueue {
                 _ => {}
             }
 
-            if bracket_depth == 0 {return i;}
+            if bracket_depth == 0 {assert!(self.tokens[i] == Token::PUNCTUATOR(close_bracket));return i;}
         }
 
         panic!("matching )/] not found");

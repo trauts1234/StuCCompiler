@@ -22,6 +22,7 @@ impl TokenQueueSlice {
         }
     }
 
+    //TODO could delete this?
     pub fn from_previous_savestate(previous_location: &TokenQueueSlice) -> TokenQueueSlice {
         TokenQueueSlice{
             index: previous_location.index,

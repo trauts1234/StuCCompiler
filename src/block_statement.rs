@@ -19,6 +19,7 @@ impl StatementOrDeclaration {
      * local_variables must be mut, as declarations can modify this
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &mut StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<StatementOrDeclaration>> {
+        if previous_queue_idx.get_slice_size() == 0 {panic!();}
         let curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         if let Some(ASTMetadata {remaining_slice, resultant_tree, extra_stack_used}) = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs) {

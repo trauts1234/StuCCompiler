@@ -180,7 +180,7 @@ impl Expression {
 
                     Punctuator::EQUALS => lhs.get_data_type(),//assigning, rhs must be converted to lhs
 
-                    Punctuator::ANGLELEFT | Punctuator::ANGLERIGHT => DataType { type_info: vec![TypeInfo::_BOOL], modifiers: Vec::new() },
+                    Punctuator::ANGLELEFT | Punctuator::ANGLERIGHT | Punctuator::DOUBLEEQUALS => DataType { type_info: vec![TypeInfo::_BOOL], modifiers: Vec::new() },
 
                     _ => panic!("data type calculation for this binary operator is not implemented")
                 }
