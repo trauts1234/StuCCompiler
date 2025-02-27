@@ -95,15 +95,15 @@ impl Lexer {
             None => ' '//run out of chars, use whitespace
         };
 
-        Token::PUNCTUATOR(
-            match (curr_char.to_string() + &next_char.to_string()).as_str() {
-                "==" => Punctuator::DOUBLEEQUALS,
-                "++" => panic!("unary operators not implemented"),
-                _ => {//no double char match
-                    Punctuator::try_new(&curr_char.to_string()).unwrap()//just this one
-                }
-            }
-        )
+        let possible_double_char = format!("{}{}", curr_char, next_char);//in case I want to match "==" or similar
+
+        if let Some(punc) = Punctuator::try_new(&possible_double_char) {
+            //double character punctuation "=="
+            self.consume().unwrap();//consume the token, as I have used it
+            Token::PUNCTUATOR(punc)
+        } else {
+            Token::PUNCTUATOR(Punctuator::try_new(&curr_char.to_string()).unwrap())
+        }
     }
 
     fn consume_number(&mut self) -> Token {
