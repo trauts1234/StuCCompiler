@@ -24,6 +24,11 @@ impl ScopeStatements {
             return None;//not enclosed in { }, so can't be a scope
         }
 
+        let squiggly_close_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index-1);//-1 since it has already been consumed
+        
+        //split to current tokens, and any after the slice
+        let (mut curr_queue_idx, remaining_slice_after_scope) = tokens_queue.split_to_slices(squiggly_close_idx, &curr_queue_idx);
+
         //greedily consume as many statements as possible
         while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used: _}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut all_scope_vars, accessible_funcs) {
 
@@ -31,14 +36,10 @@ impl ScopeStatements {
             curr_queue_idx = remaining_slice;//jump to next one
         }
 
-        if Token::PUNCTUATOR(Punctuator::CLOSESQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx)? {
-            return None;//not enclosed in { }, so can't be a scope
-        }
-
         //return the scope statements
         Some(ASTMetadata{
             resultant_tree: ScopeStatements {statements}, 
-            remaining_slice: curr_queue_idx,
+            remaining_slice: remaining_slice_after_scope,
             extra_stack_used: all_scope_vars.get_stack_used() - outer_variables.get_stack_used()//new variables - old variables
         })
     }

@@ -224,5 +224,13 @@
     {
         "filename":"multilinecomment.c",
         "return_code":0
+    },
+    {
+        "filename":"inteq.c",
+        "return_code":1
+    },
+    {
+        "filename":"multiifstatement.c",
+        "return_code":1
     }
 ]

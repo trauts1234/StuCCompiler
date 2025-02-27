@@ -28,18 +28,14 @@ impl FunctionDefinition {
      * returns some(function found, remaining tokens) if found, else None
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList) -> Option<ASTMetadata<FunctionDefinition>> {
-        let mut curr_queue_idx = TokenQueueSlice::new();
-
         let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx)?;
-
-        curr_queue_idx = after_decl_slice;//skip decl as it has been parsed
 
         //put args on stack variables backwards as args are pushed r->l
         //create a stack and tell it the params and return type of the function
         let mut func_body_stack = StackVariables::new_in_func_body(func_decl.params.iter().rev().cloned().collect(), &func_decl.return_type);
 
         //read the next statement (statement includes a scope)
-        let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &curr_queue_idx, &mut func_body_stack, accessible_funcs)?;
+        let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &after_decl_slice, &mut func_body_stack, accessible_funcs)?;
         
         return Some(ASTMetadata{
             resultant_tree: FunctionDefinition {

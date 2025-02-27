@@ -69,8 +69,10 @@ impl TranslationUnit {
             .map(|x| format!("{} db {}\n", x.get_label(), x.get_comma_separated_bytes()))
             .collect::<String>();
 
+        let mut label_generator = LabelGenerator::new();
+
         let instructions = self.functions.func_definitions_as_slice().iter()
-            .map(|x| x.generate_assembly(&mut LabelGenerator::new()))
+            .map(|x| x.generate_assembly(&mut label_generator))
             .collect::<String>();
 
         let assembly_code = format!(

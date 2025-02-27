@@ -125,14 +125,15 @@ impl TokenQueue {
 
     /**
      * splits the section of the token queue within bounds by the index specified
+     * does not include the split index in either slice
      */
-    pub fn split_to_slices(&self, split_location: &TokenQueueSlice, bounds: &TokenQueueSlice) -> (TokenQueueSlice, TokenQueueSlice) {
+    pub fn split_to_slices(&self, split_location: usize, bounds: &TokenQueueSlice) -> (TokenQueueSlice, TokenQueueSlice) {
         (
             TokenQueueSlice{
-                index: bounds.index, max_index: split_location.index
+                index: bounds.index, max_index: split_location
             },//up to but not including index
             TokenQueueSlice{
-                index: split_location.index + 1, max_index: bounds.max_index
+                index: split_location + 1, max_index: bounds.max_index
             }//from past index to end of bounds
         )
     }

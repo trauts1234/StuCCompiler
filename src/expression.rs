@@ -55,6 +55,8 @@ impl Expression {
             };
         }
 
+        //println!("{:?}", &tokens_queue.tokens[curr_queue_idx.index..curr_queue_idx.max_index]);
+
         match curr_queue_idx.get_slice_size() {
             0 => None,//panic!("not expecting this, maybe it is not an expression"),
 
@@ -509,7 +511,7 @@ fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &To
  */
 fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, local_variables: &StackVariables, accessible_funcs: &FunctionList) -> Option<Expression> {
     //split to before and after the operator
-    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx, curr_queue_idx);
+    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx.index, curr_queue_idx);
 
     //try and parse the left and right hand sides, propogating errors
     let parsed_left = Expression::try_consume_whole_expr(tokens_queue, &left_part, local_variables, accessible_funcs)?;
