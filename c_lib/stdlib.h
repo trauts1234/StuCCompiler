@@ -1,0 +1,1 @@
+extern int atoi (char *__nptr);
