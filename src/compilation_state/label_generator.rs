@@ -10,7 +10,7 @@ impl LabelGenerator {
     }
 
     pub fn generate_label(&mut self) -> String {
-        let label = format!("label_{}", self.label_counter);
+        let label = format!("LABEL{}", self.label_counter);
         self.label_counter += 1;
         label
     }

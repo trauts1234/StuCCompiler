@@ -244,5 +244,17 @@
     {
         "filename":"comparisontypes.c",
         "return_code":1
+    },
+    {
+        "filename":"loopcopy.c",
+        "return_code":69
+    },
+    {
+        "filename":"loopprint.c",
+        "stdout":"looped\nlooped\n"
+    },
+    {
+        "filename":"loopsum.c",
+        "return_code":5
     }
 ]

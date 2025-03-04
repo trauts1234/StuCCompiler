@@ -8,7 +8,7 @@ use std::fmt::Write;
  */
 #[derive(Debug)]
 pub struct FunctionDefinition {
-    code: Statement,//statement could be a scope if it wants
+    code: Statement,//statement could be a scope if it wants. should this just be a Scope????
     stack_required: MemoryLayout,
     decl: FunctionDeclaration
 }

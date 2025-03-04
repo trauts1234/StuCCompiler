@@ -1,8 +1,7 @@
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
- * TODO clone scope variables, as this has its own scope
  */
 #[derive(Debug)]
 pub struct ScopeStatements {
@@ -29,10 +28,13 @@ impl ScopeStatements {
         //split to current tokens, and any after the slice
         let (mut curr_queue_idx, remaining_slice_after_scope) = tokens_queue.split_to_slices(squiggly_close_idx, &curr_queue_idx);
 
+        let mut scope_stack_used = MemoryLayout::new();
+
         //greedily consume as many statements as possible
-        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used: _}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut all_scope_vars, accessible_funcs) {
+        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut all_scope_vars, accessible_funcs) {
 
             statements.push(resultant_tree);
+            scope_stack_used += extra_stack_used;
             curr_queue_idx = remaining_slice;//jump to next one
         }
 
@@ -40,7 +42,7 @@ impl ScopeStatements {
         Some(ASTMetadata{
             resultant_tree: ScopeStatements {statements}, 
             remaining_slice: remaining_slice_after_scope,
-            extra_stack_used: all_scope_vars.get_stack_used() - outer_variables.get_stack_used()//new variables - old variables
+            extra_stack_used: scope_stack_used
         })
     }
 

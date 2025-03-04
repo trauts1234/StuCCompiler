@@ -22,6 +22,7 @@ mod compilation_state;
 mod function_definition;
 mod function_declaration;
 mod string_literal;
+mod iteration_statement;
 fn main() {
     compile::compile("test.c", "a").unwrap();
 }
