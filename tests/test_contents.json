@@ -236,5 +236,9 @@
     {
         "filename":"atoitest.c",
         "return_code":69
+    },
+    {
+        "filename":"inlinescopetest.c",
+        "return_code":1
     }
 ]
