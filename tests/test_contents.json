@@ -240,5 +240,9 @@
     {
         "filename":"inlinescopetest.c",
         "return_code":1
+    },
+    {
+        "filename":"comparisontypes.c",
+        "return_code":1
     }
 ]

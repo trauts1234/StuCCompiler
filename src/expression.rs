@@ -200,9 +200,6 @@ impl Expression {
     pub fn generate_assembly(&self) -> String {
 
         let mut result = String::new();
-        let promoted_type = self.get_data_type();
-
-        let promoted_size = &promoted_type.memory_size();
 
         match self {
             Expression::STACKVAR(decl) => {
@@ -248,6 +245,12 @@ impl Expression {
                 }
             }
             Expression::BINARYEXPR(lhs, operator, rhs) => {
+                let promoted_type = match operator {
+                    Punctuator::EQUALS => lhs.get_data_type(),//assignment is just the lhs data size
+                    _ => DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type())//else find a common meeting ground
+                };
+                let promoted_size = &promoted_type.memory_size();
+
                 match operator {
                     Punctuator::PLUS => {
                         asm_comment!(result, "adding {}-bit numbers", promoted_size.size_bits());
