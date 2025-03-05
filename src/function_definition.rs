@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, declaration::{try_consume_declaration_modifiers, Declaration}, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, statement::Statement, type_info::{DataType, DeclModifier}};
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, statement::Statement, type_info::DataType};
 use std::fmt::Write;
 
 /**

@@ -57,12 +57,3 @@ pub enum ScanType {
     SKIPPINGBRANCH(i32),//selection depth at which you can stop skipping
     FINDINGTRUEBRANCH(i32),//selection depth at which branches are considered
 }
-
-fn smallest_option(a: Option<usize>, b: Option<usize>) -> Option<usize> {
-    match (a,b) {
-        (None,None) => None,
-        (Some(x), None) => Some(x),
-        (None, Some(x)) => Some(x),
-        (Some(x), Some(y)) => Some(x.min(y))
-    }
-}

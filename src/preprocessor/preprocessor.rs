@@ -58,7 +58,7 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
     }
 
     let unsubstituted_line_trim = unsubstituted_line.trim_matches(|x: char| x == '\n' || x == ' ');
-    let substituted_line_trim = substituted_line.trim_matches(|x: char| x == '\n' || x == ' ');
+    //let substituted_line_trim = substituted_line.trim_matches(|x: char| x == '\n' || x == ' ');
 
     match unsubstituted_line_trim {//match on the raw line
         line if line.starts_with("#define") => {
