@@ -149,18 +149,40 @@ impl DataType {
 
         //todo float managment
 
-        if lhs.underlying_type_is_unsigned() && rhs.underlying_type_is_unsigned() {
-            //unsigned + unsigned is calculated as unsigned
-            return DataType {
-                type_info: vec![TypeInfo::UNSIGNED, TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],//unsigned long long int
-                modifiers: Vec::new(),//not an array or pointer as that has already been handled
+        if lhs.underlying_type_is_integer() && rhs.underlying_type_is_integer() {
+            //integer type promotion
+            let biggest_size = lhs.memory_size().size_bits().max(rhs.memory_size().size_bits());
+
+            return match (biggest_size, lhs.underlying_type_is_unsigned(), rhs.underlying_type_is_unsigned()) {
+                (0..=31, _, _) |// small enough to be cast to int easily
+                (32, false, false)//signed, and both int sized
+                 => {
+                    DataType {
+                        type_info: vec![TypeInfo::INT],
+                        modifiers: Vec::new(),//not an array or pointer as that has already been handled
+                    }
+                },
+
+                (32, x, y) => {
+                    assert!(x || y);
+                    //32 bit, with one being unsigned
+                    //use unsigned 32 bit
+                    DataType {
+                        type_info: vec![TypeInfo::UNSIGNED, TypeInfo::INT],
+                        modifiers: Vec::new(),//not an array or pointer as that has already been handled
+                    }
+                },
+
+                (33..=64, _, _) => todo!("not implemented: big numbers"),
+
+                (65.., _, _) => panic!("integer size too large!")
+
             };
+
+
         }
 
-        return DataType {
-            type_info: vec![TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],//long long int
-            modifiers: Vec::new(),//not an array or pointer as that has already been handled
-        };
+        panic!();//integers already handled
 
     }
 
