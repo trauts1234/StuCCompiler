@@ -18,9 +18,6 @@ impl Lexer {
     fn peek(&self) -> Option<char> {
         self.data.chars().nth(self.next_to_eat)
     }
-    fn peek_after_next(&self) -> Option<char> {
-        self.data.chars().nth(self.next_to_eat+1)
-    }
     fn consume(&mut self) -> Option<char> {
         let c = self.peek();
         if c.is_some() {

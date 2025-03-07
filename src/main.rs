@@ -1,3 +1,5 @@
+use std::env;
+
 mod compound_statement;
 mod statement;
 mod block_statement;
@@ -23,6 +25,30 @@ mod function_definition;
 mod function_declaration;
 mod string_literal;
 mod iteration_statement;
+
+struct CompilationOptions {
+    c_file: String,
+    out_file: String
+}
+
 fn main() {
-    compile::compile("test.c", "a").unwrap();
+    let mut options = CompilationOptions{c_file: "test.c".to_string(), out_file: "a".to_string()};
+
+    let args_vec = env::args().collect::<Vec<String>>();
+    let mut args = args_vec.iter().skip(1);
+
+    while let Some(arg) = args.next() {
+        if arg.starts_with("-o") {
+            if arg == "-o" {
+                options.out_file = args.next().unwrap().to_string();
+            } else {
+                options.out_file = arg[2..].to_string();
+            }
+        } else {
+            options.c_file = arg.to_string();
+        }
+    }
+
+
+    compile::compile(&options.c_file, &options.out_file).unwrap();
 }
