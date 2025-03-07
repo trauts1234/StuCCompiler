@@ -163,8 +163,7 @@ impl DataType {
                     }
                 },
 
-                (32, x, y) => {
-                    assert!(x || y);
+                (32, _, _) => {
                     //32 bit, with one being unsigned
                     //use unsigned 32 bit
                     DataType {
@@ -173,7 +172,23 @@ impl DataType {
                     }
                 },
 
-                (33..=64, _, _) => todo!("not implemented: big numbers"),
+                (33..=63, _, _) |// small enough to be cast to long long easily
+                (64, false, false)//signed, and both are long long sized
+                 => {
+                    DataType {
+                        type_info: vec![TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
+                        modifiers: Vec::new(),
+                    }
+                },
+
+                (64, _, _) => {
+                    //64 bit, with one being unsigned
+                    //use unsigned 64 bit
+                    DataType {
+                        type_info: vec![TypeInfo::UNSIGNED, TypeInfo::INT],
+                        modifiers: Vec::new(),//not an array or pointer as that has already been handled
+                    }
+                },
 
                 (65.., _, _) => panic!("integer size too large!")
 

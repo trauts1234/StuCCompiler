@@ -121,7 +121,7 @@
     },
     {
         "filename":"equalsintpromotion.c",
-        "return_code":2
+        "return_code":0
     },
     {
         "filename":"functions.c",
