@@ -273,5 +273,10 @@
     {
         "filename":"nestedif.c",
         "return_code":3
+    },
+    {
+        "filename":"studentscore.c",
+        "args":["stu", "50", "70", "50"],
+        "stdout":"56\nstudent name: stu grade: D\n"
     }
 ]
