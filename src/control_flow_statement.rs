@@ -51,10 +51,8 @@ impl ControlFlowChange {
                 if let Some(expr) = expression {
                     asm_line!(result, "{}", expr.generate_assembly());
 
-                    //asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&expr.get_data_type(), todo!()));
+                    //asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.get_data_type(), todo!()));
                     //TODO cast here - how do I know the function's return type???
-                    
-                    asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(4), &LogicalRegister::ACC))
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return

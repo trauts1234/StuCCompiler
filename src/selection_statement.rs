@@ -72,10 +72,9 @@ impl SelectionStatement {
                 let else_label = format!("{}_else", generic_label);//jump for the else branch
                 let if_end_label = format!("{}_not_taken", generic_label);//rendevous point for the if and else branches
 
-                asm_line!(result, "{}", condition.generate_assembly());//generate the condition
+                asm_line!(result, "{}", condition.generate_assembly());//generate the condition to acc
                 
                 let condition_size = &condition.get_data_type().memory_size();
-                asm_line!(result, "{}", asm_boilerplate::pop_reg(condition_size, &LogicalRegister::ACC));
 
                 assert!(condition.get_data_type().underlying_type_is_integer());//cmp 0 may not work for float. but may work for pointers????
   

@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, declaration::AddressedDeclaration, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, string_literal::StringLiteral, type_info::{DataType, DeclModifier, TypeInfo}};
+use crate::{asm_boilerplate::{self, mov_reg}, asm_generation::{self, LogicalRegister, PhysicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, declaration::AddressedDeclaration, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, string_literal::StringLiteral, type_info::{DataType, DeclModifier, TypeInfo}};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -195,7 +195,7 @@ impl Expression {
     }
 
     /**
-     * puts the result of the expression on top of the stack
+     * puts the result of the expression in the accumulator
      */
     pub fn generate_assembly(&self) -> String {
 
@@ -206,16 +206,13 @@ impl Expression {
 
                 if decl.decl.data_type.is_array() {
                     //getting an array, decays to a pointer
-
                     asm_comment!(result, "decaying array {} to pointer", decl.decl.name);
                     asm_line!(result, "lea {}, [rbp-{}]", LogicalRegister::ACC.generate_reg_name(&PTR_SIZE), decl.stack_offset.size_bytes());
-                    asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
                 } else {
                     let reg_size = &decl.decl.data_type.memory_size();//decide which register size is appropriate for this variable
                     asm_comment!(result, "reading variable: {} to register {}", decl.decl.name, LogicalRegister::ACC.generate_reg_name(reg_size));
 
                     asm_line!(result, "mov {}, [rbp-{}]", LogicalRegister::ACC.generate_reg_name(reg_size), decl.stack_offset.size_bytes());//get the value from its address on the stack
-                    asm_line!(result, "{}", asm_boilerplate::push_reg(reg_size, &LogicalRegister::ACC));//push on to top of stack
                 }
             },
             Expression::NUMBER(number_literal) => {
@@ -223,23 +220,20 @@ impl Expression {
                 asm_comment!(result, "reading number literal: {} via register {}", number_literal.nasm_format(), LogicalRegister::ACC.generate_reg_name(reg_size));
 
                 asm_line!(result, "mov {}, {}", LogicalRegister::ACC.generate_reg_name(reg_size), number_literal.nasm_format());
-                asm_line!(result, "{}", asm_boilerplate::push_reg(reg_size, &LogicalRegister::ACC));
             },
             Expression::PREFIXEXPR(operator, rhs) => {
                 match operator {
                     Punctuator::AMPERSAND => {
                         asm_comment!(result, "getting address of something");
-                        //put address of the right hand side on the stack
-                        asm_line!(result, "{}", rhs.put_lvalue_addr_on_stack());
+                        //put address of the right hand side in acc
+                        asm_line!(result, "{}", rhs.put_lvalue_addr_in_acc());
                     },
                     Punctuator::ASTERISK => {
                         asm_comment!(result, "dereferencing pointer");
-                        // put the _pointer's_ memory location on the stack
+                        // put the address pointed to in rax
                         asm_line!(result, "{}", rhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::ACC));//load the pointer into RAX
                         
-                        asm_line!(result, "mov rax, [rax]");
-                        asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
+                        asm_line!(result, "mov rax, [rax]");//dereference pointer
                     },
                     _ => panic!("operator to unary prefix is invalid")
                 }
@@ -255,8 +249,8 @@ impl Expression {
                     Punctuator::PLUS => {
                         asm_comment!(result, "adding {}-bit numbers", promoted_size.size_bits());
 
-                        asm_line!(result, "{}", lhs.generate_assembly());//put lhs on stack
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&lhs.get_data_type(), &promoted_type));//cast to the correct type
+                        asm_line!(result, "{}", lhs.generate_assembly());//put lhs in acc
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.get_data_type(), &promoted_type));//cast to the correct type
 
                         if rhs.get_data_type().is_pointer() {//adding pointer to int
                             //you can only add pointer and number here, as per the C standard
@@ -265,18 +259,20 @@ impl Expression {
                             let rhs_dereferenced_size_bytes = rhs.get_data_type().remove_outer_modifier().memory_size().size_bytes();
                             //convert this number to a string
                             let rhs_deref_size_str = NumberLiteral::try_new(&rhs_dereferenced_size_bytes.to_string()).unwrap().nasm_format();
-
                             asm_comment!(result, "rhs is a pointer. make lhs {} times bigger", rhs_deref_size_str);
 
                             assert!(promoted_type.memory_size().size_bytes() == 8);
-                            asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::ACC));//pop the value of lhs(promoted to 64 bit pointer)
                             asm_line!(result, "mov rcx, {}", rhs_deref_size_str);//get the size of value pointed to by rhs
                             asm_line!(result, "mul rcx");//multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
-                            asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//save the result back to stack
+                            
+                            //lhs is now in AX
                         }
 
-                        asm_line!(result, "{}", rhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
+                        //save lhs to stack, as preprocessing for it is done
+                        asm_line!(result, "{}", asm_boilerplate::push_reg(promoted_size, &LogicalRegister::ACC));
+
+                        asm_line!(result, "{}", rhs.generate_assembly());//put rhs in acc
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));//cast to correct type
 
                         if lhs.get_data_type().is_pointer() {
                             //you can only add pointer and number here, as per the C standard
@@ -288,64 +284,51 @@ impl Expression {
                             asm_comment!(result, "lhs is a pointer. make rhs {} times bigger", lhs_deref_size_str);
 
                             assert!(promoted_type.memory_size().size_bytes() == 8);
-                            asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::ACC));//pop the value of rhs(promoted to 64 bit pointer)
                             asm_line!(result, "mov rcx, {}", lhs_deref_size_str);//get the size of value pointed to by rhs
                             asm_line!(result, "mul rcx");//multiply rhs by the size of value pointed to by lhs, so that +1 would skip along 1 value, not 1 byte
-                            asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//save the result back to stack
+                            
+                            //rhs now in AX
                         }
 
-                        asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY), asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+                        //pop lhs to secondary register, since rhs is already in acc
+                        asm_line!(result, "{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY));
 
-                        asm_line!(result, "add {}, {}", LogicalRegister::ACC.generate_reg_name(promoted_size), LogicalRegister::SECONDARY.generate_reg_name(promoted_size));
+                        asm_line!(result, "add {}, {}",
+                            LogicalRegister::ACC.generate_reg_name(promoted_size),
+                            LogicalRegister::SECONDARY.generate_reg_name(promoted_size)
+                        );
 
-                        asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
+                        //result is now in AX
                         
                     },
                     Punctuator::DASH => {
                         asm_comment!(result, "subtracting numbers");
-                        //put values on stack
-                        asm_line!(result, "{}", lhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&lhs.get_data_type(), &promoted_type));
+                        asm_line!(result, "{}", put_lhs_ax_rhs_cx(&lhs, &rhs));
 
-                        asm_line!(result, "{}", rhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
+                        asm_line!(result, "sub {}, {}",
+                        LogicalRegister::ACC.generate_reg_name(promoted_size),
+                        LogicalRegister::SECONDARY.generate_reg_name(promoted_size)
+                        );
 
-                        asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY), asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
-
-                        asm_line!(result, "sub {}, {}", LogicalRegister::ACC.generate_reg_name(promoted_size), LogicalRegister::SECONDARY.generate_reg_name(promoted_size));
-
-                        asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
                     }
                     Punctuator::ASTERISK => {
                         asm_comment!(result, "multiplying numbers");
-                        //put values on stack
-                        asm_line!(result, "{}", lhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&lhs.get_data_type(), &promoted_type));
+                        asm_line!(result, "{}", put_lhs_ax_rhs_cx(&lhs, &rhs));
 
-                        asm_line!(result, "{}", rhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
+                        assert!(!promoted_type.underlying_type_is_unsigned());//unsigned multiply??
 
-                        asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY), asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+                        asm_line!(result, "imul {}, {}",
+                            LogicalRegister::ACC.generate_reg_name(promoted_size),
+                            LogicalRegister::SECONDARY.generate_reg_name(promoted_size)
+                        );
 
-                        assert!(!promoted_type.underlying_type_is_unsigned() || promoted_type.is_pointer());//unsigned multiply??
-
-                        asm_line!(result, "imul {}, {}", LogicalRegister::ACC.generate_reg_name(promoted_size), LogicalRegister::SECONDARY.generate_reg_name(promoted_size));
-
-                        asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
                     },
                     Punctuator::EQUALS => {//assign
                         asm_line!(result, "{}", generate_assembly_for_assignment(lhs, rhs, &promoted_type, promoted_size));
                     },
                     Punctuator::FORWARDSLASH => {
                         asm_comment!(result, "dividing numbers");
-                        //put values on stack
-                        asm_line!(result, "{}", lhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&lhs.get_data_type(), &promoted_type));
-
-                        asm_line!(result, "{}", rhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
-
-                        asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY), asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+                        asm_line!(result, "{}", put_lhs_ax_rhs_cx(&lhs, &rhs));
 
                         match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type_is_unsigned()) {
                             (4,false) => {
@@ -354,22 +337,13 @@ impl Expression {
                             (8,false) => {
                                 asm_line!(result, "{}", asm_boilerplate::I64_DIVIDE_AX_BY_CX);
                             }
-                            _ => panic!("unsupported operands")
+                            _ => panic!("unsupported operands for divide")
                         }
-
-                        asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
                     },
 
                     Punctuator::PERCENT => {
                         asm_comment!(result, "calculating modulus");
-                        //put values on stack
-                        asm_line!(result, "{}", lhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&lhs.get_data_type(), &promoted_type));
-
-                        asm_line!(result, "{}", rhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
-
-                        asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY), asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+                        asm_line!(result, "{}", put_lhs_ax_rhs_cx(&lhs, &rhs));
 
                         //modulus is calculated using a DIV
                         match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type_is_unsigned()) {
@@ -383,20 +357,12 @@ impl Expression {
                         }
 
                         //mod is returned in RDX
-                        asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &PhysicalRegister::_DX));
+                        asm_line!(result, "{}", asm_boilerplate::mov_reg(&promoted_size, &LogicalRegister::ACC,  &PhysicalRegister::_DX));
                     }
 
                     comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
                         asm_comment!(result, "comparing numbers");
-                        //put values on stack
-                        asm_line!(result, "{}", lhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&lhs.get_data_type(), &promoted_type));
-
-                        asm_line!(result, "{}", rhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
-
-                        //pop the results
-                        asm_line!(result, "{}\n{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY), asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+                        asm_line!(result, "{}", put_lhs_ax_rhs_cx(&lhs, &rhs));
 
                         let lhs_reg = LogicalRegister::ACC.generate_reg_name(promoted_size);
                         let rhs_reg = LogicalRegister::SECONDARY.generate_reg_name(promoted_size);
@@ -418,20 +384,23 @@ impl Expression {
                 asm_line!(result, "{}", call_data.generate_assembly());
             },
             Expression::STRINGLIT(_) => {
-                asm_line!(result, "{}", self.put_lvalue_addr_on_stack());
+                asm_line!(result, "{}", self.put_lvalue_addr_in_acc());
             }
         };
         result
     }
 
-    fn put_lvalue_addr_on_stack(&self) -> String {
+    /**
+     * put the address of myself in the accumulator
+     */
+    fn put_lvalue_addr_in_acc(&self) -> String {
         let mut result = String::new();
 
         match self {
             Expression::STACKVAR(decl) => {
                 asm_comment!(result, "getting address of variable: {}", decl.decl.name);
                 asm_line!(result, "lea rax, [rbp-{}]", decl.stack_offset.size_bytes());//calculate the address of the variable
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push the address on to the stack
+                //asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push the address on to the stack
             },
             Expression::PREFIXEXPR(Punctuator::ASTERISK, expr_box) => {
                 //&*x == x
@@ -442,7 +411,7 @@ impl Expression {
             Expression::STRINGLIT(string_lit) => {
                 asm_comment!(result, "getting address of string");
                 asm_line!(result, "lea rax, [rel {}]", string_lit.get_label());
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
+                //asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
             }
             _ => panic!("tried to generate assembly to assign to a non-lvalue")
         };
@@ -450,15 +419,46 @@ impl Expression {
     }
 }
 
+/**
+     * puts lhs in AX
+     * puts rhs in CX
+     * used in binary expressions, where you need both sides in registers
+     * does NOT work for assignment expressions
+     */
+    fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression) -> String {
+        let mut result = String::new();
+
+        let promoted_type = DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type());
+        let promoted_size = &promoted_type.memory_size();
+
+        //put lhs on stack
+        asm_line!(result, "{}", lhs.generate_assembly());
+        asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.get_data_type(), &promoted_type));
+        asm_line!(result, "{}", asm_boilerplate::push_reg(&lhs.get_data_type().memory_size(), &LogicalRegister::ACC));
+
+        //put rhs in secondary
+        asm_line!(result, "{}", rhs.generate_assembly());
+        asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));
+        asm_line!(result, "{}", mov_reg(promoted_size, &LogicalRegister::SECONDARY, &LogicalRegister::ACC));//mov acc to secondary
+
+        //pop lhs to ACC
+        asm_line!(result, "{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
+
+        result
+    }
+
 fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, promoted_type: &DataType, promoted_size: &MemoryLayout) -> String {
     let mut result = String::new();
 
     if lhs.get_data_type().is_array() && rhs.get_data_type().is_array() {
         //initialising an array? char[12] x = "hello world";//for example
-        asm_line!(result, "{}", lhs.put_lvalue_addr_on_stack());//get dest address
-        asm_line!(result, "{}", rhs.put_lvalue_addr_on_stack());//get src address
-        asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &PhysicalRegister::_SI));//put source in RSI
-        asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &PhysicalRegister::_DI));//put destination in RDI
+        asm_line!(result, "{}", lhs.put_lvalue_addr_in_acc());//get dest address
+        asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
+        asm_line!(result, "{}", rhs.put_lvalue_addr_in_acc());//get src address
+        asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
+
+        asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_SI));//pop source to RSI
+        asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_DI));//pop destination to RDI
 
         asm_line!(result, "mov rcx, {}", rhs.get_data_type().memory_size().size_bytes());//put number of bytes to copy in RCX
 
@@ -469,19 +469,20 @@ fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, promoted
     }
 
     assert!(!lhs.get_data_type().is_array());
+    assert!(lhs.get_data_type().memory_size().size_bits() <= 64);
     //maybe more special cases for pointer assignment etc
 
     //put address of lvalue on stack
-    asm_line!(result, "{}", lhs.put_lvalue_addr_on_stack());
-    //put the value to assign on stack
+    asm_line!(result, "{}", lhs.put_lvalue_addr_in_acc());
+    asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
+    
+    //put the value to assign in acc
     asm_line!(result, "{}", rhs.generate_assembly());
     //cast to the same type as lhs
-    asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&rhs.get_data_type(), &promoted_type));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));
 
     asm_comment!(result, "assigning to a stack variable");
 
-    //pop the value to assign
-    asm_line!(result, "{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));
     //pop address to assign to
     asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::SECONDARY));
     //save to memory

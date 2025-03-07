@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, memory_size::MemoryLayout, type_info::{DataType, TypeInfo}};
+use crate::{asm_generation::{asm_comment, asm_line, RegisterName}, memory_size::MemoryLayout, type_info::{DataType, TypeInfo}};
 use std::fmt::Write;
 
 
@@ -36,7 +36,16 @@ pub fn push_reg<T: RegisterName>(reg_size: &MemoryLayout, reg_type: &T) -> Strin
     )
 }
 
-pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
+pub fn mov_reg<T: RegisterName, U: RegisterName>(reg_size: &MemoryLayout, to: &T, from: &U) -> String {
+    let to_name = to.generate_reg_name(reg_size);
+    let from_name = from.generate_reg_name(reg_size);
+
+    format!(
+        "mov {}, {}", to_name, from_name
+    )
+}
+
+pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
 
     if new_type.is_varadic_param() {
         return String::new();//cast to varadic arg does nothing, as types are not specified for va args
@@ -44,7 +53,7 @@ pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
 
     if let Some(ptr) = original.decay_array_to_pointer() {
         //arrays are just pointers in disguise
-        return cast_from_stack(&ptr, new_type);
+        return cast_from_acc(&ptr, new_type);
     }
 
     let mut result = String::new();
@@ -57,39 +66,29 @@ pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
             modifiers: Vec::new(),
         };
         //cast from
-        return cast_from_stack(&original_implicitly_as_u64, new_type);
+        return cast_from_acc(&original_implicitly_as_u64, new_type);
     }
 
     if original.underlying_type_is_integer() && new_type.underlying_type_is_integer() {
         match (original.memory_size().size_bytes(), original.underlying_type_is_unsigned()) {
             (8, _) => {
-
-                if new_type.memory_size().size_bytes() == 8{
-                    return String::new();//we would just be popping a register just to put it back again??? return here
-                }
-
-                asm_comment!(result, "casting 64 bit integer to {} bit integer", new_type.memory_size().size_bits());
-
-                asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//grab the unsigned 64 bit number
-
                 //no matter the signedness of original, you just need to get the bottom few bits of it,
                 //because positive numbers are the same for uxx and ixx in original
                 //negative numbers are already sign extended, so need no special treatment
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&new_type.memory_size(), &LogicalRegister::ACC));
+
+                //do nothing
             }
             (x, false) => {
                 let data_size = MemoryLayout::from_bytes(x);
 
                 asm_comment!(result, "casting i{} to i64", data_size.size_bits());
-                asm_line!(result, "{}", asm_boilerplate::pop_reg(&data_size, &LogicalRegister::ACC));//grab data from stack
-                asm_line!(result, "{}", sign_extend_acc(&data_size));//sign extend to rax
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//rax -> 64 bit output
+                asm_line!(result, "{}", sign_extend_acc(&data_size));//sign extend rax to i64
 
                 let original_now_as_i64 = DataType {
                     type_info:vec![TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
                     modifiers: Vec::new(),
                 };
-                asm_line!(result, "{}", cast_from_stack(&original_now_as_i64, new_type));//cast the i64 back down to whatever new_type is
+                asm_line!(result, "{}", cast_from_acc(&original_now_as_i64, new_type));//cast the i64 back down to whatever new_type is
             }
             (size, unsigned) => panic!("casting this type of integer is not implemented: {} bytes, unsigned?: {}", size, unsigned)
         }

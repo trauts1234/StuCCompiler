@@ -75,11 +75,9 @@ impl FunctionCall {
             }
 
             asm_line!(result, "{}", arg.generate_assembly());//calculate the arg
-            asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&arg.get_data_type(), param_type.get_type()));//cast to requested type
+            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&arg.get_data_type(), param_type.get_type()));//cast to requested type
 
-            asm_line!(result, "{}", asm_boilerplate::pop_reg(&param_type.get_type().memory_size(), &LogicalRegister::ACC));//pop to accumulator temporarily
-            
-            asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//extend to 8 bytes, without conversion/casting
+            asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//implicitly extend to 8 bytes, without conversion/casting
         }
 
         //loop thru args that could be put in registers (any params up to 6)
@@ -92,10 +90,6 @@ impl FunctionCall {
         if self.args.len() > 6 {
             //some args were put on the stack
             asm_line!(result, "add rsp, {} ;remove stack params", 8*(self.args.len()-6));
-        }
-
-        if !self.decl.return_type.is_void() {
-            asm_line!(result, "{}", asm_boilerplate::push_reg(&self.decl.return_type.memory_size(), &LogicalRegister::ACC));//put return value on stack
         }
 
         result

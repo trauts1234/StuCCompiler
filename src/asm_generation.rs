@@ -41,6 +41,7 @@ pub trait RegisterName {
 pub enum LogicalRegister{
     ACC,
     SECONDARY,
+    THIRD,
 }
 
 /**
@@ -76,6 +77,7 @@ impl RegisterName for LogicalRegister {
         let reg_as_physical = match self {
             LogicalRegister::ACC => PhysicalRegister::_AX,
             LogicalRegister::SECONDARY => PhysicalRegister::_CX,
+            LogicalRegister::THIRD => PhysicalRegister::_DX,
         };
 
         return reg_as_physical.generate_reg_name(data_size);
