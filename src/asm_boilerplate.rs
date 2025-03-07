@@ -47,6 +47,8 @@ pub fn mov_reg<T: RegisterName, U: RegisterName>(reg_size: &MemoryLayout, to: &T
 
 pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
 
+    assert!(!new_type.is_array());//cannot cast to array
+
     if new_type.is_varadic_param() {
         return String::new();//cast to varadic arg does nothing, as types are not specified for va args
     }
@@ -67,6 +69,16 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
         };
         //cast from
         return cast_from_acc(&original_implicitly_as_u64, new_type);
+    }
+
+    if new_type.is_pointer() {
+        //cast u64 to pointer
+        let new_implicitly_as_u64 = DataType {
+            type_info: vec![TypeInfo::UNSIGNED, TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
+            modifiers: Vec::new(),
+        };
+        //cast from
+        return cast_from_acc(original, &new_implicitly_as_u64);
     }
 
     if original.underlying_type_is_integer() && new_type.underlying_type_is_integer() {

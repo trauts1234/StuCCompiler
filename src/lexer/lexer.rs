@@ -3,7 +3,7 @@ use crate::{compilation_state::label_generator::LabelGenerator, number_literal::
 use super::{token::Token, punctuator::Punctuator};
 
 fn is_keyword(text: &str) -> bool {
-    let possible_keywords = vec!["break", "case", "continue", "default", "do", "else", "enum", "for", "goto", "if", "return", "sizeof", "struct", "switch", "typedef", "union", "while", "_Bool"];
+    let possible_keywords = vec!["break", "case", "continue", "default", "do", "else", "enum", "for", "goto", "if", "return", "sizeof", "struct", "switch", "typedef", "union", "while"];
     
     return possible_keywords.contains(&text);
 }

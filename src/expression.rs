@@ -176,7 +176,7 @@ impl Expression {
 
                     Punctuator::EQUALS => lhs.get_data_type(),//assigning, rhs must be converted to lhs
 
-                    Punctuator::ANGLELEFT | Punctuator::ANGLERIGHT | Punctuator::DOUBLEEQUALS => DataType { type_info: vec![TypeInfo::_BOOL], modifiers: Vec::new() },
+                    Punctuator::ANGLELEFT | Punctuator::ANGLERIGHT | Punctuator::GREATEREQUAL | Punctuator::LESSEQAUAL | Punctuator::DOUBLEEQUALS => DataType { type_info: vec![TypeInfo::_BOOL], modifiers: Vec::new() },
 
                     _ => panic!("data type calculation for this binary operator is not implemented")
                 }
@@ -378,7 +378,6 @@ impl Expression {
 
                         asm_line!(result, "{} {}", comparison.as_comparator_instr().unwrap(), result_reg.generate_reg_name(&result_size));//create the correct set instruction
 
-                        asm_line!(result, "{}", asm_boilerplate::push_reg(&result_size, &result_reg));//push the result
                     },
 
                     _ => panic!("operator to binary expression is invalid")

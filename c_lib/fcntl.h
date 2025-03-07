@@ -1,0 +1,1 @@
+extern int open (char *__file, int __oflag, ...);

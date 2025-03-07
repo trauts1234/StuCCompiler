@@ -6,3 +6,4 @@ make_it.sh
 test_output*
 Cargo.lock
 test.c
+testout.txt

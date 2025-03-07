@@ -269,5 +269,9 @@
     {
         "filename":"negatevariable.c",
         "return_code":69
+    },
+    {
+        "filename":"nestedif.c",
+        "return_code":3
     }
 ]

@@ -79,9 +79,11 @@ impl DataType {
     }
 
     pub fn underlying_type_is_long_long(&self) -> bool {
+        //in Linux, using LP64, long int is 64 bit
+        //but on Windows using ILP64, long int is 32 bit (you need long long int)
         self.type_info.iter()
             .filter(|typedata| **typedata == TypeInfo::LONG)
-            .count() == 2//must contain 2 longs
+            .count() >= 1//must contain at least 1 long
     }
 
     pub fn is_pointer(&self) -> bool {
@@ -302,6 +304,7 @@ impl DataType {
 impl TypeInfo {
     pub fn try_new(to_token: &str) -> Option<TypeInfo>{
         match to_token {
+            "unsigned" => Some(Self::UNSIGNED),
             "int" => Some(Self::INT),
             "long" => Some(Self::LONG),
             "char" => Some(Self::CHAR),

@@ -70,7 +70,9 @@ impl SelectionStatement {
             Self::IF { condition, if_body, else_body } => {
                 let generic_label = label_gen.generate_label();
                 let else_label = format!("{}_else", generic_label);//jump for the else branch
-                let if_end_label = format!("{}_not_taken", generic_label);//rendevous point for the if and else branches
+                let if_end_label = format!("{}_end", generic_label);//rendevous point for the if and else branches
+
+                let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};
 
                 asm_line!(result, "{}", condition.generate_assembly());//generate the condition to acc
                 
@@ -79,7 +81,7 @@ impl SelectionStatement {
                 assert!(condition.get_data_type().underlying_type_is_integer());//cmp 0 may not work for float. but may work for pointers????
   
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
-                asm_line!(result, "je {}", if_end_label);//if the result is 0, jump to the else block
+                asm_line!(result, "je {}", cond_false_label);//if the result is 0, jump to the else block or the end of the if statement
 
                 asm_line!(result, "{}", if_body.generate_assembly(label_gen));//generate the body of the if statement
                 asm_line!(result, "jmp {}", if_end_label);//jump to the end of the if/else block

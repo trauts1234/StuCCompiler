@@ -12,6 +12,8 @@ pub enum Punctuator {
 
     ANGLERIGHT,
     ANGLELEFT,
+    LESSEQAUAL,
+    GREATEREQUAL,
     DOUBLEEQUALS,
 
     OPENCURLY,
@@ -40,6 +42,8 @@ impl Punctuator {
 
             ">" => Some(Self::ANGLERIGHT),
             "<" => Some(Self::ANGLELEFT),
+            ">=" => Some(Self::GREATEREQUAL),
+            "<=" => Some(Self::LESSEQAUAL),
             "==" =>Some(Self::DOUBLEEQUALS),
 
             "(" => Some(Self::OPENCURLY),
@@ -65,6 +69,8 @@ impl Punctuator {
             Self::ANGLELEFT => Some("setl"),
             Self::ANGLERIGHT => Some("setg"),
             Self::DOUBLEEQUALS => Some("sete"),
+            Self::LESSEQAUAL => Some("setle"),
+            Self::GREATEREQUAL => Some("setge"),
             _ => None,
         }.map(|x| x.to_string())
     }
@@ -81,7 +87,7 @@ impl Punctuator {
             Self::ASTERISK | Self::FORWARDSLASH | Self::PERCENT => Some(3),//binary operator as in multiply
             Self::EQUALS => Some(14),
 
-            Self::ANGLELEFT | Self::ANGLERIGHT => Some(6),
+            Self::ANGLELEFT | Self::ANGLERIGHT | Self::GREATEREQUAL | Self::LESSEQAUAL => Some(6),
             Self::DOUBLEEQUALS => Some(7),
             //TODO ampersand
             _ => None
