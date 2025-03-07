@@ -85,6 +85,14 @@ impl FunctionCall {
             asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &asm_generation::generate_param_reg(i)));//store the param in the correct register
         }
 
+        if self.args.len() > 6 {
+            let stack_params_usage = MemoryLayout::from_bytes(8*(self.args.len()-6));
+
+            let alignment_extra = (16 - (stack_params_usage.size_bytes() % 16)) % 16;
+        }
+
+        //todo!("align stack based on params and how far I am through the current expression");
+
         asm_line!(result, "call {}", self.func_name);
 
         if self.args.len() > 6 {

@@ -94,8 +94,10 @@ impl Punctuator {
      */
     pub fn as_unary_prefix_precedence(&self) -> Option<i32> {
         match self {
-            Self::ASTERISK => Some(2),
-            Self::AMPERSAND => Some(2),
+            Self::ASTERISK => Some(2),//dereference
+            Self::AMPERSAND => Some(2),//reference
+
+            Self::DASH => Some(2),//unary negate
             _ => None
         }
     }

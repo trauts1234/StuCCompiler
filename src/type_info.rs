@@ -210,8 +210,69 @@ impl DataType {
 
         }
 
-        panic!();//integers already handled
+        panic!();
 
+    }
+
+    pub fn calculate_unary_type_arithmetic(lhs: &DataType) -> DataType {
+        //see if it wants to be a pointer
+        if let Some(lhs_as_pointer) = lhs.decay_array_to_pointer() {
+            return lhs_as_pointer;
+        }
+
+        //see if this is pointer arithmetic
+        if lhs.is_pointer() {
+            return lhs.clone();
+        }
+
+        //todo float managment
+
+        if lhs.underlying_type_is_integer() {
+            //integer type promotion
+
+            return match (lhs.memory_size().size_bits(), lhs.underlying_type_is_unsigned()) {
+                (0..=31, _) |// small enough to be cast to int easily
+                (32, false)//signed, and both int sized
+                 => {
+                    DataType {
+                        type_info: vec![TypeInfo::INT],
+                        modifiers: Vec::new(),//not an array or pointer as that has already been handled
+                    }
+                },
+
+                (32, true) => { //u32
+                    //use unsigned 32 bit
+                    DataType {
+                        type_info: vec![TypeInfo::UNSIGNED, TypeInfo::INT],
+                        modifiers: Vec::new(),//not an array or pointer as that has already been handled
+                    }
+                },
+
+                (33..=63, _) |// small enough to be cast to long long easily
+                (64, false)//signed, and both are long long sized
+                 => {
+                    DataType {
+                        type_info: vec![TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
+                        modifiers: Vec::new(),
+                    }
+                },
+
+                (64, true) => { //u64
+                    //use unsigned 64 bit
+                    DataType {
+                        type_info: vec![TypeInfo::UNSIGNED, TypeInfo::INT],
+                        modifiers: Vec::new(),//not an array or pointer as that has already been handled
+                    }
+                },
+
+                (65.., _) => panic!("integer size too large!")
+
+            };
+
+
+        }
+
+        panic!();//integers already handled
     }
 
     fn calculate_base_type_size(&self) -> MemoryLayout {

@@ -236,6 +236,6 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     Some(Expression::BINARYEXPR(
         Box::new(Expression::STACKVAR(local_variables.get_variable(var_name).unwrap())),
         Punctuator::EQUALS,
-        Box::new(Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs)?)
+        Box::new(Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs).unwrap())
     ))
 }

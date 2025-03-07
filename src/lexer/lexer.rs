@@ -118,11 +118,6 @@ impl Lexer {
     fn consume_number(&mut self) -> Token {
         let mut letters = String::new();
 
-        if Some('-') == self.peek() {
-            letters.push('-');
-            self.consume();//consume initial negative sign
-        }
-
         while let Some(c) = self.peek() {
             if !("0123456789.".contains(c)) {
                 break;
@@ -134,7 +129,7 @@ impl Lexer {
         if Some('f') == self.peek() {
             panic!("float suffix not implemented");
         }
-        if Some('e') ==self.peek() {
+        if Some('e') == self.peek() {
             panic!("standard form is not implemented");
         }
 
@@ -147,9 +142,7 @@ impl Lexer {
         self.skip_whitespace();
 
         match self.peek()? {
-            c if c.is_numeric() || //starts with number
-                (c == '-' && self.peek_after_next().is_some_and(|x| x.is_numeric()))//starts with -(number)
-                    => Some(self.consume_number()),
+            c if c.is_numeric() => Some(self.consume_number()),
             c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
             c if "(){}[];,+-*/=&%><.".contains(c) => Some(self.consume_punctuation()),
             '"' => Some(self.consume_str()),

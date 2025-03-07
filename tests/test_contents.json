@@ -265,5 +265,9 @@
     {
         "filename":"printfalignmenttest.c",
         "stdout":"hello world"
+    },
+    {
+        "filename":"negatevariable.c",
+        "return_code":69
     }
 ]

@@ -46,7 +46,7 @@
             "request": "launch",
             "name": "Debug NASM assembly",
             "program": "${workspaceFolder}/a.out",
-            "args": [],
+            "args": ["1", "2", "3"],
             "cwd": "${workspaceFolder}"
         }
     ]

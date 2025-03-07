@@ -40,6 +40,8 @@ impl Expression {
     pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables, accessible_funcs: &FunctionList) -> Option<Expression> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
+        println!("{:?}", tokens_queue.get_slice(&curr_queue_idx));
+
         if tokens_queue.slice_is_parenthesis(&curr_queue_idx) {
             //we are an expression surrounded by brackets
             //remove the outer brackets and continue
@@ -160,6 +162,7 @@ impl Expression {
                         type_info: rhs.get_data_type().type_info,
                         modifiers: rhs.get_data_type().modifiers[1..].to_vec(),//remove the pointer info, as it has been dereferenced
                     },
+                    Punctuator::DASH => DataType::calculate_unary_type_arithmetic(&rhs.get_data_type()),//-x will promote x to a bigger type
                     _ => panic!("tried getting data type of a not-implemented prefix")
                 }
             },
@@ -226,11 +229,21 @@ impl Expression {
                         
                         asm_line!(result, "mov rax, [rax]");//dereference pointer
                     },
+                    Punctuator::DASH => {
+                        asm_comment!(result, "negating something");
+
+                        let promoted_type = self.get_data_type();
+
+                        asm_line!(result, "{}", rhs.generate_assembly());
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));//cast to the correct type
+
+                        asm_line!(result, "neg {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
+                    }
                     _ => panic!("operator to unary prefix is invalid")
                 }
             }
             Expression::BINARYEXPR(lhs, operator, rhs) => {
-                let promoted_type = match operator {
+                let promoted_type = match operator {//I already have a function for this?
                     Punctuator::EQUALS => lhs.get_data_type(),//assignment is just the lhs data size
                     _ => DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type())//else find a common meeting ground
                 };
