@@ -26,12 +26,6 @@ impl Expression {
             max_index: semicolon_idx.index
         };
 
-        //warning! the line of code:
-        //1+1;
-        //will cause a memory leak on the stack?!
-        //as 1, 1 are pushed, popped, added, then 2 is pushed but nothing pops it
-        //is this a problem? probably not, but it is a memory leak
-
         match Expression::try_consume_whole_expr(tokens_queue, &attempt_slice, local_variables, accessible_funcs) {
             Some(expr) => {
                 Some(ASTMetadata{resultant_tree: expr, remaining_slice: semicolon_idx.next_clone(), extra_stack_used: MemoryLayout::new()})
@@ -54,9 +48,6 @@ impl Expression {
                 max_index: curr_queue_idx.max_index-1
             };
         }
-
-        //println!("{:?}", &tokens_queue.tokens[curr_queue_idx.index..curr_queue_idx.max_index]);
-
         match curr_queue_idx.get_slice_size() {
             0 => None,//panic!("not expecting this, maybe it is not an expression"),
 
