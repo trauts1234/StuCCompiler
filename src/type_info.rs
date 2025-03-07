@@ -9,7 +9,9 @@ pub enum TypeInfo{
     UNSIGNED,
     LONG,
     EXTERN,
-    VOID
+    VOID,
+
+    VaArg,//varadic arg has a special type
     //missing some, should have "static", and other bits that suggest the type of a variable
 }
 
@@ -26,7 +28,7 @@ pub enum DeclModifier {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DataType {
     pub(crate) type_info: Vec<TypeInfo>,
-    pub(crate) modifiers: Vec<DeclModifier>//apply top to bottom of stack, so [POINTER, ARRAY(4)] is an (array of 4) pointer
+    pub(crate) modifiers: Vec<DeclModifier>,//apply top to bottom of stack, so [POINTER, ARRAY(4)] is an (array of 4) pointer
 }
 
 impl DataType {
@@ -47,6 +49,17 @@ impl DataType {
         if self.type_info.len() == 0 {
             true
         } else if self.type_info.contains(&TypeInfo::VOID) {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_varadic_param(&self) -> bool {
+        if self.type_info.contains(&TypeInfo::VaArg) {
+            assert!(self.modifiers.len() == 0);//can't have a pointer to va arg??
+            assert!(self.type_info.len() == 1);//can't be an unsigned va arg or something??
+
             true
         } else {
             false

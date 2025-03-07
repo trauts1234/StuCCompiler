@@ -20,7 +20,9 @@ pub enum Punctuator {
     CLOSESQUIGGLY,
     OPENSQUARE,
     CLOSESQUARE,
-    COMMA
+    COMMA,
+
+    ELIPSIS,
 }
 
 impl Punctuator {
@@ -48,6 +50,8 @@ impl Punctuator {
             "]" => Some(Self::CLOSESQUARE),
 
             "," => Some(Self::COMMA),
+
+            "..." => Some(Self::ELIPSIS),
             _ => None
         }
     }

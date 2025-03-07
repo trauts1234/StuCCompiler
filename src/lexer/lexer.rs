@@ -88,6 +88,15 @@ impl Lexer {
     }
 
     fn consume_punctuation(&mut self) -> Token{
+
+        //special case for elipsis ...
+        if self.data[self.next_to_eat..].starts_with("...") {
+            for _ in 0..3 {
+                self.consume().unwrap();//consume dot of elipsis
+            }
+            return Token::PUNCTUATOR(Punctuator::ELIPSIS);
+        }
+
         let curr_char = self.consume().unwrap();
 
         let next_char = match self.peek(){
@@ -142,7 +151,7 @@ impl Lexer {
                 (c == '-' && self.peek_after_next().is_some_and(|x| x.is_numeric()))//starts with -(number)
                     => Some(self.consume_number()),
             c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
-            c if "(){}[];,+-*/=&%><".contains(c) => Some(self.consume_punctuation()),
+            c if "(){}[];,+-*/=&%><.".contains(c) => Some(self.consume_punctuation()),
             '"' => Some(self.consume_str()),
             _ => None//maybe panic here?
         }

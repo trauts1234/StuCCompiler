@@ -60,6 +60,8 @@ impl FunctionDefinition {
         asm_line!(result, "mov rbp, rsp ;''");
 
         asm_comment!(result, "popping args");
+        let mut param_stack_used = MemoryLayout::new();
+
         for param_idx in (0..self.decl.params.len()).rev() {
             let param = &self.decl.params[param_idx];
             //args on stack are pushed r->l, so work backwards pushing the register values to the stack
@@ -72,14 +74,23 @@ impl FunctionDefinition {
 
                 asm_line!(result, "mov {}, [rbp+{}]", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(8)), arg_bp_offset.size_bytes());//grab as 64 bit
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(), &LogicalRegister::ACC));//push how many bits I actually need
+                param_stack_used += param.get_type().memory_size();
             } else {
                 let param_reg = asm_generation::generate_param_reg(param_idx);
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&param.data_type.memory_size(), &param_reg));//truncate param reg to desired size, then push to stack
+                asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(), &param_reg));//truncate param reg to desired size, then push to stack
+                param_stack_used += param.get_type().memory_size();
             }
 
         }
 
-        asm_line!(result, "sub rsp, {} ;allocate stack for local variables", self.stack_required.size_bytes());
+        let total_stack_used = self.stack_required + param_stack_used;
+
+        let stack_needed_until_aligned =  MemoryLayout::from_bytes(
+            (16 - total_stack_used.size_bytes() % 16) % 16//finds the number of extra bytes needed to round to a 16 byte boundary
+        );
+
+        let stack_add = self.stack_required + stack_needed_until_aligned;
+        asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", stack_add.size_bytes());
 
         asm_line!(result, "{}", self.code.generate_assembly(label_gen));
 

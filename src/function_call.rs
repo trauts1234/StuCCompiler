@@ -6,8 +6,6 @@ pub struct FunctionCall {
     func_name: String,//maybe an enum, for function pointers
     args: Vec<Expression>,
 
-    extra_stack_for_alignment: MemoryLayout,//how much extra stack is reserved to allign the call
-
     decl: FunctionDeclaration
 }
 
@@ -49,17 +47,10 @@ impl FunctionCall {
 
         if let Token::IDENTIFIER(func_name) = tokens_queue.peek(&func_slice)? {
             let func_decl = accessible_funcs.get_function_declaration(&func_name).expect("found function call but no corresponding function declaration");//for recursive functions this is fine, right?
-            let num_args_on_stack = if args.len() <= 6 {0} else {args.len() - 6};//first 6 args in registers
-            let stack_used_by_args = MemoryLayout::from_bytes(8*num_args_on_stack);//stack args on stack in 8 byte chunks
-            let stack_height_bytes = local_variables.get_stack_used() + stack_used_by_args;
-            let wanted_extra_stack = MemoryLayout::from_bytes(
-                (16 - stack_height_bytes.size_bytes() % 16) % 16//finds the number of extra bytes needed to round to a 16 byte boundary
-            );
             Some(FunctionCall {
                 func_name, 
                 args,
                 decl: func_decl.clone(),
-                extra_stack_for_alignment: wanted_extra_stack
             })
         } else {
             None
@@ -75,12 +66,13 @@ impl FunctionCall {
 
         asm_comment!(result, "calling function: {}", self.func_name);
 
-        asm_line!(result, "sub rsp, {} ;align the stack", self.extra_stack_for_alignment.size_bytes());
-
         //put args on the stack as 64 bits
         for (i, arg) in self.args.iter().enumerate().rev() {//go through each arg and param right to left
             let param_type = &self.decl.params[i.min(self.decl.params.len()-1)];//when len(params) > len(args), grab the last of params, as it could be a varadic param
-            assert!(i < self.decl.params.len());//varadic params not supported yet
+            
+            if i >= self.decl.params.len() {
+                assert!(param_type.get_type().is_varadic_param());//more args than params, so must be varadic
+            }
 
             asm_line!(result, "{}", arg.generate_assembly());//calculate the arg
             asm_line!(result, "{}", asm_boilerplate::cast_from_stack(&arg.get_data_type(), param_type.get_type()));//cast to requested type
@@ -101,7 +93,6 @@ impl FunctionCall {
             //some args were put on the stack
             asm_line!(result, "add rsp, {} ;remove stack params", 8*(self.args.len()-6));
         }
-        asm_line!(result, "add rsp, {} ;remove alignment gap from the stack", self.extra_stack_for_alignment.size_bytes());
 
         if !self.decl.return_type.is_void() {
             asm_line!(result, "{}", asm_boilerplate::push_reg(&self.decl.return_type.memory_size(), &LogicalRegister::ACC));//put return value on stack

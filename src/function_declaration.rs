@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, declaration::{try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, type_info::{DataType, DeclModifier}};
+use crate::{ast_metadata::ASTMetadata, declaration::{try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, type_info::{DataType, DeclModifier, TypeInfo}};
 
 //todo use
 /*pub enum ParamType {
@@ -123,6 +123,14 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
 
 fn consume_fn_arg(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice) -> Option<Declaration> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(arg_segment);
+
+    if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx)? {
+        tokens_queue.consume(&mut curr_queue_idx);
+        return Some(Declaration { data_type: 
+            DataType { type_info: vec![TypeInfo::VaArg], modifiers: Vec::new() },
+             name: String::new()//va arg has no name 
+        })
+    }
 
     let mut data_type_info = Vec::new();
 

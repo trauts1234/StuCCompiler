@@ -256,5 +256,14 @@
     {
         "filename":"loopsum.c",
         "return_code":5
+    },
+    {
+        "filename":"printfpercentd.c",
+        "stdout":"score: 12",
+        "return_code":9
+    },
+    {
+        "filename":"printfalignmenttest.c",
+        "stdout":"hello world"
     }
 ]

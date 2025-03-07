@@ -38,6 +38,10 @@ pub fn push_reg<T: RegisterName>(reg_size: &MemoryLayout, reg_type: &T) -> Strin
 
 pub fn cast_from_stack(original: &DataType, new_type: &DataType) -> String {
 
+    if new_type.is_varadic_param() {
+        return String::new();//cast to varadic arg does nothing, as types are not specified for va args
+    }
+
     if let Some(ptr) = original.decay_array_to_pointer() {
         //arrays are just pointers in disguise
         return cast_from_stack(&ptr, new_type);
