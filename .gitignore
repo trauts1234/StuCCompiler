@@ -7,3 +7,4 @@ test_output*
 Cargo.lock
 test.c
 testout.txt
+/.vscode
