@@ -3,7 +3,7 @@
 StuCCompiler is a little project of mine that compiles a subset of C99 to NASM assembly
 
 ## Prerequisites
-Before building CustomC, ensure you have the following dependencies installed:
+Before building the compiler, ensure you have the following dependencies installed:
 - **Cargo** (for compiling the compiler)
 - **NASM** (for assembling the generated assembly code)
 - **ld** (for linking the binaries)
