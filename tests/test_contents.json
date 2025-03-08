@@ -283,5 +283,18 @@
         "filename":"intinput.c",
         "stdin":"1\n1\n1\n",
         "stdout":"parsed text\nparsed text\nparsed text\n"
+    },
+    {
+        "filename":"ifstack.c",
+        "stdout":"hello\n"
+    },
+    {
+        "filename":"fornoloop.c",
+        "return_code":0
+    },
+    {
+        "filename":"forstack.c",
+        "stdout":"loop\nloop\nloop\n",
+        "return_code":3
     }
 ]
