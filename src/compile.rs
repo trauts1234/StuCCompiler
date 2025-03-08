@@ -9,7 +9,7 @@ pub fn compile(input_path: &str, output_name: &str) -> Result<(),CompilationErro
     }*/
     let assembly_filename = format!("{}.asm", output_name);
     let object_filename = format!("{}.o", output_name);
-    let binary_filename = format!("{}.out", output_name);
+    let binary_filename = output_name;
 
 
     let tu = TranslationUnit::new(input_path)?;

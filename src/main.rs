@@ -32,7 +32,7 @@ struct CompilationOptions {
 }
 
 fn main() {
-    let mut options = CompilationOptions{c_file: "test.c".to_string(), out_file: "a".to_string()};
+    let mut options = CompilationOptions{c_file: "main.c".to_string(), out_file: "main".to_string()};
 
     let args_vec = env::args().collect::<Vec<String>>();
     let mut args = args_vec.iter().skip(1);

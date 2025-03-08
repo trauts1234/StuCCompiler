@@ -30,7 +30,7 @@ pub mod test {
 
             let fixed_args  = testfile.args.or(Some(Vec::new())).unwrap();
 
-            let binary_process = Command::new("./test_output.out")
+            let binary_process = Command::new("./test_output")
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .args(fixed_args)
