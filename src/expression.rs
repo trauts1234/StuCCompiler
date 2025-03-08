@@ -238,6 +238,21 @@ impl Expression {
                         asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));//cast to the correct type
 
                         asm_line!(result, "neg {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
+                    },
+                    Punctuator::PLUSPLUS => {
+                        asm_comment!(result, "incrementing something");
+
+                        let promoted_type = self.get_data_type();
+
+                        //get address of variable to be incremented
+                        //asm_line!(result, "{}", rhs.put_lvalue_addr_in_acc());
+
+                        todo!("handle saving the incremented value, but be careful of integer promotions!");
+
+                        asm_line!(result, "{}", rhs.generate_assembly());
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));//cast to the correct type
+
+                        asm_line!(result, "inc {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
                     }
                     _ => panic!("operator to unary prefix is invalid")
                 }
@@ -403,7 +418,6 @@ impl Expression {
             Expression::STACKVAR(decl) => {
                 asm_comment!(result, "getting address of variable: {}", decl.decl.name);
                 asm_line!(result, "lea rax, [rbp-{}]", decl.stack_offset.size_bytes());//calculate the address of the variable
-                //asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push the address on to the stack
             },
             Expression::PREFIXEXPR(Punctuator::ASTERISK, expr_box) => {
                 //&*x == x
@@ -414,7 +428,6 @@ impl Expression {
             Expression::STRINGLIT(string_lit) => {
                 asm_comment!(result, "getting address of string");
                 asm_line!(result, "lea rax, [rel {}]", string_lit.get_label());
-                //asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
             }
             _ => panic!("tried to generate assembly to assign to a non-lvalue")
         };

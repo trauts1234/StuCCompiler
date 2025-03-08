@@ -12,6 +12,10 @@ pub enum IterationStatement{
         increment: Option<Expression>,
 
         body: Box<Statement>
+    },
+    WHILE {
+        condition: Expression,
+        body: Box<Statement>,
     }
 }
 
@@ -63,6 +67,33 @@ impl IterationStatement {
                     resultant_tree: Self::FOR { initialisation: Box::new(init), condition: condition, increment: increment, body: Box::new(loop_body) }, 
                     remaining_slice: curr_queue_idx, 
                     extra_stack_used: extra_stack_used})
+            },
+            "while" => {
+                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
+                
+                let closecurly_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::CLOSECURLY)).unwrap();
+
+                let condition_slice = TokenQueueSlice{
+                    index: curr_queue_idx.index,
+                    max_index: closecurly_idx.index
+                };
+
+                let condition = Expression::try_consume_whole_expr(tokens_queue, &condition_slice, &local_variables, accessible_funcs).unwrap();
+
+                //consume the "while ()" part
+                curr_queue_idx = TokenQueueSlice{
+                    index: closecurly_idx.index + 1,
+                    max_index: curr_queue_idx.max_index
+                };
+
+                //consume the body
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, &local_variables, accessible_funcs).unwrap();
+                curr_queue_idx = remaining_slice;
+
+                Some(ASTMetadata{
+                    resultant_tree: Self::WHILE { condition: condition, body: Box::new(loop_body) }, 
+                    remaining_slice: curr_queue_idx, 
+                    extra_stack_used: body_stack_used})
             }
             _ => None
         }
@@ -84,8 +115,6 @@ impl IterationStatement {
 
                 asm_line!(result, "{}", condition.generate_assembly());//generate the condition
 
-                assert!(condition.get_data_type().underlying_type_is_integer());//cmp 0 may not work for float. but may work for pointers????
-
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
 
@@ -97,6 +126,28 @@ impl IterationStatement {
                     asm_line!(result, "{}", inc.generate_assembly());//apply the increment
                 }
                 asm_line!(result, "jmp {}_loop_start", generic_label);//after increment, go to top of loop
+
+                asm_line!(result, "{}_loop_end:", generic_label);
+            },
+
+            Self::WHILE { condition, body } => {
+
+                let condition_size = &condition.get_data_type().memory_size();
+
+                let generic_label = label_gen.generate_label();
+
+                asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
+
+                asm_line!(result, "{}", condition.generate_assembly());//generate the condition
+
+                assert!(condition.get_data_type().underlying_type_is_integer());//cmp 0 may not work for float. but may work for pointers????
+
+                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
+                asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
+
+                asm_line!(result, "{}", body.generate_assembly(label_gen));//generate the loop body
+
+                asm_line!(result, "jmp {}_loop_start", generic_label);//after loop complete, go to top of loop
 
                 asm_line!(result, "{}_loop_end:", generic_label);
             }

@@ -1,7 +1,10 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Punctuator {
     PLUS,
+    PLUSPLUS,
+
     DASH,
+    
     ASTERISK,
     FORWARDSLASH,
     EQUALS,
@@ -31,7 +34,10 @@ impl Punctuator {
     pub fn try_new(to_token: &str) -> Option<Punctuator> {
         match to_token {
             "+" => Some(Self::PLUS),
+            "++" => Some(Self::PLUSPLUS),
+            
             "-" => Some(Self::DASH),
+
             "*" => Some(Self::ASTERISK),
             "/" => Some(Self::FORWARDSLASH),
             "=" => Some(Self::EQUALS),
@@ -102,6 +108,8 @@ impl Punctuator {
         match self {
             Self::ASTERISK => Some(2),//dereference
             Self::AMPERSAND => Some(2),//reference
+
+            Self::PLUSPLUS => Some(2),
 
             Self::DASH => Some(2),//unary negate
             _ => None

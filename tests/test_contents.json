@@ -296,5 +296,22 @@
         "filename":"forstack.c",
         "stdout":"loop\nloop\nloop\n",
         "return_code":3
+    },
+    {
+        "filename":"whilenoloop.c",
+        "return_code":0
+    },
+    {
+        "filename":"while.c",
+        "return_code":5
+    },
+    {
+        "filename":"whilestack.c",
+        "stdout":"loop\nloop\nloop\n",
+        "return_code":3
+    },
+    {
+        "filename":"prefixincrement.c",
+        "return_code":1
     }
 ]
