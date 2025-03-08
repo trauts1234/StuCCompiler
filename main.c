@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 void write_results(char *student_name, int score) {
-    int fd = open("testout.txt", 1025);
+    int fd = open("student_scores.txt", 1025);
 
     char* grade_text;
 
@@ -26,7 +26,7 @@ void write_results(char *student_name, int score) {
 }
 
 void print_current_results() {
-    int fd = open("testout.txt", O_RDONLY);
+    int fd = open("student_scores.txt", O_RDONLY);
 
     puts("reading file");
 
