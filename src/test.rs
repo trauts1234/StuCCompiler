@@ -1,6 +1,6 @@
 #[cfg(test)]
 pub mod test {
-    use std::{fs, process::{Command, Stdio}};
+    use std::{fs, io::Write, process::{Command, Stdio}};
 
     use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,7 @@ pub mod test {
     struct TestFile {
         filename: String,
         args: Option<Vec<String>>,
+        stdin:Option<String>,
         stdout: Option<String>,
         return_code: Option<i32>,
     }
@@ -29,13 +30,27 @@ pub mod test {
 
             let fixed_args  = testfile.args.or(Some(Vec::new())).unwrap();
 
-            let binary_command = Command::new("./test_output.out")
-            .stdout(Stdio::piped())
-            .args(fixed_args)
-            .spawn()
-            .and_then(|cmd| cmd.wait_with_output()).expect("Failed to run the compiled binary");
+            let binary_process = Command::new("./test_output.out")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .args(fixed_args)
+                .spawn()
+                .expect("Failed to run the compiled binary");
 
             println!("testing file name: {}", testfile.filename);
+
+            if let Some(text_input) = testfile.stdin {
+                //test case requires stdin to be passed
+                binary_process.stdin
+                .as_ref()
+                .unwrap()
+                .write_all(text_input.as_bytes())
+                .unwrap();
+            }
+
+            let binary_command = binary_process
+                .wait_with_output()
+                .expect("Failed to run test case");
 
             if let Some(ret_code) = testfile.return_code {
                 assert_eq!(binary_command.status.code().expect("binary was terminated by OS signal?"), ret_code);

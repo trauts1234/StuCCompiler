@@ -278,5 +278,10 @@
         "filename":"studentscore.c",
         "args":["stu", "50", "70", "50"],
         "stdout":"56\nstudent name: stu grade: D\n"
+    },
+    {
+        "filename":"intinput.c",
+        "stdin":"1\n1\n1\n",
+        "stdout":"parsed text\nparsed text\nparsed text\n"
     }
 ]
