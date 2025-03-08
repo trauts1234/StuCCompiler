@@ -9,7 +9,7 @@ pub enum IterationStatement{
     FOR{
         initialisation: Box<StatementOrDeclaration>,//can't be anything fancy like a scope or if statement, but expressions and declarations are OK
         condition: Expression,
-        increment: Expression,
+        increment: Option<Expression>,
 
         body: Box<Statement>
     }
@@ -43,9 +43,9 @@ impl IterationStatement {
                     max_index:init_slice.max_index+1
                 };
 
-                let ASTMetadata {resultant_tree:init, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, &mut in_loop_vars, accessible_funcs).unwrap();
+                let ASTMetadata {resultant_tree:init, extra_stack_used:init_stack_used, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, &mut in_loop_vars, accessible_funcs).unwrap();
                 let condition = Expression::try_consume_whole_expr(tokens_queue, &condition_slice, &in_loop_vars, accessible_funcs).unwrap();
-                let increment = Expression::try_consume_whole_expr(tokens_queue, &increment_slice, &in_loop_vars, accessible_funcs).unwrap();
+                let increment = Expression::try_consume_whole_expr(tokens_queue, &increment_slice, &in_loop_vars, accessible_funcs);
 
                 //consume the "for (;;)" part
                 curr_queue_idx = TokenQueueSlice{
@@ -54,10 +54,10 @@ impl IterationStatement {
                 };
 
                 //consume the body
-                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, .. } = Statement::try_consume(tokens_queue, &curr_queue_idx, &in_loop_vars, accessible_funcs).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, &in_loop_vars, accessible_funcs).unwrap();
                 curr_queue_idx = remaining_slice;
 
-                let extra_stack_used = in_loop_vars.get_stack_used() - local_variables.get_stack_used();//includes iterator variable
+                let extra_stack_used = body_stack_used + init_stack_used;//includes iterator variable
 
                 Some(ASTMetadata{
                     resultant_tree: Self::FOR { initialisation: Box::new(init), condition: condition, increment: increment, body: Box::new(loop_body) }, 
@@ -93,7 +93,9 @@ impl IterationStatement {
 
                 asm_line!(result, "{}_loop_increment:", generic_label);//add label to jump to incrementing the loop
 
-                asm_line!(result, "{}", increment.generate_assembly());//apply the increment
+                if let Some(inc) = increment {//if there is an increment
+                    asm_line!(result, "{}", inc.generate_assembly());//apply the increment
+                }
                 asm_line!(result, "jmp {}_loop_start", generic_label);//after increment, go to top of loop
 
                 asm_line!(result, "{}_loop_end:", generic_label);
