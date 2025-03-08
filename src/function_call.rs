@@ -85,6 +85,8 @@ impl FunctionCall {
             asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &asm_generation::generate_param_reg(i)));//store the param in the correct register
         }
 
+        asm_line!(result, "mov al, 0");//since there are no floating point args, this must be left as 0 to let varadic functions know
+
         if self.args.len() > 6 {
             let stack_params_usage = MemoryLayout::from_bytes(8*(self.args.len()-6));
 
