@@ -162,7 +162,7 @@ impl Expression {
                         type_info: rhs.get_data_type().type_info,
                         modifiers: rhs.get_data_type().modifiers[1..].to_vec(),//remove the pointer info, as it has been dereferenced
                     },
-                    Punctuator::DASH => DataType::calculate_unary_type_arithmetic(&rhs.get_data_type()),//-x will promote x to a bigger type
+                    Punctuator::DASH | Punctuator::PLUSPLUS => DataType::calculate_unary_type_arithmetic(&rhs.get_data_type()),//-x will promote x to a bigger type
                     _ => panic!("tried getting data type of a not-implemented prefix")
                 }
             },
@@ -240,19 +240,35 @@ impl Expression {
                         asm_line!(result, "neg {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
                     },
                     Punctuator::PLUSPLUS => {
-                        asm_comment!(result, "incrementing something");
 
                         let promoted_type = self.get_data_type();
+                        let rhs_type = rhs.get_data_type();
 
-                        //get address of variable to be incremented
-                        //asm_line!(result, "{}", rhs.put_lvalue_addr_in_acc());
+                        if let Expression::STACKVAR(var) = rhs.as_ref() {
+                            asm_comment!(result, "incrementing variable {}", var.decl.get_name());
+                        } else {
+                            panic!("tried to prefix increment a non-variable");
+                        }
 
-                        todo!("handle saving the incremented value, but be careful of integer promotions!");
+                        //push &rhs
+                        asm_line!(result, "{}", rhs.put_lvalue_addr_in_acc());
+                        asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
 
+                        //put rhs in acc
                         asm_line!(result, "{}", rhs.generate_assembly());
-                        asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));//cast to the correct type
 
-                        asm_line!(result, "inc {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
+                        let rhs_reg = LogicalRegister::ACC.generate_reg_name(&rhs_type.memory_size());
+
+                        //increment rhs (in acc)
+                        asm_line!(result, "inc {}", rhs_reg);
+
+                        //pop &rhs to RCX
+                        asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::SECONDARY));
+
+                        //save the new value of rhs
+                        asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_reg_name(&PTR_SIZE), LogicalRegister::ACC.generate_reg_name(&rhs_type.memory_size()));
+
+                        asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));//cast to the correct type
                     }
                     _ => panic!("operator to unary prefix is invalid")
                 }

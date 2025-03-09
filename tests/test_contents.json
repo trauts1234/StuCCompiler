@@ -312,6 +312,10 @@
     },
     {
         "filename":"prefixincrement.c",
-        "return_code":1
+        "return_code":0
+    },
+    {
+        "filename":"prefixincrementoverflow.c",
+        "stdout":"0\n"
     }
 ]

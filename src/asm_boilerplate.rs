@@ -102,7 +102,19 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
                 };
                 asm_line!(result, "{}", cast_from_acc(&original_now_as_i64, new_type));//cast the i64 back down to whatever new_type is
             }
-            (size, unsigned) => panic!("casting this type of integer is not implemented: {} bytes, unsigned?: {}", size, unsigned)
+            (x, true) => {
+                let data_size = MemoryLayout::from_bytes(x);
+
+                asm_comment!(result, "casting u{} to u64", data_size.size_bits());
+                asm_line!(result, "{}", zero_extend_acc(&data_size));//zero extend rax to u64
+
+                let original_now_as_u64 = DataType {
+                    type_info:vec![TypeInfo::UNSIGNED, TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
+                    modifiers: Vec::new(),
+                };
+                asm_line!(result, "{}", cast_from_acc(&original_now_as_u64, new_type));//cast the u64 back down to whatever new_type is
+
+            }
         }
         return result;
     }
@@ -129,5 +141,14 @@ fn sign_extend_acc(original: &MemoryLayout) -> String {
         16 => format!("cwde\n{}", sign_extend_acc(&MemoryLayout::from_bits(32))),
         32 => format!("cdqe\n"),
         _ => panic!("tried to sign extend unknown size")
+    }
+}
+
+fn zero_extend_acc(original: &MemoryLayout) -> String {
+    match original.size_bits() {
+        8 => String::from("movzx rax, al\n"),
+        16 => String::from("movzx rax, ax\n"),
+        32 => String::new(), // Writing to EAX automatically zeroes RAX's upper half.
+        _ => panic!("tried to zero extend unknown size")
     }
 }
