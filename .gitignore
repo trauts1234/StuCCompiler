@@ -1,6 +1,6 @@
 /target
-a.asm
-a.o
+a.out.asm
+a.out.o
 a.out
 make_it.sh
 test_output*

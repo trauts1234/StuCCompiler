@@ -8,7 +8,6 @@ mod translation_unit;
 mod lexer;
 pub mod control_flow_statement;
 pub mod number_literal;
-pub mod type_info;
 pub mod asm_boilerplate;
 pub mod compile;
 pub mod test;
@@ -25,6 +24,7 @@ mod function_definition;
 mod function_declaration;
 mod string_literal;
 mod iteration_statement;
+pub mod data_type;
 
 struct CompilationOptions {
     c_file: String,
@@ -32,7 +32,7 @@ struct CompilationOptions {
 }
 
 fn main() {
-    let mut options = CompilationOptions{c_file: "main.c".to_string(), out_file: "main".to_string()};
+    let mut options = CompilationOptions{c_file: "test.c".to_string(), out_file: "a.out".to_string()};
 
     let args_vec = env::args().collect::<Vec<String>>();
     let mut args = args_vec.iter().skip(1);

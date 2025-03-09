@@ -1,4 +1,4 @@
-use crate::{compilation_state::label_generator::LabelGenerator, type_info::{DataType, DeclModifier, TypeInfo}};
+use crate::{compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {
@@ -49,9 +49,7 @@ impl StringLiteral {
     }
 
     pub fn get_data_type(&self) -> DataType {
-        DataType {
-            type_info: vec![TypeInfo::CHAR],//should also be const!
-            modifiers: vec![DeclModifier::ARRAY(self.text.len())],
-        }
+        //TODO maybe make it const char?
+        DataType::new_from_base_type(&BaseType::I8, &vec![DeclModifier::ARRAY(self.text.len())])
     }
 }

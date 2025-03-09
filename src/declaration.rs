@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, type_info::{DataType, DeclModifier, TypeInfo}};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, data_type::{data_type::DataType, type_modifier::DeclModifier, type_token::TypeInfo}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
@@ -106,10 +106,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
 
     assert!(tokens_queue.peek(&curr_queue_idx) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
-    let data_type = DataType{
-        type_info: data_type.clone(),
-        modifiers: modifiers.modifiers,
-    };
+    let data_type = DataType::new_from_type_list(data_type, modifiers.get_modifiers());
 
     let extra_stack_needed = data_type.memory_size();//get the size of this variable
 
@@ -171,10 +168,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
             tokens_queue.consume(&mut curr_queue_idx);//consume token
             //identifier name in the middle, grab it
             Declaration {
-                data_type: DataType {
-                    type_info: data_type.clone(),
-                    modifiers: Vec::new(),
-                },
+                data_type: DataType::new_from_type_list(&data_type, &Vec::new()),
                 name: ident.to_string(),
             }
         }
@@ -199,18 +193,14 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
 
     //take the example int *(*foo)[10]
     let ordered_modifiers: Vec<DeclModifier> = //foo is a:
-        inner_data.data_type.modifiers.into_iter()//pointer to
-        .chain(pointer_modifiers.into_iter())//pointer to
-        .chain(array_modifiers.into_iter())//array of 10 integers
-        .collect();
+        [inner_data.data_type.get_modifiers(),//pointer to
+         &pointer_modifiers, //pointer to
+         &array_modifiers].concat();//array of 10 integers
 
     Some(ASTMetadata {
         remaining_slice: curr_queue_idx,
         resultant_tree: Declaration {
-            data_type: DataType {
-                type_info: data_type.clone(),
-                modifiers: ordered_modifiers,
-            },
+            data_type: DataType::new_from_type_list(&data_type, &ordered_modifiers),
             name: inner_data.name,//inner always contains a name
         },
         extra_stack_used: MemoryLayout::new()//not my job

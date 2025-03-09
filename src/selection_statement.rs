@@ -87,7 +87,7 @@ impl SelectionStatement {
                 
                 let condition_size = &condition.get_data_type().memory_size();
 
-                assert!(condition.get_data_type().underlying_type_is_integer());//cmp 0 may not work for float. but may work for pointers????
+                assert!(condition.get_data_type().underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
   
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}", cond_false_label);//if the result is 0, jump to the else block or the end of the if statement

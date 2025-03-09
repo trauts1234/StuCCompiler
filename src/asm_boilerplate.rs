@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_comment, asm_line, RegisterName}, memory_size::MemoryLayout, type_info::{DataType, TypeInfo}};
+use crate::{asm_generation::{asm_comment, asm_line, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, memory_size::MemoryLayout};
 use std::fmt::Write;
 
 
@@ -49,7 +49,8 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
 
     assert!(!new_type.is_array());//cannot cast to array
 
-    if new_type.is_varadic_param() {
+    if new_type.underlying_type().is_va_arg() {
+        assert!(new_type.get_modifiers().len() == 0);//can never have pointer to varadic arg
         return String::new();//cast to varadic arg does nothing, as types are not specified for va args
     }
 
@@ -63,26 +64,20 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
     if original.is_pointer() {
         //cast pointer to u64
         //pointers are stored in memory just like u64, so no modifications needed
-        let original_implicitly_as_u64 = DataType {
-            type_info: vec![TypeInfo::UNSIGNED, TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
-            modifiers: Vec::new(),
-        };
+        let original_implicitly_as_u64 = DataType::new_from_base_type(&BaseType::U64, &Vec::new());
         //cast from
         return cast_from_acc(&original_implicitly_as_u64, new_type);
     }
 
     if new_type.is_pointer() {
         //cast u64 to pointer
-        let new_implicitly_as_u64 = DataType {
-            type_info: vec![TypeInfo::UNSIGNED, TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
-            modifiers: Vec::new(),
-        };
+        let new_implicitly_as_u64 = DataType::new_from_base_type(&BaseType::U64, &Vec::new());
         //cast from
         return cast_from_acc(original, &new_implicitly_as_u64);
     }
 
-    if original.underlying_type_is_integer() && new_type.underlying_type_is_integer() {
-        match (original.memory_size().size_bytes(), original.underlying_type_is_unsigned()) {
+    if original.underlying_type().is_integer() && new_type.underlying_type().is_integer() {
+        match (original.memory_size().size_bytes(), original.underlying_type().is_unsigned()) {
             (8, _) => {
                 //no matter the signedness of original, you just need to get the bottom few bits of it,
                 //because positive numbers are the same for uxx and ixx in original
@@ -96,10 +91,7 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
                 asm_comment!(result, "casting i{} to i64", data_size.size_bits());
                 asm_line!(result, "{}", sign_extend_acc(&data_size));//sign extend rax to i64
 
-                let original_now_as_i64 = DataType {
-                    type_info:vec![TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
-                    modifiers: Vec::new(),
-                };
+                let original_now_as_i64 = DataType::new_from_base_type(&BaseType::U64, &Vec::new());
                 asm_line!(result, "{}", cast_from_acc(&original_now_as_i64, new_type));//cast the i64 back down to whatever new_type is
             }
             (x, true) => {
@@ -108,10 +100,7 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
                 asm_comment!(result, "casting u{} to u64", data_size.size_bits());
                 asm_line!(result, "{}", zero_extend_acc(&data_size));//zero extend rax to u64
 
-                let original_now_as_u64 = DataType {
-                    type_info:vec![TypeInfo::UNSIGNED, TypeInfo::LONG, TypeInfo::LONG, TypeInfo::INT],
-                    modifiers: Vec::new(),
-                };
+                let original_now_as_u64 = DataType::new_from_base_type(&BaseType::U64, &Vec::new());
                 asm_line!(result, "{}", cast_from_acc(&original_now_as_u64, new_type));//cast the u64 back down to whatever new_type is
 
             }

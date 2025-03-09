@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::{self, mov_reg}, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, declaration::AddressedDeclaration, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, string_literal::StringLiteral, type_info::{DataType, DeclModifier, TypeInfo}};
+use crate::{asm_boilerplate::{self, mov_reg}, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::AddressedDeclaration, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, string_literal::StringLiteral};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -154,15 +154,17 @@ impl Expression {
             Expression::STRINGLIT(str_literal) => str_literal.get_data_type(),
             Expression::PREFIXEXPR(prefix, rhs) => {
                 match prefix {
-                    Punctuator::AMPERSAND => DataType {
-                        type_info: rhs.get_data_type().type_info,//same base type as rhs
-                        modifiers: std::iter::once(DeclModifier::POINTER).chain(rhs.get_data_type().modifiers.clone()).collect(), //pointer to whatever rhs is
+                    Punctuator::AMPERSAND => {
+                        let mut pointer_modifiers = rhs.get_data_type().get_modifiers().to_vec();
+                        pointer_modifiers.insert(0, DeclModifier::POINTER);//pointer to whatever rhs is
+
+                        DataType::new_from_base_type(rhs.get_data_type().underlying_type(), &pointer_modifiers)
                     },
-                    Punctuator::ASTERISK => DataType {
-                        type_info: rhs.get_data_type().type_info,
-                        modifiers: rhs.get_data_type().modifiers[1..].to_vec(),//remove the pointer info, as it has been dereferenced
-                    },
-                    Punctuator::DASH | Punctuator::PLUSPLUS => DataType::calculate_unary_type_arithmetic(&rhs.get_data_type()),//-x will promote x to a bigger type
+                    Punctuator::ASTERISK => DataType::new_from_base_type(
+                        rhs.get_data_type().underlying_type(), 
+                        &rhs.get_data_type().get_modifiers()[1..].to_vec()//remove initial "pointer to x" from modifiers
+                    ),
+                    Punctuator::DASH | Punctuator::PLUSPLUS => DataType::calculate_unary_type_arithmetic(&rhs.get_data_type()),//-x may promote x to a bigger type
                     _ => panic!("tried getting data type of a not-implemented prefix")
                 }
             },
@@ -176,7 +178,11 @@ impl Expression {
 
                     Punctuator::EQUALS => lhs.get_data_type(),//assigning, rhs must be converted to lhs
 
-                    Punctuator::ANGLELEFT | Punctuator::ANGLERIGHT | Punctuator::GREATEREQUAL | Punctuator::LESSEQAUAL | Punctuator::DOUBLEEQUALS => DataType { type_info: vec![TypeInfo::_BOOL], modifiers: Vec::new() },
+                    Punctuator::ANGLELEFT |
+                    Punctuator::ANGLERIGHT |
+                    Punctuator::GREATEREQUAL |
+                    Punctuator::LESSEQAUAL |
+                    Punctuator::DOUBLEEQUALS => DataType::new_from_base_type(&BaseType::_BOOL, &Vec::new()),
 
                     _ => panic!("data type calculation for this binary operator is not implemented")
                 }
@@ -350,7 +356,8 @@ impl Expression {
                         asm_comment!(result, "multiplying numbers");
                         asm_line!(result, "{}", put_lhs_ax_rhs_cx(&lhs, &rhs));
 
-                        assert!(!promoted_type.underlying_type_is_unsigned());//unsigned multiply??
+                        assert!(promoted_type.underlying_type().is_signed());//unsigned multiply??
+                        assert!(promoted_type.underlying_type().is_integer());//floating point multiply??
 
                         asm_line!(result, "imul {}, {}",
                             LogicalRegister::ACC.generate_reg_name(promoted_size),
@@ -365,11 +372,11 @@ impl Expression {
                         asm_comment!(result, "dividing numbers");
                         asm_line!(result, "{}", put_lhs_ax_rhs_cx(&lhs, &rhs));
 
-                        match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type_is_unsigned()) {
-                            (4,false) => {
+                        match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type().is_signed()) {
+                            (4,true) => {
                                 asm_line!(result, "{}", asm_boilerplate::I32_DIVIDE_AX_BY_CX);
                             },
-                            (8,false) => {
+                            (8,true) => {
                                 asm_line!(result, "{}", asm_boilerplate::I64_DIVIDE_AX_BY_CX);
                             }
                             _ => panic!("unsupported operands for divide")
@@ -381,11 +388,11 @@ impl Expression {
                         asm_line!(result, "{}", put_lhs_ax_rhs_cx(&lhs, &rhs));
 
                         //modulus is calculated using a DIV
-                        match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type_is_unsigned()) {
-                            (4,false) => {
+                        match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type().is_signed()) {
+                            (4,true) => {
                                 asm_line!(result, "{}", asm_boilerplate::I32_DIVIDE_AX_BY_CX);
                             },
-                            (8,false) => {
+                            (8,true) => {
                                 asm_line!(result, "{}", asm_boilerplate::I64_DIVIDE_AX_BY_CX);
                             }
                             _ => panic!("unsupported operands")

@@ -1,4 +1,4 @@
-use crate::{declaration::Declaration, type_info::{DataType, TypeInfo}};
+use crate::{data_type::{base_type::BaseType, data_type::DataType}, declaration::Declaration};
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,10 +45,7 @@ impl NumberLiteral {
             panic!("floats not implemented")
         } else {
             Declaration {
-                data_type: DataType {
-                    type_info: vec![TypeInfo::INT],
-                    modifiers: Vec::new(),
-                },
+                data_type: DataType::new_from_base_type(&BaseType::I32, &Vec::new()),//what about ull suffix?
                 name: String::new(),
             }
         }

@@ -20,7 +20,7 @@ impl FunctionList {
         &self.func_definitions
     }
     pub fn func_declarations_as_slice(&self) -> &[FunctionDeclaration] {
-        &self.all_func_declarations
+        self.all_func_declarations.as_slice()
     }
     
     pub fn add_function(&mut self, toadd: FunctionDefinition) {

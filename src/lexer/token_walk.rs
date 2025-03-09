@@ -35,6 +35,9 @@ impl TokenQueue {
         Some(self.tokens[next_idx].clone())
     }
 
+    /**
+     * peeks the token at the end of the token queue slice
+     */
     pub fn peek_back(&self, location: &TokenQueueSlice) -> Option<Token> {
         let max_idx = location.max_index-1;
 

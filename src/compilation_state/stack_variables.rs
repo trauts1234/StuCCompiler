@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{declaration::{AddressedDeclaration, Declaration}, memory_size, type_info::DataType};
+use crate::{data_type::data_type::DataType, declaration::{AddressedDeclaration, Declaration}, memory_size};
 
 
 /**

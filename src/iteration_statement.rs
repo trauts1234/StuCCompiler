@@ -105,7 +105,7 @@ impl IterationStatement {
         match self {
             Self::FOR { initialisation, condition, increment, body } => {
                 let condition_size = &condition.get_data_type().memory_size();
-                assert!(condition.get_data_type().underlying_type_is_integer());//cmp 0 may not work for float. but may work for pointers????
+                assert!(condition.get_data_type().underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
                 let generic_label = label_gen.generate_label();
 
@@ -140,7 +140,7 @@ impl IterationStatement {
 
                 asm_line!(result, "{}", condition.generate_assembly());//generate the condition
 
-                assert!(condition.get_data_type().underlying_type_is_integer());//cmp 0 may not work for float. but may work for pointers????
+                assert!(condition.get_data_type().underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop

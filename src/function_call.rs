@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, expression::Expression, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, type_info::DataType};
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, data_type::data_type::DataType, expression::Expression, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
 use std::fmt::Write;
 
 #[derive(Debug, Clone)]
@@ -71,7 +71,7 @@ impl FunctionCall {
             let param_type = &self.decl.params[i.min(self.decl.params.len()-1)];//when len(params) > len(args), grab the last of params, as it could be a varadic param
             
             if i >= self.decl.params.len() {
-                assert!(param_type.get_type().is_varadic_param());//more args than params, so must be varadic
+                assert!(param_type.get_type().underlying_type().is_va_arg());//more args than params, so must be varadic
             }
 
             asm_line!(result, "{}", arg.generate_assembly());//calculate the arg

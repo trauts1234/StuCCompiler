@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, declaration::{try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, type_info::{DataType, DeclModifier, TypeInfo}};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
 
 //todo use
 /*pub enum ParamType {
@@ -112,10 +112,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
         FunctionDeclaration {
             function_name: func_name,
             params: args,
-            return_type: DataType {
-                type_info: return_type,
-                modifiers: return_modifiers
-            }
+            return_type: DataType::new_from_type_list(&return_type, &return_modifiers)
         },
         extra_stack_used: MemoryLayout::new(),
         remaining_slice: curr_queue_idx});
@@ -127,7 +124,7 @@ fn consume_fn_arg(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice) 
     if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx)? {
         tokens_queue.consume(&mut curr_queue_idx);
         return Some(Declaration { data_type: 
-            DataType { type_info: vec![TypeInfo::VaArg], modifiers: Vec::new() },
+            DataType::new_from_base_type(&BaseType::VaArg, &Vec::new()),
              name: String::new()//va arg has no name 
         })
     }
@@ -156,7 +153,7 @@ fn consume_fn_arg(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice) 
     } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_info)?;
 
     Some(Declaration {
-        data_type: DataType { type_info: data_type_info, modifiers: modifiers.modifiers },
+        data_type: DataType::new_from_type_list(&data_type_info, modifiers.get_modifiers()),
         name: var_name
     })
 }

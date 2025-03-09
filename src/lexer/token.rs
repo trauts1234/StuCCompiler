@@ -1,4 +1,4 @@
-use crate::{number_literal::NumberLiteral, string_literal::StringLiteral, type_info::TypeInfo};
+use crate::{data_type::type_token::TypeInfo, number_literal::NumberLiteral, string_literal::StringLiteral};
 
 use super::punctuator::Punctuator;
 
