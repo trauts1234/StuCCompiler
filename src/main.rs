@@ -27,6 +27,7 @@ mod iteration_statement;
 pub mod data_type;
 mod binary_expression;
 mod unary_prefix_expr;
+mod enum_definition;
 
 struct CompilationOptions {
     c_file: String,

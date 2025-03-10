@@ -1,11 +1,5 @@
 use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
 
-//todo use
-/*pub enum ParamType {
-    VARADIC,
-    NORMAL(Declaration)
-}*/
-
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
     pub(crate) function_name: String,
