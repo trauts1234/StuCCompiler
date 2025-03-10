@@ -9,7 +9,7 @@ pub struct StringLiteral {
 
 impl ExprNode for StringLiteral {
     fn generate_assembly(&self) -> String {
-        panic!("tried to put an entire string in a register?");//can't put a string in the accumulator??
+        self.put_lvalue_addr_in_acc()//decays to char*
     }
 
     fn get_data_type(&self) -> DataType {
