@@ -14,7 +14,7 @@ pub fn compile(input_path: &str, output_name: &str) -> Result<(),CompilationErro
 
     let tu = TranslationUnit::new(input_path)?;
 
-    println!("{:#?}", tu);
+    //println!("{:#?}", tu);
 
     tu.generate_assembly(&assembly_filename);
 

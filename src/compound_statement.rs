@@ -3,7 +3,6 @@ use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
  */
-#[derive(Debug)]
 pub struct ScopeStatements {
     statements: Vec<StatementOrDeclaration>
 }

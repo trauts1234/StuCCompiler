@@ -1,8 +1,5 @@
 use crate::{function_declaration::FunctionDeclaration, function_definition::FunctionDefinition};
 
-
-
-#[derive(Debug)]
 pub struct FunctionList {
     func_definitions: Vec<FunctionDefinition>,//all function definitions made in this translation unit
     all_func_declarations: Vec<FunctionDeclaration>,//ALL declarations, including declarations made from func definitions and straight up declarations

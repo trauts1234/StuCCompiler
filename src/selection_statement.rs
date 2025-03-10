@@ -1,13 +1,12 @@
-use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
+use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
 use std::fmt::Write;
 
 /**
  * this handles if statements and other conditionals
  */
-#[derive(Debug)]
 pub enum SelectionStatement{
     IF{
-        condition: Expression,
+        condition: Box<dyn ExprNode>,
         if_body: Box<Statement>,
         else_body: Option<Box<Statement>>
     }
@@ -30,7 +29,7 @@ impl SelectionStatement {
                     max_index: closecurly_idx.index
                 };
 
-                let condition = Expression::try_consume_whole_expr(tokens_queue, &condition_slice, local_variables, accessible_funcs).unwrap();
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, local_variables, accessible_funcs).unwrap();
 
                 //consume the condition
                 curr_queue_idx = TokenQueueSlice{

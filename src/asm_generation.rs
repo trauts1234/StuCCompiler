@@ -1,4 +1,8 @@
 use crate::memory_size::MemoryLayout;
+
+pub const PTR_SIZE: MemoryLayout = MemoryLayout::from_bytes(8);
+
+
 /**
  * this funky macro runs like writeln!("text {}", foo), but
  * requires no unwrap and

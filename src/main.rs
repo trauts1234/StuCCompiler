@@ -25,6 +25,8 @@ mod function_declaration;
 mod string_literal;
 mod iteration_statement;
 pub mod data_type;
+mod binary_expression;
+mod unary_prefix_expr;
 
 struct CompilationOptions {
     c_file: String,

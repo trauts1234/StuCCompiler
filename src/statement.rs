@@ -1,9 +1,8 @@
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, selection_statement::SelectionStatement};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, ExprNode}, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, selection_statement::SelectionStatement};
 use std::fmt::Write;
 
-#[derive(Debug)]
 pub enum Statement {
-    EXPRESSION(Expression),
+    EXPRESSION(Box<dyn ExprNode>),
     COMPOUND(ScopeStatements),//this is a scope (not nescessarily for a function)
     SELECTION(SelectionStatement),
     ITERATION(IterationStatement),
@@ -34,7 +33,7 @@ impl Statement {
             return Some(ASTMetadata{resultant_tree: Self::CONTROLFLOW(resultant_tree), remaining_slice, extra_stack_used});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = Expression::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = expression::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs){
             return Some(ASTMetadata{resultant_tree: Self::EXPRESSION(resultant_tree), remaining_slice, extra_stack_used});
         }
 

@@ -6,7 +6,6 @@ use crate::{ast_metadata::ASTMetadata, compilation_state::{functions::FunctionLi
  * This represents either a statement or variable creation.
  * The sort of things found in functions
  */
-#[derive(Debug)]
 pub enum StatementOrDeclaration {
     STATEMENT(Statement),
     DECLARATION(Vec<InitialisedDeclaration>)

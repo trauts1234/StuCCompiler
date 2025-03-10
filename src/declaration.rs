@@ -1,12 +1,11 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, data_type::{data_type::DataType, type_modifier::DeclModifier, type_token::TypeInfo}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
+use crate::{asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, data_type::{data_type::DataType, type_modifier::DeclModifier, type_token::TypeInfo}, expression::{self, ExprNode}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
 use std::fmt::Write;
 
-#[derive(Debug, Clone)]
 pub struct InitialisedDeclaration{
     decl: Declaration,
-    initialisation: Option<Expression>,
+    initialisation: Option<Box<dyn ExprNode>>,
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +18,38 @@ pub struct Declaration {
 pub struct AddressedDeclaration {
     pub(crate) decl: Declaration,
     pub(crate) stack_offset: MemoryLayout
+}
+
+impl ExprNode for AddressedDeclaration {
+    fn generate_assembly(&self) -> String {
+        let mut result = String::new();
+
+        if self.decl.data_type.is_array() {
+            //getting an array, decays to a pointer
+            asm_comment!(result, "decaying array {} to pointer", self.decl.name);
+            asm_line!(result, "lea {}, [rbp-{}]", LogicalRegister::ACC.generate_reg_name(&asm_generation::PTR_SIZE), self.stack_offset.size_bytes());
+        } else {
+            let reg_size = &self.decl.data_type.memory_size();//decide which register size is appropriate for this variable
+            asm_comment!(result, "reading variable: {} to register {}", self.decl.name, LogicalRegister::ACC.generate_reg_name(reg_size));
+
+            asm_line!(result, "mov {}, [rbp-{}]", LogicalRegister::ACC.generate_reg_name(reg_size), self.stack_offset.size_bytes());//get the value from its address on the stack
+        }
+
+        result
+    }
+
+    fn get_data_type(&self) -> DataType {
+        self.decl.get_type().clone()
+    }
+    
+    fn put_lvalue_addr_in_acc(&self) -> String {
+        let mut result = String::new();
+
+        asm_comment!(result, "getting address of variable: {}", self.decl.name);
+        asm_line!(result, "lea rax, [rbp-{}]", self.stack_offset.size_bytes());//calculate the address of the variable
+
+        result
+    }
 }
 
 impl InitialisedDeclaration {
@@ -212,7 +243,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
  * curr_queue_idx is mutable as this consumes tokens for the calling function
  * var_name what the name of the variable we are assigning to is
  */
-fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, local_variables: &StackVariables, var_name: &str, accessible_funcs: &FunctionList) -> Option<Expression> {
+fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, local_variables: &StackVariables, var_name: &str, accessible_funcs: &FunctionList) -> Option<Box<dyn ExprNode>> {
     
     if tokens_queue.peek(&curr_queue_idx)? !=Token::PUNCTUATOR(Punctuator::EQUALS){
         return None;
@@ -223,9 +254,9 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     //consume the right hand side of the initialisation
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer
-    Some(Expression::BINARYEXPR(
-        Box::new(Expression::STACKVAR(local_variables.get_variable(var_name).unwrap())),
+    Some(Box::new(BinaryExpression::new(
+        Box::new(local_variables.get_variable(var_name).unwrap()),
         Punctuator::EQUALS,
-        Box::new(Expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs).unwrap())
-    ))
+        expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs).unwrap()
+    )))
 }

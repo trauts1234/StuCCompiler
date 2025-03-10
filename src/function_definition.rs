@@ -6,7 +6,6 @@ use std::fmt::Write;
 /**
  * This is a definition of a function
  */
-#[derive(Debug)]
 pub struct FunctionDefinition {
     code: Statement,//statement could be a scope if it wants. should this just be a Scope????
     stack_required: MemoryLayout,

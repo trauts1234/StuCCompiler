@@ -1,20 +1,19 @@
-use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
+use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
 use std::fmt::Write;
 
 /**
  * this handles if statements and other conditionals
  */
-#[derive(Debug)]
 pub enum IterationStatement{
     FOR{
         initialisation: Box<StatementOrDeclaration>,//can't be anything fancy like a scope or if statement, but expressions and declarations are OK
-        condition: Expression,
-        increment: Option<Expression>,
+        condition: Box<dyn ExprNode>,
+        increment: Option<Box<dyn ExprNode>>,
 
         body: Box<Statement>
     },
     WHILE {
-        condition: Expression,
+        condition: Box<dyn ExprNode>,
         body: Box<Statement>,
     }
 }
@@ -48,8 +47,8 @@ impl IterationStatement {
                 };
 
                 let ASTMetadata {resultant_tree:init, extra_stack_used:init_stack_used, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, &mut in_loop_vars, accessible_funcs).unwrap();
-                let condition = Expression::try_consume_whole_expr(tokens_queue, &condition_slice, &in_loop_vars, accessible_funcs).unwrap();
-                let increment = Expression::try_consume_whole_expr(tokens_queue, &increment_slice, &in_loop_vars, accessible_funcs);
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, &in_loop_vars, accessible_funcs).unwrap();
+                let increment = expression::try_consume_whole_expr(tokens_queue, &increment_slice, &in_loop_vars, accessible_funcs);
 
                 //consume the "for (;;)" part
                 curr_queue_idx = TokenQueueSlice{
@@ -78,7 +77,7 @@ impl IterationStatement {
                     max_index: closecurly_idx.index
                 };
 
-                let condition = Expression::try_consume_whole_expr(tokens_queue, &condition_slice, &local_variables, accessible_funcs).unwrap();
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, &local_variables, accessible_funcs).unwrap();
 
                 //consume the "while ()" part
                 curr_queue_idx = TokenQueueSlice{

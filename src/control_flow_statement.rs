@@ -1,14 +1,13 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, expression::Expression, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
 use std::fmt::Write;
 
 /**
  * this handles break, continue and return statements
  */
-#[derive(Debug)]
 pub enum ControlFlowChange {
-    RETURN(Option<Expression>)
+    RETURN(Option<Box<dyn ExprNode>>)
 }
 
 impl ControlFlowChange {
@@ -35,7 +34,7 @@ impl ControlFlowChange {
                 }
 
                 //try and match with an expression for what to return
-                let ret_value = Expression::try_consume_whole_expr(tokens_queue, &return_value_slice, local_variables, accessible_funcs).unwrap();
+                let ret_value = expression::try_consume_whole_expr(tokens_queue, &return_value_slice, local_variables, accessible_funcs).unwrap();
 
                 Some(ASTMetadata { resultant_tree: Self::RETURN(Some(ret_value)), remaining_slice: semicolon_idx.next_clone(), extra_stack_used: MemoryLayout::new() })
             }

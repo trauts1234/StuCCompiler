@@ -1,9 +1,29 @@
-use crate::{compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}};
+use crate::{asm_generation::{asm_comment, asm_line}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, expression::ExprNode};
+use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {
     text: Vec<i8>,//text plus zero terminator
     label: String
+}
+
+impl ExprNode for StringLiteral {
+    fn generate_assembly(&self) -> String {
+        panic!("tried to put an entire string in a register?");//can't put a string in the accumulator??
+    }
+
+    fn get_data_type(&self) -> DataType {
+        //TODO maybe make it const char?
+        DataType::new_from_base_type(&BaseType::I8, &vec![DeclModifier::ARRAY(self.text.len())])
+    }
+    
+    fn put_lvalue_addr_in_acc(&self) -> String {
+        let mut result = String::new();
+        asm_comment!(result, "getting address of string");
+        asm_line!(result, "lea rax, [rel {}]", self.get_label());
+
+        result
+    }
 }
 
 impl StringLiteral {
@@ -46,10 +66,5 @@ impl StringLiteral {
             .chain(std::iter::once(0))//add null terminator 0
             .collect()
         })
-    }
-
-    pub fn get_data_type(&self) -> DataType {
-        //TODO maybe make it const char?
-        DataType::new_from_base_type(&BaseType::I8, &vec![DeclModifier::ARRAY(self.text.len())])
     }
 }
