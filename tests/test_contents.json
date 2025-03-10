@@ -317,5 +317,9 @@
     {
         "filename":"prefixincrementoverflow.c",
         "stdout":"0\n"
+    },
+    {
+        "filename":"autoreturnzero.c",
+        "return_code":0
     }
 ]

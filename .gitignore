@@ -8,3 +8,4 @@ Cargo.lock
 test.c
 testout.txt
 /.vscode
+main

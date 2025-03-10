@@ -99,6 +99,11 @@ impl FunctionDefinition {
         asm_line!(result, "{}", self.code.generate_assembly(label_gen));
 
         //destroy stack frame and return
+
+        if self.get_name() == "main" {
+            //main auto returns 0
+            asm_line!(result, "mov rax, 0");
+        }
         asm_line!(result, "mov rsp, rbp");
         asm_line!(result, "pop rbp");
         asm_line!(result, "ret");
