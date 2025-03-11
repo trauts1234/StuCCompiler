@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, scope_data::ScopeData};
+use crate::{data_type::{base_type::BaseType, data_type::DataType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, scope_data::ScopeData};
 
 /**
  * stores all the enums in a current scope

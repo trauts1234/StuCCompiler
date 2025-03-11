@@ -15,18 +15,6 @@ pub struct StackVariables {
 }
 
 impl StackVariables {
-    pub fn new_in_func_body(func_args:Vec<Declaration>, func_return_value: &DataType) -> StackVariables {
-        panic!("no longer used");
-        let mut stack_vars = StackVariables {
-            vars: Vec::new(),
-            stack_used: MemoryLayout::new(),
-            outer_function_return_type: func_return_value.clone(),
-        };
-
-        stack_vars.add_variables(func_args);
-
-        stack_vars
-    }
     pub fn new() -> StackVariables {
         StackVariables { vars: Vec::new(), stack_used: MemoryLayout::new(), outer_function_return_type: DataType::new_from_base_type(&BaseType::VOID, &Vec::new()) }
     }

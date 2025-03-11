@@ -2,12 +2,6 @@ use crate::{compilation_state::label_generator::LabelGenerator, data_type::type_
 
 use super::{token::Token, punctuator::Punctuator};
 
-fn is_keyword(text: &str) -> bool {
-    let possible_keywords = vec!["break", "case", "continue", "default", "do", "else", "enum", "for", "goto", "if", "return", "sizeof", "struct", "switch", "typedef", "union", "while"];
-    
-    return possible_keywords.contains(&text);
-}
-
 pub struct Lexer{
     data: String,
     next_to_eat: usize,//index of next character to consume
