@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
+use crate::{ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, preprocessor::preprocessor::preprocess_c_file, scope_data::ScopeData, string_literal::StringLiteral};
 use std::{fs::File, io::Write};
 
 pub struct TranslationUnit {
@@ -30,11 +30,13 @@ impl TranslationUnit {
         let mut funcs = FunctionList::new();
 
         while token_queue.peek(&token_idx).is_some() {
-            if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &funcs){
+            let mut scope_data = ScopeData::make_empty();
+
+            if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &funcs, &mut scope_data){
                 funcs.add_function(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice, resultant_tree, extra_stack_used:_ }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx) {
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree, extra_stack_used:_ }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data) {
                 funcs.add_declaration(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;

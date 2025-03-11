@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
+use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, scope_data::ScopeData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -19,18 +19,19 @@ pub enum IterationStatement{
 }
 
 impl IterationStatement {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<IterationStatement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &ScopeData) -> Option<ASTMetadata<IterationStatement>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
+
+        //important: clone the local variables and enums, to prevent inner definitions from leaking out to outer scopes
+        let mut in_loop_data = outer_scope_data.clone();
         
         match kw {
             Keyword::FOR => {
                 assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
                 
                 let closecurly_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::CLOSECURLY)).unwrap();
-
-                let mut in_loop_vars = local_variables.clone();
 
                 let items_slice = TokenQueueSlice{
                     index: curr_queue_idx.index,
@@ -46,9 +47,9 @@ impl IterationStatement {
                     max_index:init_slice.max_index+1
                 };
 
-                let ASTMetadata {resultant_tree:init, extra_stack_used:init_stack_used, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, &mut in_loop_vars, accessible_funcs).unwrap();
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, &in_loop_vars, accessible_funcs).unwrap();
-                let increment = expression::try_consume_whole_expr(tokens_queue, &increment_slice, &in_loop_vars, accessible_funcs);
+                let ASTMetadata {resultant_tree:init, extra_stack_used:init_stack_used, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, accessible_funcs, &mut in_loop_data).unwrap();
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data).unwrap();
+                let increment = expression::try_consume_whole_expr(tokens_queue, &increment_slice, accessible_funcs, &mut in_loop_data);
 
                 //consume the "for (;;)" part
                 curr_queue_idx = TokenQueueSlice{
@@ -57,7 +58,7 @@ impl IterationStatement {
                 };
 
                 //consume the body
-                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, &in_loop_vars, accessible_funcs).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut in_loop_data).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 let extra_stack_used = body_stack_used + init_stack_used;//includes iterator variable
@@ -77,7 +78,7 @@ impl IterationStatement {
                     max_index: closecurly_idx.index
                 };
 
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, &local_variables, accessible_funcs).unwrap();
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data).unwrap();
 
                 //consume the "while ()" part
                 curr_queue_idx = TokenQueueSlice{
@@ -86,7 +87,7 @@ impl IterationStatement {
                 };
 
                 //consume the body
-                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, &local_variables, accessible_funcs).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut in_loop_data).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 Some(ASTMetadata{

@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{data_type::data_type::DataType, declaration::{AddressedDeclaration, Declaration}, memory_size};
+use crate::{data_type::{base_type::BaseType, data_type::DataType}, declaration::{AddressedDeclaration, Declaration}, memory_size};
 
 
 /**
@@ -16,6 +16,7 @@ pub struct StackVariables {
 
 impl StackVariables {
     pub fn new_in_func_body(func_args:Vec<Declaration>, func_return_value: &DataType) -> StackVariables {
+        panic!("no longer used");
         let mut stack_vars = StackVariables {
             vars: Vec::new(),
             stack_used: MemoryLayout::new(),
@@ -25,6 +26,13 @@ impl StackVariables {
         stack_vars.add_variables(func_args);
 
         stack_vars
+    }
+    pub fn new() -> StackVariables {
+        StackVariables { vars: Vec::new(), stack_used: MemoryLayout::new(), outer_function_return_type: DataType::new_from_base_type(&BaseType::VOID, &Vec::new()) }
+    }
+
+    pub fn set_return_type(&mut self, ret_type: &DataType) {
+        self.outer_function_return_type = ret_type.clone();
     }
 
     pub fn get_stack_used(&self) -> MemoryLayout {

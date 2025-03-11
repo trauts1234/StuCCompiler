@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, data_type::data_type::DataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, statement::Statement};
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::data_type::DataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, scope_data::ScopeData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -26,19 +26,21 @@ impl FunctionDefinition {
      * consumes tokens to try and make a function definition
      * returns some(function found, remaining tokens) if found, else None
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList) -> Option<ASTMetadata<FunctionDefinition>> {
-        let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx)?;
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<FunctionDefinition>> {
+        //TODO if this function was already declared, you can steal enum variants from it
+
+        let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx, scope_data)?;
 
         if tokens_queue.peek(&after_decl_slice)? == Token::PUNCTUATOR(Punctuator::SEMICOLON) {
             return None;//function declaration + semicolon means no definition for certain
         }
 
-        //put args on stack variables backwards as args are pushed r->l
-        //create a stack and tell it the params and return type of the function
-        let mut func_body_stack = StackVariables::new_in_func_body(func_decl.params.iter().rev().cloned().collect(), &func_decl.return_type);
+        scope_data.stack_vars.add_variables(func_decl.params.iter().rev().cloned().collect());
+        scope_data.stack_vars.set_return_type(&func_decl.return_type);
 
         //read the next statement (statement includes a scope)
-        let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &after_decl_slice, &mut func_body_stack, accessible_funcs)?;
+        //TODO can this _only_ be a scope?
+        let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &after_decl_slice, accessible_funcs, scope_data)?;
         
         return Some(ASTMetadata{
             resultant_tree: FunctionDefinition {

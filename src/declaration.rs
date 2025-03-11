@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, data_type::{data_type::DataType, type_modifier::DeclModifier, type_token::TypeInfo}, expression::{self, ExprNode}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
+use crate::{asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier, type_token::TypeInfo}, enum_definition::try_consume_enum_as_type, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, scope_data::ScopeData};
 use std::fmt::Write;
 
 pub struct InitialisedDeclaration{
@@ -56,26 +56,14 @@ impl InitialisedDeclaration {
     /**
      * local_variables is mut as variables are added
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, _local_variables: &mut StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-        let mut data_type_info = Vec::new();
         let mut declarations = Vec::new();
         let mut extra_stack_needed = MemoryLayout::new();
         
-        //try and consume as many type specifiers as possible
-        loop {
-            if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx)? {
-                data_type_info.push(ts.clone());
-                tokens_queue.consume(&mut curr_queue_idx);
-            } else {
-                break;
-            }
-        }
-
-        if data_type_info.len() == 0 {
-            return None;//missing type info
-        }
+        //consume int or unsigned int or enum etc.
+        let base_type = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data)?;
 
         //find semicolon
         let semicolon_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
@@ -86,15 +74,13 @@ impl InitialisedDeclaration {
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator
-            if let Some(ASTMetadata { remaining_slice: _, resultant_tree, extra_stack_used }) = try_consume_declarator(tokens_queue, &declarator_segment, _local_variables, &data_type_info, accessible_funcs) {
+            if let Some(ASTMetadata { remaining_slice: _, resultant_tree, extra_stack_used }) = try_consume_declarator(tokens_queue, &declarator_segment, &base_type, accessible_funcs, scope_data) {
                 declarations.push(resultant_tree);//the declarator consumption actaully gives us a full declaration
                 extra_stack_needed += extra_stack_used;
             }
         }
 
         curr_queue_idx = TokenQueueSlice{index: semicolon_idx.index + 1, max_index: curr_queue_idx.max_index};//consume the semicolon
-
-        assert!(declarations.len() > 0);//must have at least one declaration
 
         Some(ASTMetadata {
             resultant_tree: declarations,
@@ -129,15 +115,18 @@ impl Declaration {
 /**
  * claims to consume a declarator, but actaully takes in the data type too, and gives back a full declaration
  */
-pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, local_variables: &mut StackVariables, data_type: &Vec<TypeInfo>, accessible_funcs: &FunctionList) -> Option<ASTMetadata<InitialisedDeclaration>> {
+pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<InitialisedDeclaration>> {
+    if slice.get_slice_size() == 0 {
+        return None;//obviously no declarations in ""
+    }
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, data_type)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type)?;
 
     assert!(tokens_queue.peek(&curr_queue_idx) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
-    let data_type = DataType::new_from_type_list(data_type, modifiers.get_modifiers());
+    let data_type = DataType::new_from_base_type(&base_type, modifiers.get_modifiers());
 
     let extra_stack_needed = data_type.memory_size();//get the size of this variable
 
@@ -146,12 +135,12 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
         data_type
     };
 
-    local_variables.add_variable(decl.clone());//save variable to variable list early, so that I can reference it in the initialisation
+    scope_data.stack_vars.add_variable(decl.clone());//save variable to variable list early, so that I can reference it in the initialisation
 
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 
     //try to match an initialisation expression
-    let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, local_variables, &var_name, accessible_funcs);
+    let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, &var_name, accessible_funcs, scope_data);
 
     Some(ASTMetadata {
         resultant_tree: InitialisedDeclaration {decl, initialisation}, 
@@ -166,7 +155,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
  * also used in function params
  * TODO function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, data_type: &Vec<TypeInfo>) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
@@ -188,7 +177,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
             //find the corresponding close bracket, and deal with it
             let in_brackets_tokens = tokens_queue.consume_inside_parenthesis(&mut curr_queue_idx);
 
-            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, data_type)?;
+            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, base_type)?;
 
             //curr queue idx is already advanced from consuming the parenthesis
 
@@ -199,7 +188,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
             tokens_queue.consume(&mut curr_queue_idx);//consume token
             //identifier name in the middle, grab it
             Declaration {
-                data_type: DataType::new_from_type_list(&data_type, &Vec::new()),
+                data_type: DataType::new_from_base_type(&base_type, &Vec::new()),
                 name: ident.to_string(),
             }
         }
@@ -231,11 +220,36 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
     Some(ASTMetadata {
         remaining_slice: curr_queue_idx,
         resultant_tree: Declaration {
-            data_type: DataType::new_from_type_list(&data_type, &ordered_modifiers),
+            data_type: DataType::new_from_base_type(&base_type, &ordered_modifiers),
             name: inner_data.name,//inner always contains a name
         },
         extra_stack_used: MemoryLayout::new()//not my job
     })
+}
+
+pub fn consume_base_type(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ScopeData) -> Option<BaseType> {
+
+    if tokens_queue.peek(&curr_queue_idx)? == Token::KEYWORD(Keyword::ENUM) {
+        //enum x => handle enums
+        if let Some(data_type) = try_consume_enum_as_type(tokens_queue, curr_queue_idx, scope_data) {
+            return Some(data_type.underlying_type().clone())
+        }
+    }
+
+    //fallback to default type system
+
+    let mut data_type_info = Vec::new();
+    //try and consume as many type specifiers as possible
+    loop {
+        if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx)? {
+            data_type_info.push(ts.clone());
+            tokens_queue.consume(curr_queue_idx);
+        } else {
+            break;
+        }
+    }
+    //create data type out of it, but just get the base type as it can never be a pointer/array etc.
+    return Some(DataType::new_from_type_list(&data_type_info, &Vec::new()).underlying_type().clone())
 }
 
 /**
@@ -243,7 +257,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
  * curr_queue_idx is mutable as this consumes tokens for the calling function
  * var_name what the name of the variable we are assigning to is
  */
-fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, local_variables: &StackVariables, var_name: &str, accessible_funcs: &FunctionList) -> Option<Box<dyn ExprNode>> {
+fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, var_name: &str, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<Box<dyn ExprNode>> {
     
     if tokens_queue.peek(&curr_queue_idx)? !=Token::PUNCTUATOR(Punctuator::EQUALS){
         return None;
@@ -255,8 +269,8 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer
     Some(Box::new(BinaryExpression::new(
-        Box::new(local_variables.get_variable(var_name).unwrap()),
+        Box::new(scope_data.stack_vars.get_variable(var_name).unwrap()),
         Punctuator::EQUALS,
-        expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs).unwrap()
+        expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap()
     )))
 }

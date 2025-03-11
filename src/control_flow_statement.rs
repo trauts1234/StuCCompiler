@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, scope_data::ScopeData};
 use std::fmt::Write;
 
 /**
@@ -11,7 +11,7 @@ pub enum ControlFlowChange {
 }
 
 impl ControlFlowChange {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<ControlFlowChange>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<ControlFlowChange>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
@@ -34,7 +34,7 @@ impl ControlFlowChange {
                 }
 
                 //try and match with an expression for what to return
-                let ret_value = expression::try_consume_whole_expr(tokens_queue, &return_value_slice, local_variables, accessible_funcs).unwrap();
+                let ret_value = expression::try_consume_whole_expr(tokens_queue, &return_value_slice, accessible_funcs, scope_data).unwrap();
 
                 Some(ASTMetadata { resultant_tree: Self::RETURN(Some(ret_value)), remaining_slice: semicolon_idx.next_clone(), extra_stack_used: MemoryLayout::new() })
             }

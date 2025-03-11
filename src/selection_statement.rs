@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
+use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, scope_data::ScopeData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -13,7 +13,7 @@ pub enum SelectionStatement{
 }
 
 impl SelectionStatement {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, local_variables: &StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<SelectionStatement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<SelectionStatement>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
@@ -29,7 +29,7 @@ impl SelectionStatement {
                     max_index: closecurly_idx.index
                 };
 
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, local_variables, accessible_funcs).unwrap();
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, scope_data).unwrap();
 
                 //consume the condition
                 curr_queue_idx = TokenQueueSlice{
@@ -38,7 +38,7 @@ impl SelectionStatement {
                 };
 
                 //consume the function body
-                let ASTMetadata{ remaining_slice, resultant_tree: taken_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: taken_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 //the extra stack I need is the stack used by the function body
@@ -50,7 +50,7 @@ impl SelectionStatement {
                 //try and consume the else branch
                 let not_taken_body: Option<Box<Statement>> = if has_else_branch {
                     tokens_queue.consume(&mut curr_queue_idx);//consume the else keyword
-                    let ASTMetadata{ remaining_slice, resultant_tree: else_body, extra_stack_used:else_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, local_variables, accessible_funcs).unwrap();
+                    let ASTMetadata{ remaining_slice, resultant_tree: else_body, extra_stack_used:else_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
                     curr_queue_idx = remaining_slice;//consume the else
 
                     if else_stack_used.size_bytes() > extra_stack_needed.size_bytes() {

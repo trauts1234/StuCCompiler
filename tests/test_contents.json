@@ -321,5 +321,13 @@
     {
         "filename":"autoreturnzero.c",
         "return_code":0
+    },
+    {
+        "filename":"enumdefinitionnotused.c",
+        "return_code":0
+    },
+    {
+        "filename":"uselesstypename.c",
+        "return_code":0
     }
 ]

@@ -1,4 +1,4 @@
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
+use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, scope_data::ScopeData};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
@@ -12,11 +12,12 @@ impl ScopeStatements {
      * tries to parse the tokens queue starting at previous_queue_idx, to find a scope, for a function or other
      * returns a ScopeStatements and the remaining tokens as a queue location, else none
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, outer_variables: &StackVariables, accessible_funcs: &FunctionList) -> Option<ASTMetadata<ScopeStatements>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &ScopeData) -> Option<ASTMetadata<ScopeStatements>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut statements = Vec::new();
-        let mut all_scope_vars = outer_variables.clone();
+        //important! clone here so that variables and enums created in this scope do not leak out!
+        let mut inner_scope_data = outer_scope_data.clone();
 
         if Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx)? {
             return None;//not enclosed in { }, so can't be a scope
@@ -30,7 +31,7 @@ impl ScopeStatements {
         let mut scope_stack_used = MemoryLayout::new();
 
         //greedily consume as many statements as possible
-        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut all_scope_vars, accessible_funcs) {
+        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut inner_scope_data) {
 
             statements.push(resultant_tree);
             scope_stack_used += extra_stack_used;

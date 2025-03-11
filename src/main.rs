@@ -28,6 +28,7 @@ pub mod data_type;
 mod binary_expression;
 mod unary_prefix_expr;
 mod enum_definition;
+mod scope_data;
 
 struct CompilationOptions {
     c_file: String,

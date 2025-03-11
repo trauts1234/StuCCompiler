@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, scope_data::ScopeData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
@@ -15,10 +15,13 @@ impl FunctionDeclaration {
         true//extern or not, this has external linkage
     }
 
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<ASTMetadata<FunctionDeclaration>> {
+    /**
+     * consumes a function declaration only, and will return None if the function has a definition attached
+     */
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ASTMetadata<FunctionDeclaration>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-        let ASTMetadata { remaining_slice, resultant_tree: decl, .. } = consume_decl_only(tokens_queue, &curr_queue_idx)?;
+        let ASTMetadata { remaining_slice, resultant_tree: decl, .. } = consume_decl_only(tokens_queue, &curr_queue_idx, scope_data)?;
 
         curr_queue_idx = remaining_slice;//skip decl as it has now been parsed
 
@@ -40,7 +43,7 @@ impl FunctionDeclaration {
  *  int f(int x);
  *  int f(int x) {return 1;}
  */
-pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice) -> Option<ASTMetadata<FunctionDeclaration>> {
+pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ASTMetadata<FunctionDeclaration>> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
     let mut return_type = Vec::new();
@@ -88,7 +91,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
     let mut args = Vec::new();
     if args_location.get_slice_size() >= 1{//ensure there is text between the brackets
         for arg_segment in args_segments {
-            args.push(consume_fn_arg(tokens_queue, &arg_segment)?);
+            args.push(consume_fn_param(tokens_queue, &arg_segment, scope_data)?);
         }
     }
 
@@ -112,7 +115,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
         remaining_slice: curr_queue_idx});
 }
 
-fn consume_fn_arg(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice) -> Option<Declaration> {
+fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<Declaration> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(arg_segment);
 
     if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx)? {
@@ -123,31 +126,17 @@ fn consume_fn_arg(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice) 
         })
     }
 
-    let mut data_type_info = Vec::new();
-
-    //try and consume as many type specifiers as possible
-    loop {
-        if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx)? {
-            data_type_info.push(ts.clone());
-            tokens_queue.consume(&mut curr_queue_idx);
-        } else {
-            break;
-        }
-    }
-
-    if data_type_info.len() == 0 {
-        return None;//missing type info
-    }
+    let data_type_base = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
     let ASTMetadata{
         resultant_tree: Declaration { data_type: modifiers, name: var_name },
         remaining_slice:_,
         extra_stack_used:_
-    } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_info)?;
+    } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base)?;
 
     Some(Declaration {
-        data_type: DataType::new_from_type_list(&data_type_info, modifiers.get_modifiers()),
+        data_type: DataType::new_from_base_type(&data_type_base, modifiers.get_modifiers()),
         name: var_name
     })
 }
