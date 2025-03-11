@@ -1,6 +1,6 @@
 use crate::{data_type::type_token::TypeInfo, number_literal::NumberLiteral, string_literal::StringLiteral};
 
-use super::punctuator::Punctuator;
+use super::{keywords::Keyword, punctuator::Punctuator};
 
 #[derive(Debug, Clone, PartialEq)]//for debug printing
 pub enum Token {
@@ -8,7 +8,7 @@ pub enum Token {
     NUMBER(NumberLiteral),
     PUNCTUATOR(Punctuator),
     TYPESPECIFIER(TypeInfo),
-    KEYWORD(String),
+    KEYWORD(Keyword),
     IDENTIFIER(String)
 }
 

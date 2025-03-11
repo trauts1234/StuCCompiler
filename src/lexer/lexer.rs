@@ -1,4 +1,4 @@
-use crate::{compilation_state::label_generator::LabelGenerator, data_type::type_token::TypeInfo, number_literal::NumberLiteral, string_literal::StringLiteral};
+use crate::{compilation_state::label_generator::LabelGenerator, data_type::type_token::TypeInfo, lexer::keywords::Keyword, number_literal::NumberLiteral, string_literal::StringLiteral};
 
 use super::{token::Token, punctuator::Punctuator};
 
@@ -59,8 +59,8 @@ impl Lexer {
         assert!(letters.len() > 0);
 
         //try to match with a known keyword
-        if is_keyword(&letters) {
-            Token::KEYWORD(letters)
+        if let Some(kw) = Keyword::try_new(&letters) {
+            Token::KEYWORD(kw)
         } else if let Some(type_data) = TypeInfo::try_new(&letters) {
             Token::TYPESPECIFIER(type_data)
         } else {

@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
+use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_variables::StackVariables}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -18,8 +18,8 @@ impl SelectionStatement {
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
         
-        match kw.as_str() {
-            "if" => {
+        match kw {
+            Keyword::IF => {
                 assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
                 
                 let closecurly_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::CLOSECURLY)).unwrap();
@@ -45,7 +45,7 @@ impl SelectionStatement {
                 //unless the "else" branch needs a huge amount of stack
                 let mut extra_stack_needed = body_stack_used;
 
-                let has_else_branch = tokens_queue.peek(&curr_queue_idx).is_some_and(|x| x == Token::KEYWORD("else".to_string()));
+                let has_else_branch = tokens_queue.peek(&curr_queue_idx).is_some_and(|x| x == Token::KEYWORD(Keyword::ELSE));
 
                 //try and consume the else branch
                 let not_taken_body: Option<Box<Statement>> = if has_else_branch {
