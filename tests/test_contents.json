@@ -341,5 +341,13 @@
     {
         "filename":"functioninexpression.c",
         "return_code":0
+    },
+    {
+        "filename":"functioninforloop.c",
+        "return_code":0
+    },
+    {
+        "filename":"functioninwhileloop.c",
+        "return_code":0
     }
 ]

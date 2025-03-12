@@ -29,13 +29,12 @@ impl IterationStatement {
         
         match kw {
             Keyword::FOR => {
+                let closecurly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
                 assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
-                
-                let closecurly_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::CLOSECURLY)).unwrap();
 
                 let items_slice = TokenQueueSlice{
                     index: curr_queue_idx.index,
-                    max_index: closecurly_idx.index
+                    max_index: closecurly_idx
                 };
 
                 let items = tokens_queue.split_outside_parentheses(&items_slice, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON));
@@ -53,7 +52,7 @@ impl IterationStatement {
 
                 //consume the "for (;;)" part
                 curr_queue_idx = TokenQueueSlice{
-                    index: closecurly_idx.index + 1,
+                    index: closecurly_idx + 1,
                     max_index: curr_queue_idx.max_index
                 };
 
@@ -69,20 +68,19 @@ impl IterationStatement {
                     extra_stack_used: extra_stack_used})
             },
             Keyword::WHILE => {
+                let closecurly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
                 assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
-                
-                let closecurly_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::CLOSECURLY)).unwrap();
 
                 let condition_slice = TokenQueueSlice{
                     index: curr_queue_idx.index,
-                    max_index: closecurly_idx.index
+                    max_index: closecurly_idx
                 };
 
                 let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data).unwrap();
 
                 //consume the "while ()" part
                 curr_queue_idx = TokenQueueSlice{
-                    index: closecurly_idx.index + 1,
+                    index: closecurly_idx + 1,
                     max_index: curr_queue_idx.max_index
                 };
 
