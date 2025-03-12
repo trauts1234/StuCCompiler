@@ -23,10 +23,6 @@ impl StackVariables {
         self.outer_function_return_type = ret_type.clone();
     }
 
-    pub fn get_stack_used(&self) -> MemoryLayout {
-        self.stack_used
-    }
-
     /**
      * will get the variable OR arg that has this name
      */

@@ -28,11 +28,10 @@ pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut 
 
     let enum_name = if let Token::IDENTIFIER(x) = tokens_queue.consume(curr_queue_idx).unwrap() {x} else {todo!("found enum keyword, then non-identifier token. perhaps you tried to declare an anonymous enum inline?")};
 
-    match tokens_queue.consume(curr_queue_idx).unwrap() {
+    match tokens_queue.peek(curr_queue_idx).unwrap() {
         Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => {
-            
-            let close_squiggly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index-1);//-1 since it has already been consumed
-            let mut inside_variants = TokenQueueSlice{index:curr_queue_idx.index, max_index: close_squiggly_idx};
+            let close_squiggly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
+            let mut inside_variants = TokenQueueSlice{index:curr_queue_idx.index+1, max_index: close_squiggly_idx};//+1 to skip the {
             let mut remaining_slice = TokenQueueSlice{index:close_squiggly_idx, max_index:curr_queue_idx.max_index};
 
             if tokens_queue.consume(&mut remaining_slice)? == Token::PUNCTUATOR(Punctuator::SEMICOLON) {
@@ -48,11 +47,15 @@ pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut 
                 scope_data.enums.add_variant(variant);
             }
             assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
+            curr_queue_idx.index = remaining_slice.index;//update start index to be after the enum
             scope_data.enums.add_enum(enum_name, data_type.clone());
 
             Some(data_type)
         }
-        _ => None//definitely not an enum *definition*
+        _ => {
+            //enum usage, since there is no {variant_a, variant_b} part
+            Some(scope_data.enums.get_enum_data_type(&enum_name).unwrap().clone())
+        }
     }
 }
 

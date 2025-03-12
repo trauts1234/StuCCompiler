@@ -18,6 +18,7 @@ pub enum Punctuator {
     LESSEQAUAL,
     GREATEREQUAL,
     DOUBLEEQUALS,
+    EXCLAMATIONEQUALS,
 
     OPENCURLY,
     CLOSECURLY,
@@ -50,7 +51,8 @@ impl Punctuator {
             "<" => Some(Self::ANGLELEFT),
             ">=" => Some(Self::GREATEREQUAL),
             "<=" => Some(Self::LESSEQAUAL),
-            "==" =>Some(Self::DOUBLEEQUALS),
+            "==" => Some(Self::DOUBLEEQUALS),
+            "!=" => Some(Self::EXCLAMATIONEQUALS),
 
             "(" => Some(Self::OPENCURLY),
             ")" => Some(Self::CLOSECURLY),
@@ -75,6 +77,7 @@ impl Punctuator {
             Self::ANGLELEFT => Some("setl"),
             Self::ANGLERIGHT => Some("setg"),
             Self::DOUBLEEQUALS => Some("sete"),
+            Self::EXCLAMATIONEQUALS => Some("setne"),
             Self::LESSEQAUAL => Some("setle"),
             Self::GREATEREQUAL => Some("setge"),
             _ => None,
@@ -94,7 +97,7 @@ impl Punctuator {
             Self::EQUALS => Some(14),
 
             Self::ANGLELEFT | Self::ANGLERIGHT | Self::GREATEREQUAL | Self::LESSEQAUAL => Some(6),
-            Self::DOUBLEEQUALS => Some(7),
+            Self::DOUBLEEQUALS | Self::EXCLAMATIONEQUALS => Some(7),
             //TODO ampersand
             _ => None
         }

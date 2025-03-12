@@ -37,8 +37,6 @@ pub mod test {
                 .spawn()
                 .expect("Failed to run the compiled binary");
 
-            println!("testing file name: {}", testfile.filename);
-
             if let Some(text_input) = testfile.stdin {
                 //test case requires stdin to be passed
                 binary_process.stdin

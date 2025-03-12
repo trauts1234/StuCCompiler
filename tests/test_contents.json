@@ -329,5 +329,13 @@
     {
         "filename":"uselesstypename.c",
         "return_code":0
+    },
+    {
+        "filename":"paramusesreturnenum.c",
+        "return_code":0
+    },
+    {
+        "filename":"notequals.c",
+        "return_code":0
     }
 ]

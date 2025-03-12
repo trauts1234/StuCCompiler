@@ -26,6 +26,8 @@ impl FunctionDeclaration {
         curr_queue_idx = remaining_slice;//skip decl as it has now been parsed
 
         if Token::PUNCTUATOR(Punctuator::SEMICOLON) != tokens_queue.consume(&mut curr_queue_idx)? {
+            //TODO what if an enum was generated, then this check fails???
+            //the enum would be created but shouldn't have been
             return None;//no trailing semicolon
         }
 
@@ -46,22 +48,13 @@ impl FunctionDeclaration {
 pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ASTMetadata<FunctionDeclaration>> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-    let mut return_type = Vec::new();
     let mut return_modifiers = Vec::new();
 
-    //try and consume as many type specifiers as possible
-    while let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx)? {
-        return_type.push(ts.clone());
-        tokens_queue.consume(&mut curr_queue_idx);
-    }
+    let return_base_type = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data)?;
 
     while Token::PUNCTUATOR(Punctuator::ASTERISK) == tokens_queue.peek(&curr_queue_idx)? {
         return_modifiers.push(DeclModifier::POINTER);
         tokens_queue.consume(&mut curr_queue_idx);
-    }
-
-    if return_type.len() == 0 {
-        return None;//missing type info
     }
 
     //try to match an identifier, to find out the function name
@@ -109,7 +102,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
         FunctionDeclaration {
             function_name: func_name,
             params: args,
-            return_type: DataType::new_from_type_list(&return_type, &return_modifiers)
+            return_type: DataType::new_from_base_type(&return_base_type, &return_modifiers)
         },
         extra_stack_used: MemoryLayout::new(),
         remaining_slice: curr_queue_idx});
