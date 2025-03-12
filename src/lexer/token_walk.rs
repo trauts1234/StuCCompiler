@@ -252,11 +252,11 @@ impl TokenQueue {
     pub fn find_matching_close_bracket(&self, open_idx: usize) -> usize {
         let mut bracket_depth = 0;
 
-        let (open_bracket, close_bracket) = match self.tokens[open_idx] {
+        let (open_bracket, close_bracket) = match &self.tokens[open_idx] {
             Token::PUNCTUATOR(Punctuator::OPENSQUARE) => (Punctuator::OPENSQUARE, Punctuator::CLOSESQUARE),
             Token::PUNCTUATOR(Punctuator::OPENCURLY) => (Punctuator::OPENCURLY, Punctuator::CLOSECURLY),
             Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => (Punctuator::OPENSQUIGGLY, Punctuator::CLOSESQUIGGLY),
-            _ => {panic!("unknown open bracket that I am trying to match")}
+            x => {panic!("unknown open bracket that I am trying to match: {:?}", x)}
         };
 
         for i in open_idx..self.tokens.len() {

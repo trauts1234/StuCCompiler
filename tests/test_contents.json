@@ -337,5 +337,9 @@
     {
         "filename":"notequals.c",
         "return_code":0
+    },
+    {
+        "filename":"functioninexpression.c",
+        "return_code":0
     }
 ]
