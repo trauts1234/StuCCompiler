@@ -22,6 +22,9 @@ impl StackVariables {
     pub fn set_return_type(&mut self, ret_type: &DataType) {
         self.outer_function_return_type = ret_type.clone();
     }
+    pub fn get_return_type(&self) -> &DataType {
+        &self.outer_function_return_type
+    }
 
     /**
      * will get the variable OR arg that has this name

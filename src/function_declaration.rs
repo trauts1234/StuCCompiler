@@ -129,7 +129,7 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
     } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base)?;
 
     Some(Declaration {
-        data_type: DataType::new_from_base_type(&data_type_base, modifiers.get_modifiers()),
+        data_type: DataType::new_from_base_type(&data_type_base, modifiers.get_modifiers()).decay(),//.decay since arrays ALWAYS decay to pointers, even when sizeof is involved
         name: var_name
     })
 }

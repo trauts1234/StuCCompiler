@@ -349,5 +349,9 @@
     {
         "filename":"functioninwhileloop.c",
         "return_code":0
+    },
+    {
+        "filename":"arrayparam.c",
+        "return_code":0
     }
 ]

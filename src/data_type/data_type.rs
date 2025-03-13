@@ -105,19 +105,19 @@ impl DataType {
     }
 
     /**
-     * tries to decay myself as an array to pointer, returning None if I am not an array
+     * tries to decay myself as an array to pointer, or return myself if I can't be decayed
      */
-    pub fn decay_array_to_pointer(&self) -> Option<DataType> {
+    pub fn decay(&self) -> DataType {
         if self.modifiers.len() == 0{
-            return None;
+            return self.clone();
         }
 
         if let DeclModifier::ARRAY(_) = self.modifiers[0] {
             let mut result = self.clone();
             result.modifiers[0] = DeclModifier::POINTER;//turn the array of x into a pointer to x
-            Some(result)
+            result
         } else {
-            None
+            self.clone()
         }
     }
 
@@ -145,12 +145,12 @@ impl DataType {
     pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> DataType {
 
         //see if either side wants to be a pointer
-        if let Some(lhs_as_pointer) = lhs.decay_array_to_pointer() {
-            return lhs_as_pointer;
+        if lhs.is_array() {
+            return lhs.decay();
         }
 
-        if let Some(rhs_as_pointer) = rhs.decay_array_to_pointer() {
-            return rhs_as_pointer;
+        if rhs.is_array() {
+            return rhs.decay();
         }
 
         //see if this is pointer arithmetic
@@ -194,8 +194,8 @@ impl DataType {
 
     pub fn calculate_unary_type_arithmetic(lhs: &DataType) -> DataType {
         //see if it wants to be a pointer
-        if let Some(lhs_as_pointer) = lhs.decay_array_to_pointer() {
-            return lhs_as_pointer;
+        if lhs.is_array() {
+            return lhs.decay();
         }
 
         //see if this is pointer arithmetic

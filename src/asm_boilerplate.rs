@@ -54,8 +54,8 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
         return String::new();//cast to varadic arg does nothing, as types are not specified for va args
     }
 
-    if let Some(ptr) = original.decay_array_to_pointer() {
-        //arrays are just pointers in disguise
+    if original.is_array() {
+        let ptr = original.decay();
         return cast_from_acc(&ptr, new_type);
     }
 

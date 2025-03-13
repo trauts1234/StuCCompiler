@@ -1,13 +1,18 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, scope_data::ScopeData};
+use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, scope_data::ScopeData};
 use std::fmt::Write;
+
+pub struct ReturnValue {
+    expr: Box<dyn ExprNode>,
+    function_ret_type: DataType
+}
 
 /**
  * this handles break, continue and return statements
  */
 pub enum ControlFlowChange {
-    RETURN(Option<Box<dyn ExprNode>>)
+    RETURN(Option<ReturnValue>)
 }
 
 impl ControlFlowChange {
@@ -34,7 +39,10 @@ impl ControlFlowChange {
                 }
 
                 //try and match with an expression for what to return
-                let ret_value = expression::try_consume_whole_expr(tokens_queue, &return_value_slice, accessible_funcs, scope_data).unwrap();
+                let ret_value = ReturnValue { 
+                    expr: expression::try_consume_whole_expr(tokens_queue, &return_value_slice, accessible_funcs, scope_data).unwrap(),
+                    function_ret_type: scope_data.stack_vars.get_return_type().clone()
+                };
 
                 Some(ASTMetadata { resultant_tree: Self::RETURN(Some(ret_value)), remaining_slice: semicolon_idx.next_clone(), extra_stack_used: MemoryLayout::new() })
             }
@@ -47,11 +55,10 @@ impl ControlFlowChange {
 
         match self {
             ControlFlowChange::RETURN(expression) => {
-                if let Some(expr) = expression {
+                if let Some(ReturnValue { expr, function_ret_type }) = expression {
                     asm_line!(result, "{}", expr.generate_assembly());
 
-                    //asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.get_data_type(), todo!()));
-                    //TODO cast here - how do I know the function's return type???
+                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.get_data_type(), function_ret_type));
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return
