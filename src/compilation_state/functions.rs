@@ -6,6 +6,9 @@ pub struct FunctionList {
 }
 
 impl FunctionList {
+    /**
+     * creates a function list that is empty
+     */
     pub fn new() -> FunctionList {
         FunctionList{
             func_definitions: Vec::new(),

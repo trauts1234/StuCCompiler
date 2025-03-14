@@ -183,6 +183,14 @@ impl ExprNode for BinaryExpression {
     fn put_lvalue_addr_in_acc(&self) -> String {
         todo!()
     }
+    
+    fn clone_self(&self) -> Box<dyn ExprNode> {
+        return Box::new(BinaryExpression{
+            lhs: self.lhs.clone_self(),
+            operator: self.operator.clone(),
+            rhs: self.rhs.clone_self(),
+        });
+    }
 }
 
 impl BinaryExpression {

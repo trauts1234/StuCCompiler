@@ -63,6 +63,14 @@ impl ExprNode for FunctionCall {
     fn put_lvalue_addr_in_acc(&self) -> String {
         todo!("tried to get memory address of a function. function pointers not implemented");
     }
+    
+    fn clone_self(&self) -> Box<dyn ExprNode> {
+        Box::new(FunctionCall {
+            func_name: self.func_name.to_string(),
+            args: self.args.iter().map(|x| x.clone_self()).collect(),
+            decl: self.decl.clone(),
+        })
+    }
 }
 
 impl FunctionCall {

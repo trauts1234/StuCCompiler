@@ -34,8 +34,9 @@ impl FunctionDefinition {
         if tokens_queue.peek(&after_decl_slice, &scope_data)? == Token::PUNCTUATOR(Punctuator::SEMICOLON) {
             return None;//function declaration + semicolon means no definition for certain
         }
-
-        scope_data.stack_vars.add_variables(func_decl.params.iter().rev().cloned().collect());
+        for i in func_decl.params.iter().rev() {
+            scope_data.stack_vars.add_stack_variable(i.clone());
+        }
         scope_data.stack_vars.set_return_type(&func_decl.return_type);
 
         //read the next statement (statement includes a scope)

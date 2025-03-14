@@ -92,6 +92,13 @@ impl ExprNode for UnaryPrefixExpression {
 
         result
     }
+    
+    fn clone_self(&self) -> Box<dyn ExprNode> {
+        Box::new(UnaryPrefixExpression{
+            operand: self.operand.clone_self(),
+            operator: self.operator.clone(),
+        })
+    }
 }
 
 impl UnaryPrefixExpression {

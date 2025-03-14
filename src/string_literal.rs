@@ -24,6 +24,10 @@ impl ExprNode for StringLiteral {
 
         result
     }
+    
+    fn clone_self(&self) -> Box<dyn ExprNode> {
+        Box::new(self.clone())
+    }
 }
 
 impl StringLiteral {

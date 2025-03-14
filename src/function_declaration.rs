@@ -67,16 +67,18 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
         return None;
     };
 
+    //check that there is a bracket round the params
+    if Token::PUNCTUATOR(Punctuator::OPENCURLY) != tokens_queue.peek(&mut curr_queue_idx, &scope_data)? {
+        return None;
+    }
+
     //find the brackets enclosing the params
     let args_location = TokenQueueSlice { 
         index: curr_queue_idx.index + 1,//+1 to avoid storing the open bracket in the sub-expression 
         max_index: tokens_queue.find_matching_close_bracket(curr_queue_idx.index) 
     };
 
-    //pop the ( at the start of the params
-    if Token::PUNCTUATOR(Punctuator::OPENCURLY) != tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
-        return None;
-    }
+    tokens_queue.consume(&mut curr_queue_idx, &scope_data).unwrap();//consume the open bracket
 
     let args_segments = tokens_queue.split_outside_parentheses(&args_location, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA));
 

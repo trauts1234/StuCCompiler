@@ -6,6 +6,7 @@ pub trait ExprNode {
     fn generate_assembly(&self) -> String;
     fn get_data_type(&self) -> DataType;
     fn put_lvalue_addr_in_acc(&self) -> String;
+    fn clone_self(&self) -> Box<dyn ExprNode>;
 }
 
 /**
@@ -52,7 +53,7 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
                     Some(Box::new(num))
                 },
                 Token::IDENTIFIER(var_name) => {
-                    Some(Box::new(scope_data.stack_vars.get_variable(&var_name).unwrap()))
+                    Some(Box::new(scope_data.stack_vars.get_variable(&var_name).unwrap().clone()))
                 },
                 Token::STRING(string_lit) => {
                     Some(Box::new(string_lit))

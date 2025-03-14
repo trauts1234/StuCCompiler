@@ -3,21 +3,39 @@ use memory_size::MemoryLayout;
 use crate::{asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, scope_data::ScopeData};
 use std::fmt::Write;
 
+/**
+ * stores a variable and assembly to construct it
+ */
 pub struct InitialisedDeclaration{
     decl: Declaration,
-    initialisation: Option<Box<dyn ExprNode>>,
+    init_code: Option<Box<dyn ExprNode>>,
 }
 
+/**
+ * stores enough data to declare a variable
+ * name and data type
+ */
 #[derive(Debug, Clone)]
 pub struct Declaration {
     pub(crate) data_type: DataType,
     pub(crate) name: String,
 }
 
+/**
+ * represents an addressing mode for variables
+ * offset from stack or
+ * constant memory location(global variable)
+ */
+#[derive(Debug, Clone)]
+pub enum VariableAddress{
+    STACKOFFSET(MemoryLayout),//number of bytes below RBP
+    CONSTANTADDRESS
+}
+
 #[derive(Debug, Clone)]
 pub struct AddressedDeclaration {
     pub(crate) decl: Declaration,
-    pub(crate) stack_offset: MemoryLayout
+    pub(crate) location: VariableAddress
 }
 
 impl ExprNode for AddressedDeclaration {
@@ -27,12 +45,20 @@ impl ExprNode for AddressedDeclaration {
         if self.decl.data_type.is_array() {
             //getting an array, decays to a pointer
             asm_comment!(result, "decaying array {} to pointer", self.decl.name);
-            asm_line!(result, "lea {}, [rbp-{}]", LogicalRegister::ACC.generate_reg_name(&asm_generation::PTR_SIZE), self.stack_offset.size_bytes());
+            asm_line!(result, "{}", self.put_lvalue_addr_in_acc());
+
         } else {
             let reg_size = &self.decl.data_type.memory_size();//decide which register size is appropriate for this variable
             asm_comment!(result, "reading variable: {} to register {}", self.decl.name, LogicalRegister::ACC.generate_reg_name(reg_size));
 
-            asm_line!(result, "mov {}, [rbp-{}]", LogicalRegister::ACC.generate_reg_name(reg_size), self.stack_offset.size_bytes());//get the value from its address on the stack
+            let result_reg = LogicalRegister::ACC.generate_reg_name(reg_size);
+
+            match &self.location {
+                VariableAddress::CONSTANTADDRESS => 
+                    asm_line!(result, "mov {}, [{}]", result_reg, self.decl.get_name()),
+                VariableAddress::STACKOFFSET(stack_offset) => 
+                    asm_line!(result, "mov {}, [rbp-{}]", result_reg, stack_offset.size_bytes())
+            }
         }
 
         result
@@ -46,15 +72,27 @@ impl ExprNode for AddressedDeclaration {
         let mut result = String::new();
 
         asm_comment!(result, "getting address of variable: {}", self.decl.name);
-        asm_line!(result, "lea rax, [rbp-{}]", self.stack_offset.size_bytes());//calculate the address of the variable
+
+        let ptr_reg = LogicalRegister::ACC.generate_reg_name(&asm_generation::PTR_SIZE);
+            match &self.location {
+                VariableAddress::CONSTANTADDRESS => 
+                    asm_line!(result, "mov {}, {}", ptr_reg, self.decl.get_name()),
+                VariableAddress::STACKOFFSET(stack_offset) => 
+                    asm_line!(result, "lea {}, [rbp-{}]", ptr_reg, stack_offset.size_bytes())
+            }
 
         result
+    }
+    
+    fn clone_self(&self) -> Box<dyn ExprNode> {
+        return Box::new(self.clone());
     }
 }
 
 impl InitialisedDeclaration {
     /**
      * local_variables is mut as variables are added
+     * TODO bool is in global scope
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
@@ -92,7 +130,7 @@ impl InitialisedDeclaration {
     pub fn generate_assembly(&self) -> String {
         let mut result = String::new();
 
-        if let Some(init) = &self.initialisation {
+        if let Some(init) = &self.init_code {
             asm_line!(result, "{}", init.generate_assembly());//init is an expression that assigns to the variable, so no more work for me
         }
 
@@ -135,7 +173,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
         data_type
     };
 
-    scope_data.stack_vars.add_variable(decl.clone());//save variable to variable list early, so that I can reference it in the initialisation
+    scope_data.stack_vars.add_stack_variable(decl.clone());//save variable to variable list early, so that I can reference it in the initialisation
 
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 
@@ -143,7 +181,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, &var_name, accessible_funcs, scope_data);
 
     Some(ASTMetadata {
-        resultant_tree: InitialisedDeclaration {decl, initialisation}, 
+        resultant_tree: InitialisedDeclaration {decl, init_code:initialisation}, 
         remaining_slice: TokenQueueSlice::empty(),
         extra_stack_used: extra_stack_needed
     })
@@ -269,7 +307,7 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer
     Some(Box::new(BinaryExpression::new(
-        Box::new(scope_data.stack_vars.get_variable(var_name).unwrap()),
+        scope_data.stack_vars.get_variable(var_name).unwrap().clone_self(),
         Punctuator::EQUALS,
         expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap()
     )))

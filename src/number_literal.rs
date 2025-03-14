@@ -29,6 +29,10 @@ impl ExprNode for NumberLiteral {
     fn put_lvalue_addr_in_acc(&self) -> String {
         panic!("tried to find memory address of a constant number")
     }
+    
+    fn clone_self(&self) -> Box<dyn ExprNode> {
+        Box::new(self.clone())
+    }
 }
 
 impl NumberLiteral {

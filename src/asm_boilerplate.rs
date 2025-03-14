@@ -2,22 +2,8 @@ use crate::{asm_generation::{asm_comment, asm_line, RegisterName}, data_type::{b
 use std::fmt::Write;
 
 
-pub fn add_boilerplate(instructions: String, extern_funcs: String) -> String {
-    /*
-    * set up some boilerplate, including:
-    * global the _start label so that the linker has a main function to use
-    * start the .text section for instructions
-    * define _start:
-    * * run the main program
-    * * set up exit syscall with return code grabbed from eax(assuming that main returns int)
-    */
-    format!(
-"
-{}
-SECTION .note.GNU-stack ;disable executing the stack
-SECTION .text
-{}", extern_funcs, instructions)
-
+pub fn global_var_label(var_name: &str) -> String {
+    format!("GLOBVAR_{}", var_name)
 }
 
 pub fn pop_reg<T: RegisterName>(reg_size: &MemoryLayout, reg_type: &T) -> String {

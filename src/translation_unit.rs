@@ -1,9 +1,10 @@
-use crate::{ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, preprocessor::preprocessor::preprocess_c_file, scope_data::ScopeData, string_literal::StringLiteral};
+use crate::{ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, declaration::InitialisedDeclaration, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, preprocessor::preprocessor::preprocess_c_file, scope_data::ScopeData, string_literal::StringLiteral};
 use std::{fs::File, io::Write};
 
 pub struct TranslationUnit {
     functions: FunctionList,
-    string_literals: Vec<StringLiteral>
+    string_literals: Vec<StringLiteral>,
+    global_variables: Vec<InitialisedDeclaration>
 }
 
 impl TranslationUnit {
@@ -28,6 +29,7 @@ impl TranslationUnit {
         let mut token_idx = TokenQueueSlice::new();
 
         let mut funcs = FunctionList::new();
+        let mut global_vars = Vec::new();
 
         while !token_queue.no_remaining_tokens(&token_idx) {
 
@@ -41,6 +43,10 @@ impl TranslationUnit {
                 funcs.add_declaration(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
+            } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree, extra_stack_used:_ }) = InitialisedDeclaration::try_consume(&mut token_queue, &token_idx, &FunctionList::new(), &mut scope_data) {
+                //functions are not passed to the decl consumer as the decl has to be a compile time constant
+                global_vars.append(&mut resultant_tree);
+                token_idx = remaining_slice;
             } else {
                 return Err(CompilationError::PARSE(format!("unknown remaining data in translation unit: tokens {} and onwards", token_idx.index)));
             }
@@ -49,7 +55,8 @@ impl TranslationUnit {
 
         Ok(TranslationUnit {
             functions: funcs,
-            string_literals:string_literals
+            string_literals:string_literals,
+            global_variables: global_vars
         })
     }
 
@@ -72,6 +79,10 @@ impl TranslationUnit {
             .map(|x| format!("{} db {}\n", x.get_label(), x.get_comma_separated_bytes()))
             .collect::<String>();
 
+        if self.global_variables.len() != 0 {
+            panic!("not implemented: calculating compile time constants for global variables");
+        }
+
         let mut label_generator = LabelGenerator::new();
 
         let instructions = self.functions.func_definitions_as_slice().iter()
@@ -85,7 +96,7 @@ SECTION .rodata
 {}
 SECTION .note.GNU-stack ;disable executing the stack
 SECTION .text
-{}", global_funcs, string_literals, instructions);
+{}",global_funcs, string_literals, instructions);
 
         let banned_registers = ["rbx", "r12", "r13", "r14", "r15"];//these ones are callee saved and could cause problems
         assert!(!banned_registers.iter()
