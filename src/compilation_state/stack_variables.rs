@@ -6,7 +6,7 @@ use crate::{data_type::{base_type::BaseType, data_type::DataType}, declaration::
 /**
  * a list of all the variables found so far
  */
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StackVariables {
     vars: Vec<(Declaration, MemoryLayout)>,//the variable, and offset from bp
     stack_used: MemoryLayout,

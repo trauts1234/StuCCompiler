@@ -33,8 +33,6 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
 pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<Box<dyn ExprNode>> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-    println!("{:?}", tokens_queue.get_slice(&curr_queue_idx));
-
     if tokens_queue.slice_is_parenthesis(&curr_queue_idx) {
         //we are an expression surrounded by brackets
         //remove the outer brackets and continue

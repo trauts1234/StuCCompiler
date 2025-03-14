@@ -30,7 +30,7 @@ impl TokenQueue {
     pub fn peek(&self, location: &TokenQueueSlice, scope_data: &ScopeData) -> Option<Token> {
         let next_idx = location.index;
 
-        if next_idx >= self.tokens.len() || next_idx >= location.max_index{
+        if self.no_remaining_tokens(location){
             return None;//run out of tokens
         }
 
@@ -45,13 +45,20 @@ impl TokenQueue {
     pub fn peek_raw(&self, location: &TokenQueueSlice) -> Option<Token> {
         let next_idx = location.index;
 
-        if next_idx >= self.tokens.len() || next_idx >= location.max_index{
+        if self.no_remaining_tokens(location){
             return None;//run out of tokens
         }
 
         Some(
             self.tokens[next_idx].clone()
         )
+    }
+
+    pub fn no_remaining_tokens(&self, location: &TokenQueueSlice) -> bool {
+        let next_idx = location.index;
+
+        //consumed all tokens         or the slice is empty
+        next_idx >= self.tokens.len() || next_idx >= location.max_index
     }
 
     /**

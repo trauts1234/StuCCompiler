@@ -29,9 +29,7 @@ impl TranslationUnit {
 
         let mut funcs = FunctionList::new();
 
-        let blank_scope_data = ScopeData::make_empty();
-
-        while token_queue.peek(&token_idx, &blank_scope_data).is_some() {
+        while !token_queue.no_remaining_tokens(&token_idx) {
 
             let mut scope_data = ScopeData::make_empty();
 
@@ -46,6 +44,7 @@ impl TranslationUnit {
             } else {
                 return Err(CompilationError::PARSE(format!("unknown remaining data in translation unit: tokens {} and onwards", token_idx.index)));
             }
+            println!("{:?}", scope_data);
         }
 
         Ok(TranslationUnit {

@@ -1,6 +1,6 @@
 use crate::{compilation_state::stack_variables::StackVariables, enum_definition::EnumList};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ScopeData {
     pub(crate) stack_vars: StackVariables,
     pub(crate) enums: EnumList
