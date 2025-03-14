@@ -19,7 +19,7 @@ impl ScopeStatements {
         //important! clone here so that variables and enums created in this scope do not leak out!
         let mut inner_scope_data = outer_scope_data.clone();
 
-        if Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx)? {
+        if Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx, &inner_scope_data)? {
             return None;//not enclosed in { }, so can't be a scope
         }
 

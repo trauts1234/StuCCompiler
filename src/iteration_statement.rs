@@ -22,7 +22,7 @@ impl IterationStatement {
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &ScopeData) -> Option<ASTMetadata<IterationStatement>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-        let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
+        let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, outer_scope_data) {x} else {return None;};
 
         //important: clone the local variables and enums, to prevent inner definitions from leaking out to outer scopes
         let mut in_loop_data = outer_scope_data.clone();
@@ -30,7 +30,7 @@ impl IterationStatement {
         match kw {
             Keyword::FOR => {
                 let closecurly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
-                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
+                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx, &in_loop_data).unwrap());//ensure opening parenthesis
 
                 let items_slice = TokenQueueSlice{
                     index: curr_queue_idx.index,
@@ -69,7 +69,7 @@ impl IterationStatement {
             },
             Keyword::WHILE => {
                 let closecurly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
-                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
+                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx, &in_loop_data).unwrap());//ensure opening parenthesis
 
                 let condition_slice = TokenQueueSlice{
                     index: curr_queue_idx.index,

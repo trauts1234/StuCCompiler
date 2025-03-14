@@ -122,9 +122,9 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
 
-    assert!(tokens_queue.peek(&curr_queue_idx) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
+    assert!(tokens_queue.peek(&curr_queue_idx, scope_data) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
     let data_type = DataType::new_from_base_type(&base_type, modifiers.get_modifiers());
 
@@ -155,15 +155,15 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
  * also used in function params
  * TODO function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ScopeData) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
     let mut array_modifiers = Vec::new();
 
     loop {
-        if tokens_queue.peek(&curr_queue_idx).unwrap() == Token::PUNCTUATOR(Punctuator::ASTERISK) {
-            tokens_queue.consume(&mut curr_queue_idx);//consume the token
+        if tokens_queue.peek(&curr_queue_idx, scope_data).unwrap() == Token::PUNCTUATOR(Punctuator::ASTERISK) {
+            tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume the token
             pointer_modifiers.push(DeclModifier::POINTER);
         } else {
             break;//no more pointer info
@@ -172,12 +172,12 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
 
     //declarations are expected to go **(something)[][]
     //so detect whether something is in brackets, or just an identifier
-    let inner_data = match tokens_queue.peek(&curr_queue_idx).unwrap() {
+    let inner_data = match tokens_queue.peek(&curr_queue_idx, &scope_data).unwrap() {
         Token::PUNCTUATOR(Punctuator::OPENCURLY) => {
             //find the corresponding close bracket, and deal with it
             let in_brackets_tokens = tokens_queue.consume_inside_parenthesis(&mut curr_queue_idx);
 
-            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, base_type)?;
+            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, base_type, scope_data)?;
 
             //curr queue idx is already advanced from consuming the parenthesis
 
@@ -185,7 +185,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
             
         },
         Token::IDENTIFIER(ident) => {
-            tokens_queue.consume(&mut curr_queue_idx);//consume token
+            tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume token
             //identifier name in the middle, grab it
             Declaration {
                 data_type: DataType::new_from_base_type(&base_type, &Vec::new()),
@@ -196,16 +196,16 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
     };
 
     loop {
-        match tokens_queue.peek(&curr_queue_idx) {
+        match tokens_queue.peek(&curr_queue_idx, &scope_data) {
             Some(Token::PUNCTUATOR(Punctuator::OPENSQUARE)) => {
 
-                tokens_queue.consume(&mut curr_queue_idx)?;//consume the open bracket
-                if let Token::NUMBER(arraysize) = tokens_queue.consume(&mut curr_queue_idx)? {
+                tokens_queue.consume(&mut curr_queue_idx, &scope_data)?;//consume the open bracket
+                if let Token::NUMBER(arraysize) = tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
                     array_modifiers.push(DeclModifier::ARRAY(arraysize.as_usize()?));
                 } else {
                     panic!("array size inference not supported!")//I can't predict the size of arrays yet, so char[] x = "hello world";does not work
                 }
-                tokens_queue.consume(&mut curr_queue_idx)?;//consume the close bracket
+                tokens_queue.consume(&mut curr_queue_idx, &scope_data)?;//consume the close bracket
             },
             _ => {break;}
         }
@@ -229,7 +229,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
 
 pub fn consume_base_type(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ScopeData) -> Option<BaseType> {
 
-    if tokens_queue.peek(&curr_queue_idx)? == Token::KEYWORD(Keyword::ENUM) {
+    if tokens_queue.peek(&curr_queue_idx, &scope_data)? == Token::KEYWORD(Keyword::ENUM) {
         //enum x => handle enums
         if let Some(data_type) = try_consume_enum_as_type(tokens_queue, curr_queue_idx, scope_data) {
             return Some(data_type.underlying_type().clone())
@@ -241,9 +241,9 @@ pub fn consume_base_type(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut Tok
     let mut data_type_info = Vec::new();
     //try and consume as many type specifiers as possible
     loop {
-        if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx)? {
+        if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx, &scope_data)? {
             data_type_info.push(ts.clone());
-            tokens_queue.consume(curr_queue_idx);
+            tokens_queue.consume(curr_queue_idx, &scope_data);
         } else {
             break;
         }
@@ -259,11 +259,11 @@ pub fn consume_base_type(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut Tok
  */
 fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, var_name: &str, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<Box<dyn ExprNode>> {
     
-    if tokens_queue.peek(&curr_queue_idx)? !=Token::PUNCTUATOR(Punctuator::EQUALS){
+    if tokens_queue.peek(&curr_queue_idx, &scope_data)? !=Token::PUNCTUATOR(Punctuator::EQUALS){
         return None;
     }
 
-    tokens_queue.consume(curr_queue_idx).unwrap();//consume the equals sign
+    tokens_queue.consume(curr_queue_idx, &scope_data).unwrap();//consume the equals sign
 
     //consume the right hand side of the initialisation
     //then create an assignment expression to write the value to the variable

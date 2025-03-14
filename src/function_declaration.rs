@@ -25,7 +25,7 @@ impl FunctionDeclaration {
 
         curr_queue_idx = remaining_slice;//skip decl as it has now been parsed
 
-        if Token::PUNCTUATOR(Punctuator::SEMICOLON) != tokens_queue.consume(&mut curr_queue_idx)? {
+        if Token::PUNCTUATOR(Punctuator::SEMICOLON) != tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
             //TODO what if an enum was generated, then this check fails???
             //the enum would be created but shouldn't have been
             return None;//no trailing semicolon
@@ -52,15 +52,15 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
 
     let return_base_type = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data)?;
 
-    while Token::PUNCTUATOR(Punctuator::ASTERISK) == tokens_queue.peek(&curr_queue_idx)? {
+    while Token::PUNCTUATOR(Punctuator::ASTERISK) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
         return_modifiers.push(DeclModifier::POINTER);
-        tokens_queue.consume(&mut curr_queue_idx);
+        tokens_queue.consume(&mut curr_queue_idx, &scope_data);
     }
 
     //try to match an identifier, to find out the function name
 
     let func_name = 
-    if let Token::IDENTIFIER(ident) = tokens_queue.consume(&mut curr_queue_idx)? {
+    if let Token::IDENTIFIER(ident) = tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
         ident.to_string()
     }
     else {
@@ -74,7 +74,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
     };
 
     //pop the ( at the start of the params
-    if Token::PUNCTUATOR(Punctuator::OPENCURLY) != tokens_queue.consume(&mut curr_queue_idx)? {
+    if Token::PUNCTUATOR(Punctuator::OPENCURLY) != tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
         return None;
     }
 
@@ -91,7 +91,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
     curr_queue_idx.index = args_location.max_index;//jump to end of args
 
     //pop the ) at the end of the params
-    if Token::PUNCTUATOR(Punctuator::CLOSECURLY) != tokens_queue.consume(&mut curr_queue_idx)? {
+    if Token::PUNCTUATOR(Punctuator::CLOSECURLY) != tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
         return None;
     }
 
@@ -111,8 +111,8 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
 fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<Declaration> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(arg_segment);
 
-    if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx)? {
-        tokens_queue.consume(&mut curr_queue_idx);
+    if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
+        tokens_queue.consume(&mut curr_queue_idx, &scope_data);
         return Some(Declaration { data_type: 
             DataType::new_from_base_type(&BaseType::VaArg, &Vec::new()),
              name: String::new()//va arg has no name 
@@ -126,7 +126,7 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
         resultant_tree: Declaration { data_type: modifiers, name: var_name },
         remaining_slice:_,
         extra_stack_used:_
-    } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base)?;
+    } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base, scope_data)?;
 
     Some(Declaration {
         data_type: DataType::new_from_base_type(&data_type_base, modifiers.get_modifiers()).decay(),//.decay since arrays ALWAYS decay to pointers, even when sizeof is involved

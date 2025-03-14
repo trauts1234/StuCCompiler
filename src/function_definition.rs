@@ -31,7 +31,7 @@ impl FunctionDefinition {
 
         let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx, scope_data)?;
 
-        if tokens_queue.peek(&after_decl_slice)? == Token::PUNCTUATOR(Punctuator::SEMICOLON) {
+        if tokens_queue.peek(&after_decl_slice, &scope_data)? == Token::PUNCTUATOR(Punctuator::SEMICOLON) {
             return None;//function declaration + semicolon means no definition for certain
         }
 

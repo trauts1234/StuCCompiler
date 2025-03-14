@@ -48,9 +48,9 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
 
         1 => {
             //1 token left, check if it is a number
-            match tokens_queue.peek(& curr_queue_idx)? {
+            match tokens_queue.peek(& curr_queue_idx, &scope_data)? {
                 Token::NUMBER(num) => {
-                    tokens_queue.consume(&mut curr_queue_idx);
+                    tokens_queue.consume(&mut curr_queue_idx, &scope_data);
                     Some(Box::new(num))
                 },
                 Token::IDENTIFIER(var_name) => {
@@ -89,7 +89,7 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
 
                 } else {
                     //look for unary prefix as association is right to left
-                    let first_token = tokens_queue.peek(&curr_queue_idx)?;
+                    let first_token = tokens_queue.peek(&curr_queue_idx, &scope_data)?;
 
                     let starts_with_valid_prefix = first_token
                         .as_punctuator()
@@ -221,7 +221,7 @@ pub fn generate_assembly_for_assignment(lhs: &dyn ExprNode, rhs: &dyn ExprNode, 
 fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<Box<dyn ExprNode>> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
     
-    let punctuator = tokens_queue.consume(&mut curr_queue_idx)?.as_punctuator()?;//get punctuator
+    let punctuator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)?.as_punctuator()?;//get punctuator
 
     punctuator.as_unary_prefix_precedence()?;//ensure the punctuator is a valid unary prefix
 
@@ -243,7 +243,7 @@ fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
     let parsed_left = try_consume_whole_expr(tokens_queue, &left_part, accessible_funcs, scope_data)?;
     let parsed_right = try_consume_whole_expr(tokens_queue, &right_part, accessible_funcs, scope_data)?;
 
-    let operator = tokens_queue.peek(&operator_idx).expect("couldn't peek")
+    let operator = tokens_queue.peek(&operator_idx, &scope_data).expect("couldn't peek")
         .as_punctuator().expect("couldn't cast to punctuator");
 
     Some(Box::new(BinaryExpression::new(parsed_left, operator, parsed_right)))
@@ -251,7 +251,7 @@ fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
 
 fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<Box<dyn ExprNode>> {
     //look for unary postfixes as association is left to right
-    let last_token = tokens_queue.peek_back(&curr_queue_idx)?;
+    let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
 
     //handle array indexing as that is a special case of binary operator
     if last_token == Token::PUNCTUATOR(Punctuator::CLOSESQUARE) {

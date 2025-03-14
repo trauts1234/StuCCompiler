@@ -1,3 +1,5 @@
+use crate::scope_data::ScopeData;
+
 use super::{token::Token, token_savepoint::TokenQueueSlice, punctuator::Punctuator};
 
 /**
@@ -25,31 +27,48 @@ impl TokenQueue {
     /**
      * returns the next token that needs to be consumed
      */
-    pub fn peek(&self, location: &TokenQueueSlice) -> Option<Token> {
+    pub fn peek(&self, location: &TokenQueueSlice, scope_data: &ScopeData) -> Option<Token> {
         let next_idx = location.index;
 
         if next_idx >= self.tokens.len() || next_idx >= location.max_index{
             return None;//run out of tokens
         }
 
-        Some(self.tokens[next_idx].clone())
+        Some(
+            substitute_token(self.tokens[next_idx].clone(), scope_data)
+        )
+    }
+
+    /**
+     * peeks a token without substituting in enum variants
+     */
+    pub fn peek_raw(&self, location: &TokenQueueSlice) -> Option<Token> {
+        let next_idx = location.index;
+
+        if next_idx >= self.tokens.len() || next_idx >= location.max_index{
+            return None;//run out of tokens
+        }
+
+        Some(
+            self.tokens[next_idx].clone()
+        )
     }
 
     /**
      * peeks the token at the end of the token queue slice
      */
-    pub fn peek_back(&self, location: &TokenQueueSlice) -> Option<Token> {
+    pub fn peek_back(&self, location: &TokenQueueSlice, scope_data: &ScopeData) -> Option<Token> {
         let max_idx = location.max_index-1;
 
         if location.index >= location.max_index || location.max_index > self.tokens.len() {
             return None;
         }
 
-        Some(self.tokens[max_idx].clone())
+        Some(substitute_token(self.tokens[max_idx].clone(), scope_data))
     }
 
-    pub fn consume(&self, location: &mut TokenQueueSlice) -> Option<Token> {
-        let next = self.peek(&location);
+    pub fn consume(&self, location: &mut TokenQueueSlice, scope_data: &ScopeData) -> Option<Token> {
+        let next = self.peek(&location, scope_data);
         location.next();
         if location.index > self.tokens.len() || location.index > location.max_index{
             panic!("continued consuming tokens after end of array or past end of allowed slice")
@@ -57,6 +76,9 @@ impl TokenQueue {
         return next;
     }
 
+    /**
+     * warning: this does not substitute enum variants
+     */
     pub fn get_slice(&self, slice: &TokenQueueSlice) -> &[Token] {
         let max_idx = slice.max_index.min(self.tokens.len());//whichever is smaller: list size, slice max index
         &self.tokens[slice.index..max_idx]
@@ -177,7 +199,7 @@ impl TokenQueue {
      * and return a slice of all the tokens inside the parenthesis excluding ( )
      */
     pub fn consume_inside_parenthesis(&self, location: &mut TokenQueueSlice) -> TokenQueueSlice {
-        assert!(self.peek(location) == Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)));
+        assert!(self.peek_raw(location) == Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)));
 
         let mut inside_parentheses = 0;
         let parenthesis_open_idx = location.index;
@@ -210,7 +232,7 @@ impl TokenQueue {
      */
     pub fn slice_is_parenthesis(&self, slice: &TokenQueueSlice) -> bool {
         //ensure the start is an open bracket
-        if self.peek(slice) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)){
+        if self.peek_raw(slice) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)){
             return false;
         }
 
@@ -271,5 +293,19 @@ impl TokenQueue {
 
         println!("{:?}", &self.tokens[open_idx..]);
         panic!("matching )/] not found");
+    }
+}
+
+fn substitute_token(original: Token, scope_data: &ScopeData) -> Token {
+    match &original {
+        Token::IDENTIFIER(x) => {
+            if let Some(enum_value) = scope_data.enums.try_get_variant(&x) {
+                panic!("tried to substitute enum");
+                Token::NUMBER(enum_value.clone())
+            } else {
+                original
+            }
+        }
+        _ => original
     }
 }

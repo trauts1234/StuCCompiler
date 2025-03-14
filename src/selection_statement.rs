@@ -16,13 +16,15 @@ impl SelectionStatement {
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<SelectionStatement>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-        let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx) {x} else {return None;};
+        let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, &scope_data) {x} else {return None;};
+
+        //scope_data is not cloned here as the scope will clone it for us
         
         match kw {
             Keyword::IF => {
                 
                 let closecurly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
-                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx).unwrap());//ensure opening parenthesis
+                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx, &scope_data).unwrap());//ensure opening parenthesis
 
                 let condition_slice = TokenQueueSlice{
                     index: curr_queue_idx.index,
@@ -45,11 +47,11 @@ impl SelectionStatement {
                 //unless the "else" branch needs a huge amount of stack
                 let mut extra_stack_needed = body_stack_used;
 
-                let has_else_branch = tokens_queue.peek(&curr_queue_idx).is_some_and(|x| x == Token::KEYWORD(Keyword::ELSE));
+                let has_else_branch = tokens_queue.peek(&curr_queue_idx, &scope_data).is_some_and(|x| x == Token::KEYWORD(Keyword::ELSE));
 
                 //try and consume the else branch
                 let not_taken_body: Option<Box<Statement>> = if has_else_branch {
-                    tokens_queue.consume(&mut curr_queue_idx);//consume the else keyword
+                    tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume the else keyword
                     let ASTMetadata{ remaining_slice, resultant_tree: else_body, extra_stack_used:else_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
                     curr_queue_idx = remaining_slice;//consume the else
 

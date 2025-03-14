@@ -69,7 +69,7 @@ impl FunctionCall {
     
     pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<FunctionCall> {
         //look for unary postfixes as association is left to right
-        let last_token = tokens_queue.peek_back(&curr_queue_idx)?;
+        let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
     
         if last_token != Token::PUNCTUATOR(Punctuator::CLOSECURLY){
             return None;
@@ -97,7 +97,7 @@ impl FunctionCall {
             max_index: curly_open_idx
         };
 
-        if let Token::IDENTIFIER(func_name) = tokens_queue.peek(&func_slice)? {
+        if let Token::IDENTIFIER(func_name) = tokens_queue.peek(&func_slice, &scope_data)? {
             let func_decl = accessible_funcs.get_function_declaration(&func_name).expect("found function call but no corresponding function declaration");//for recursive functions this is fine, right?
             Some(FunctionCall {
                 func_name, 

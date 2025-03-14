@@ -29,7 +29,10 @@ impl TranslationUnit {
 
         let mut funcs = FunctionList::new();
 
-        while token_queue.peek(&token_idx).is_some() {
+        let blank_scope_data = ScopeData::make_empty();
+
+        while token_queue.peek(&token_idx, &blank_scope_data).is_some() {
+
             let mut scope_data = ScopeData::make_empty();
 
             if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &funcs, &mut scope_data){
