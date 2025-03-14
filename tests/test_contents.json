@@ -353,5 +353,9 @@
     {
         "filename":"arrayparam.c",
         "return_code":0
+    },
+    {
+        "filename":"enumsubstitution.c",
+        "return_code":0
     }
 ]

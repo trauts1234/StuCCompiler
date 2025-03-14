@@ -307,7 +307,6 @@ fn substitute_token(original: Token, scope_data: &ScopeData) -> Token {
     match &original {
         Token::IDENTIFIER(x) => {
             if let Some(enum_value) = scope_data.enums.try_get_variant(&x) {
-                panic!("tried to substitute enum");
                 Token::NUMBER(enum_value.clone())
             } else {
                 original
