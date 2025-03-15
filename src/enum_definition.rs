@@ -101,7 +101,7 @@ fn try_consume_enum_variant_definition(tokens_queue: &TokenQueue, remaining_toke
 
         *prev_variant_number += 1;//later, when this is a NumberLiteral, you should call some sort of evaluate_const_expr(1 + prev_variant_number) as it could be different types, or worse
 
-        return Some((variant_name, NumberLiteral::try_new(&prev_variant_number.to_string()).unwrap()))
+        return Some((variant_name, NumberLiteral::new(&prev_variant_number.to_string())))
     } else {
         panic!("tried to read enum variant but didn't find an identifier");
     }

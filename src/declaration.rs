@@ -7,7 +7,6 @@ use std::fmt::Write;
  * stores a variable and assembly to construct it
  */
 pub struct InitialisedDeclaration{
-    decl: Declaration,
     init_code: Option<Box<dyn ExprNode>>,
 }
 
@@ -89,10 +88,11 @@ impl ExprNode for AddressedDeclaration {
     }
 }
 
+//TODO move this to it's own file
 impl InitialisedDeclaration {
     /**
      * local_variables is mut as variables are added
-     * TODO bool is in global scope
+     * consumes declarations/definitions of stack variables
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
@@ -181,7 +181,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, &var_name, accessible_funcs, scope_data);
 
     Some(ASTMetadata {
-        resultant_tree: InitialisedDeclaration {decl, init_code:initialisation}, 
+        resultant_tree: InitialisedDeclaration {init_code:initialisation}, 
         remaining_slice: TokenQueueSlice::empty(),
         extra_stack_used: extra_stack_needed
     })
@@ -239,7 +239,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
 
                 tokens_queue.consume(&mut curr_queue_idx, &scope_data)?;//consume the open bracket
                 if let Token::NUMBER(arraysize) = tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
-                    array_modifiers.push(DeclModifier::ARRAY(arraysize.as_usize()?));
+                    array_modifiers.push(DeclModifier::ARRAY(arraysize.as_usize()));
                 } else {
                     panic!("array size inference not supported!")//I can't predict the size of arrays yet, so char[] x = "hello world";does not work
                 }

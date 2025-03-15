@@ -154,7 +154,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode) -> String {
     //put lhs on stack
     asm_line!(result, "{}", lhs.generate_assembly());
     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.get_data_type(), &promoted_type));
-    asm_line!(result, "{}", asm_boilerplate::push_reg(&lhs.get_data_type().memory_size(), &LogicalRegister::ACC));
+    asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
 
     //put rhs in secondary
     asm_line!(result, "{}", rhs.generate_assembly());

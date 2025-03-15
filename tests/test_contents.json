@@ -357,5 +357,9 @@
     {
         "filename":"enumsubstitution.c",
         "return_code":0
+    },
+    {
+        "filename":"castnegativetounsigned.c",
+        "return_code":0
     }
 ]

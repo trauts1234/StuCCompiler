@@ -110,7 +110,7 @@ impl Lexer {
         let mut letters = String::new();
 
         while let Some(c) = self.peek() {
-            if !("0123456789.".contains(c)) {
+            if !("0123456789.ulUL".contains(c)) {
                 break;
             }
             letters.push(c);
@@ -126,7 +126,7 @@ impl Lexer {
 
         assert!(letters.len() > 0);
         
-        return Token::NUMBER(NumberLiteral::try_new(&letters).unwrap());
+        return Token::NUMBER(NumberLiteral::new(&letters));
     }
 
     pub fn next_token(&mut self) -> Option<Token> {

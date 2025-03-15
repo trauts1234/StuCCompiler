@@ -37,7 +37,7 @@ impl ExprNode for BinaryExpression {
                     //get the size of rhs when it is dereferenced
                     let rhs_dereferenced_size_bytes = self.rhs.get_data_type().remove_outer_modifier().memory_size().size_bytes();
                     //convert this number to a string
-                    let rhs_deref_size_str = NumberLiteral::try_new(&rhs_dereferenced_size_bytes.to_string()).unwrap().nasm_format();
+                    let rhs_deref_size_str = NumberLiteral::new(&rhs_dereferenced_size_bytes.to_string()).nasm_format();
                     asm_comment!(result, "rhs is a pointer. make lhs {} times bigger", rhs_deref_size_str);
 
                     assert!(promoted_type.memory_size().size_bytes() == 8);
@@ -58,7 +58,7 @@ impl ExprNode for BinaryExpression {
                     //get the size of lhs when it is dereferenced
                     let lhs_dereferenced_size_bytes = self.lhs.get_data_type().remove_outer_modifier().memory_size().size_bytes();
                     //convert this number to a string
-                    let lhs_deref_size_str = NumberLiteral::try_new(&lhs_dereferenced_size_bytes.to_string()).unwrap().nasm_format();
+                    let lhs_deref_size_str = NumberLiteral::new(&lhs_dereferenced_size_bytes.to_string()).nasm_format();
 
                     asm_comment!(result, "lhs is a pointer. make rhs {} times bigger", lhs_deref_size_str);
 

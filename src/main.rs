@@ -29,6 +29,8 @@ mod binary_expression;
 mod unary_prefix_expr;
 mod enum_definition;
 mod scope_data;
+mod constexpr_parsing;
+mod global_var_declaration;
 
 struct CompilationOptions {
     c_file: String,
