@@ -361,5 +361,9 @@
     {
         "filename":"castnegativetounsigned.c",
         "return_code":0
+    },
+    {
+        "filename":"overflowingliteral.c",
+        "stdout":"4294967295"
     }
 ]
