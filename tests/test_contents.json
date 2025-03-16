@@ -394,5 +394,9 @@
     {
         "filename":"boolean.c",
         "return_code":0
+    },
+    {
+        "filename":"booleanor.c",
+        "return_code":0
     }
 ]

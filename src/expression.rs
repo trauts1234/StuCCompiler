@@ -34,6 +34,8 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
 pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<Box<dyn ExprNode>> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
+    println!("{:?}", tokens_queue.get_slice(previous_queue_idx));
+
     if tokens_queue.slice_is_parenthesis(&curr_queue_idx) {
         //we are an expression surrounded by brackets
         //remove the outer brackets and continue
@@ -124,6 +126,8 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
                     //try to find an operator
                     //note that the operator_idx is a slice of just the operator
 
+                    println!("{:?}", tokens_queue.peek(&operator_idx, scope_data).unwrap());
+
                     match try_parse_binary_expr(tokens_queue, &curr_queue_idx, &operator_idx, accessible_funcs, scope_data) {
                         Some(x) => {return Some(x);}
                         None => {
@@ -145,11 +149,10 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
  * used in binary expressions, where you need both sides in registers
  * does NOT work for assignment expressions
  */
-pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode) -> String {
+pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: &DataType) -> String {
     let mut result = String::new();
 
-    let promoted_type = DataType::calculate_promoted_type_arithmetic(&lhs.get_data_type(), &rhs.get_data_type());
-    let promoted_size = &promoted_type.memory_size();
+    let promoted_size = promoted_type.memory_size();
 
     //put lhs on stack
     asm_line!(result, "{}", lhs.generate_assembly());
@@ -159,7 +162,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode) -> String {
     //put rhs in secondary
     asm_line!(result, "{}", rhs.generate_assembly());
     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));
-    asm_line!(result, "{}", mov_reg(promoted_size, &LogicalRegister::SECONDARY, &LogicalRegister::ACC));//mov acc to secondary
+    asm_line!(result, "{}", mov_reg(&promoted_size, &LogicalRegister::SECONDARY, &LogicalRegister::ACC));//mov acc to secondary
 
     //pop lhs to ACC
     asm_line!(result, "{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::ACC));

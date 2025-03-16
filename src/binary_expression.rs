@@ -18,8 +18,9 @@ impl ExprNode for BinaryExpression {
             return generate_assembly_for_assignment(&*self.lhs, &*self.rhs, &lhs_type, &lhs_type.memory_size());
         }
 
-        let promoted_type = match self.operator {//I already have a function for this?
+        let promoted_type = match &self.operator {//I already have a function for this?
             Punctuator::EQUALS => self.lhs.get_data_type(),//assignment is just the lhs data size
+            x if x.as_boolean_instr().is_some() => DataType::new_from_base_type(&BaseType::_BOOL, &Vec::new()),//is a boolean operator, operands are booleans
             _ => DataType::calculate_promoted_type_arithmetic(&self.lhs.get_data_type(), &self.rhs.get_data_type())//else find a common meeting ground
         };
         let promoted_size = &promoted_type.memory_size();
@@ -82,7 +83,7 @@ impl ExprNode for BinaryExpression {
             },
             Punctuator::DASH => {
                 asm_comment!(result, "subtracting numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
 
                 asm_line!(result, "sub {}, {}",
                 LogicalRegister::ACC.generate_reg_name(promoted_size),
@@ -92,7 +93,7 @@ impl ExprNode for BinaryExpression {
             }
             Punctuator::ASTERISK => {
                 asm_comment!(result, "multiplying numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
 
                 assert!(promoted_type.underlying_type().is_signed());//unsigned multiply??
                 assert!(promoted_type.underlying_type().is_integer());//floating point multiply??
@@ -105,7 +106,7 @@ impl ExprNode for BinaryExpression {
             },
             Punctuator::FORWARDSLASH => {
                 asm_comment!(result, "dividing numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
 
                 match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type().is_signed()) {
                     (4,true) => {
@@ -120,7 +121,7 @@ impl ExprNode for BinaryExpression {
 
             Punctuator::PERCENT => {
                 asm_comment!(result, "calculating modulus");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
 
                 //modulus is calculated using a DIV
                 match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type().is_signed()) {
@@ -139,7 +140,7 @@ impl ExprNode for BinaryExpression {
 
             comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
                 asm_comment!(result, "comparing numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
 
                 let lhs_reg = LogicalRegister::ACC.generate_reg_name(promoted_size);
                 let rhs_reg = LogicalRegister::SECONDARY.generate_reg_name(promoted_size);
@@ -152,6 +153,24 @@ impl ExprNode for BinaryExpression {
                 asm_line!(result, "{} {}", comparison.as_comparator_instr().unwrap(), result_reg.generate_reg_name(&result_size));//create the correct set instruction
 
             },
+
+            operator if operator.as_boolean_instr().is_some() => {
+
+                //perhaps this will work for binary operators too?
+                asm_comment!(result, "applying boolean operator");
+
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
+
+                assert!(promoted_size.size_bytes() == 1);//must be boolean
+                assert!(promoted_type.underlying_type() == &BaseType::_BOOL);
+
+                let lhs_reg = LogicalRegister::ACC.generate_reg_name(promoted_size);
+                let rhs_reg = LogicalRegister::SECONDARY.generate_reg_name(promoted_size);
+
+                let boolean_instruction = operator.as_boolean_instr().unwrap();
+                
+                asm_line!(result, "{} {}, {}", boolean_instruction, lhs_reg, rhs_reg);
+            }
 
             _ => panic!("operator to binary expression is invalid")
         }
@@ -174,6 +193,7 @@ impl ExprNode for BinaryExpression {
             Punctuator::GREATEREQUAL |
             Punctuator::LESSEQAUAL |
             Punctuator::DOUBLEEQUALS |
+            Punctuator::PIPEPIPE |
             Punctuator::EXCLAMATIONEQUALS => DataType::new_from_base_type(&BaseType::_BOOL, &Vec::new()),
 
             _ => panic!("data type calculation for this binary operator is not implemented")

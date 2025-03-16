@@ -10,6 +10,8 @@ pub enum Punctuator {
     EQUALS,
     SEMICOLON,
 
+    PIPEPIPE,
+
     AMPERSAND,
     PERCENT,
 
@@ -46,6 +48,8 @@ impl Punctuator {
 
             "&" => Some(Self::AMPERSAND),
             "%" => Some(Self::PERCENT),
+
+            "||" => Some(Self::PIPEPIPE),
 
             ">" => Some(Self::ANGLERIGHT),
             "<" => Some(Self::ANGLELEFT),
@@ -84,6 +88,13 @@ impl Punctuator {
         }.map(|x| x.to_string())
     }
 
+    pub fn as_boolean_instr(&self) -> Option<String> {
+        match self {
+            Self::PIPEPIPE => Some("or"),
+            _ => None
+        }.map(|x| x.to_string())
+    }
+
      /**
      * if this punctuator can be a binary operator:
      * returns Some(precedence number)
@@ -94,11 +105,13 @@ impl Punctuator {
         match self {
             Self::PLUS | Self::DASH => Some(4),
             Self::ASTERISK | Self::FORWARDSLASH | Self::PERCENT => Some(3),//binary operator as in multiply
+
+            Self::PIPEPIPE => Some(12),
+
             Self::EQUALS => Some(14),
 
             Self::ANGLELEFT | Self::ANGLERIGHT | Self::GREATEREQUAL | Self::LESSEQAUAL => Some(6),
             Self::DOUBLEEQUALS | Self::EXCLAMATIONEQUALS => Some(7),
-            //TODO ampersand
             _ => None
         }
     }
