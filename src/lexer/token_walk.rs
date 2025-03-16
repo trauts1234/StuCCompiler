@@ -243,17 +243,9 @@ impl TokenQueue {
             return false;
         }
 
-        //sum open and close brackets
-        let resultant_bracket_level = 
-        self.tokens[slice.index..slice.max_index].iter()
-            .map(|x| match x {
-                Token::PUNCTUATOR(Punctuator::OPENCURLY) => 1,
-                Token::PUNCTUATOR(Punctuator::CLOSECURLY) => -1,
-                _ => 0
-            }).sum::<i32>();
+        let matching_close = self.find_matching_close_bracket(slice.index);
 
-        //ensure this equals 0
-        return resultant_bracket_level == 0;
+        return matching_close == slice.max_index-1;
     }
 
     pub fn find_matching_open_bracket(&self, close_idx: usize) -> usize {
