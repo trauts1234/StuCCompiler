@@ -390,5 +390,9 @@
     {
         "filename":"charliteral.c",
         "return_code":0
+    },
+    {
+        "filename":"boolean.c",
+        "return_code":0
     }
 ]

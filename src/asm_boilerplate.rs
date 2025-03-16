@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_comment, asm_line, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, memory_size::MemoryLayout};
+use crate::{asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, memory_size::MemoryLayout};
 use std::fmt::Write;
 
 
@@ -63,6 +63,16 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType) -> String {
     }
 
     if original.underlying_type().is_integer() && new_type.underlying_type().is_integer() {
+
+        if new_type.underlying_type() == &BaseType::_BOOL {
+            //boolean, so I need to cmp 0
+            asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(&original.memory_size()));
+            //set to 1 or 0 based on whether that value was 0
+            asm_line!(result, "setne {}", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(1)));
+
+            return result;
+        }
+
         match (original.memory_size().size_bytes(), original.underlying_type().is_unsigned()) {
             (8, _) => {
                 //no matter the signedness of original, you just need to get the bottom few bits of it,
