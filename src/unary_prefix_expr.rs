@@ -22,8 +22,11 @@ impl ExprNode for UnaryPrefixExpression {
                 asm_comment!(result, "dereferencing pointer");
                 // put the address pointed to in rax
                 asm_line!(result, "{}", self.operand.generate_assembly());
-                
-                asm_line!(result, "mov rax, [rax]");//dereference pointer
+                if self.get_data_type().is_array() {
+                    //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
+                } else {
+                    asm_line!(result, "mov rax, [rax]");//dereference pointer
+                }
             },
             Punctuator::DASH => {
                 asm_comment!(result, "negating something");

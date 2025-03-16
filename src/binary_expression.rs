@@ -31,7 +31,7 @@ impl ExprNode for BinaryExpression {
                 asm_line!(result, "{}", self.lhs.generate_assembly());//put lhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.lhs.get_data_type(), &promoted_type));//cast to the correct type
 
-                if self.rhs.get_data_type().is_pointer() {//adding pointer to int
+                if self.rhs.get_data_type().decay().is_pointer() {//adding array or pointer to int
                     //you can only add pointer and number here, as per the C standard
 
                     //get the size of rhs when it is dereferenced
@@ -53,7 +53,7 @@ impl ExprNode for BinaryExpression {
                 asm_line!(result, "{}", self.rhs.generate_assembly());//put rhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.rhs.get_data_type(), &promoted_type));//cast to correct type
 
-                if self.lhs.get_data_type().is_pointer() {
+                if self.lhs.get_data_type().decay().is_pointer() {
                     //you can only add pointer and number here, as per the C standard
                     //get the size of lhs when it is dereferenced
                     let lhs_dereferenced_size_bytes = self.lhs.get_data_type().remove_outer_modifier().memory_size().size_bytes();

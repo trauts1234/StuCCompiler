@@ -89,6 +89,13 @@ impl NumberLiteral {
         }.cast(&data_type)//cast to the correct type
     }
 
+    pub fn new_from_i64(num: i64) -> NumberLiteral {
+        NumberLiteral {
+            value: LiteralValue::SIGNED(num),
+            data_type: BaseType::I64
+        }
+    }
+
     /**
      * format this number in a way that it can be pasted into a nasm file
      */

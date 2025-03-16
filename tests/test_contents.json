@@ -378,5 +378,17 @@
     {
         "filename":"globalenum.c",
         "return_code":0
+    },
+    {
+        "filename":"arrayindex2.c",
+        "return_code":0
+    },
+    {
+        "filename":"multidimensionalarray.c",
+        "return_code":0
+    },
+    {
+        "filename":"charliteral.c",
+        "return_code":0
     }
 ]

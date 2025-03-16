@@ -1,4 +1,4 @@
-use crate::{compilation_state::label_generator::LabelGenerator, data_type::type_token::TypeInfo, lexer::keywords::Keyword, number_literal::NumberLiteral, string_literal::StringLiteral};
+use crate::{compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, type_token::TypeInfo}, lexer::keywords::Keyword, number_literal::NumberLiteral, string_literal::StringLiteral};
 
 use super::{token::Token, punctuator::Punctuator};
 
@@ -63,6 +63,8 @@ impl Lexer {
     }
 
     fn consume_str(&mut self) -> Token {
+        assert!(self.consume() == Some('\"'));//consume the opening speechmark
+
         let mut result_text = String::new();
         loop {
             let curr_char = self.consume().unwrap();
@@ -72,10 +74,22 @@ impl Lexer {
             if next_char == '"' && curr_char != '\\' {
                 //non escaped speech mark
                 self.consume();//consume last speech mark
-                result_text += "\"";//add the close speech mark
                 return Token::STRING(StringLiteral::try_new(&result_text, &mut self.string_label_generator).unwrap());
             }
         }
+    }
+
+    fn consume_char(&mut self) -> Token {
+        assert!(self.consume() == Some('\''));//consume the opening quote
+
+        let character = match self.consume().unwrap() {
+            '\\' => StringLiteral::use_escape_sequences(&format!("\\{}", self.consume().unwrap()))[0],//get backslash and next char, then apply escape sequences to them, and get the char
+            x => x as i8,//no escape, use self
+        };
+
+        assert!(self.consume() == Some('\''));//consume close quote
+        
+        Token::NUMBER(NumberLiteral::new_from_i64(character as i64).cast(&BaseType::I32))//convert the char to a number, then cast to i32, as char literals are int in C
     }
 
     fn consume_punctuation(&mut self) -> Token{
@@ -137,6 +151,7 @@ impl Lexer {
             c if c.is_alphabetic() || c == '_' => Some(self.consume_generic_text()),
             c if "(){}[];,+-*/=&%><.!".contains(c) => Some(self.consume_punctuation()),
             '"' => Some(self.consume_str()),
+            '\'' => Some(self.consume_char()),
             _ => panic!("unknown tokens in translation unit:\n{}", &self.data[self.next_to_eat..])
         }
     }

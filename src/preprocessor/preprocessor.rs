@@ -186,6 +186,8 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
  * takes in a line of a file, and substitutes everything defined by #define
  */
 fn substitute_defines(ctx: &mut PreprocessContext, line_of_file: &str) -> String {
+    let mut next_char_is_escaped = false;
+    
     for i in 0..line_of_file.len() {
 
         //set the preceeding character as a blank string if it is before the start of the string
@@ -194,11 +196,15 @@ fn substitute_defines(ctx: &mut PreprocessContext, line_of_file: &str) -> String
         let remaining_str = &line_of_file[i..];
 
         match (preceeding_char, remaining_str) {
-            (curr, remaining) if curr != "\\" && remaining.starts_with("\"") && !ctx.inside_char => {
+            ("\\", _) if !next_char_is_escaped => {
+                next_char_is_escaped = true;//non-escaped backslash, will escape next character
+                continue;//skip the code after the match
+            }
+            ("\"", _) if !next_char_is_escaped && !ctx.inside_char => {
                 //non-escaped speechmark that isn't in a char
                 ctx.inside_string ^= true;//flip inside string status
             },
-            (curr, remaining) if curr != "\\" && remaining.starts_with("'") => {
+            ("\'", _) if !next_char_is_escaped => {
                 //non escaped single quote
                 ctx.inside_char ^= true;//flip from in char to out, or vice versa
             },
@@ -227,6 +233,8 @@ fn substitute_defines(ctx: &mut PreprocessContext, line_of_file: &str) -> String
 
             (_,_) => {}
         }
+        //made it to the end of the match, reset the escape
+        next_char_is_escaped = false;
     }
     line_of_file.to_string() //no match found, return whole line as is
 }
