@@ -69,7 +69,7 @@ impl DataType {
         let base_size = self.underlying_type().memory_size();
 
         //take into account if this is a pointer, array, etc.
-        self.modifiers.iter()
+        self.modifiers.iter().rev()//reverse to start with base type and apply each modifier in turn
         .fold(base_size, |acc,x| match x {
             DeclModifier::POINTER => MemoryLayout::from_bytes(8),//pointer to anything is always 8 bytes
             DeclModifier::ARRAY(arr_elements) => MemoryLayout::from_bytes(acc.size_bytes() * arr_elements),

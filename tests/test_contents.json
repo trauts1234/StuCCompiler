@@ -365,5 +365,18 @@
     {
         "filename":"overflowingliteral.c",
         "stdout":"4294967295"
+    },
+    {
+        "filename":"minimalglobalvar.c",
+        "return_code":69
+    },
+    {
+        "filename":"differenttypesglobalvariables.c",
+        "stdout":"hell\n",
+        "return_code":0
+    },
+    {
+        "filename":"globalenum.c",
+        "return_code":0
     }
 ]

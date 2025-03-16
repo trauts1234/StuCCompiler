@@ -1,18 +1,27 @@
-use crate::{ast_metadata::ASTMetadata, constexpr_parsing::consume_whole_constexpr, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, scope_data::ScopeData};
+use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, scope_data::ScopeData};
 
 
 pub struct GlobalVariable {
     decl: Declaration,
-    default_value: NumberLiteral//perhaps some more abstract data type when structs are implemented
+    default_value: ConstexprValue//perhaps some more abstract data type when structs are implemented
 }
 
 impl GlobalVariable {
-    pub fn get_name(&self) -> &Declaration {
-        &self.decl
+    pub fn generate_assembly(&self) -> String {
+        match &self.default_value {
+            ConstexprValue::NUMBER(number_literal) => {
+                assert!(self.decl.data_type.get_modifiers().len() == 0);//casting number literal to pointer is not allowed
+
+                format!("{} db {}\n", 
+                    self.decl.get_name(), 
+                    number_literal.cast(self.decl.data_type.underlying_type()).get_comma_separated_bytes()//cast the number to the variable's type, then write the bytes for it
+                )
+            },
+            ConstexprValue::STRING(string_literal) => format!("{} db {}\n", self.decl.get_name(), string_literal.get_comma_separated_bytes()),
+            ConstexprValue::POINTER(to_dereference) => format!("{} dq {}\n", self.decl.get_name(), to_dereference),
+        }
     }
-    pub fn get_default_value(&self) -> &NumberLiteral {
-        &self.default_value
-    }
+
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ASTMetadata<Vec<GlobalVariable>>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
@@ -46,6 +55,10 @@ impl GlobalVariable {
 }
 
 fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ScopeData) -> Option<ASTMetadata<GlobalVariable>> {
+    if slice.get_slice_size() == 0 {
+        return None;
+    }
+    
     let mut curr_queue_idx = slice.clone();
     
     let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
@@ -76,12 +89,12 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
     })
 }
 
-fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ScopeData) -> NumberLiteral {
+fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ScopeData) -> ConstexprValue {
     if tokens_queue.peek(&curr_queue_idx, &scope_data) != Some(Token::PUNCTUATOR(Punctuator::EQUALS)){
-        return NumberLiteral::new("0");
+        return ConstexprValue::NUMBER(NumberLiteral::new("0"));
     }
 
     tokens_queue.consume(curr_queue_idx, &scope_data).unwrap();//consume the equals sign
 
-    consume_whole_constexpr(tokens_queue, curr_queue_idx, scope_data).unwrap()//return the consumed value for the variable
+    ConstexprValue::try_consume_whole_constexpr(tokens_queue, curr_queue_idx, scope_data).unwrap()//return the consumed value for the variable
 }

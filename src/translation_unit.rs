@@ -28,35 +28,32 @@ impl TranslationUnit {
         let mut token_queue = TokenQueue::new(tokens);
         let mut token_idx = TokenQueueSlice::new();
 
-        let mut funcs = FunctionList::new();
-        let mut global_vars = Vec::new();
+        let mut functions = FunctionList::new();
+        let mut global_variables = Vec::new();
+        let mut scope_data = ScopeData::make_empty();
 
         while !token_queue.no_remaining_tokens(&token_idx) {
 
-            let mut scope_data = ScopeData::make_empty();
-
-            if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &funcs, &mut scope_data){
-                funcs.add_function(resultant_tree);
+            if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &functions, &mut scope_data.clone()){
+                functions.add_function(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice, resultant_tree, extra_stack_used:_ }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data) {
-                funcs.add_declaration(resultant_tree);
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree, extra_stack_used:_ }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone()) {
+                functions.add_declaration(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
             } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree, extra_stack_used:_ }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data) {
-                //functions are not passed to the decl consumer as the decl has to be a compile time constant
-                global_vars.append(&mut resultant_tree);
+                global_variables.append(&mut resultant_tree);
                 token_idx = remaining_slice;
             } else {
                 return Err(CompilationError::PARSE(format!("unknown remaining data in translation unit: tokens {} and onwards", token_idx.index)));
             }
-            println!("{:?}", scope_data);
         }
 
         Ok(TranslationUnit {
-            functions: funcs,
-            string_literals:string_literals,
-            global_variables: global_vars
+            functions,
+            string_literals,
+            global_variables
         })
     }
 
@@ -80,12 +77,8 @@ impl TranslationUnit {
             .collect::<String>();
 
         let global_vars = self.global_variables.iter()
-            .map(|x| format!("{} db {}\n", x.get_name().get_name(), x.get_default_value().get_comma_separated_bytes()))
+            .map(|x| x.generate_assembly())
             .collect::<String>();
-
-        if self.global_variables.len() != 0 {
-            panic!("not implemented: calculating compile time constants for global variables");
-        }
 
         let mut label_generator = LabelGenerator::new();
 
@@ -98,9 +91,11 @@ impl TranslationUnit {
 {}
 SECTION .rodata
 {}
+SECTION .data
+{}
 SECTION .note.GNU-stack ;disable executing the stack
 SECTION .text
-{}",global_funcs, string_literals, instructions);
+{}",global_funcs, string_literals, global_vars, instructions);
 
         let banned_registers = ["rbx", "r12", "r13", "r14", "r15"];//these ones are callee saved and could cause problems
         assert!(!banned_registers.iter()

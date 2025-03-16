@@ -9,7 +9,7 @@ enum LiteralValue {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberLiteral {
-    unformatted_text: LiteralValue,
+    value: LiteralValue,
     data_type: BaseType
 }
 
@@ -84,7 +84,7 @@ impl NumberLiteral {
         assert!(data_type.is_integer());
 
         NumberLiteral {
-            unformatted_text:LiteralValue::UNSIGNED(as_large_unsigned),//integer literals from text are always positive
+            value:LiteralValue::UNSIGNED(as_large_unsigned),//integer literals from text are always positive
             data_type: BaseType::U64,//start as large type, and cast from there
         }.cast(&data_type)//cast to the correct type
     }
@@ -93,18 +93,34 @@ impl NumberLiteral {
      * format this number in a way that it can be pasted into a nasm file
      */
     pub fn nasm_format(&self) -> String {
-        match self.unformatted_text {
+        match self.value {
             LiteralValue::SIGNED(x) => x.to_string(),
             LiteralValue::UNSIGNED(x) => x.to_string(),
         }
     }
 
     pub fn get_comma_separated_bytes(&self) -> String {
-        todo!();
+        let bytes_size = self.data_type.memory_size().size_bytes();
+
+        let number_bytes = match self.value {
+            LiteralValue::SIGNED(x) => {
+                assert!(self.data_type.is_signed());
+                x.to_le_bytes()
+            },
+            LiteralValue::UNSIGNED(x) => {
+                assert!(self.data_type.is_unsigned());
+                x.to_le_bytes()
+            },
+        };
+        
+        number_bytes[..bytes_size].iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(",")
     }
 
     pub fn as_usize(&self) -> usize {
-        match self.unformatted_text {
+        match self.value {
             LiteralValue::SIGNED(x) => {
                 assert!(x >= 0);
                 x as usize
@@ -115,20 +131,20 @@ impl NumberLiteral {
 
     pub fn cast(&self, new_type: &BaseType) -> NumberLiteral {
         let new_value = match new_type {
-            BaseType::I8 => LiteralValue::SIGNED(self.unformatted_text.as_i64() as i8 as i64),
-            BaseType::I16 => LiteralValue::SIGNED(self.unformatted_text.as_i64() as i16 as i64),
-            BaseType::I32 => LiteralValue::SIGNED(self.unformatted_text.as_i64() as i32 as i64),
-            BaseType::I64 => LiteralValue::SIGNED(self.unformatted_text.as_i64()),
+            BaseType::I8 => LiteralValue::SIGNED(self.value.as_i64() as i8 as i64),
+            BaseType::I16 => LiteralValue::SIGNED(self.value.as_i64() as i16 as i64),
+            BaseType::I32 => LiteralValue::SIGNED(self.value.as_i64() as i32 as i64),
+            BaseType::I64 => LiteralValue::SIGNED(self.value.as_i64()),
 
-            BaseType::U8 => LiteralValue::UNSIGNED(self.unformatted_text.as_u64() as u8 as u64),
-            BaseType::U16 => LiteralValue::UNSIGNED(self.unformatted_text.as_u64() as u16 as u64),
-            BaseType::U32 => LiteralValue::UNSIGNED(self.unformatted_text.as_u64() as u32 as u64),
-            BaseType::U64 => LiteralValue::UNSIGNED(self.unformatted_text.as_u64()),
+            BaseType::U8 => LiteralValue::UNSIGNED(self.value.as_u64() as u8 as u64),
+            BaseType::U16 => LiteralValue::UNSIGNED(self.value.as_u64() as u16 as u64),
+            BaseType::U32 => LiteralValue::UNSIGNED(self.value.as_u64() as u32 as u64),
+            BaseType::U64 => LiteralValue::UNSIGNED(self.value.as_u64()),
 
             _ => panic!("tried to cast number literal to unknown data type")
         };
 
-        NumberLiteral { unformatted_text: new_value, data_type: new_type.clone() }
+        NumberLiteral { value: new_value, data_type: new_type.clone() }
     }
 }
 
