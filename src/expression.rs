@@ -126,8 +126,6 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
                     //try to find an operator
                     //note that the operator_idx is a slice of just the operator
 
-                    println!("{:?}", tokens_queue.peek(&operator_idx, scope_data).unwrap());
-
                     match try_parse_binary_expr(tokens_queue, &curr_queue_idx, &operator_idx, accessible_funcs, scope_data) {
                         Some(x) => {return Some(x);}
                         None => {

@@ -194,6 +194,7 @@ impl ExprNode for BinaryExpression {
             Punctuator::LESSEQAUAL |
             Punctuator::DOUBLEEQUALS |
             Punctuator::PIPEPIPE |
+            Punctuator::ANDAND |
             Punctuator::EXCLAMATIONEQUALS => DataType::new_from_base_type(&BaseType::_BOOL, &Vec::new()),
 
             _ => panic!("data type calculation for this binary operator is not implemented")

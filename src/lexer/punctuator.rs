@@ -11,6 +11,7 @@ pub enum Punctuator {
     SEMICOLON,
 
     PIPEPIPE,
+    ANDAND,
 
     AMPERSAND,
     PERCENT,
@@ -50,6 +51,7 @@ impl Punctuator {
             "%" => Some(Self::PERCENT),
 
             "||" => Some(Self::PIPEPIPE),
+            "&&" => Some(Self::ANDAND),
 
             ">" => Some(Self::ANGLERIGHT),
             "<" => Some(Self::ANGLELEFT),
@@ -91,6 +93,7 @@ impl Punctuator {
     pub fn as_boolean_instr(&self) -> Option<String> {
         match self {
             Self::PIPEPIPE => Some("or"),
+            Self::ANDAND => Some("and"),
             _ => None
         }.map(|x| x.to_string())
     }
@@ -106,6 +109,7 @@ impl Punctuator {
             Self::PLUS | Self::DASH => Some(4),
             Self::ASTERISK | Self::FORWARDSLASH | Self::PERCENT => Some(3),//binary operator as in multiply
 
+            Self::ANDAND => Some(11),
             Self::PIPEPIPE => Some(12),
 
             Self::EQUALS => Some(14),
