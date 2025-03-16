@@ -26,10 +26,12 @@ impl FunctionDefinition {
      * consumes tokens to try and make a function definition
      * returns some(function found, remaining tokens) if found, else None
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<FunctionDefinition>> {
-        //TODO if this function was already declared, you can steal enum variants from it
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, global_scope_data: &ScopeData) -> Option<ASTMetadata<FunctionDefinition>> {
+        //TODO if this function was already declared, you can steal enum variants from it?
 
-        let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx, scope_data)?;
+        let mut scope_data = global_scope_data.clone();//clone for a local scope, so that I can have my own declaration in here, and scrap it if things go south
+
+        let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx, &mut scope_data)?;
 
         if tokens_queue.peek(&after_decl_slice, &scope_data)? == Token::PUNCTUATOR(Punctuator::SEMICOLON) {
             return None;//function declaration + semicolon means no definition for certain
@@ -39,9 +41,11 @@ impl FunctionDefinition {
         }
         scope_data.stack_vars.set_return_type(&func_decl.return_type);
 
+        scope_data.add_declaration(func_decl.clone());//so that I can call recursively
+
         //read the next statement (statement includes a scope)
         //TODO can this _only_ be a scope?
-        let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &after_decl_slice, accessible_funcs, scope_data)?;
+        let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &after_decl_slice, accessible_funcs, &mut scope_data)?;
         
         return Some(ASTMetadata{
             resultant_tree: FunctionDefinition {

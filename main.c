@@ -54,6 +54,11 @@ void MakeMove(enum Square board[3][3], enum Square to_place) {
     int y = location / 3;
     int x = location % 3;
 
+    if(board[x][y] != EMPTY) {
+        puts("someone has already played on that square");
+        MakeMove(board, to_place);
+    }
+
     board[x][y] = to_place;
 }
 
@@ -68,14 +73,23 @@ int IsWinner(enum Square board[3][3], enum Square side) {
                 horisontal_winner = 0;
             }
         }
-        if(horisontal_winner){
-            return 1;
-        }
-        if(vertical_winner) {
+        if(horisontal_winner || vertical_winner){
             return 1;
         }
     }
-    //TODO diagonal wins
+    
+    _Bool diagonaldown = 1, diagonalup = 1;
+    for(int x=0;x<3;++x) {
+        if(board[x][x] != side){
+            diagonaldown = 0;
+        }
+        if(board[x][2-x] != side) {
+            diagonalup = 0;
+        }
+    }
+    if (diagonaldown || diagonalup) {
+        return 1;
+    }
 
     return 0;
 }
@@ -94,10 +108,12 @@ int main() {
 
         if(IsWinner(board, NOUGHT)){
             puts("nought wins!");
+            PrintBoard(board);
             return 0;
         }
         if(IsWinner(board, CROSS)) {
             puts("cross wins!");
+            PrintBoard(board);
             return 0;
         }
     }

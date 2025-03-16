@@ -3,6 +3,7 @@ use std::{fs::File, io::Write};
 
 pub struct TranslationUnit {
     functions: FunctionList,
+    global_scope_data: ScopeData,
     string_literals: Vec<StringLiteral>,
     global_variables: Vec<GlobalVariable>
 }
@@ -35,11 +36,11 @@ impl TranslationUnit {
         while !token_queue.no_remaining_tokens(&token_idx) {
 
             if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &functions, &mut scope_data.clone()){
-                functions.add_function(resultant_tree);
+                functions.add_function(&mut scope_data, resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
             } else if let Some(ASTMetadata { remaining_slice, resultant_tree, extra_stack_used:_ }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone()) {
-                functions.add_declaration(resultant_tree);
+                scope_data.add_declaration(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
             } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree, extra_stack_used:_ }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data) {
@@ -52,6 +53,7 @@ impl TranslationUnit {
 
         Ok(TranslationUnit {
             functions,
+            global_scope_data: scope_data,
             string_literals,
             global_variables
         })
@@ -60,7 +62,7 @@ impl TranslationUnit {
     pub fn generate_assembly(&self, output_filename: &str) {
         let mut output_file = File::create(output_filename).unwrap();
 
-        let global_funcs = self.functions.func_declarations_as_slice().iter()
+        let global_funcs = self.global_scope_data.func_declarations_as_slice().iter()
             .filter(|func| func.external_linkage())//only functions with external linkage
             .map(|func| {
                 let is_defined = self.functions.get_function_definition(&func.function_name).is_some();

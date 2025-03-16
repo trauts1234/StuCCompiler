@@ -106,7 +106,7 @@ impl FunctionCall {
         };
 
         if let Token::IDENTIFIER(func_name) = tokens_queue.peek(&func_slice, &scope_data)? {
-            let func_decl = accessible_funcs.get_function_declaration(&func_name).expect("found function call but no corresponding function declaration");//for recursive functions this is fine, right?
+            let func_decl = scope_data.get_function_declaration(&func_name).expect("found function call but no corresponding function declaration");
             Some(FunctionCall {
                 func_name, 
                 args,

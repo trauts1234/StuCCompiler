@@ -398,5 +398,13 @@
     {
         "filename":"booleanor.c",
         "return_code":0
+    },
+    {
+        "filename":"booleanand.c",
+        "return_code":0
+    },
+    {
+        "filename":"recursive.c",
+        "stdout":"aaaaaaa"
     }
 ]
