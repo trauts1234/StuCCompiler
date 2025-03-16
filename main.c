@@ -1,3 +1,13 @@
+/*
+This compiles with my compiler
+into around 1900 lines of assembly
+
+
+
+
+
+
+*/
 #include <stdio.h>
 
 enum Square {EMPTY, NOUGHT,CROSS};
@@ -95,6 +105,17 @@ int IsWinner(enum Square board[3][3], enum Square side) {
     return 0;
 }
 
+_Bool IsDraw(enum Square board[3][3]){
+    for(int i=0;i<3;++i) {
+        for(int j=0;j<3;++j) {
+            if(board[i][j] == EMPTY) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
 int main() {
     enum Square board[3][3];
 
@@ -114,6 +135,12 @@ int main() {
         }
         if(IsWinner(board, CROSS)) {
             puts("cross wins!");
+            PrintBoard(board);
+            return 0;
+        }
+
+        if(IsDraw(board)) {
+            puts("Draw!");
             PrintBoard(board);
             return 0;
         }
