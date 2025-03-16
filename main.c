@@ -57,6 +57,7 @@ void MakeMove(enum Square board[3][3], enum Square to_place) {
     if(board[x][y] != EMPTY) {
         puts("someone has already played on that square");
         MakeMove(board, to_place);
+        return;
     }
 
     board[x][y] = to_place;
