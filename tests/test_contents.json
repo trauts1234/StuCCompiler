@@ -410,5 +410,9 @@
     {
         "filename":"globalarithmetic.c",
         "return_code":0
+    },
+    {
+        "filename":"unsignednoint.c",
+        "return_code":0
     }
 ]

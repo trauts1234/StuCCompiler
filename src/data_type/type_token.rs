@@ -5,6 +5,7 @@ pub enum TypeInfo{
     _BOOL,
     UNSIGNED,
     LONG,
+    SHORT,
     EXTERN,
     VOID,
 
@@ -18,6 +19,7 @@ impl TypeInfo {
             "unsigned" => Some(Self::UNSIGNED),
             "int" => Some(Self::INT),
             "long" => Some(Self::LONG),
+            "short" => Some(Self::SHORT),
             "char" => Some(Self::CHAR),
             "_Bool" => Some(Self::_BOOL),
             "extern" => Some(Self::EXTERN),

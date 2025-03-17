@@ -15,6 +15,8 @@ impl DataType {
 
     pub fn new_from_type_list(type_info: &[TypeInfo], modifiers: &[DeclModifier]) -> DataType {
 
+        assert!(type_info.len() > 0);
+
         if type_info.contains(&TypeInfo::EXTERN) {
             println!("extern modifiers not counted. if this function doesn't have a definition it will be automatically marked extern");
         }
@@ -37,27 +39,32 @@ impl DataType {
         //int assumed from now on
         let unsigned = type_info.contains(&TypeInfo::UNSIGNED);
 
-        //char
-        if type_info.contains(&TypeInfo::CHAR) {
-            assert!(type_info.len() <= 2);
-            let base_type = if unsigned {BaseType::U8} else {BaseType::I8};
-
-            return DataType {base_type, modifiers:modifiers.to_vec()};
-        }
-
         let is_long = type_info.contains(&TypeInfo::LONG);
+        let is_short = type_info.contains(&TypeInfo::SHORT);
+        let is_char = type_info.contains(&TypeInfo::CHAR);
 
-        if is_long {
-            let base_type = if unsigned {BaseType::U64} else {BaseType::I64};
+        let size_bits = match (is_long, is_short, is_char) {
+            (true, false, false) => 64,
+            (false, false, false) => 32,//default is 32 bit
+            (false, true, false) => 16,
+            (false, false, true) => 8,
+            _ => panic!("unknown type")
+        };
 
-            return DataType {base_type, modifiers:modifiers.to_vec()};
-        }
+        let base_type = match (unsigned, size_bits) {
+            (true, 64) => BaseType::U64,
+            (false, 64) => BaseType::I64,
+            (true, 32) => BaseType::U32,
+            (false, 32) => BaseType::I32,
+            (true, 16) => BaseType::U16,
+            (false, 16) => BaseType::I16,
+            (true, 8) => BaseType::U8,
+            (false, 8) => BaseType::I8,
 
-        assert!(type_info.contains(&TypeInfo::INT));
+            (_, _) => panic!("unsupported size"),
+        };
 
-        let base_type = if unsigned {BaseType::U32} else {BaseType::I32};
-
-        return DataType {base_type, modifiers:modifiers.to_vec()};
+        DataType {base_type, modifiers:modifiers.to_vec()}
 
     }
     pub fn new_from_base_type(base_type: &BaseType, modifiers: &[DeclModifier]) -> DataType {
