@@ -1,4 +1,4 @@
-use crate::{lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, scope_data::ScopeData, string_literal::StringLiteral};
+use crate::{data_type::{base_type::BaseType, data_type::DataType}, expression::ExprNode, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, scope_data::ScopeData, string_literal::StringLiteral};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -76,14 +76,12 @@ impl ConstexprValue {
                 //try to find an operator
                 //note that the operator_idx is a slice of just the operator
 
-                todo!("const expr binary expressions")
-
-                /*match try_parse_binary_expr(tokens_queue, &curr_queue_idx, &operator_idx, scope_data) {
-                    Some(x) => {return x;}
+                match try_parse_binary_constexpr(tokens_queue, &curr_queue_idx, &operator_idx, scope_data) {
+                    Some(x) => {return Some(x);}
                     None => {
                         continue;
                     }
-                }*/
+                }
 
             }
         }
@@ -105,5 +103,56 @@ fn try_parse_constexpr_unary_prefix(tokens_queue: &mut TokenQueue, previous_queu
             } else {None}
         },
         _ => panic!("invalid unary prefix in constant expression")
+    }
+}
+
+fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ConstexprValue> {
+    //split to before and after the operator
+    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx.index, curr_queue_idx);
+
+    //try and parse the left and right hand sides, propogating errors
+    let parsed_left = ConstexprValue::try_consume_whole_constexpr(tokens_queue, &left_part, scope_data)?;
+    let parsed_right = ConstexprValue::try_consume_whole_constexpr(tokens_queue, &right_part, scope_data)?;
+
+    let operator = tokens_queue.peek(&operator_idx, &scope_data).expect("couldn't peek")
+        .as_punctuator().expect("couldn't cast to punctuator");
+
+    match (parsed_left, parsed_right) {
+        (ConstexprValue::NUMBER(x), ConstexprValue::NUMBER(y)) => {
+            let promoted_base = match &operator {
+                Punctuator::EQUALS => panic!("tried to assign number to number in constant expression"),
+                x if x.as_boolean_instr().is_some() => BaseType::_BOOL,
+                _ => {
+                    let dtype = DataType::calculate_promoted_type_arithmetic(&x.get_data_type(), &y.get_data_type());
+                    assert!(dtype.get_modifiers().len() == 0);
+                    dtype.underlying_type().clone()
+                }
+            };
+
+            let lhs_val = x.cast(&promoted_base).get_value().clone();
+            let rhs_val = y.cast(&promoted_base).get_value().clone();
+
+            let new_value = match &operator {
+                Punctuator::PLUS => {
+                    match (lhs_val, rhs_val) {
+                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l+r),
+                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l+r),
+                        _ => panic!("tried to add mixed signed-unsigned numbers in const expr")
+                    }
+                },
+                Punctuator::DASH => {
+                    match (lhs_val, rhs_val) {
+                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l-r),
+                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l-r),
+                        _ => panic!("tried to subtract mixed signed-unsigned numbers in const expr")
+                    }
+                }
+                _ => todo!()
+            };
+
+            //construct a number from the promoted type and the calculated value
+            Some(ConstexprValue::NUMBER(NumberLiteral::new_from_literal_value(new_value).cast(&promoted_base)))
+        }
+        _ => todo!()
     }
 }

@@ -406,5 +406,9 @@
     {
         "filename":"recursive.c",
         "stdout":"aaaaaaa"
+    },
+    {
+        "filename":"globalarithmetic.c",
+        "return_code":0
     }
 ]

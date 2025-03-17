@@ -2,7 +2,7 @@ use crate::{asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterNam
 use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq)]
-enum LiteralValue {
+pub enum LiteralValue {
     SIGNED(i64),//big enough for any signed type
     UNSIGNED(u64),// '' unsigned type
 }
@@ -89,11 +89,20 @@ impl NumberLiteral {
         }.cast(&data_type)//cast to the correct type
     }
 
-    pub fn new_from_i64(num: i64) -> NumberLiteral {
-        NumberLiteral {
-            value: LiteralValue::SIGNED(num),
-            data_type: BaseType::I64
+    pub fn new_from_literal_value(value: LiteralValue) -> NumberLiteral {
+        let data_type = match &value {
+            LiteralValue::SIGNED(_) => BaseType::I64,
+            LiteralValue::UNSIGNED(_) => BaseType::U64,
+        };
+
+        NumberLiteral{
+            value,
+            data_type
         }
+    }
+
+    pub fn get_value(&self) -> &LiteralValue {
+        &self.value
     }
 
     /**

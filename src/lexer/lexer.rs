@@ -1,4 +1,4 @@
-use crate::{compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, type_token::TypeInfo}, lexer::keywords::Keyword, number_literal::NumberLiteral, string_literal::StringLiteral};
+use crate::{compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, type_token::TypeInfo}, lexer::keywords::Keyword, number_literal::{LiteralValue, NumberLiteral}, string_literal::StringLiteral};
 
 use super::{token::Token, punctuator::Punctuator};
 
@@ -89,7 +89,7 @@ impl Lexer {
 
         assert!(self.consume() == Some('\''));//consume close quote
         
-        Token::NUMBER(NumberLiteral::new_from_i64(character as i64).cast(&BaseType::I32))//convert the char to a number, then cast to i32, as char literals are int in C
+        Token::NUMBER(NumberLiteral::new_from_literal_value(LiteralValue::SIGNED(character as i64)).cast(&BaseType::I32))//convert the char to a number, then cast to i32, as char literals are int in C
     }
 
     fn consume_punctuation(&mut self) -> Token{
