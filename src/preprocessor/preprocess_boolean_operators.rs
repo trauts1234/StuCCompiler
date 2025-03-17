@@ -5,10 +5,6 @@ pub fn get_binary_numerical_text_and_functions<'a>() -> Vec<(&'a str, fn(i64, i6
     .collect()
 }
 
-pub fn get_relational_text_and_functions<'a>() -> Vec<(&'a str, fn(i64, i64) -> i64)> {
-    todo!("borrow from binary_numerical, but for >, <, >=, <= as per order of operations")
-}
-
 fn get_binary_numerical_operator_text<'a>() -> Vec<&'a str> {
     vec!["||", "&&", "|", "^", "&"]
 }

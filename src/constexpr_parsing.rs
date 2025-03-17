@@ -19,7 +19,7 @@ impl ConstexprValue {
             };
         }
 
-        let mut curr_queue_idx = previous_queue_idx.clone();
+        let curr_queue_idx = previous_queue_idx.clone();
 
         for precedence_required in (precedence::min_precedence()..=precedence::max_precedence()).rev() {
             //find which direction the operators should be considered
