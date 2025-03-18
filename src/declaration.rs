@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, scope_data::ScopeData};
+use crate::{asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -8,6 +8,29 @@ use std::fmt::Write;
  */
 pub struct InitialisedDeclaration{
     init_code: Option<Box<dyn ExprNode>>,
+}
+
+
+pub struct MinimalDataVariable {
+    pub(crate) name: String
+}
+
+impl ExprNode for MinimalDataVariable {
+    fn generate_assembly(&self) -> String {
+        todo!()
+    }
+
+    fn get_data_type(&self) -> DataType {
+        todo!()
+    }
+
+    fn put_lvalue_addr_in_acc(&self) -> String {
+        todo!()
+    }
+
+    fn clone_self(&self) -> Box<dyn ExprNode> {
+        todo!()
+    }
 }
 
 /**
@@ -94,7 +117,7 @@ impl InitialisedDeclaration {
      * local_variables is mut as variables are added
      * consumes declarations/definitions of stack variables
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut declarations = Vec::new();
@@ -153,7 +176,7 @@ impl Declaration {
 /**
  * claims to consume a declarator, but actaully takes in the data type too, and gives back a full declaration
  */
-pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<InitialisedDeclaration>> {
+pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<InitialisedDeclaration>> {
     if slice.get_slice_size() == 0 {
         return None;//obviously no declarations in ""
     }
@@ -168,12 +191,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
 
     let extra_stack_needed = data_type.memory_size();//get the size of this variable
 
-    let decl = Declaration {
-        name: var_name.to_string(),
-        data_type
-    };
-
-    scope_data.stack_vars.add_stack_variable(decl.clone());//save variable to variable list early, so that I can reference it in the initialisation
+    scope_data.add_variable(&var_name);//save variable to variable list early, so that I can reference it in the initialisation
 
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 
@@ -193,7 +211,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
  * also used in function params
  * TODO function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ScopeData) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ParseData) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
@@ -265,7 +283,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &mut TokenQueue, slice: &
     })
 }
 
-pub fn consume_base_type(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ScopeData) -> Option<BaseType> {
+pub fn consume_base_type(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<BaseType> {
 
     if tokens_queue.peek(&curr_queue_idx, &scope_data)? == Token::KEYWORD(Keyword::ENUM) {
         //enum x => handle enums
@@ -295,7 +313,7 @@ pub fn consume_base_type(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut Tok
  * curr_queue_idx is mutable as this consumes tokens for the calling function
  * var_name what the name of the variable we are assigning to is
  */
-fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, var_name: &str, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<Box<dyn ExprNode>> {
+fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, var_name: &str, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Box<dyn ExprNode>> {
     
     if tokens_queue.peek(&curr_queue_idx, &scope_data)? !=Token::PUNCTUATOR(Punctuator::EQUALS){
         return None;
@@ -303,11 +321,13 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
 
     tokens_queue.consume(curr_queue_idx, &scope_data).unwrap();//consume the equals sign
 
+    assert!(scope_data.variable_defined(var_name));
+
     //consume the right hand side of the initialisation
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer
     Some(Box::new(BinaryExpression::new(
-        scope_data.stack_vars.get_variable(var_name).unwrap().clone_self(),
+        Box::new(MinimalDataVariable{name: var_name.to_string()}),
         Punctuator::EQUALS,
         expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap()
     )))

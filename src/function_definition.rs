@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::data_type::DataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, scope_data::ScopeData, statement::Statement};
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::data_type::DataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -26,7 +26,7 @@ impl FunctionDefinition {
      * consumes tokens to try and make a function definition
      * returns some(function found, remaining tokens) if found, else None
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, global_scope_data: &ScopeData) -> Option<ASTMetadata<FunctionDefinition>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, global_scope_data: &ParseData) -> Option<ASTMetadata<FunctionDefinition>> {
         //TODO if this function was already declared, you can steal enum variants from it?
 
         let mut scope_data = global_scope_data.clone();//clone for a local scope, so that I can have my own declaration in here, and scrap it if things go south
@@ -37,9 +37,8 @@ impl FunctionDefinition {
             return None;//function declaration + semicolon means no definition for certain
         }
         for i in func_decl.params.iter().rev() {
-            scope_data.stack_vars.add_stack_variable(i.clone());
+            scope_data.add_variable(i.get_name());
         }
-        scope_data.stack_vars.set_return_type(&func_decl.return_type);
 
         scope_data.add_declaration(func_decl.clone());//so that I can call recursively
 

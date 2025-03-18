@@ -1,4 +1,4 @@
-use crate::{data_type::{base_type::BaseType, data_type::DataType}, expression::ExprNode, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, scope_data::ScopeData, string_literal::StringLiteral};
+use crate::{data_type::{base_type::BaseType, data_type::DataType}, expression::ExprNode, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -10,7 +10,7 @@ impl ConstexprValue {
     /**
      * folds a constant expression to a number
      */
-    pub fn try_consume_whole_constexpr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ConstexprValue> {
+    pub fn try_consume_whole_constexpr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ConstexprValue> {
         if previous_queue_idx.get_slice_size() == 1 {
             return match tokens_queue.peek(previous_queue_idx, scope_data).unwrap() {
                 Token::NUMBER(number) => Some(ConstexprValue::NUMBER(number)),
@@ -89,7 +89,7 @@ impl ConstexprValue {
     }
 }
 
-fn try_parse_constexpr_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ConstexprValue> {
+fn try_parse_constexpr_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ConstexprValue> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
     
     let punctuator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)?.as_punctuator()?;//get punctuator
@@ -106,7 +106,7 @@ fn try_parse_constexpr_unary_prefix(tokens_queue: &mut TokenQueue, previous_queu
     }
 }
 
-fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ConstexprValue> {
+fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ConstexprValue> {
     //split to before and after the operator
     let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx.index, curr_queue_idx);
 

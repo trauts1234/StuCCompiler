@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, ExprNode}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, scope_data::ScopeData};
+use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, ExprNode}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 
 pub struct FunctionCall {
@@ -75,7 +75,7 @@ impl ExprNode for FunctionCall {
 
 impl FunctionCall {
     
-    pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<FunctionCall> {
+    pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<FunctionCall> {
         //look for unary postfixes as association is left to right
         let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
     

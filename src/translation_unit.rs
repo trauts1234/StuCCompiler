@@ -1,9 +1,9 @@
-use crate::{ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, preprocessor::preprocessor::preprocess_c_file, scope_data::ScopeData, string_literal::StringLiteral};
+use crate::{ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
 use std::{fs::File, io::Write};
 
 pub struct TranslationUnit {
     functions: FunctionList,
-    global_scope_data: ScopeData,
+    global_scope_data: ParseData,
     string_literals: Vec<StringLiteral>,
     global_variables: Vec<GlobalVariable>
 }
@@ -31,7 +31,7 @@ impl TranslationUnit {
 
         let mut functions = FunctionList::new();
         let mut global_variables = Vec::new();
-        let mut scope_data = ScopeData::make_empty();
+        let mut scope_data = ParseData::make_empty();
 
         while !token_queue.no_remaining_tokens(&token_idx) {
 

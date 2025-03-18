@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{data_type::{base_type::BaseType, data_type::DataType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, scope_data::ScopeData};
+use crate::{data_type::{base_type::BaseType, data_type::DataType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, parse_data::ParseData};
 
 /**
  * stores all the enums in a current scope
@@ -20,7 +20,7 @@ pub struct EnumList {
  * enum x {A,B} func() {return A;}
  * is legal code as the enum part returns integer type
  */
-pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ScopeData) -> Option<DataType> {
+pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<DataType> {
     
     if tokens_queue.consume(curr_queue_idx, &scope_data)? != Token::KEYWORD(Keyword::ENUM) {
         return None;//needs preceding "enum"
@@ -89,7 +89,7 @@ impl EnumList {
  * consumes tokens_queue by modifying remaining_tokens and returns an enum variant if found
  * returns the enum variant name and the number it equals
  */
-fn try_consume_enum_variant_definition(tokens_queue: &TokenQueue, remaining_tokens: &mut TokenQueueSlice, prev_variant_number: &mut i32, scope_data: &mut ScopeData) -> Option<(String, NumberLiteral)> {
+fn try_consume_enum_variant_definition(tokens_queue: &TokenQueue, remaining_tokens: &mut TokenQueueSlice, prev_variant_number: &mut i32, scope_data: &mut ParseData) -> Option<(String, NumberLiteral)> {
     if remaining_tokens.get_slice_size() == 0 {
         return None;
     }

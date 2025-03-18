@@ -1,5 +1,5 @@
 
-use crate::{ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, scope_data::ScopeData, statement::Statement};
+use crate::{ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 
 
 /**
@@ -17,7 +17,7 @@ impl StatementOrDeclaration {
      * returns a StatementOrDeclaration and the remaining tokens as a queue location, else none
      * local_variables must be mut, as declarations can modify this
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ScopeData) -> Option<ASTMetadata<StatementOrDeclaration>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<StatementOrDeclaration>> {
         if previous_queue_idx.get_slice_size() == 0 {return None;}
         let curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 

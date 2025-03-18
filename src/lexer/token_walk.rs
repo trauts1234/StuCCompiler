@@ -1,4 +1,4 @@
-use crate::scope_data::ScopeData;
+use crate::parse_data::ParseData;
 
 use super::{token::Token, token_savepoint::TokenQueueSlice, punctuator::Punctuator};
 
@@ -27,7 +27,7 @@ impl TokenQueue {
     /**
      * returns the next token that needs to be consumed
      */
-    pub fn peek(&self, location: &TokenQueueSlice, scope_data: &ScopeData) -> Option<Token> {
+    pub fn peek(&self, location: &TokenQueueSlice, scope_data: &ParseData) -> Option<Token> {
         let next_idx = location.index;
 
         if self.no_remaining_tokens(location){
@@ -64,7 +64,7 @@ impl TokenQueue {
     /**
      * peeks the token at the end of the token queue slice
      */
-    pub fn peek_back(&self, location: &TokenQueueSlice, scope_data: &ScopeData) -> Option<Token> {
+    pub fn peek_back(&self, location: &TokenQueueSlice, scope_data: &ParseData) -> Option<Token> {
         let max_idx = location.max_index-1;
 
         if location.index >= location.max_index || location.max_index > self.tokens.len() {
@@ -74,7 +74,7 @@ impl TokenQueue {
         Some(substitute_token(self.tokens[max_idx].clone(), scope_data))
     }
 
-    pub fn consume(&self, location: &mut TokenQueueSlice, scope_data: &ScopeData) -> Option<Token> {
+    pub fn consume(&self, location: &mut TokenQueueSlice, scope_data: &ParseData) -> Option<Token> {
         let next = self.peek(&location, scope_data);
         location.next();
         if location.index > self.tokens.len() || location.index > location.max_index{
@@ -295,7 +295,7 @@ impl TokenQueue {
     }
 }
 
-fn substitute_token(original: Token, scope_data: &ScopeData) -> Token {
+fn substitute_token(original: Token, scope_data: &ParseData) -> Token {
     match &original {
         Token::IDENTIFIER(x) => {
             if let Some(enum_value) = scope_data.enums.try_get_variant(&x) {

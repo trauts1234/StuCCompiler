@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, scope_data::ScopeData};
+use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -22,7 +22,7 @@ impl GlobalVariable {
         }
     }
 
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ASTMetadata<Vec<GlobalVariable>>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<Vec<GlobalVariable>>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut declarations = Vec::new();
@@ -54,7 +54,7 @@ impl GlobalVariable {
     }
 }
 
-fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ScopeData) -> Option<ASTMetadata<GlobalVariable>> {
+fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ParseData) -> Option<ASTMetadata<GlobalVariable>> {
     if slice.get_slice_size() == 0 {
         return None;
     }
@@ -72,7 +72,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
         data_type
     };
 
-    scope_data.stack_vars.add_global_variable(decl.clone());//save variable to variable list early, so that I can reference it in the initialisation
+    scope_data.add_variable(&var_name);//save variable to variable list early, so that I can reference it in the initialisation
 
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 
@@ -89,7 +89,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
     })
 }
 
-fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ScopeData) -> ConstexprValue {
+fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> ConstexprValue {
     if tokens_queue.peek(&curr_queue_idx, &scope_data) != Some(Token::PUNCTUATOR(Punctuator::EQUALS)){
         return ConstexprValue::NUMBER(NumberLiteral::new("0"));
     }

@@ -1,4 +1,4 @@
-use crate::{function_definition::FunctionDefinition, scope_data::ScopeData};
+use crate::{function_definition::FunctionDefinition, parse_data::ParseData};
 
 pub struct FunctionList {
     func_definitions: Vec<FunctionDefinition>,//all function definitions made in this translation unit
@@ -18,7 +18,7 @@ impl FunctionList {
     pub fn func_definitions_as_slice(&self) -> &[FunctionDefinition] {
         &self.func_definitions
     }
-    pub fn add_function(&mut self,scope_data: &mut ScopeData, toadd: FunctionDefinition) {
+    pub fn add_function(&mut self,scope_data: &mut ParseData, toadd: FunctionDefinition) {
         assert!(self.get_function_definition(toadd.get_name()).is_none());//function can't already be defined
         scope_data.add_declaration(toadd.as_decl());
         self.func_definitions.push(toadd);

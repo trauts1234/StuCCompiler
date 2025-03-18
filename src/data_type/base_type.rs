@@ -13,7 +13,8 @@ pub enum BaseType {
     I32,
     U32,
     I64,
-    U64
+    U64,
+    STRUCT(MemoryLayout)
 }
 
 impl BaseType {
@@ -25,7 +26,7 @@ impl BaseType {
     }
     pub fn is_integer(&self) -> bool {
         match self {
-            BaseType::VOID | BaseType::VaArg => false,
+            BaseType::VOID | BaseType::VaArg | BaseType::STRUCT(_) => false,
 
             BaseType::_BOOL |
             BaseType::I8 | 
@@ -41,7 +42,7 @@ impl BaseType {
     
     pub fn is_unsigned(&self) -> bool {
         match self {
-            BaseType::VOID | BaseType::VaArg => panic!("tried to detect signedness of void or varadic arg"),
+            BaseType::VOID | BaseType::VaArg | BaseType::STRUCT(_) => panic!("tried to detect signedness of void or varadic arg"),
 
             BaseType::I8 | 
             BaseType::I16 | 
@@ -63,6 +64,8 @@ impl BaseType {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
+
+            BaseType::STRUCT(x) => x.clone(),
 
             BaseType::_BOOL |
             BaseType::I8 |

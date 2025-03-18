@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, scope_data::ScopeData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
@@ -18,7 +18,7 @@ impl FunctionDeclaration {
     /**
      * consumes a function declaration only, and will return None if the function has a definition attached
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ASTMetadata<FunctionDeclaration>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let ASTMetadata { remaining_slice, resultant_tree: decl, .. } = consume_decl_only(tokens_queue, &curr_queue_idx, scope_data)?;
@@ -45,7 +45,7 @@ impl FunctionDeclaration {
  *  int f(int x);
  *  int f(int x) {return 1;}
  */
-pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<ASTMetadata<FunctionDeclaration>> {
+pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
     let mut return_modifiers = Vec::new();
@@ -110,7 +110,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
         remaining_slice: curr_queue_idx});
 }
 
-fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ScopeData) -> Option<Declaration> {
+fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<Declaration> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(arg_segment);
 
     if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
