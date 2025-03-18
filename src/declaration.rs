@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -11,25 +11,59 @@ pub struct InitialisedDeclaration{
 }
 
 
+#[derive(Clone)]
 pub struct MinimalDataVariable {
     pub(crate) name: String
 }
 
 impl ExprNode for MinimalDataVariable {
-    fn generate_assembly(&self) -> String {
-        todo!()
+    fn generate_assembly(&self, asm_data: &AsmData) -> String {
+        let mut result = String::new();
+
+        if self.get_data_type(asm_data).is_array() {
+            //getting an array, decays to a pointer
+            asm_comment!(result, "decaying array {} to pointer", self.name);
+            asm_line!(result, "{}", self.put_addr_in_acc(asm_data));
+
+        } else {
+            let reg_size = &self.get_data_type(asm_data).memory_size();//decide which register size is appropriate for this variable
+            asm_comment!(result, "reading variable: {} to register {}", self.name, LogicalRegister::ACC.generate_reg_name(reg_size));
+
+            let result_reg = LogicalRegister::ACC.generate_reg_name(reg_size);
+
+            match &asm_data.get_variable(&self.name).location {
+                VariableAddress::CONSTANTADDRESS => 
+                    asm_line!(result, "mov {}, [{}]", result_reg, self.name),
+                VariableAddress::STACKOFFSET(stack_offset) => 
+                    asm_line!(result, "mov {}, [rbp-{}]", result_reg, stack_offset.size_bytes())
+            }
+        }
+
+        result
     }
 
-    fn get_data_type(&self) -> DataType {
-        todo!()
+    fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+        asm_data.get_variable(&self.name).data_type.clone()
     }
 
-    fn put_lvalue_addr_in_acc(&self) -> String {
-        todo!()
+    fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
+        let mut result = String::new();
+
+        asm_comment!(result, "getting address of variable: {}", self.name);
+
+        let ptr_reg = LogicalRegister::ACC.generate_reg_name(&asm_generation::PTR_SIZE);
+            match &asm_data.get_variable(&self.name).location {
+                VariableAddress::CONSTANTADDRESS => 
+                    asm_line!(result, "mov {}, {}", ptr_reg, self.name),
+                VariableAddress::STACKOFFSET(stack_offset) => 
+                    asm_line!(result, "lea {}, [rbp-{}]", ptr_reg, stack_offset.size_bytes())
+            }
+
+        result
     }
 
     fn clone_self(&self) -> Box<dyn ExprNode> {
-        todo!()
+        Box::new(self.clone())
     }
 }
 
@@ -41,74 +75,6 @@ impl ExprNode for MinimalDataVariable {
 pub struct Declaration {
     pub(crate) data_type: DataType,
     pub(crate) name: String,
-}
-
-/**
- * represents an addressing mode for variables
- * offset from stack or
- * constant memory location(global variable)
- */
-#[derive(Debug, Clone)]
-pub enum VariableAddress{
-    STACKOFFSET(MemoryLayout),//number of bytes below RBP
-    CONSTANTADDRESS
-}
-
-#[derive(Debug, Clone)]
-pub struct AddressedDeclaration {
-    pub(crate) decl: Declaration,
-    pub(crate) location: VariableAddress
-}
-
-impl ExprNode for AddressedDeclaration {
-    fn generate_assembly(&self) -> String {
-        let mut result = String::new();
-
-        if self.decl.data_type.is_array() {
-            //getting an array, decays to a pointer
-            asm_comment!(result, "decaying array {} to pointer", self.decl.name);
-            asm_line!(result, "{}", self.put_lvalue_addr_in_acc());
-
-        } else {
-            let reg_size = &self.decl.data_type.memory_size();//decide which register size is appropriate for this variable
-            asm_comment!(result, "reading variable: {} to register {}", self.decl.name, LogicalRegister::ACC.generate_reg_name(reg_size));
-
-            let result_reg = LogicalRegister::ACC.generate_reg_name(reg_size);
-
-            match &self.location {
-                VariableAddress::CONSTANTADDRESS => 
-                    asm_line!(result, "mov {}, [{}]", result_reg, self.decl.get_name()),
-                VariableAddress::STACKOFFSET(stack_offset) => 
-                    asm_line!(result, "mov {}, [rbp-{}]", result_reg, stack_offset.size_bytes())
-            }
-        }
-
-        result
-    }
-
-    fn get_data_type(&self) -> DataType {
-        self.decl.get_type().clone()
-    }
-    
-    fn put_lvalue_addr_in_acc(&self) -> String {
-        let mut result = String::new();
-
-        asm_comment!(result, "getting address of variable: {}", self.decl.name);
-
-        let ptr_reg = LogicalRegister::ACC.generate_reg_name(&asm_generation::PTR_SIZE);
-            match &self.location {
-                VariableAddress::CONSTANTADDRESS => 
-                    asm_line!(result, "mov {}, {}", ptr_reg, self.decl.get_name()),
-                VariableAddress::STACKOFFSET(stack_offset) => 
-                    asm_line!(result, "lea {}, [rbp-{}]", ptr_reg, stack_offset.size_bytes())
-            }
-
-        result
-    }
-    
-    fn clone_self(&self) -> Box<dyn ExprNode> {
-        return Box::new(self.clone());
-    }
 }
 
 //TODO move this to it's own file
@@ -150,11 +116,11 @@ impl InitialisedDeclaration {
         })
     }
 
-    pub fn generate_assembly(&self) -> String {
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         if let Some(init) = &self.init_code {
-            asm_line!(result, "{}", init.generate_assembly());//init is an expression that assigns to the variable, so no more work for me
+            asm_line!(result, "{}", init.generate_assembly(asm_data));//init is an expression that assigns to the variable, so no more work for me
         }
 
         result
@@ -191,7 +157,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
 
     let extra_stack_needed = data_type.memory_size();//get the size of this variable
 
-    scope_data.add_variable(&var_name);//save variable to variable list early, so that I can reference it in the initialisation
+    scope_data.add_variable(&var_name, data_type);//save variable to variable list early, so that I can reference it in the initialisation
 
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 

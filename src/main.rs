@@ -32,6 +32,7 @@ mod constexpr_parsing;
 mod global_var_declaration;
 mod struct_definition;
 mod parse_data;
+mod asm_gen_data;
 
 struct CompilationOptions {
     c_file: String,

@@ -67,12 +67,12 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
 
     let extra_stack_needed = data_type.memory_size();//get the size of this variable
 
+    scope_data.add_variable(&var_name, data_type.clone());//save variable to variable list early, so that I can reference it in the initialisation
+
     let decl = Declaration {
         name: var_name.to_string(),
         data_type
     };
-
-    scope_data.add_variable(&var_name);//save variable to variable list early, so that I can reference it in the initialisation
 
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 

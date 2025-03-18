@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, ExprNode}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, ExprNode}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 
 pub struct FunctionCall {
@@ -9,7 +9,7 @@ pub struct FunctionCall {
 }
 
 impl ExprNode for FunctionCall {
-    fn generate_assembly(&self) -> String {
+    fn generate_assembly(&self, asm_data: &AsmData) -> String {
         //system V ABI
         let mut result = String::new();
 
@@ -23,8 +23,8 @@ impl ExprNode for FunctionCall {
                 assert!(param_type.get_type().underlying_type().is_va_arg());//more args than params, so must be varadic
             }
 
-            asm_line!(result, "{}", arg.generate_assembly());//calculate the arg
-            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&arg.get_data_type(), param_type.get_type()));//cast to requested type
+            asm_line!(result, "{}", arg.generate_assembly(asm_data));//calculate the arg
+            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&arg.get_data_type(asm_data), param_type.get_type()));//cast to requested type
 
             asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//implicitly extend to 8 bytes, without conversion/casting
         }
@@ -56,11 +56,11 @@ impl ExprNode for FunctionCall {
         result
     }
 
-    fn get_data_type(&self) -> DataType {
+    fn get_data_type(&self, _: &AsmData) -> DataType {
         self.decl.return_type.clone()
     }
 
-    fn put_lvalue_addr_in_acc(&self) -> String {
+    fn put_addr_in_acc(&self, _: &AsmData) -> String {
         todo!("tried to get memory address of a function. function pointers not implemented");
     }
     

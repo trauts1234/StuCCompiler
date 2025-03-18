@@ -1,5 +1,5 @@
 
-use crate::{ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 
 
 /**
@@ -32,13 +32,13 @@ impl StatementOrDeclaration {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
         match self {
-            Self::STATEMENT(statement) => statement.generate_assembly(label_gen),
+            Self::STATEMENT(statement) => statement.generate_assembly(label_gen, asm_data),
             Self::DECLARATION(decl) => {
                 //declare each variable individually
                 //no intermediate newline as generate_assembly puts in a trailing newline
-                decl.iter().map(|x| x.generate_assembly()).collect::<Vec<String>>().join("")
+                decl.iter().map(|x| x.generate_assembly(asm_data)).collect::<Vec<String>>().join("")
             },
         }
     }

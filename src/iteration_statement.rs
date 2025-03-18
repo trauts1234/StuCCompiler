@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -25,7 +25,8 @@ impl IterationStatement {
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, outer_scope_data) {x} else {return None;};
 
         //important: clone the local variables and enums, to prevent inner definitions from leaking out to outer scopes
-        let mut in_loop_data = outer_scope_data.clone();
+        todo!("save this scope data, so that I can reconstruct the stack later");
+        let mut in_loop_data = outer_scope_data.clone_for_new_scope();
         
         match kw {
             Keyword::FOR => {
@@ -97,31 +98,31 @@ impl IterationStatement {
         }
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         match self {
             Self::FOR { initialisation, condition, increment, body } => {
-                let condition_size = &condition.get_data_type().memory_size();
-                assert!(condition.get_data_type().underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
+                let condition_size = &condition.get_data_type(asm_data).memory_size();
+                assert!(condition.get_data_type(asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
                 let generic_label = label_gen.generate_label();
 
-                asm_line!(result, "{}", initialisation.generate_assembly(label_gen));//initialise the for loop anyways
+                asm_line!(result, "{}", initialisation.generate_assembly(label_gen, asm_data));//initialise the for loop anyways
 
                 asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
 
-                asm_line!(result, "{}", condition.generate_assembly());//generate the condition
+                asm_line!(result, "{}", condition.generate_assembly(asm_data));//generate the condition
 
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
 
-                asm_line!(result, "{}", body.generate_assembly(label_gen));//generate the loop body
+                asm_line!(result, "{}", body.generate_assembly(label_gen, asm_data));//generate the loop body
 
                 asm_line!(result, "{}_loop_increment:", generic_label);//add label to jump to incrementing the loop
 
                 if let Some(inc) = increment {//if there is an increment
-                    asm_line!(result, "{}", inc.generate_assembly());//apply the increment
+                    asm_line!(result, "{}", inc.generate_assembly(asm_data));//apply the increment
                 }
                 asm_line!(result, "jmp {}_loop_start", generic_label);//after increment, go to top of loop
 
@@ -130,20 +131,20 @@ impl IterationStatement {
 
             Self::WHILE { condition, body } => {
 
-                let condition_size = &condition.get_data_type().memory_size();
+                let condition_size = &condition.get_data_type(asm_data).memory_size();
 
                 let generic_label = label_gen.generate_label();
 
                 asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
 
-                asm_line!(result, "{}", condition.generate_assembly());//generate the condition
+                asm_line!(result, "{}", condition.generate_assembly(asm_data));//generate the condition
 
-                assert!(condition.get_data_type().underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
+                assert!(condition.get_data_type(asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
 
-                asm_line!(result, "{}", body.generate_assembly(label_gen));//generate the loop body
+                asm_line!(result, "{}", body.generate_assembly(label_gen, asm_data));//generate the loop body
 
                 asm_line!(result, "jmp {}_loop_start", generic_label);//after loop complete, go to top of loop
 

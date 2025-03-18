@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -73,7 +73,7 @@ impl SelectionStatement {
         }
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         match self {
@@ -84,22 +84,22 @@ impl SelectionStatement {
 
                 let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};
 
-                asm_line!(result, "{}", condition.generate_assembly());//generate the condition to acc
+                asm_line!(result, "{}", condition.generate_assembly(asm_data));//generate the condition to acc
                 
-                let condition_size = &condition.get_data_type().memory_size();
+                let condition_size = &condition.get_data_type(asm_data).memory_size();
 
-                assert!(condition.get_data_type().underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
+                assert!(condition.get_data_type(asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
   
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}", cond_false_label);//if the result is 0, jump to the else block or the end of the if statement
 
-                asm_line!(result, "{}", if_body.generate_assembly(label_gen));//generate the body of the if statement
+                asm_line!(result, "{}", if_body.generate_assembly(label_gen, asm_data));//generate the body of the if statement
                 asm_line!(result, "jmp {}", if_end_label);//jump to the end of the if/else block
 
                 if let Some(else_body) = else_body {
                     //there is code in the else block
                     asm_line!(result, "{}:", else_label);//start of the else block
-                    asm_line!(result, "{}", else_body.generate_assembly(label_gen));//generate the body of the else statement
+                    asm_line!(result, "{}", else_body.generate_assembly(label_gen, asm_data));//generate the body of the else statement
                 }
 
                 asm_line!(result, "{}:", if_end_label);//after if/else are complete, jump here

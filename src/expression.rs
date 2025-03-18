@@ -1,11 +1,11 @@
-use crate::{asm_boilerplate::{self, mov_reg}, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData, unary_prefix_expr::UnaryPrefixExpression};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
 pub trait ExprNode {
-    fn generate_assembly(&self) -> String;
-    fn get_data_type(&self) -> DataType;
-    fn put_lvalue_addr_in_acc(&self) -> String;
+    fn generate_assembly(&self, asm_data: &AsmData) -> String;
+    fn get_data_type(&self, asm_data: &AsmData) -> DataType;
+    fn put_addr_in_acc(&self, asm_data: &AsmData) -> String;
     fn clone_self(&self) -> Box<dyn ExprNode>;
 }
 
@@ -148,19 +148,19 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
  * used in binary expressions, where you need both sides in registers
  * does NOT work for assignment expressions
  */
-pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: &DataType) -> String {
+pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: &DataType, asm_data: &AsmData) -> String {
     let mut result = String::new();
 
     let promoted_size = promoted_type.memory_size();
 
     //put lhs on stack
-    asm_line!(result, "{}", lhs.generate_assembly());
-    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.get_data_type(), &promoted_type));
+    asm_line!(result, "{}", lhs.generate_assembly(asm_data));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.get_data_type(asm_data), &promoted_type));
     asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
 
     //put rhs in secondary
-    asm_line!(result, "{}", rhs.generate_assembly());
-    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));
+    asm_line!(result, "{}", rhs.generate_assembly(asm_data));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(asm_data), &promoted_type));
     asm_line!(result, "{}", mov_reg(&promoted_size, &LogicalRegister::SECONDARY, &LogicalRegister::ACC));//mov acc to secondary
 
     //pop lhs to ACC
@@ -170,20 +170,20 @@ pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: 
 }
 
 //TODO do I need promoted_type and promoted_size
-pub fn generate_assembly_for_assignment(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: &DataType, promoted_size: &MemoryLayout) -> String {
+pub fn generate_assembly_for_assignment(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: &DataType, promoted_size: &MemoryLayout, asm_data: &AsmData) -> String {
     let mut result = String::new();
 
-    if lhs.get_data_type().is_array() && rhs.get_data_type().is_array() {
+    if lhs.get_data_type(asm_data).is_array() && rhs.get_data_type(asm_data).is_array() {
         //initialising an array? char[12] x = "hello world";//for example
-        asm_line!(result, "{}", lhs.put_lvalue_addr_in_acc());//get dest address
+        asm_line!(result, "{}", lhs.put_addr_in_acc(asm_data));//get dest address
         asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
-        asm_line!(result, "{}", rhs.put_lvalue_addr_in_acc());//get src address
+        asm_line!(result, "{}", rhs.put_addr_in_acc(asm_data));//get src address
         asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
 
         asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_SI));//pop source to RSI
         asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_DI));//pop destination to RDI
 
-        asm_line!(result, "mov rcx, {}", rhs.get_data_type().memory_size().size_bytes());//put number of bytes to copy in RCX
+        asm_line!(result, "mov rcx, {}", rhs.get_data_type(asm_data).memory_size().size_bytes());//put number of bytes to copy in RCX
 
         asm_line!(result, "cld");//reset copy direction flag
         asm_line!(result, "rep movsb");//copy the data
@@ -191,18 +191,18 @@ pub fn generate_assembly_for_assignment(lhs: &dyn ExprNode, rhs: &dyn ExprNode, 
         return result;//all done here
     }
 
-    assert!(!lhs.get_data_type().is_array());
-    assert!(lhs.get_data_type().memory_size().size_bits() <= 64);
+    assert!(!lhs.get_data_type(asm_data).is_array());
+    assert!(lhs.get_data_type(asm_data).memory_size().size_bits() <= 64);
     //maybe more special cases for pointer assignment etc
 
     //put address of lvalue on stack
-    asm_line!(result, "{}", lhs.put_lvalue_addr_in_acc());
+    asm_line!(result, "{}", lhs.put_addr_in_acc(asm_data));
     asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
     
     //put the value to assign in acc
-    asm_line!(result, "{}", rhs.generate_assembly());
+    asm_line!(result, "{}", rhs.generate_assembly(asm_data));
     //cast to the same type as lhs
-    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(), &promoted_type));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(asm_data), &promoted_type));
 
     asm_comment!(result, "assigning to a stack variable");
 

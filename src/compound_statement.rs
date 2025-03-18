@@ -1,10 +1,11 @@
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
  */
 pub struct ScopeStatements {
-    statements: Vec<StatementOrDeclaration>
+    statements: Vec<StatementOrDeclaration>,
+    
 }
 
 impl ScopeStatements {
@@ -17,7 +18,8 @@ impl ScopeStatements {
 
         let mut statements = Vec::new();
         //important! clone here so that variables and enums created in this scope do not leak out!
-        let mut inner_scope_data = outer_scope_data.clone();
+        todo!("save this inner scope so that the stack can be built later");
+        let mut inner_scope_data = outer_scope_data.clone_for_new_scope();
 
         if Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx, &inner_scope_data)? {
             return None;//not enclosed in { }, so can't be a scope
@@ -46,11 +48,11 @@ impl ScopeStatements {
         })
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         for statement in &self.statements {
-            asm_line!(result, "{}", statement.generate_assembly(label_gen));
+            asm_line!(result, "{}", statement.generate_assembly(label_gen, asm_data));
         }
 
         result

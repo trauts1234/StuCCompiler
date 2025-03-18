@@ -13,6 +13,10 @@ pub struct DataType {
 
 impl DataType {
 
+    pub fn make_void() -> DataType {
+        Self::new_from_base_type(&BaseType::VOID, &Vec::new())
+    }
+
     pub fn new_from_type_list(type_info: &[TypeInfo], modifiers: &[DeclModifier]) -> DataType {
 
         assert!(type_info.len() > 0);

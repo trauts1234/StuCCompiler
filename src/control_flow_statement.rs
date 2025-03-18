@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -38,16 +38,15 @@ impl ControlFlowChange {
         }
     }
 
-    pub fn generate_assembly(&self) -> String {
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    asm_line!(result, "{}", expr.generate_assembly());
+                    asm_line!(result, "{}", expr.generate_assembly(asm_data));
 
-                    //asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.get_data_type(), function_ret_type));
-                    todo!("cast return data to correct type");
+                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.get_data_type(asm_data), asm_data.get_function_return_type()));
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return

@@ -1,4 +1,4 @@
-use crate::{asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, ExprNode}, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, ExprNode}, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
 use std::fmt::Write;
 
 pub enum Statement {
@@ -40,24 +40,24 @@ impl Statement {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         match self {
             Self::COMPOUND(scope) => {
-                asm_line!(result, "{}", scope.generate_assembly(label_gen));
+                asm_line!(result, "{}", scope.generate_assembly(label_gen, asm_data));
             }
             Self::CONTROLFLOW(command) => {
-                asm_line!(result, "{}", command.generate_assembly());
+                asm_line!(result, "{}", command.generate_assembly(asm_data));
             }
             Self::EXPRESSION(expr) => {
-                asm_line!(result, "{}", expr.generate_assembly());
+                asm_line!(result, "{}", expr.generate_assembly(asm_data));
             }
             Self::SELECTION(selection) => {
-                asm_line!(result, "{}", selection.generate_assembly(label_gen));
+                asm_line!(result, "{}", selection.generate_assembly(label_gen, asm_data));
             },
             Self::ITERATION(it) => {
-                asm_line!(result, "{}", it.generate_assembly(label_gen));
+                asm_line!(result, "{}", it.generate_assembly(label_gen, asm_data));
             }
         }
 

@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
 use std::{fs::File, io::Write};
 
 pub struct TranslationUnit {
@@ -35,11 +35,12 @@ impl TranslationUnit {
 
         while !token_queue.no_remaining_tokens(&token_idx) {
 
-            if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &functions, &mut scope_data.clone()){
+            if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &functions, &scope_data){
                 functions.add_function(&mut scope_data, resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice, resultant_tree, extra_stack_used:_ }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone()) {
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree, extra_stack_used:_ }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone_for_new_scope()) {
+                //do I need to save the clone of scope data I passed? probably not
                 scope_data.add_declaration(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
@@ -62,7 +63,7 @@ impl TranslationUnit {
     pub fn generate_assembly(&self, output_filename: &str) {
         let mut output_file = File::create(output_filename).unwrap();
 
-        let global_funcs = self.global_scope_data.func_declarations_as_slice().iter()
+        let global_funcs = self.global_scope_data.func_declarations_as_vec().iter()
             .filter(|func| func.external_linkage())//only functions with external linkage
             .map(|func| {
                 let is_defined = self.functions.get_function_definition(&func.function_name).is_some();
@@ -83,9 +84,10 @@ impl TranslationUnit {
             .collect::<String>();
 
         let mut label_generator = LabelGenerator::new();
+        let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);//no return type for a global scope
 
         let instructions = self.functions.func_definitions_as_slice().iter()
-            .map(|x| x.generate_assembly(&mut label_generator))
+            .map(|x| x.generate_assembly(&mut label_generator, &asm_data))
             .collect::<String>();
 
         let assembly_code = format!(

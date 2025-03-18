@@ -1,5 +1,5 @@
 
-use crate::{asm_boilerplate::{self}, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, ExprNode}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, ExprNode}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -10,18 +10,18 @@ pub struct BinaryExpression {
 }
 
 impl ExprNode for BinaryExpression {
-    fn generate_assembly(&self) -> String {
+    fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         if self.operator == Punctuator::EQUALS {
-            let lhs_type = self.lhs.get_data_type();
-            return generate_assembly_for_assignment(&*self.lhs, &*self.rhs, &lhs_type, &lhs_type.memory_size());
+            let lhs_type = self.lhs.get_data_type(asm_data);
+            return generate_assembly_for_assignment(&*self.lhs, &*self.rhs, &lhs_type, &lhs_type.memory_size(), asm_data);
         }
 
         let promoted_type = match &self.operator {//I already have a function for this?
-            Punctuator::EQUALS => self.lhs.get_data_type(),//assignment is just the lhs data size
+            Punctuator::EQUALS => self.lhs.get_data_type(asm_data),//assignment is just the lhs data size
             x if x.as_boolean_instr().is_some() => DataType::new_from_base_type(&BaseType::_BOOL, &Vec::new()),//is a boolean operator, operands are booleans
-            _ => DataType::calculate_promoted_type_arithmetic(&self.lhs.get_data_type(), &self.rhs.get_data_type())//else find a common meeting ground
+            _ => DataType::calculate_promoted_type_arithmetic(&self.lhs.get_data_type(asm_data), &self.rhs.get_data_type(asm_data))//else find a common meeting ground
         };
         let promoted_size = &promoted_type.memory_size();
 
@@ -29,14 +29,14 @@ impl ExprNode for BinaryExpression {
             Punctuator::PLUS => {
                 asm_comment!(result, "adding {}-bit numbers", promoted_size.size_bits());
 
-                asm_line!(result, "{}", self.lhs.generate_assembly());//put lhs in acc
-                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.lhs.get_data_type(), &promoted_type));//cast to the correct type
+                asm_line!(result, "{}", self.lhs.generate_assembly(asm_data));//put lhs in acc
+                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.lhs.get_data_type(asm_data), &promoted_type));//cast to the correct type
 
-                if self.rhs.get_data_type().decay().is_pointer() {//adding array or pointer to int
+                if self.rhs.get_data_type(asm_data).decay().is_pointer() {//adding array or pointer to int
                     //you can only add pointer and number here, as per the C standard
 
                     //get the size of rhs when it is dereferenced
-                    let rhs_dereferenced_size_bytes = self.rhs.get_data_type().remove_outer_modifier().memory_size().size_bytes();
+                    let rhs_dereferenced_size_bytes = self.rhs.get_data_type(asm_data).remove_outer_modifier().memory_size().size_bytes();
                     //convert this number to a string
                     let rhs_deref_size_str = NumberLiteral::new(&rhs_dereferenced_size_bytes.to_string()).nasm_format();
                     asm_comment!(result, "rhs is a pointer. make lhs {} times bigger", rhs_deref_size_str);
@@ -51,13 +51,13 @@ impl ExprNode for BinaryExpression {
                 //save lhs to stack, as preprocessing for it is done
                 asm_line!(result, "{}", asm_boilerplate::push_reg(promoted_size, &LogicalRegister::ACC));
 
-                asm_line!(result, "{}", self.rhs.generate_assembly());//put rhs in acc
-                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.rhs.get_data_type(), &promoted_type));//cast to correct type
+                asm_line!(result, "{}", self.rhs.generate_assembly(asm_data));//put rhs in acc
+                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.rhs.get_data_type(asm_data), &promoted_type));//cast to correct type
 
-                if self.lhs.get_data_type().decay().is_pointer() {
+                if self.lhs.get_data_type(asm_data).decay().is_pointer() {
                     //you can only add pointer and number here, as per the C standard
                     //get the size of lhs when it is dereferenced
-                    let lhs_dereferenced_size_bytes = self.lhs.get_data_type().remove_outer_modifier().memory_size().size_bytes();
+                    let lhs_dereferenced_size_bytes = self.lhs.get_data_type(asm_data).remove_outer_modifier().memory_size().size_bytes();
                     //convert this number to a string
                     let lhs_deref_size_str = NumberLiteral::new(&lhs_dereferenced_size_bytes.to_string()).nasm_format();
 
@@ -83,7 +83,7 @@ impl ExprNode for BinaryExpression {
             },
             Punctuator::DASH => {
                 asm_comment!(result, "subtracting numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
 
                 asm_line!(result, "sub {}, {}",
                 LogicalRegister::ACC.generate_reg_name(promoted_size),
@@ -93,7 +93,7 @@ impl ExprNode for BinaryExpression {
             }
             Punctuator::ASTERISK => {
                 asm_comment!(result, "multiplying numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
 
                 assert!(promoted_type.underlying_type().is_signed());//unsigned multiply??
                 assert!(promoted_type.underlying_type().is_integer());//floating point multiply??
@@ -106,7 +106,7 @@ impl ExprNode for BinaryExpression {
             },
             Punctuator::FORWARDSLASH => {
                 asm_comment!(result, "dividing numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
 
                 match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type().is_signed()) {
                     (4,true) => {
@@ -121,7 +121,7 @@ impl ExprNode for BinaryExpression {
 
             Punctuator::PERCENT => {
                 asm_comment!(result, "calculating modulus");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
 
                 //modulus is calculated using a DIV
                 match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type().is_signed()) {
@@ -140,7 +140,7 @@ impl ExprNode for BinaryExpression {
 
             comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
                 asm_comment!(result, "comparing numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
 
                 let lhs_reg = LogicalRegister::ACC.generate_reg_name(promoted_size);
                 let rhs_reg = LogicalRegister::SECONDARY.generate_reg_name(promoted_size);
@@ -159,7 +159,7 @@ impl ExprNode for BinaryExpression {
                 //perhaps this will work for binary operators too?
                 asm_comment!(result, "applying boolean operator");
 
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
 
                 assert!(promoted_size.size_bytes() == 1);//must be boolean
                 assert!(promoted_type.underlying_type() == &BaseType::_BOOL);
@@ -178,15 +178,15 @@ impl ExprNode for BinaryExpression {
         result
     }
 
-    fn get_data_type(&self) -> DataType {
+    fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         match self.operator {
             Punctuator::PLUS |
             Punctuator::DASH |
             Punctuator::ASTERISK | 
             Punctuator::FORWARDSLASH | 
-            Punctuator::PERCENT => DataType::calculate_promoted_type_arithmetic(&self.lhs.get_data_type(), &self.rhs.get_data_type()),
+            Punctuator::PERCENT => DataType::calculate_promoted_type_arithmetic(&self.lhs.get_data_type(asm_data), &self.rhs.get_data_type(asm_data)),
 
-            Punctuator::EQUALS => self.lhs.get_data_type(),//assigning, rhs must be converted to lhs
+            Punctuator::EQUALS => self.lhs.get_data_type(asm_data),//assigning, rhs must be converted to lhs
 
             Punctuator::ANGLELEFT |
             Punctuator::ANGLERIGHT |
@@ -201,8 +201,8 @@ impl ExprNode for BinaryExpression {
         }
     }
 
-    fn put_lvalue_addr_in_acc(&self) -> String {
-        todo!()
+    fn put_addr_in_acc(&self, _: &AsmData) -> String {
+        panic!("can't find address of a binary expression");
     }
     
     fn clone_self(&self) -> Box<dyn ExprNode> {

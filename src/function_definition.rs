@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::data_type::DataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData, statement::Statement};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::data_type::DataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -9,7 +9,8 @@ use std::fmt::Write;
 pub struct FunctionDefinition {
     code: Statement,//statement could be a scope if it wants. should this just be a Scope????
     stack_required: MemoryLayout,
-    decl: FunctionDeclaration
+    decl: FunctionDeclaration,
+    local_scope_data: ParseData//metadata to help with assembly generation
 }
 
 impl FunctionDefinition {
@@ -29,7 +30,7 @@ impl FunctionDefinition {
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, global_scope_data: &ParseData) -> Option<ASTMetadata<FunctionDefinition>> {
         //TODO if this function was already declared, you can steal enum variants from it?
 
-        let mut scope_data = global_scope_data.clone();//clone for a local scope, so that I can have my own declaration in here, and scrap it if things go south
+        let mut scope_data = global_scope_data.clone_for_new_scope();//clone for a local scope, so that I can have my own declaration in here, and scrap it if things go south
 
         let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx, &mut scope_data)?;
 
@@ -37,7 +38,7 @@ impl FunctionDefinition {
             return None;//function declaration + semicolon means no definition for certain
         }
         for i in func_decl.params.iter().rev() {
-            scope_data.add_variable(i.get_name());
+            scope_data.add_variable(i.get_name(), i.get_type().clone());
         }
 
         scope_data.add_declaration(func_decl.clone());//so that I can call recursively
@@ -50,17 +51,21 @@ impl FunctionDefinition {
             resultant_tree: FunctionDefinition {
                 code: resultant_tree,
                 stack_required: extra_stack_used,
-                decl: func_decl
+                decl: func_decl,
+                local_scope_data: scope_data
             },
             extra_stack_used,
             remaining_slice});
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
         //this uses a custom calling convention
         //all params passed on the stack, right to left (caller cleans these up)
         //return value in RAX
         let mut result = String::new();
+
+        //clone myself, but add all my local variables, and add my return type
+        let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, self.get_return_type());
 
         //set label as same as function name
         asm_line!(result, "{}:", self.decl.function_name);
@@ -102,7 +107,7 @@ impl FunctionDefinition {
         let stack_add = self.stack_required + stack_needed_until_aligned;
         asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", stack_add.size_bytes());
 
-        asm_line!(result, "{}", self.code.generate_assembly(label_gen));
+        asm_line!(result, "{}", self.code.generate_assembly(label_gen, asm_data));
 
         //destroy stack frame and return
 

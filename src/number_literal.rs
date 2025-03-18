@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::ExprNode};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::ExprNode};
 use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,10 +14,10 @@ pub struct NumberLiteral {
 }
 
 impl ExprNode for NumberLiteral {
-    fn generate_assembly(&self) -> String {
+    fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
-        let reg_size = &self.get_data_type().memory_size();//decide how much storage is needed to temporarily store the constant
+        let reg_size = &self.get_data_type(asm_data).memory_size();//decide how much storage is needed to temporarily store the constant
         asm_comment!(result, "reading number literal: {} via register {}", self.nasm_format(), LogicalRegister::ACC.generate_reg_name(reg_size));
 
         asm_line!(result, "mov {}, {}", LogicalRegister::ACC.generate_reg_name(reg_size), self.nasm_format());
@@ -25,11 +25,11 @@ impl ExprNode for NumberLiteral {
         result
     }
 
-    fn get_data_type(&self) -> DataType {
+    fn get_data_type(&self, _: &AsmData) -> DataType {
         DataType::new_from_base_type(&self.data_type, &Vec::new())
     }
     
-    fn put_lvalue_addr_in_acc(&self) -> String {
+    fn put_addr_in_acc(&self, _: &AsmData) -> String {
         panic!("tried to find memory address of a constant number")
     }
     
@@ -39,6 +39,10 @@ impl ExprNode for NumberLiteral {
 }
 
 impl NumberLiteral {
+    //until I fix some messed up stuff
+    pub fn simple_get_data_type(&self) -> DataType {
+        DataType::new_from_base_type(&self.data_type, &Vec::new())
+    }
     pub fn new(to_token: &str) -> NumberLiteral {
 
         if to_token.starts_with("0") && to_token.len() > 1 {
