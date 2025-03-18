@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::{data_type::data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration};
 
@@ -8,12 +8,12 @@ pub struct ParseData {
     pub(crate) enums: EnumList,
     function_decls: Vec<FunctionDeclaration>,
 
-    local_symbol_table: HashMap<String, DataType>//this is filled slowly, so do not read from it
+    local_symbol_table: Vec<(String, DataType)>//this is filled slowly, so do not read from it
 }
 
 impl ParseData {
     pub fn make_empty() -> ParseData {
-        ParseData { variables: HashSet::new(), enums: EnumList::new(), function_decls: Vec::new(), local_symbol_table: HashMap::new() }
+        ParseData { variables: HashSet::new(), enums: EnumList::new(), function_decls: Vec::new(), local_symbol_table: Vec::new() }
     }
 
     /**
@@ -24,7 +24,7 @@ impl ParseData {
             variables: self.variables.clone(),
             enums: self.enums.clone(),
             function_decls: self.function_decls.clone(),
-            local_symbol_table: HashMap::new()//as in new scope, all symbols are in an outer scope
+            local_symbol_table: Vec::new()//as in new scope, all symbols are in an outer scope
         }
     }
 
@@ -48,11 +48,11 @@ impl ParseData {
     pub fn add_variable(&mut self, name: &str, data_type: DataType) {
         self.variables.insert(name.to_string());
 
-        if self.local_symbol_table.contains_key(name) {
+        if self.local_symbol_table.iter().any(|(x,_)| x == name) {
             panic!("redefinition of variable {} in local scope", name);
         }
 
-        self.local_symbol_table.insert(name.to_string(), data_type);
+        self.local_symbol_table.push((name.to_string(), data_type));
     }
 
     /**
@@ -65,7 +65,7 @@ impl ParseData {
         self.variables.contains(name)
     }
 
-    pub fn get_symbol_table(&self) -> &HashMap<String, DataType> {
+    pub fn get_symbol_table(&self) -> &Vec<(String, DataType)> {
         &self.local_symbol_table
     }
 }

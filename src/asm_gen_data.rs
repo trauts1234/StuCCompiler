@@ -21,7 +21,7 @@ pub struct AddressedDeclaration {
 
 #[derive(Clone, Debug)]
 pub struct AsmData {
-    variables: HashMap<String, AddressedDeclaration>,
+    variables: Vec<(String, AddressedDeclaration)>,
     function_decls: Vec<FunctionDeclaration>,
     current_function_return_type: DataType,
     current_stack_size: MemoryLayout,//difference of RSP and RBP, positive number
@@ -29,8 +29,9 @@ pub struct AsmData {
 
 impl AsmData {
     pub fn new_for_global_scope(parse_data: &ParseData) -> AsmData {
-        let global_variables: HashMap<String, AddressedDeclaration> = parse_data.get_symbol_table()
+        let global_variables = parse_data.get_symbol_table()
             .iter()
+            .cloned()
             .map(add_global_variable)
             .collect();
 
@@ -49,10 +50,7 @@ impl AsmData {
             .map(|(var_name, var_type)| add_variable(&mut new_stack_height, var_name, var_type));//add each variable and generate metadata
 
         //add all current variables then overwrite with local variables (shadowing)
-        let variables: HashMap<String, AddressedDeclaration> = self.variables.clone().into_iter().chain(local_variables).collect();
-
-        assert!(self.function_decls.len() == parse_data.func_declarations_as_vec().len());//should be the same functions I already have as are in the nested scope (what about function pointers?)
-
+        let variables = self.variables.clone().into_iter().chain(local_variables).collect();
 
         AsmData { variables, function_decls: parse_data.func_declarations_as_vec(), current_function_return_type, current_stack_size: new_stack_height }
     }
@@ -63,7 +61,9 @@ impl AsmData {
     }
 
     pub fn get_variable(&self, name: &str) -> &AddressedDeclaration {
-        self.variables.get(name).unwrap()
+        let (_, decl) = self.variables.iter().find(|(x,_)| x == name).unwrap();
+
+        decl
     }
     pub fn get_function_return_type(&self) -> &DataType {
         &self.current_function_return_type
@@ -72,9 +72,9 @@ impl AsmData {
 
 fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &DataType) -> (String, AddressedDeclaration) {
 
-    let decl = AddressedDeclaration { data_type: var_type.clone(), location: VariableAddress::STACKOFFSET(stack_height.clone()) };
-
     *stack_height += var_type.memory_size();//increase stack pointer to store extra variable
+
+    let decl = AddressedDeclaration { data_type: var_type.clone(), location: VariableAddress::STACKOFFSET(stack_height.clone()) };//then generate address, as to not overwrite the stack frame
 
     (var_name.to_string(), decl)
 }
@@ -82,7 +82,7 @@ fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &Data
 /**
  * note this takes a tuple, so that it can be run in an iterator map()
  */
-fn add_global_variable(data: (&String, &DataType)) -> (String, AddressedDeclaration) {
+fn add_global_variable(data: (String, DataType)) -> (String, AddressedDeclaration) {
     let (var_name, var_type) = data;
-    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: VariableAddress::CONSTANTADDRESS })
+    (var_name, AddressedDeclaration{ data_type: var_type, location: VariableAddress::CONSTANTADDRESS })
 }
