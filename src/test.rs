@@ -50,6 +50,8 @@ pub mod test {
                 .wait_with_output()
                 .expect("Failed to run test case");
 
+            println!("testing results for {}", testfile.filename);
+
             if let Some(ret_code) = testfile.return_code {
                 assert_eq!(binary_command.status.code().expect("binary was terminated by OS signal?"), ret_code);
             }

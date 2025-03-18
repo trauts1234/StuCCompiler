@@ -5,7 +5,7 @@ use std::fmt::Write;
  */
 pub struct ScopeStatements {
     statements: Vec<StatementOrDeclaration>,
-    
+    local_scope_data: ParseData//metadata to help with assembly generation
 }
 
 impl ScopeStatements {
@@ -18,7 +18,6 @@ impl ScopeStatements {
 
         let mut statements = Vec::new();
         //important! clone here so that variables and enums created in this scope do not leak out!
-        todo!("save this inner scope so that the stack can be built later");
         let mut inner_scope_data = outer_scope_data.clone_for_new_scope();
 
         if Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) != tokens_queue.consume(&mut curr_queue_idx, &inner_scope_data)? {
@@ -42,14 +41,16 @@ impl ScopeStatements {
 
         //return the scope statements
         Some(ASTMetadata{
-            resultant_tree: ScopeStatements {statements}, 
+            resultant_tree: ScopeStatements {statements, local_scope_data: inner_scope_data}, 
             remaining_slice: remaining_slice_after_scope,
-            extra_stack_used: scope_stack_used
+            extra_stack_used: scope_stack_used,
         })
     }
 
     pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
         let mut result = String::new();
+
+        let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, asm_data.get_function_return_type().clone());
 
         for statement in &self.statements {
             asm_line!(result, "{}", statement.generate_assembly(label_gen, asm_data));

@@ -10,11 +10,15 @@ pub enum IterationStatement{
         condition: Box<dyn ExprNode>,
         increment: Option<Box<dyn ExprNode>>,
 
+        local_scope_data: ParseData,//metadata to help with assembly generation
+
         body: Box<Statement>
     },
     WHILE {
         condition: Box<dyn ExprNode>,
         body: Box<Statement>,
+
+        local_scope_data: ParseData//do I need this for a while loop?
     }
 }
 
@@ -25,7 +29,6 @@ impl IterationStatement {
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, outer_scope_data) {x} else {return None;};
 
         //important: clone the local variables and enums, to prevent inner definitions from leaking out to outer scopes
-        todo!("save this scope data, so that I can reconstruct the stack later");
         let mut in_loop_data = outer_scope_data.clone_for_new_scope();
         
         match kw {
@@ -64,7 +67,7 @@ impl IterationStatement {
                 let extra_stack_used = body_stack_used + init_stack_used;//includes iterator variable
 
                 Some(ASTMetadata{
-                    resultant_tree: Self::FOR { initialisation: Box::new(init), condition: condition, increment: increment, body: Box::new(loop_body) }, 
+                    resultant_tree: Self::FOR { initialisation: Box::new(init), condition: condition, increment: increment, body: Box::new(loop_body), local_scope_data: in_loop_data }, 
                     remaining_slice: curr_queue_idx, 
                     extra_stack_used: extra_stack_used})
             },
@@ -90,7 +93,7 @@ impl IterationStatement {
                 curr_queue_idx = remaining_slice;
 
                 Some(ASTMetadata{
-                    resultant_tree: Self::WHILE { condition: condition, body: Box::new(loop_body) }, 
+                    resultant_tree: Self::WHILE { condition: condition, body: Box::new(loop_body), local_scope_data: in_loop_data  }, 
                     remaining_slice: curr_queue_idx, 
                     extra_stack_used: body_stack_used})
             }
@@ -102,7 +105,10 @@ impl IterationStatement {
         let mut result = String::new();
 
         match self {
-            Self::FOR { initialisation, condition, increment, body } => {
+            Self::FOR { initialisation, condition, increment, body, local_scope_data } => {
+
+                let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
+                
                 let condition_size = &condition.get_data_type(asm_data).memory_size();
                 assert!(condition.get_data_type(asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
@@ -129,7 +135,9 @@ impl IterationStatement {
                 asm_line!(result, "{}_loop_end:", generic_label);
             },
 
-            Self::WHILE { condition, body } => {
+            Self::WHILE { condition, body, local_scope_data } => {
+
+                let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
 
                 let condition_size = &condition.get_data_type(asm_data).memory_size();
 
