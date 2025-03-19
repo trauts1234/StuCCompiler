@@ -1,13 +1,13 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
  * stores a variable and assembly to construct it
  */
 pub struct InitialisedDeclaration{
-    init_code: Option<Box<dyn ExprNode>>,
+    init_code: Option<Expression>,
 }
 
 
@@ -16,8 +16,8 @@ pub struct MinimalDataVariable {
     pub(crate) name: String
 }
 
-impl ExprNode for MinimalDataVariable {
-    fn generate_assembly(&self, asm_data: &AsmData) -> String {
+impl MinimalDataVariable {
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         if self.get_data_type(asm_data).is_array() {
@@ -42,11 +42,11 @@ impl ExprNode for MinimalDataVariable {
         result
     }
 
-    fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         asm_data.get_variable(&self.name).data_type.clone()
     }
 
-    fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         asm_comment!(result, "getting address of variable: {}", self.name);
@@ -60,10 +60,6 @@ impl ExprNode for MinimalDataVariable {
             }
 
         result
-    }
-
-    fn clone_self(&self) -> Box<dyn ExprNode> {
-        Box::new(self.clone())
     }
 }
 
@@ -162,7 +158,8 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 
     //try to match an initialisation expression
-    let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, &var_name, accessible_funcs, scope_data);
+    let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, &var_name, accessible_funcs, scope_data)
+        .map(|x| Expression::BINARYEXPRESSION(x));//wrap as binary expression
 
     Some(ASTMetadata {
         resultant_tree: InitialisedDeclaration {init_code:initialisation}, 
@@ -278,8 +275,9 @@ pub fn consume_base_type(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut Tok
  * this consumes the tokens = 3+1 in the declaration int x= 3+1;
  * curr_queue_idx is mutable as this consumes tokens for the calling function
  * var_name what the name of the variable we are assigning to is
+ * returns a binary expression assigning the new variable to its initial value
  */
-fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, var_name: &str, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Box<dyn ExprNode>> {
+fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, var_name: &str, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<BinaryExpression> {
     
     if tokens_queue.peek(&curr_queue_idx, &scope_data)? !=Token::PUNCTUATOR(Punctuator::EQUALS){
         return None;
@@ -292,9 +290,9 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     //consume the right hand side of the initialisation
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer
-    Some(Box::new(BinaryExpression::new(
-        Box::new(MinimalDataVariable{name: var_name.to_string()}),
+    Some(BinaryExpression::new(
+        Expression::VARIABLE(MinimalDataVariable{name: var_name.to_string()}),
         Punctuator::EQUALS,
         expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap()
-    )))
+    ))
 }

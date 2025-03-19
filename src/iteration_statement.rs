@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, ExprNode}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -7,15 +7,15 @@ use std::fmt::Write;
 pub enum IterationStatement{
     FOR{
         initialisation: Box<StatementOrDeclaration>,//can't be anything fancy like a scope or if statement, but expressions and declarations are OK
-        condition: Box<dyn ExprNode>,
-        increment: Option<Box<dyn ExprNode>>,
+        condition: Expression,
+        increment: Option<Expression>,
 
         local_scope_data: ParseData,//metadata to help with assembly generation
 
         body: Box<Statement>
     },
     WHILE {
-        condition: Box<dyn ExprNode>,
+        condition: Expression,
         body: Box<Statement>,
 
         local_scope_data: ParseData//do I need this for a while loop?

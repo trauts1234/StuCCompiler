@@ -1,15 +1,16 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, ExprNode}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, Expression}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 
+#[derive(Clone)]
 pub struct FunctionCall {
     func_name: String,//maybe an enum, for function pointers
-    args: Vec<Box<dyn ExprNode>>,
+    args: Vec<Expression>,
 
     decl: FunctionDeclaration
 }
 
-impl ExprNode for FunctionCall {
-    fn generate_assembly(&self, asm_data: &AsmData) -> String {
+impl FunctionCall {
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         //system V ABI
         let mut result = String::new();
 
@@ -56,20 +57,12 @@ impl ExprNode for FunctionCall {
         result
     }
 
-    fn get_data_type(&self, _: &AsmData) -> DataType {
+    pub fn get_data_type(&self) -> DataType {
         self.decl.return_type.clone()
     }
 
-    fn put_addr_in_acc(&self, _: &AsmData) -> String {
+    pub fn put_addr_in_acc(&self) -> String {
         todo!("tried to get memory address of a function. function pointers not implemented");
-    }
-    
-    fn clone_self(&self) -> Box<dyn ExprNode> {
-        Box::new(FunctionCall {
-            func_name: self.func_name.to_string(),
-            args: self.args.iter().map(|x| x.clone_self()).collect(),
-            decl: self.decl.clone(),
-        })
     }
 }
 

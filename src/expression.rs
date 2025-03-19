@@ -1,18 +1,57 @@
-use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
-pub trait ExprNode {
-    fn generate_assembly(&self, asm_data: &AsmData) -> String;
-    fn get_data_type(&self, asm_data: &AsmData) -> DataType;
-    fn put_addr_in_acc(&self, asm_data: &AsmData) -> String;
-    fn clone_self(&self) -> Box<dyn ExprNode>;
+#[derive(Clone)]
+pub enum Expression {
+    NUMBERLITERAL(NumberLiteral),
+    VARIABLE(MinimalDataVariable),
+    STRINGLITERAL(StringLiteral),
+    FUNCCALL(FunctionCall),
+
+    UNARYPREFIX(UnaryPrefixExpression),
+    BINARYEXPRESSION(BinaryExpression),
+}
+
+impl Expression {
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+        match self {
+            Expression::NUMBERLITERAL(number_literal) => number_literal.generate_assembly(),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.generate_assembly(asm_data),
+            Expression::STRINGLITERAL(string_literal) => string_literal.generate_assembly(),
+            Expression::FUNCCALL(function_call) => function_call.generate_assembly(asm_data),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.generate_assembly(asm_data),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.generate_assembly(asm_data),
+        }
+    }
+
+    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+        match self {
+            Expression::NUMBERLITERAL(number_literal) => number_literal.get_data_type(),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.get_data_type(asm_data),
+            Expression::STRINGLITERAL(string_literal) => string_literal.get_data_type(),
+            Expression::FUNCCALL(function_call) => function_call.get_data_type(),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.get_data_type(asm_data),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.get_data_type(asm_data),
+        }
+    }
+
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
+        match self {
+            Expression::NUMBERLITERAL(number_literal) => number_literal.put_addr_in_acc(),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.put_addr_in_acc(asm_data),
+            Expression::STRINGLITERAL(string_literal) => string_literal.put_addr_in_acc(),
+            Expression::FUNCCALL(function_call) => function_call.put_addr_in_acc(),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.put_addr_in_acc(asm_data),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.put_addr_in_acc(),
+        }
+    }
 }
 
 /**
  * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
  */
-pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Box<dyn ExprNode>>> {
+pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Expression>> {
     let semicolon_idx = tokens_queue.find_closure_in_slice(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
     //define the slice that we are going to try and parse
     let attempt_slice = TokenQueueSlice {
@@ -31,7 +70,7 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
  * tries to parse the tokens queue starting at previous_queue_idx, to find an expression
  * returns an expression(entirely consumed), else none
  */
-pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Box<dyn ExprNode>> {
+pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Expression> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
     println!("{:?}", tokens_queue.get_slice(previous_queue_idx));
@@ -52,14 +91,14 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
             match tokens_queue.peek(& curr_queue_idx, &scope_data)? {
                 Token::NUMBER(num) => {
                     tokens_queue.consume(&mut curr_queue_idx, &scope_data);
-                    Some(Box::new(num))
+                    Some(Expression::NUMBERLITERAL(num))
                 },
                 Token::IDENTIFIER(var_name) => {
                     assert!(scope_data.variable_defined(&var_name));
-                    Some(Box::new(MinimalDataVariable{name: var_name}))
+                    Some(Expression::VARIABLE(MinimalDataVariable{name: var_name}))
                 },
                 Token::STRING(string_lit) => {
-                    Some(Box::new(string_lit))
+                    Some(Expression::STRINGLITERAL(string_lit))
                 }
                 _ => None
             }
@@ -80,12 +119,12 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
 
                     if precedence_required == 1 {
                         match try_parse_array_index(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
-                            Some(x) => {return Some(x)},
+                            Some(x) => {return Some(Expression::UNARYPREFIX(x))},
                             None => {}
                         }
 
                         if let Some(func) = FunctionCall::try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
-                            return Some(Box::new(func));
+                            return Some(Expression::FUNCCALL(func));
                         }
                     }
 
@@ -100,7 +139,7 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
 
                     if starts_with_valid_prefix {
                         match try_parse_unary_prefix(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
-                            Some(x) => {return Some(x);},
+                            Some(x) => {return Some(Expression::UNARYPREFIX(x));},
                             None => {
                                 println!("failed to parse unary prefix")
                             }
@@ -128,7 +167,7 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
                     //note that the operator_idx is a slice of just the operator
 
                     match try_parse_binary_expr(tokens_queue, &curr_queue_idx, &operator_idx, accessible_funcs, scope_data) {
-                        Some(x) => {return Some(x);}
+                        Some(x) => {return Some(Expression::BINARYEXPRESSION(x));}
                         None => {
                             continue;
                         }
@@ -148,7 +187,7 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
  * used in binary expressions, where you need both sides in registers
  * does NOT work for assignment expressions
  */
-pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: &DataType, asm_data: &AsmData) -> String {
+pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &DataType, asm_data: &AsmData) -> String {
     let mut result = String::new();
 
     let promoted_size = promoted_type.memory_size();
@@ -170,7 +209,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: 
 }
 
 //TODO do I need promoted_type and promoted_size
-pub fn generate_assembly_for_assignment(lhs: &dyn ExprNode, rhs: &dyn ExprNode, promoted_type: &DataType, promoted_size: &MemoryLayout, asm_data: &AsmData) -> String {
+pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, promoted_type: &DataType, promoted_size: &MemoryLayout, asm_data: &AsmData) -> String {
     let mut result = String::new();
 
     if lhs.get_data_type(asm_data).is_array() && rhs.get_data_type(asm_data).is_array() {
@@ -219,7 +258,7 @@ pub fn generate_assembly_for_assignment(lhs: &dyn ExprNode, rhs: &dyn ExprNode, 
  * if the parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Box<dyn ExprNode>> {
+fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<UnaryPrefixExpression> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
     
     let punctuator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)?.as_punctuator()?;//get punctuator
@@ -228,7 +267,7 @@ fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &To
 
     let operand = try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data)?;
 
-    Some(Box::new(UnaryPrefixExpression::new(punctuator, operand)))
+    Some(UnaryPrefixExpression::new(punctuator, operand))
 }
 
 /**
@@ -236,7 +275,7 @@ fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &To
  * if this parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Box<dyn ExprNode>> {
+fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<BinaryExpression> {
     //split to before and after the operator
     let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx.index, curr_queue_idx);
 
@@ -247,10 +286,10 @@ fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
     let operator = tokens_queue.peek(&operator_idx, &scope_data).expect("couldn't peek")
         .as_punctuator().expect("couldn't cast to punctuator");
 
-    Some(Box::new(BinaryExpression::new(parsed_left, operator, parsed_right)))
+    Some(BinaryExpression::new(parsed_left, operator, parsed_right))
 }
 
-fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Box<dyn ExprNode>> {
+fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<UnaryPrefixExpression> {
     //look for unary postfixes as association is left to right
     let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
 
@@ -272,9 +311,9 @@ fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
 
         //a[b] == *(a+b) in C
         return Some(
-            Box::new(UnaryPrefixExpression::new(Punctuator::ASTERISK, Box::new(//dereference
-                BinaryExpression::new(array_expr, Punctuator::PLUS, index_expr)//pointer plus index
-            )))
+            UnaryPrefixExpression::new(Punctuator::ASTERISK, //dereference
+                Expression::BINARYEXPRESSION(BinaryExpression::new(array_expr, Punctuator::PLUS, index_expr))//pointer plus index
+            )
         );
     }
 

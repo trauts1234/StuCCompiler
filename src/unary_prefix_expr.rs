@@ -1,15 +1,16 @@
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, expression::ExprNode, lexer::punctuator::Punctuator};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, expression::Expression, lexer::punctuator::Punctuator};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
+#[derive(Clone)]
 pub struct UnaryPrefixExpression {
-    operand: Box<dyn ExprNode>,
+    operand: Box<Expression>,
     operator: Punctuator,
 }
 
-impl ExprNode for UnaryPrefixExpression {
-    fn generate_assembly(&self, asm_data: &AsmData) -> String {
+impl UnaryPrefixExpression {
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         match self.operator {
@@ -69,7 +70,7 @@ impl ExprNode for UnaryPrefixExpression {
         result
     }
 
-    fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         let operand_type = self.operand.get_data_type(asm_data);
         match self.operator {
             Punctuator::AMPERSAND => {
@@ -87,7 +88,7 @@ impl ExprNode for UnaryPrefixExpression {
         }
     }
 
-    fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
         //&*x == x
         asm_comment!(result, "getting address of a dereference");
@@ -95,17 +96,10 @@ impl ExprNode for UnaryPrefixExpression {
 
         result
     }
-    
-    fn clone_self(&self) -> Box<dyn ExprNode> {
-        Box::new(UnaryPrefixExpression{
-            operand: self.operand.clone_self(),
-            operator: self.operator.clone(),
-        })
-    }
 }
 
 impl UnaryPrefixExpression {
-    pub fn new(operator: Punctuator, operand: Box<dyn ExprNode>) -> UnaryPrefixExpression {
-        UnaryPrefixExpression { operand, operator }
+    pub fn new(operator: Punctuator, operand: Expression) -> UnaryPrefixExpression {
+        UnaryPrefixExpression { operand: Box::new(operand), operator }
     }
 }

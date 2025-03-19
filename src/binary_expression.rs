@@ -1,21 +1,22 @@
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, ExprNode}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
+#[derive(Clone)]
 pub struct BinaryExpression {
-    lhs: Box<dyn ExprNode>,
+    lhs: Box<Expression>,
     operator: Punctuator,
-    rhs: Box<dyn ExprNode>,
+    rhs: Box<Expression>,
 }
 
-impl ExprNode for BinaryExpression {
-    fn generate_assembly(&self, asm_data: &AsmData) -> String {
+impl BinaryExpression {
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
         if self.operator == Punctuator::EQUALS {
             let lhs_type = self.lhs.get_data_type(asm_data);
-            return generate_assembly_for_assignment(&*self.lhs, &*self.rhs, &lhs_type, &lhs_type.memory_size(), asm_data);
+            return generate_assembly_for_assignment(&self.lhs, &self.rhs, &lhs_type, &lhs_type.memory_size(), asm_data);
         }
 
         let promoted_type = match &self.operator {//I already have a function for this?
@@ -83,7 +84,7 @@ impl ExprNode for BinaryExpression {
             },
             Punctuator::DASH => {
                 asm_comment!(result, "subtracting numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
 
                 asm_line!(result, "sub {}, {}",
                 LogicalRegister::ACC.generate_reg_name(promoted_size),
@@ -93,7 +94,7 @@ impl ExprNode for BinaryExpression {
             }
             Punctuator::ASTERISK => {
                 asm_comment!(result, "multiplying numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
 
                 assert!(promoted_type.underlying_type().is_signed());//unsigned multiply??
                 assert!(promoted_type.underlying_type().is_integer());//floating point multiply??
@@ -106,7 +107,7 @@ impl ExprNode for BinaryExpression {
             },
             Punctuator::FORWARDSLASH => {
                 asm_comment!(result, "dividing numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
 
                 match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type().is_signed()) {
                     (4,true) => {
@@ -121,7 +122,7 @@ impl ExprNode for BinaryExpression {
 
             Punctuator::PERCENT => {
                 asm_comment!(result, "calculating modulus");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
 
                 //modulus is calculated using a DIV
                 match (promoted_type.memory_size().size_bytes(), promoted_type.underlying_type().is_signed()) {
@@ -140,7 +141,7 @@ impl ExprNode for BinaryExpression {
 
             comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
                 asm_comment!(result, "comparing numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
 
                 let lhs_reg = LogicalRegister::ACC.generate_reg_name(promoted_size);
                 let rhs_reg = LogicalRegister::SECONDARY.generate_reg_name(promoted_size);
@@ -159,7 +160,7 @@ impl ExprNode for BinaryExpression {
                 //perhaps this will work for binary operators too?
                 asm_comment!(result, "applying boolean operator");
 
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&*self.lhs, &*self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
 
                 assert!(promoted_size.size_bytes() == 1);//must be boolean
                 assert!(promoted_type.underlying_type() == &BaseType::_BOOL);
@@ -178,7 +179,7 @@ impl ExprNode for BinaryExpression {
         result
     }
 
-    fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         match self.operator {
             Punctuator::PLUS |
             Punctuator::DASH |
@@ -201,25 +202,17 @@ impl ExprNode for BinaryExpression {
         }
     }
 
-    fn put_addr_in_acc(&self, _: &AsmData) -> String {
+    pub fn put_addr_in_acc(&self) -> String {
         panic!("can't find address of a binary expression");
-    }
-    
-    fn clone_self(&self) -> Box<dyn ExprNode> {
-        return Box::new(BinaryExpression{
-            lhs: self.lhs.clone_self(),
-            operator: self.operator.clone(),
-            rhs: self.rhs.clone_self(),
-        });
     }
 }
 
 impl BinaryExpression {
-    pub fn new(lhs: Box<dyn ExprNode>, operator: Punctuator, rhs: Box<dyn ExprNode>) -> BinaryExpression {
+    pub fn new(lhs: Expression, operator: Punctuator, rhs: Expression) -> BinaryExpression {
         BinaryExpression {
-            lhs,
+            lhs: Box::new(lhs),
             operator,
-            rhs,
+            rhs: Box::new(rhs),
         }
     }
 }

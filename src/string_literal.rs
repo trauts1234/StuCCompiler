@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, expression::ExprNode};
+use crate::{asm_generation::{asm_comment, asm_line}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}};
 use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -7,26 +7,22 @@ pub struct StringLiteral {
     label: String
 }
 
-impl ExprNode for StringLiteral {
-    fn generate_assembly(&self, asm_data: &AsmData) -> String {
-        self.put_addr_in_acc(asm_data)//decays to char*
+impl StringLiteral {
+    pub fn generate_assembly(&self) -> String {
+        self.put_addr_in_acc()//decays to char*
     }
 
-    fn get_data_type(&self, _: &AsmData) -> DataType {
+    pub fn get_data_type(&self) -> DataType {
         //TODO maybe make it const char?
         DataType::new_from_base_type(&BaseType::I8, &vec![DeclModifier::ARRAY(self.text.len())])
     }
     
-    fn put_addr_in_acc(&self, _: &AsmData) -> String {
+    pub fn put_addr_in_acc(&self) -> String {
         let mut result = String::new();
         asm_comment!(result, "getting address of string");
         asm_line!(result, "lea rax, [rel {}]", self.get_label());
 
         result
-    }
-    
-    fn clone_self(&self) -> Box<dyn ExprNode> {
-        Box::new(self.clone())
     }
 }
 
