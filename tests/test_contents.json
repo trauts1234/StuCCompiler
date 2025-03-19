@@ -418,5 +418,18 @@
     {
         "filename":"shadowing.c",
         "return_code":0
+    },
+    {
+        "filename":"ifwithoutscope.c",
+        "return_code":0
+    },
+    {
+        "filename":"whilewithoutscope.c",
+        "stdout":"6,7,8,"
+    },
+    {
+        "filename":"forwithoutscope.c",
+        "stdout":"1,2,3,4,",
+        "return_code":0
     }
 ]
