@@ -431,5 +431,9 @@
         "filename":"forwithoutscope.c",
         "stdout":"1,2,3,4,",
         "return_code":0
+    },
+    {
+        "filename":"enuminlineusage.c",
+        "return_code":0
     }
 ]
