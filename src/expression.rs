@@ -2,6 +2,7 @@ use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generat
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
+//none of these must reserve any stack space
 #[derive(Clone)]
 pub enum Expression {
     NUMBERLITERAL(NumberLiteral),
@@ -61,7 +62,7 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
 
     match try_consume_whole_expr(tokens_queue, &attempt_slice, accessible_funcs, scope_data) {
         Some(expr) => {
-            Some(ASTMetadata{resultant_tree: expr, remaining_slice: semicolon_idx.next_clone(), extra_stack_used: MemoryLayout::new()})
+            Some(ASTMetadata{resultant_tree: expr, remaining_slice: semicolon_idx.next_clone()})
         },
         None => None
     }

@@ -54,6 +54,10 @@ impl AsmData {
         AsmData { variables, function_decls: parse_data.func_declarations_as_vec(), current_function_return_type, current_stack_size: new_stack_height }
     }
 
+    pub fn get_stack_height(&self) -> MemoryLayout {
+        self.current_stack_size
+    }
+
     pub fn get_function_declaration(&self, func_name: &str) -> Option<&FunctionDeclaration> {
         self.function_decls.iter()
         .find(|func| func.function_name == func_name)

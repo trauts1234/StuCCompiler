@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::{iter::Sum, ops::{Add, AddAssign, Sub, SubAssign}};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct MemoryLayout {
@@ -29,6 +29,12 @@ impl MemoryLayout {
         MemoryLayout{
             size_bits:bits
         }
+    }
+
+    pub fn biggest(lhs: &MemoryLayout, rhs: &MemoryLayout) -> MemoryLayout {
+        MemoryLayout::from_bits(
+            lhs.size_bits().max(rhs.size_bits())
+        )
     }
 
     /**
@@ -80,5 +86,11 @@ impl Sub for MemoryLayout {
 impl SubAssign for MemoryLayout {
     fn sub_assign(&mut self, rhs: MemoryLayout) {
         self.size_bits -= rhs.size_bits;
+    }
+}
+
+impl Sum for MemoryLayout {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(MemoryLayout::new(), |acc, x| acc + x)
     }
 }

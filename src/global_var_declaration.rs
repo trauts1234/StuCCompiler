@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -49,7 +49,6 @@ impl GlobalVariable {
         Some(ASTMetadata {
             resultant_tree: declarations,
             remaining_slice: curr_queue_idx,
-            extra_stack_used: MemoryLayout::new()//global variables do not use the stack
         })
     }
 }
@@ -61,11 +60,9 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
     
     let mut curr_queue_idx = slice.clone();
     
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
     
     let data_type = DataType::new_from_base_type(&base_type, modifiers.get_modifiers());
-
-    let extra_stack_needed = data_type.memory_size();//get the size of this variable
 
     scope_data.add_variable(&var_name, data_type.clone());//save variable to variable list early, so that I can reference it in the initialisation
 
@@ -85,7 +82,6 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
             default_value,
         }, 
         remaining_slice: TokenQueueSlice::empty(),
-        extra_stack_used: extra_stack_needed
     })
 }
 

@@ -55,16 +55,13 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
     let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
 
     //consume pointer or array info, and member name
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: member_name }, remaining_slice:_, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &all_declarators_segment, &base_type, scope_data)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: member_name }, ..} = try_consume_declaration_modifiers(tokens_queue, &all_declarators_segment, &base_type, scope_data)?;
 
     let data_type = DataType::new_from_base_type(&base_type, modifiers.get_modifiers());
 
-    let curr_queue_idx = TokenQueueSlice {
-        index: semicolon_idx.index+1,
-        max_index: curr_queue_idx.max_index
-    };
+    curr_queue_idx.index = semicolon_idx.index + 1;
 
-    Some(Declaration { data_type: data_type, name: member_name })
+    Some(Declaration { data_type, name: member_name })
 }
 
 #[derive(Clone, Debug)]

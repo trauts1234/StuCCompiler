@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -50,7 +50,7 @@ impl IterationStatement {
                     max_index:init_slice.max_index+1
                 };
 
-                let ASTMetadata {resultant_tree:init, extra_stack_used:init_stack_used, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, accessible_funcs, &mut in_loop_data).unwrap();
+                let ASTMetadata {resultant_tree:init, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, accessible_funcs, &mut in_loop_data).unwrap();
                 let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data).unwrap();
                 let increment = expression::try_consume_whole_expr(tokens_queue, &increment_slice, accessible_funcs, &mut in_loop_data);
 
@@ -61,15 +61,13 @@ impl IterationStatement {
                 };
 
                 //consume the body
-                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut in_loop_data).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut in_loop_data).unwrap();
                 curr_queue_idx = remaining_slice;
-
-                let extra_stack_used = body_stack_used + init_stack_used;//includes iterator variable
 
                 Some(ASTMetadata{
                     resultant_tree: Self::FOR { initialisation: Box::new(init), condition: condition, increment: increment, body: Box::new(loop_body), local_scope_data: in_loop_data }, 
-                    remaining_slice: curr_queue_idx, 
-                    extra_stack_used: extra_stack_used})
+                    remaining_slice: curr_queue_idx
+                })
             },
             Keyword::WHILE => {
                 let closecurly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
@@ -89,13 +87,13 @@ impl IterationStatement {
                 };
 
                 //consume the body
-                let ASTMetadata{ remaining_slice, resultant_tree: loop_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut in_loop_data).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut in_loop_data).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 Some(ASTMetadata{
                     resultant_tree: Self::WHILE { condition: condition, body: Box::new(loop_body), local_scope_data: in_loop_data  }, 
                     remaining_slice: curr_queue_idx, 
-                    extra_stack_used: body_stack_used})
+                })
             }
             _ => None
         }
@@ -161,5 +159,20 @@ impl IterationStatement {
         }
 
         result
+    }
+
+    pub fn get_stack_height(&self, asm_data: &AsmData) -> MemoryLayout {
+        match self {
+            IterationStatement::FOR { initialisation:_, condition:_, increment:_, local_scope_data, body:_ } => {
+                let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
+
+                asm_data.get_stack_height()
+            },
+            IterationStatement::WHILE { condition:_, body:_, local_scope_data } => {
+                let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
+
+                asm_data.get_stack_height()
+            },
+        }
     }
 }

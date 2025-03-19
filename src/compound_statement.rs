@@ -29,13 +29,10 @@ impl ScopeStatements {
         //split to current tokens, and any after the slice
         let (mut curr_queue_idx, remaining_slice_after_scope) = tokens_queue.split_to_slices(squiggly_close_idx, &curr_queue_idx);
 
-        let mut scope_stack_used = MemoryLayout::new();
-
         //greedily consume as many statements as possible
-        while let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut inner_scope_data) {
+        while let Some(ASTMetadata{resultant_tree, remaining_slice}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut inner_scope_data) {
 
             statements.push(resultant_tree);
-            scope_stack_used += extra_stack_used;
             curr_queue_idx = remaining_slice;//jump to next one
         }
 
@@ -43,7 +40,6 @@ impl ScopeStatements {
         Some(ASTMetadata{
             resultant_tree: ScopeStatements {statements, local_scope_data: inner_scope_data}, 
             remaining_slice: remaining_slice_after_scope,
-            extra_stack_used: scope_stack_used,
         })
     }
 
@@ -57,5 +53,15 @@ impl ScopeStatements {
         }
 
         result
+    }
+
+    pub fn get_stack_height(&self, asm_data: &AsmData) -> MemoryLayout {
+        let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, asm_data.get_function_return_type().clone());
+
+        let current_scope_stack_used = asm_data.get_stack_height();
+
+        self.statements.iter()
+        .filter_map(|x| x.get_stack_height(asm_data))//get only the instructions that use a known amount of stack
+        .fold(current_scope_stack_used, |acc, next| MemoryLayout::biggest(&acc, &next))//calculate the biggest possible path
     }
 }

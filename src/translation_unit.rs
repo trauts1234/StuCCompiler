@@ -35,16 +35,16 @@ impl TranslationUnit {
 
         while !token_queue.no_remaining_tokens(&token_idx) {
 
-            if let Some(ASTMetadata{resultant_tree, remaining_slice, extra_stack_used:_}) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &functions, &scope_data){
+            if let Some(ASTMetadata{resultant_tree, remaining_slice }) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &functions, &scope_data){
                 functions.add_function(&mut scope_data, resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice, resultant_tree, extra_stack_used:_ }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone_for_new_scope()) {
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone_for_new_scope()) {
                 //do I need to save the clone of scope data I passed? probably not
                 scope_data.add_declaration(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree, extra_stack_used:_ }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data) {
+            } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data) {
                 global_variables.append(&mut resultant_tree);
                 token_idx = remaining_slice;
             } else {

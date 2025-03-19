@@ -1,6 +1,4 @@
-use memory_size::MemoryLayout;
-
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -83,7 +81,6 @@ impl InitialisedDeclaration {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut declarations = Vec::new();
-        let mut extra_stack_needed = MemoryLayout::new();
         
         //consume int or unsigned int or enum etc.
         let base_type = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data)?;
@@ -97,9 +94,8 @@ impl InitialisedDeclaration {
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator
-            if let Some(ASTMetadata { remaining_slice: _, resultant_tree, extra_stack_used }) = try_consume_declarator(tokens_queue, &declarator_segment, &base_type, accessible_funcs, scope_data) {
+            if let Some(ASTMetadata { remaining_slice: _, resultant_tree}) = try_consume_declarator(tokens_queue, &declarator_segment, &base_type, accessible_funcs, scope_data) {
                 declarations.push(resultant_tree);//the declarator consumption actaully gives us a full declaration
-                extra_stack_needed += extra_stack_used;
             }
         }
 
@@ -108,7 +104,6 @@ impl InitialisedDeclaration {
         Some(ASTMetadata {
             resultant_tree: declarations,
             remaining_slice: curr_queue_idx,
-            extra_stack_used: extra_stack_needed
         })
     }
 
@@ -145,13 +140,11 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens, extra_stack_used:_} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
 
     assert!(tokens_queue.peek(&curr_queue_idx, scope_data) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
     let data_type = DataType::new_from_base_type(&base_type, modifiers.get_modifiers());
-
-    let extra_stack_needed = data_type.memory_size();//get the size of this variable
 
     scope_data.add_variable(&var_name, data_type);//save variable to variable list early, so that I can reference it in the initialisation
 
@@ -164,7 +157,6 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     Some(ASTMetadata {
         resultant_tree: InitialisedDeclaration {init_code:initialisation}, 
         remaining_slice: TokenQueueSlice::empty(),
-        extra_stack_used: extra_stack_needed
     })
 }
 
@@ -242,7 +234,6 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             data_type: DataType::new_from_base_type(&base_type, &ordered_modifiers),
             name: inner_data.name,//inner always contains a name
         },
-        extra_stack_used: MemoryLayout::new()//not my job
     })
 }
 

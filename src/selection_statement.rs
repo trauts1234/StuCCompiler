@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -40,24 +40,16 @@ impl SelectionStatement {
                 };
 
                 //consume the function body
-                let ASTMetadata{ remaining_slice, resultant_tree: taken_body, extra_stack_used:body_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: taken_body } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
                 curr_queue_idx = remaining_slice;
-
-                //the extra stack I need is the stack used by the function body
-                //unless the "else" branch needs a huge amount of stack
-                let mut extra_stack_needed = body_stack_used;
 
                 let has_else_branch = tokens_queue.peek(&curr_queue_idx, &scope_data).is_some_and(|x| x == Token::KEYWORD(Keyword::ELSE));
 
                 //try and consume the else branch
                 let not_taken_body: Option<Box<Statement>> = if has_else_branch {
                     tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume the else keyword
-                    let ASTMetadata{ remaining_slice, resultant_tree: else_body, extra_stack_used:else_stack_used } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
+                    let ASTMetadata{ remaining_slice, resultant_tree: else_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
                     curr_queue_idx = remaining_slice;//consume the else
-
-                    if else_stack_used.size_bytes() > extra_stack_needed.size_bytes() {
-                        extra_stack_needed = else_stack_used;//more stack needed for else, so expand extra stack needed
-                    }
 
                     Some(Box::new(else_body))
                 } else {
@@ -67,7 +59,7 @@ impl SelectionStatement {
                 Some(ASTMetadata{
                     resultant_tree: Self::IF{condition, if_body: Box::new(taken_body), else_body: not_taken_body}, 
                     remaining_slice: curr_queue_idx, 
-                    extra_stack_used: extra_stack_needed})
+                })
             }
             _ => None
         }
@@ -108,5 +100,19 @@ impl SelectionStatement {
         }
 
         result
+    }
+
+    pub fn get_stack_height(&self, asm_data: &AsmData) -> Option<MemoryLayout> {
+        match self {
+            SelectionStatement::IF { condition: _, if_body, else_body } =>  {
+                let possible_else_size = else_body.as_ref().and_then(|x| x.get_stack_height(asm_data));
+
+                match (if_body.get_stack_height(asm_data), possible_else_size) {
+                    (Some(x), Some(y)) => Some(MemoryLayout::biggest(&x, &y)),//only one of (if, else) ever gets run, so I only need enough stack for the biggest of the two
+                    (x, None) => x,//no else, so just need enough stack for the if branch
+                    (None, y) => y//this doesn't mean that there is no if body, it just means there is no useful data there
+                }
+            },
+        }
     }
 }

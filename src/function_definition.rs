@@ -8,7 +8,6 @@ use std::fmt::Write;
  */
 pub struct FunctionDefinition {
     code: Statement,//statement could be a scope if it wants. should this just be a Scope????
-    stack_required: MemoryLayout,
     decl: FunctionDeclaration,
     local_scope_data: ParseData//metadata to help with assembly generation
 }
@@ -45,16 +44,14 @@ impl FunctionDefinition {
 
         //read the next statement (statement includes a scope)
         //TODO can this _only_ be a scope?
-        let ASTMetadata{resultant_tree, remaining_slice, extra_stack_used} = Statement::try_consume(tokens_queue, &after_decl_slice, accessible_funcs, &mut scope_data)?;
+        let ASTMetadata{resultant_tree, remaining_slice} = Statement::try_consume(tokens_queue, &after_decl_slice, accessible_funcs, &mut scope_data)?;
         
         return Some(ASTMetadata{
             resultant_tree: FunctionDefinition {
                 code: resultant_tree,
-                stack_required: extra_stack_used,
                 decl: func_decl,
                 local_scope_data: scope_data
             },
-            extra_stack_used,
             remaining_slice});
     }
 
@@ -98,13 +95,15 @@ impl FunctionDefinition {
 
         }
 
-        let total_stack_used = self.stack_required + param_stack_used;
+        let stack_used_for_body = self.code.get_stack_height(asm_data).unwrap();
+
+        let total_stack_used = stack_used_for_body + param_stack_used;
 
         let stack_needed_until_aligned =  MemoryLayout::from_bytes(
             (16 - total_stack_used.size_bytes() % 16) % 16//finds the number of extra bytes needed to round to a 16 byte boundary
         );
 
-        let stack_add = self.stack_required + stack_needed_until_aligned;
+        let stack_add = stack_used_for_body + stack_needed_until_aligned;
         asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", stack_add.size_bytes());
 
         asm_line!(result, "{}", self.code.generate_assembly(label_gen, asm_data));

@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
@@ -34,7 +34,6 @@ impl FunctionDeclaration {
         Some(ASTMetadata {
             resultant_tree: decl,
             remaining_slice: curr_queue_idx,
-            extra_stack_used: MemoryLayout::new()//not relevant to declaration
         })
     } 
 }
@@ -106,7 +105,6 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
             params: args,
             return_type: DataType::new_from_base_type(&return_base_type, &return_modifiers)
         },
-        extra_stack_used: MemoryLayout::new(),
         remaining_slice: curr_queue_idx});
 }
 
@@ -127,7 +125,6 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
     let ASTMetadata{
         resultant_tree: Declaration { data_type: modifiers, name: var_name },
         remaining_slice:_,
-        extra_stack_used:_
     } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base, scope_data)?;
 
     Some(Declaration {
