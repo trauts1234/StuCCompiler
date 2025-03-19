@@ -20,7 +20,7 @@ pub struct AddressedDeclaration {
 
 #[derive(Clone, Debug)]
 pub struct AsmData {
-    variables: Vec<(String, AddressedDeclaration)>,
+    variables: IndexMap<String, AddressedDeclaration>,//hashmap, but keeps order to keep the stack sorted correctly
     function_decls: Vec<FunctionDeclaration>,
     current_function_return_type: DataType,
     current_stack_size: MemoryLayout,//difference of RSP and RBP, positive number
@@ -30,7 +30,6 @@ impl AsmData {
     pub fn new_for_global_scope(parse_data: &ParseData) -> AsmData {
         let global_variables = parse_data.get_symbol_table()
             .iter()
-            .cloned()
             .map(add_global_variable)
             .collect();
 
@@ -49,12 +48,7 @@ impl AsmData {
             .map(|(var_name, var_type)| add_variable(&mut new_stack_height, var_name, var_type));//add each variable and generate metadata
 
         //add all current variables then overwrite with local variables (shadowing)
-
-        let mut map = IndexMap::new();
-        for (key, value) in self.variables.clone().into_iter().chain(local_variables) {
-            map.insert(key, value);
-        }
-        let variables: Vec<_> = map.into_iter().collect();
+        let variables: IndexMap<String, AddressedDeclaration> = self.variables.clone().into_iter().chain(local_variables).collect();
 
 
         AsmData { variables, function_decls: parse_data.func_declarations_as_vec(), current_function_return_type, current_stack_size: new_stack_height }
@@ -66,9 +60,7 @@ impl AsmData {
     }
 
     pub fn get_variable(&self, name: &str) -> &AddressedDeclaration {
-        let (_, decl) = self.variables.iter().find(|(x,_)| x == name).unwrap();
-
-        decl
+        self.variables.get(name).unwrap()
     }
     pub fn get_function_return_type(&self) -> &DataType {
         &self.current_function_return_type
@@ -87,7 +79,7 @@ fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &Data
 /**
  * note this takes a tuple, so that it can be run in an iterator map()
  */
-fn add_global_variable(data: (String, DataType)) -> (String, AddressedDeclaration) {
+fn add_global_variable(data: (&String, &DataType)) -> (String, AddressedDeclaration) {
     let (var_name, var_type) = data;
-    (var_name, AddressedDeclaration{ data_type: var_type, location: VariableAddress::CONSTANTADDRESS })
+    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: VariableAddress::CONSTANTADDRESS })
 }

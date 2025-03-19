@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use indexmap::IndexMap;
+
 use crate::{data_type::data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration};
 
 #[derive(Debug)]
@@ -8,12 +10,12 @@ pub struct ParseData {
     pub(crate) enums: EnumList,
     function_decls: Vec<FunctionDeclaration>,
 
-    local_symbol_table: Vec<(String, DataType)>//this is filled slowly, so do not read from it
+    local_symbol_table: IndexMap<String, DataType>//this is filled slowly, so do not read from it
 }
 
 impl ParseData {
     pub fn make_empty() -> ParseData {
-        ParseData { variables: HashSet::new(), enums: EnumList::new(), function_decls: Vec::new(), local_symbol_table: Vec::new() }
+        ParseData { variables: HashSet::new(), enums: EnumList::new(), function_decls: Vec::new(), local_symbol_table: IndexMap::new() }
     }
 
     /**
@@ -24,7 +26,7 @@ impl ParseData {
             variables: self.variables.clone(),
             enums: self.enums.clone(),
             function_decls: self.function_decls.clone(),
-            local_symbol_table: Vec::new()//as in new scope, all symbols are in an outer scope
+            local_symbol_table: IndexMap::new()//as in new scope, all symbols are in an outer scope
         }
     }
 
@@ -52,7 +54,7 @@ impl ParseData {
             panic!("redefinition of variable {} in local scope", name);
         }
 
-        self.local_symbol_table.push((name.to_string(), data_type));
+        self.local_symbol_table.insert(name.to_string(), data_type);
     }
 
     /**
@@ -65,7 +67,7 @@ impl ParseData {
         self.variables.contains(name)
     }
 
-    pub fn get_symbol_table(&self) -> &Vec<(String, DataType)> {
+    pub fn get_symbol_table(&self) -> &IndexMap<String, DataType> {
         &self.local_symbol_table
     }
 }
