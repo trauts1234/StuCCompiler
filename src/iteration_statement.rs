@@ -17,22 +17,23 @@ pub enum IterationStatement{
     WHILE {
         condition: Expression,
         body: Box<Statement>,
-
-        local_scope_data: ParseData//do I need this for a while loop?
     }
 }
 
 impl IterationStatement {
+    /**
+     * outer_scope_data should never be modified, just 
+     */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &ParseData) -> Option<ASTMetadata<IterationStatement>> {
         let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, outer_scope_data) {x} else {return None;};
-
-        //important: clone the local variables and enums, to prevent inner definitions from leaking out to outer scopes
-        let mut in_loop_data = outer_scope_data.clone_for_new_scope();
         
         match kw {
             Keyword::FOR => {
+                //important: clone the local variables and enums, to prevent inner definitions from leaking out to outer scopes
+                let mut in_loop_data = outer_scope_data.clone_for_new_scope();
+                
                 let closecurly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
                 assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx, &in_loop_data).unwrap());//ensure opening parenthesis
 
@@ -70,15 +71,16 @@ impl IterationStatement {
                 })
             },
             Keyword::WHILE => {
+                
                 let closecurly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
-                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx, &in_loop_data).unwrap());//ensure opening parenthesis
+                assert!(Token::PUNCTUATOR(Punctuator::OPENCURLY) == tokens_queue.consume(&mut curr_queue_idx, outer_scope_data).unwrap());//ensure opening parenthesis
 
                 let condition_slice = TokenQueueSlice{
                     index: curr_queue_idx.index,
                     max_index: closecurly_idx
                 };
 
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data).unwrap();
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, outer_scope_data).unwrap();
 
                 //consume the "while ()" part
                 curr_queue_idx = TokenQueueSlice{
@@ -87,11 +89,11 @@ impl IterationStatement {
                 };
 
                 //consume the body
-                let ASTMetadata{ remaining_slice, resultant_tree: loop_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut in_loop_data).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, outer_scope_data).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 Some(ASTMetadata{
-                    resultant_tree: Self::WHILE { condition: condition, body: Box::new(loop_body), local_scope_data: in_loop_data  }, 
+                    resultant_tree: Self::WHILE { condition: condition, body: Box::new(loop_body)  }, 
                     remaining_slice: curr_queue_idx, 
                 })
             }
@@ -133,9 +135,7 @@ impl IterationStatement {
                 asm_line!(result, "{}_loop_end:", generic_label);
             },
 
-            Self::WHILE { condition, body, local_scope_data } => {
-
-                let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
+            Self::WHILE { condition, body } => {
 
                 let condition_size = &condition.get_data_type(asm_data).memory_size();
 
@@ -168,9 +168,7 @@ impl IterationStatement {
 
                 asm_data.get_stack_height()
             },
-            IterationStatement::WHILE { condition:_, body:_, local_scope_data } => {
-                let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
-
+            IterationStatement::WHILE { .. } => {
                 asm_data.get_stack_height()
             },
         }

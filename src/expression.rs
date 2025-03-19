@@ -52,7 +52,7 @@ impl Expression {
 /**
  * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
  */
-pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Expression>> {
+pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<ASTMetadata<Expression>> {
     let semicolon_idx = tokens_queue.find_closure_in_slice(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
     //define the slice that we are going to try and parse
     let attempt_slice = TokenQueueSlice {
@@ -71,7 +71,7 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
  * tries to parse the tokens queue starting at previous_queue_idx, to find an expression
  * returns an expression(entirely consumed), else none
  */
-pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Expression> {
+pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<Expression> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
     println!("{:?}", tokens_queue.get_slice(previous_queue_idx));
@@ -259,7 +259,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, prom
  * if the parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<UnaryPrefixExpression> {
+fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<UnaryPrefixExpression> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
     
     let punctuator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)?.as_punctuator()?;//get punctuator
@@ -276,7 +276,7 @@ fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &To
  * if this parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<BinaryExpression> {
+fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<BinaryExpression> {
     //split to before and after the operator
     let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx.index, curr_queue_idx);
 
@@ -290,7 +290,7 @@ fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
     Some(BinaryExpression::new(parsed_left, operator, parsed_right))
 }
 
-fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<UnaryPrefixExpression> {
+fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<UnaryPrefixExpression> {
     //look for unary postfixes as association is left to right
     let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
 

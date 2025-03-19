@@ -59,7 +59,7 @@ impl ParseData {
 
         self.local_symbol_table.insert(name.to_string(), data_type);
     }
-    pub fn variable_defined(&mut self, name: &str) -> bool {
+    pub fn variable_defined(&self, name: &str) -> bool {
         self.variables.contains(name)
     }
 
