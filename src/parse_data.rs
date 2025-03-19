@@ -2,20 +2,21 @@ use std::collections::HashSet;
 
 use indexmap::IndexMap;
 
-use crate::{data_type::data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration};
+use crate::{data_type::data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::StructList};
 
 #[derive(Debug)]
 pub struct ParseData {
     variables: HashSet<String>,
     pub(crate) enums: EnumList,
     function_decls: Vec<FunctionDeclaration>,
+    pub(crate) structs: StructList,//defined and declared structs
 
-    local_symbol_table: IndexMap<String, DataType>//this is filled slowly, so do not read from it
+    local_symbol_table: IndexMap<String, DataType>,//this is filled slowly, so do not read from it
 }
 
 impl ParseData {
     pub fn make_empty() -> ParseData {
-        ParseData { variables: HashSet::new(), enums: EnumList::new(), function_decls: Vec::new(), local_symbol_table: IndexMap::new() }
+        ParseData { variables: HashSet::new(), enums: EnumList::new(), function_decls: Vec::new(),  local_symbol_table: IndexMap::new(), structs: StructList::new()}
     }
 
     /**
@@ -26,7 +27,9 @@ impl ParseData {
             variables: self.variables.clone(),
             enums: self.enums.clone(),
             function_decls: self.function_decls.clone(),
-            local_symbol_table: IndexMap::new()//as in new scope, all symbols are in an outer scope
+            structs: StructList::new(),//as in new scope, all struct definitions are in outer scope
+
+            local_symbol_table: IndexMap::new(), //as in new scope, all symbols are in an outer scope
         }
     }
 
@@ -55,13 +58,6 @@ impl ParseData {
         }
 
         self.local_symbol_table.insert(name.to_string(), data_type);
-    }
-
-    /**
-     * if a struct is used, then run this function, so that the struct can be forward declared
-     */
-    pub fn notify_struct_declaration(&mut self, name: &str) {
-        self.variables.insert(name.to_string());
     }
     pub fn variable_defined(&mut self, name: &str) -> bool {
         self.variables.contains(name)

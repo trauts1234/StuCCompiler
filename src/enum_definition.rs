@@ -14,11 +14,6 @@ pub struct EnumList {
 
 /**
  * if a new enum is found, scope_data is updated and the data type of the enum is returned
- * 
- * this handles consuming enum definitions, which return a data type
- * think:
- * enum x {A,B} func() {return A;}
- * is legal code as the enum part returns integer type
  */
 pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<DataType> {
     
