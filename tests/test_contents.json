@@ -414,5 +414,9 @@
     {
         "filename":"unsignednoint.c",
         "return_code":0
+    },
+    {
+        "filename":"shadowing.c",
+        "return_code":0
     }
 ]

@@ -1,4 +1,5 @@
 use crate::{data_type::data_type::DataType, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData};
+use indexmap::IndexMap;
 
 /**
  * represents an addressing mode for variables
@@ -48,7 +49,13 @@ impl AsmData {
             .map(|(var_name, var_type)| add_variable(&mut new_stack_height, var_name, var_type));//add each variable and generate metadata
 
         //add all current variables then overwrite with local variables (shadowing)
-        let variables = self.variables.clone().into_iter().chain(local_variables).collect();
+
+        let mut map = IndexMap::new();
+        for (key, value) in self.variables.clone().into_iter().chain(local_variables) {
+            map.insert(key, value);
+        }
+        let variables: Vec<_> = map.into_iter().collect();
+
 
         AsmData { variables, function_decls: parse_data.func_declarations_as_vec(), current_function_return_type, current_stack_size: new_stack_height }
     }
