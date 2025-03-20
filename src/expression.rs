@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -7,6 +7,7 @@ use crate::asm_generation::{asm_line, asm_comment};
 pub enum Expression {
     NUMBERLITERAL(NumberLiteral),
     VARIABLE(MinimalDataVariable),
+    STRUCTMEMBERACCESS(StructMemberAccess),
     STRINGLITERAL(StringLiteral),
     FUNCCALL(FunctionCall),
 
@@ -23,6 +24,7 @@ impl Expression {
             Expression::FUNCCALL(function_call) => function_call.generate_assembly(asm_data),
             Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.generate_assembly(asm_data),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.generate_assembly(asm_data),
+            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.generate_assembly(asm_data),
         }
     }
 
@@ -34,6 +36,7 @@ impl Expression {
             Expression::FUNCCALL(function_call) => function_call.get_data_type(),
             Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.get_data_type(asm_data),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.get_data_type(asm_data),
+            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.get_data_type(asm_data),
         }
     }
 
@@ -45,6 +48,7 @@ impl Expression {
             Expression::FUNCCALL(function_call) => function_call.put_addr_in_acc(),
             Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.put_addr_in_acc(asm_data),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.put_addr_in_acc(),
+            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.put_addr_in_acc(asm_data),
         }
     }
 }
@@ -71,7 +75,7 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
  * tries to parse the tokens queue starting at previous_queue_idx, to find an expression
  * returns an expression(entirely consumed), else none
  */
-pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<Expression> {
+pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<Expression> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
     println!("{:?}", tokens_queue.get_slice(previous_queue_idx));
@@ -119,13 +123,16 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
                     assert!(curr_queue_idx.max_index <= tokens_queue.tokens.len());
 
                     if precedence_required == 1 {
-                        match try_parse_array_index(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
-                            Some(x) => {return Some(Expression::UNARYPREFIX(x))},
-                            None => {}
+                        if let Some(index_expr) = try_parse_array_index(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
+                            return Some(Expression::UNARYPREFIX(index_expr));
                         }
 
                         if let Some(func) = FunctionCall::try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
                             return Some(Expression::FUNCCALL(func));
+                        }
+
+                        if let Some(access) = try_parse_member_access(tokens_queue, &curr_queue_idx, scope_data) {
+                            return Some(Expression::STRUCTMEMBERACCESS(access));
                         }
                     }
 
@@ -260,7 +267,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, prom
  * if the parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<UnaryPrefixExpression> {
+fn try_parse_unary_prefix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<UnaryPrefixExpression> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
     
     let punctuator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)?.as_punctuator()?;//get punctuator
@@ -277,7 +284,7 @@ fn try_parse_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &To
  * if this parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<BinaryExpression> {
+fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<BinaryExpression> {
     //split to before and after the operator
     let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx.index, curr_queue_idx);
 
@@ -291,7 +298,7 @@ fn try_parse_binary_expr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
     Some(BinaryExpression::new(parsed_left, operator, parsed_right))
 }
 
-fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<UnaryPrefixExpression> {
+fn try_parse_array_index(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<UnaryPrefixExpression> {
     //look for unary postfixes as association is left to right
     let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
 
@@ -319,5 +326,9 @@ fn try_parse_array_index(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQu
         );
     }
 
+    None
+}
+
+fn try_parse_member_access(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, scope_data: &ParseData) -> Option<StructMemberAccess> {
     None
 }

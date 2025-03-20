@@ -1,10 +1,28 @@
-use crate::{ast_metadata::ASTMetadata, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructDefinition {
     name: Option<String>,
     ordered_members: Option<Vec<(Declaration, MemoryLayout)>>,//decl and offset from start that this member is located
     size: Option<MemoryLayout>
+}
+
+#[derive(Clone)]
+pub struct StructMemberAccess {
+    struct_name: String,
+    member_name: String,
+}
+
+impl StructMemberAccess {
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+        todo!()
+    }
+    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+        todo!()
+    }
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
+        todo!()
+    }
 }
 
 impl StructDefinition {

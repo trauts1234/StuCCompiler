@@ -31,6 +31,7 @@ pub enum Punctuator {
     CLOSESQUARE,
     COMMA,
 
+    FULLSTOP,
     ELIPSIS,
 }
 
@@ -69,6 +70,7 @@ impl Punctuator {
 
             "," => Some(Self::COMMA),
 
+            "." => Some(Self::FULLSTOP),
             "..." => Some(Self::ELIPSIS),
             _ => None
         }
