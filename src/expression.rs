@@ -53,7 +53,7 @@ impl Expression {
  * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
  */
 pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<ASTMetadata<Expression>> {
-    let semicolon_idx = tokens_queue.find_closure_in_slice(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
+    let semicolon_idx = tokens_queue.find_closure_matches(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing())?;
     //define the slice that we are going to try and parse
     let attempt_slice = TokenQueueSlice {
         index: previous_queue_idx.index,
@@ -159,9 +159,10 @@ pub fn try_consume_whole_expr(tokens_queue: &mut TokenQueue, previous_queue_idx:
                 let exclusions = TokenSearchType{
                     skip_in_curly_brackets: true,
                     skip_in_square_brackets: true,
+                    skip_in_squiggly_brackets: false
                 };
 
-                let operator_indexes = tokens_queue.find_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure, &exclusions);
+                let operator_indexes = tokens_queue.split_by_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure, &exclusions);
 
                 for operator_idx in operator_indexes {
                     //try to find an operator

@@ -27,12 +27,7 @@ pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut 
         Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => {
             let close_squiggly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
             let mut inside_variants = TokenQueueSlice{index:curr_queue_idx.index+1, max_index: close_squiggly_idx};//+1 to skip the {
-            let mut remaining_slice = TokenQueueSlice{index:close_squiggly_idx, max_index:curr_queue_idx.max_index};
-
-            if tokens_queue.consume(&mut remaining_slice, &scope_data)? == Token::PUNCTUATOR(Punctuator::SEMICOLON) {
-                //no trailinig semicolon
-                panic!("creating a variable of an enum inline with a definition not implemented");
-            }
+            let remaining_slice = TokenQueueSlice{index:close_squiggly_idx+1, max_index:curr_queue_idx.max_index};
 
             let mut prev_num = -1;//this is a temporary counter, as when custom types are used for enums, this may break
 

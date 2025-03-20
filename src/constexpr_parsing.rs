@@ -68,9 +68,10 @@ impl ConstexprValue {
             let exclusions = TokenSearchType{
                 skip_in_curly_brackets: true,
                 skip_in_square_brackets: true,
+                skip_in_squiggly_brackets: false
             };
 
-            let operator_indexes = tokens_queue.find_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure, &exclusions);
+            let operator_indexes = tokens_queue.split_by_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure, &exclusions);
 
             for operator_idx in operator_indexes {
                 //try to find an operator

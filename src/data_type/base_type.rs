@@ -1,4 +1,4 @@
-use crate::memory_size::MemoryLayout;
+use crate::{memory_size::MemoryLayout, struct_definition::StructDefinition};
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,7 +14,7 @@ pub enum BaseType {
     U32,
     I64,
     U64,
-    STRUCT(MemoryLayout)
+    STRUCT(StructDefinition)//could be a partial definition
 }
 
 impl BaseType {
@@ -65,7 +65,7 @@ impl BaseType {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
 
-            BaseType::STRUCT(x) => x.clone(),
+            BaseType::STRUCT(x) => x.calculate_size().expect("tried to calculate size of partially declared struct"),
 
             BaseType::_BOOL |
             BaseType::I8 |

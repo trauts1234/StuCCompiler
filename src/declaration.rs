@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -86,7 +86,7 @@ impl InitialisedDeclaration {
         let base_type = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data)?;
 
         //find semicolon
-        let semicolon_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
+        let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing())?;
         //find where all the declarators are (the x=2,y part in int x=2,y;)
         let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
         //split each declarator
@@ -203,7 +203,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
                 name: ident.to_string(),
             }
         }
-        _ => panic!("unknown token in the middle of a declaration")
+        x => panic!("unknown token in the middle of a declaration: {:?}", x)
     };
 
     loop {
@@ -239,27 +239,34 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
 
 pub fn consume_base_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<BaseType> {
 
-    if tokens_queue.peek(&curr_queue_idx, &scope_data)? == Token::KEYWORD(Keyword::ENUM) {
-        //enum x => handle enums
-        if let Some(data_type) = try_consume_enum_as_type(tokens_queue, curr_queue_idx, scope_data) {
-            return Some(data_type.underlying_type().clone())
+    match tokens_queue.peek(&curr_queue_idx, &scope_data)? {
+        Token::KEYWORD(Keyword::ENUM) => {
+            let enum_type = try_consume_enum_as_type(tokens_queue, curr_queue_idx, scope_data).unwrap();
+
+            Some(enum_type.underlying_type().clone())
+        }
+        Token::KEYWORD(Keyword::STRUCT) => {
+            let struct_type = StructDefinition::try_consume_struct_as_type(tokens_queue, curr_queue_idx, scope_data).unwrap();
+
+            Some(BaseType::STRUCT(struct_type))
+        }
+        _ => {
+            //fallback to default type system
+
+            let mut data_type_info = Vec::new();
+            //try and consume as many type specifiers as possible
+            loop {
+                if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx, &scope_data)? {
+                    data_type_info.push(ts.clone());
+                    tokens_queue.consume(curr_queue_idx, &scope_data);
+                } else {
+                    break;
+                }
+            }
+            //create data type out of it, but just get the base type as it can never be a pointer/array etc.
+            Some(DataType::new_from_type_list(&data_type_info, &Vec::new()).underlying_type().clone())
         }
     }
-
-    //fallback to default type system
-
-    let mut data_type_info = Vec::new();
-    //try and consume as many type specifiers as possible
-    loop {
-        if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx, &scope_data)? {
-            data_type_info.push(ts.clone());
-            tokens_queue.consume(curr_queue_idx, &scope_data);
-        } else {
-            break;
-        }
-    }
-    //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-    return Some(DataType::new_from_type_list(&data_type_info, &Vec::new()).underlying_type().clone())
 }
 
 /**

@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -31,7 +31,7 @@ impl GlobalVariable {
         let base_type = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data)?;
 
         //find semicolon
-        let semicolon_idx = tokens_queue.find_closure_in_slice(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON))?;
+        let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType { skip_in_curly_brackets: false, skip_in_square_brackets: false, skip_in_squiggly_brackets:true })?;
         //find where all the declarators are (the x=2,y part in int x=2,y;)
         let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
         //split each declarator

@@ -15,6 +15,13 @@ pub struct TokenQueue {
 pub struct TokenSearchType {
     pub(crate) skip_in_curly_brackets: bool,
     pub(crate) skip_in_square_brackets: bool,
+    pub(crate) skip_in_squiggly_brackets: bool,
+}
+
+impl TokenSearchType {
+    pub fn skip_nothing() -> TokenSearchType {
+        TokenSearchType { skip_in_curly_brackets: false, skip_in_square_brackets: false, skip_in_squiggly_brackets: false }
+    }
 }
 
 impl TokenQueue {
@@ -95,9 +102,10 @@ impl TokenQueue {
      * tries to find where a closure is first true within the slice
      * returns a slice from the matched token to the end of the input slice
      */
-    pub fn find_closure_in_slice<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher) -> Option<TokenQueueSlice> 
+    pub fn find_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Option<TokenQueueSlice> 
     where Matcher: Fn(&Token) -> bool
     {
+        let mut bracket_depth = 0;//how many sets of brackets I am in
         let min_index = 0.max(slice.index);//either start of list, or start of slice
         let max_index = self.tokens.len().min(slice.max_index);//end of array or end of slice
 
@@ -105,8 +113,33 @@ impl TokenQueue {
         let range: Box<dyn Iterator<Item = _>> = if scan_backwards {Box::new((min_index..max_index).rev())} else {Box::new(min_index..max_index)};
 
         for i in range {
-            if predicate(&self.tokens[i]) {
-                return Some(TokenQueueSlice{index: i, max_index: slice.max_index});
+            match &self.tokens[i] {
+                Token::PUNCTUATOR(Punctuator::OPENCURLY) if exclusions.skip_in_curly_brackets => {
+                    bracket_depth += 1;//I should avoid being in brackets if that flag is set
+                }
+                Token::PUNCTUATOR(Punctuator::CLOSECURLY) if exclusions.skip_in_curly_brackets => {
+                    bracket_depth -= 1;
+                }
+
+                Token::PUNCTUATOR(Punctuator::OPENSQUARE) if exclusions.skip_in_square_brackets => {
+                    bracket_depth += 1;
+                }
+                Token::PUNCTUATOR(Punctuator::CLOSESQUARE) if exclusions.skip_in_square_brackets => {
+                    bracket_depth -= 1;
+                }
+
+                Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
+                    bracket_depth += 1;
+                }
+                Token::PUNCTUATOR(Punctuator::CLOSESQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
+                    bracket_depth -= 1;
+                }
+
+                tok if bracket_depth == 0 && predicate(&tok) => {//outside of brackets, matching the predicate, and bracket depth was not just changed
+                    return Some(TokenQueueSlice{index: i, max_index: slice.max_index});
+                }
+                
+                _ => {}
             }
         }
 
@@ -116,7 +149,7 @@ impl TokenQueue {
     /**
      * returns a list of zero size slices, that have an index of each token matching the predicate
      */
-    pub fn find_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Vec<TokenQueueSlice> 
+    pub fn split_by_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Vec<TokenQueueSlice> 
     where Matcher: Fn(&Token) -> bool
     {
         let mut bracket_depth = 0;//how many sets of brackets I am in
@@ -141,6 +174,13 @@ impl TokenQueue {
                     bracket_depth += 1;
                 }
                 Token::PUNCTUATOR(Punctuator::CLOSESQUARE) if exclusions.skip_in_square_brackets => {
+                    bracket_depth -= 1;
+                }
+
+                Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
+                    bracket_depth += 1;
+                }
+                Token::PUNCTUATOR(Punctuator::CLOSESQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
                     bracket_depth -= 1;
                 }
 
