@@ -435,5 +435,9 @@
     {
         "filename":"enuminlineusage.c",
         "return_code":0
+    },
+    {
+        "filename":"structdefinitionnotused.c",
+        "return_code":0
     }
 ]

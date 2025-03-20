@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructDefinition {
@@ -30,14 +30,13 @@ impl StructDefinition {
             Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => {
                 let close_squiggly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
                 let mut inside_variants = TokenQueueSlice{index:curr_queue_idx.index+1, max_index: close_squiggly_idx};//+1 to skip the {
-                let remaining_slice = TokenQueueSlice{index:close_squiggly_idx, max_index:curr_queue_idx.max_index};
+                let remaining_slice = TokenQueueSlice{index:close_squiggly_idx+1, max_index:curr_queue_idx.max_index};
 
                 let mut members = Vec::new();
                 while let Some(new_member) = try_consume_struct_member(tokens_queue, &mut inside_variants, scope_data) {
                     members.push(new_member);
                 }
                 assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
-                curr_queue_idx.index = remaining_slice.index;//update start index to be after the struct
 
                 let (aligned_members, struct_size) = pad_members(members);//pad each member correctly
 
@@ -45,7 +44,7 @@ impl StructDefinition {
                 scope_data.structs.add_struct(&struct_definition);
 
                 Some(ASTMetadata {
-                    remaining_slice: curr_queue_idx,
+                    remaining_slice,
                     resultant_tree: struct_definition
                 })
             },
