@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{data_type::{base_type::BaseType, data_type::DataType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, parse_data::ParseData};
 
 /**
  * stores all the enums in a current scope
@@ -15,15 +15,17 @@ pub struct EnumList {
 /**
  * if a new enum is found, scope_data is updated and the data type of the enum is returned
  */
-pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<DataType> {
+pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, previous_slice: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<DataType>> {
+
+    let mut curr_queue_idx = previous_slice.clone();
     
-    if tokens_queue.consume(curr_queue_idx, &scope_data)? != Token::KEYWORD(Keyword::ENUM) {
+    if tokens_queue.consume(&mut curr_queue_idx, &scope_data)? != Token::KEYWORD(Keyword::ENUM) {
         return None;//needs preceding "enum"
     }
 
-    let enum_name = if let Token::IDENTIFIER(x) = tokens_queue.consume(curr_queue_idx, &scope_data).unwrap() {x} else {todo!("found enum keyword, then non-identifier token. perhaps you tried to declare an anonymous enum inline?")};
+    let enum_name = if let Token::IDENTIFIER(x) = tokens_queue.consume(&mut curr_queue_idx, &scope_data).unwrap() {x} else {todo!("found enum keyword, then non-identifier token. perhaps you tried to declare an anonymous enum inline?")};
 
-    match tokens_queue.peek(curr_queue_idx, &scope_data).unwrap() {
+    match tokens_queue.peek(&curr_queue_idx, &scope_data).unwrap() {
         Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => {
             let close_squiggly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
             let mut inside_variants = TokenQueueSlice{index:curr_queue_idx.index+1, max_index: close_squiggly_idx};//+1 to skip the {
@@ -40,11 +42,17 @@ pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut 
             curr_queue_idx.index = remaining_slice.index;//update start index to be after the enum
             scope_data.enums.add_enum(enum_name, data_type.clone());
 
-            Some(data_type)
+            Some(ASTMetadata {
+                remaining_slice: curr_queue_idx,
+                resultant_tree: data_type
+            })
         }
         _ => {
             //enum usage, since there is no {variant_a, variant_b} part
-            Some(scope_data.enums.get_enum_data_type(&enum_name).unwrap().clone())
+            Some(ASTMetadata {
+                remaining_slice: curr_queue_idx,
+                resultant_tree: scope_data.enums.get_enum_data_type(&enum_name).unwrap().clone()
+            })
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructDefinition {
@@ -16,14 +16,17 @@ impl StructDefinition {
         self.size
     }
     
-    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<StructDefinition> {
-        if tokens_queue.consume(curr_queue_idx, &scope_data)? != Token::KEYWORD(Keyword::STRUCT) {
+    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<StructDefinition>> {
+
+        let mut curr_queue_idx = previous_slice.clone();
+
+        if tokens_queue.consume(&mut curr_queue_idx, &scope_data)? != Token::KEYWORD(Keyword::STRUCT) {
             return None;//needs preceding "struct"
         }
     
-        let struct_name = if let Token::IDENTIFIER(x) = tokens_queue.consume(curr_queue_idx, &scope_data).unwrap() {x} else {todo!("found struct keyword, then non-identifier token. perhaps you tried to declare an anonymous struct inline?")};
+        let struct_name = if let Token::IDENTIFIER(x) = tokens_queue.consume(&mut curr_queue_idx, &scope_data).unwrap() {x} else {todo!("found struct keyword, then non-identifier token. perhaps you tried to declare an anonymous struct inline?")};
 
-        match tokens_queue.peek(curr_queue_idx, &scope_data).unwrap() {
+        match tokens_queue.peek(&curr_queue_idx, &scope_data).unwrap() {
             Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => {
                 let close_squiggly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
                 let mut inside_variants = TokenQueueSlice{index:curr_queue_idx.index+1, max_index: close_squiggly_idx};//+1 to skip the {
@@ -41,10 +44,16 @@ impl StructDefinition {
                 let struct_definition = StructDefinition { name: Some(struct_name), ordered_members: Some(aligned_members), size: Some(struct_size) };
                 scope_data.structs.add_struct(&struct_definition);
 
-                Some(struct_definition)
+                Some(ASTMetadata {
+                    remaining_slice: curr_queue_idx,
+                    resultant_tree: struct_definition
+                })
             },
 
-            _ => Some(scope_data.structs.get_struct(&struct_name).unwrap().clone())//TODO this could declare a struct?
+            _ => Some(ASTMetadata { 
+                remaining_slice: curr_queue_idx,
+                resultant_tree: scope_data.structs.get_struct(&struct_name).unwrap().clone()//TODO this could declare a struct?
+            })
         }
     }
 }
@@ -55,7 +64,9 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
     }
 
     //consume the base type
-    let base_type = consume_base_type(tokens_queue, curr_queue_idx, scope_data).unwrap();
+    let ASTMetadata { remaining_slice, resultant_tree:base_type } = consume_base_type(tokens_queue, &curr_queue_idx, scope_data).unwrap();
+
+    curr_queue_idx.index = remaining_slice.index;//consume it and let the calling function know
 
     let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing()).unwrap();
 

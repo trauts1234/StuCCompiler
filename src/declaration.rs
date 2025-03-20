@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -78,12 +78,13 @@ impl InitialisedDeclaration {
      * consumes declarations/definitions of stack variables
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
-        let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
         let mut declarations = Vec::new();
         
         //consume int or unsigned int or enum etc.
-        let base_type = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data)?;
+        let ASTMetadata { remaining_slice, resultant_tree: base_type } = consume_base_type(tokens_queue, &previous_queue_idx, scope_data)?;
+
+        let mut curr_queue_idx = remaining_slice.clone();
 
         //find semicolon
         let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing())?;
@@ -237,18 +238,23 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
     })
 }
 
-pub fn consume_base_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<BaseType> {
+pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<BaseType>> {
+
+    let mut curr_queue_idx = previous_slice.clone();
 
     match tokens_queue.peek(&curr_queue_idx, &scope_data)? {
         Token::KEYWORD(Keyword::ENUM) => {
-            let enum_type = try_consume_enum_as_type(tokens_queue, curr_queue_idx, scope_data).unwrap();
+            let ASTMetadata { remaining_slice, resultant_tree } = try_consume_enum_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
-            Some(enum_type.underlying_type().clone())
+            Some(ASTMetadata { remaining_slice, resultant_tree: resultant_tree.underlying_type().clone() })
         }
         Token::KEYWORD(Keyword::STRUCT) => {
-            let struct_type = StructDefinition::try_consume_struct_as_type(tokens_queue, curr_queue_idx, scope_data).unwrap();
+            let ASTMetadata { remaining_slice, resultant_tree: struct_type } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
-            Some(BaseType::STRUCT(struct_type))
+            Some(ASTMetadata {
+                remaining_slice,
+                resultant_tree: BaseType::STRUCT(struct_type)
+            })
         }
         _ => {
             //fallback to default type system
@@ -258,13 +264,17 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQu
             loop {
                 if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx, &scope_data)? {
                     data_type_info.push(ts.clone());
-                    tokens_queue.consume(curr_queue_idx, &scope_data);
+                    tokens_queue.consume(&mut curr_queue_idx, &scope_data);
                 } else {
                     break;
                 }
             }
-            //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-            Some(DataType::new_from_type_list(&data_type_info, &Vec::new()).underlying_type().clone())
+
+            Some(ASTMetadata {
+                remaining_slice: curr_queue_idx,
+                //create data type out of it, but just get the base type as it can never be a pointer/array etc.
+                resultant_tree: DataType::new_from_type_list(&data_type_info, &Vec::new()).underlying_type().clone()
+            })
         }
     }
 }

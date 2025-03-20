@@ -45,11 +45,12 @@ impl FunctionDeclaration {
  *  int f(int x) {return 1;}
  */
 pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
-    let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
     let mut return_modifiers = Vec::new();
 
-    let return_base_type = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data)?;
+    let ASTMetadata { remaining_slice, resultant_tree:return_base_type } = consume_base_type(tokens_queue, previous_queue_idx, scope_data)?;
+
+    let mut curr_queue_idx = remaining_slice.clone();
 
     while Token::PUNCTUATOR(Punctuator::ASTERISK) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
         return_modifiers.push(DeclModifier::POINTER);
@@ -119,7 +120,8 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
         })
     }
 
-    let data_type_base = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
+    let ASTMetadata { remaining_slice, resultant_tree:data_type_base } = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
+    let curr_queue_idx = remaining_slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
     let ASTMetadata{
