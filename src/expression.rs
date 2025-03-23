@@ -1,6 +1,20 @@
-use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
-use std::fmt::Write;
+use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, data_type_visitor::GetDataTypeVisitor, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, reference_assembly_visitor::ReferenceVisitor, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use std::{cell::Ref, fmt::Write};
 use crate::asm_generation::{asm_line, asm_comment};
+
+//a test to see if a visitor pattern would be useful
+pub trait ExprVisitor {
+    type Output;
+
+    fn visit_number_literal(&mut self, number: &NumberLiteral) -> Self::Output;
+    fn visit_variable(&mut self, var: &MinimalDataVariable, asm_data: &AsmData) -> Self::Output;
+    fn visit_string_literal(&mut self, string: &StringLiteral) -> Self::Output;
+    fn visit_func_call(&mut self, func_call: &FunctionCall, asm_data: &AsmData) -> Self::Output;
+    fn visit_unary_prefix(&mut self, expr: &UnaryPrefixExpression, asm_data: &AsmData) -> Self::Output;
+    fn visit_binary_expression(&mut self, expr: &BinaryExpression, asm_data: &AsmData) -> Self::Output;
+    fn visit_struct_member_access(&mut self, expr: &StructMemberAccess, asm_data: &AsmData) -> Self::Output;
+
+}
 
 //none of these must reserve any stack space
 #[derive(Clone)]
@@ -21,11 +35,11 @@ impl Expression {
      * does not work with structs, as they are not scalar types
      */
     pub fn put_value_in_accumulator(&self, asm_data: &AsmData) -> String {
-        assert!(!self.get_data_type(asm_data).is_bare_struct());
+        assert!(!self.accept(&mut GetDataTypeVisitor, asm_data).is_bare_struct());
         match self {
             Expression::NUMBERLITERAL(number_literal) => number_literal.put_number_in_accumulator(),
             Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.generate_assembly(asm_data),
-            Expression::STRINGLITERAL(string_literal) => string_literal.generate_assembly(),
+            Expression::STRINGLITERAL(string_literal) => string_literal.generate_assembly(asm_data),
             Expression::FUNCCALL(function_call) => function_call.generate_assembly(asm_data),
             Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.generate_assembly(asm_data),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.generate_assembly(asm_data),
@@ -35,10 +49,11 @@ impl Expression {
 
     /**
      * puts the result of the expression on the stack
+     * puts the address of the start of the struct in RAX
      * only works on expressions that return a struct
      */
-    pub fn put_struct_on_stack(&self, asm_data: &AsmData) -> String {
-        assert!(self.get_data_type(asm_data).is_bare_struct());
+    pub fn clone_struct_to_stack(&self, asm_data: &AsmData) -> String {
+        assert!(self.accept(&mut GetDataTypeVisitor, asm_data).is_bare_struct());
         match self {
             Expression::NUMBERLITERAL(_) => panic!("tried to put struct on stack, but it was run on a number literal"),
             Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.put_struct_on_stack(asm_data),
@@ -50,27 +65,15 @@ impl Expression {
         }
     }
 
-    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+    pub fn accept<V: ExprVisitor>(&self, visitor: &mut V, asm_data: &AsmData) -> V::Output {
         match self {
-            Expression::NUMBERLITERAL(number_literal) => number_literal.get_data_type(),
-            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.get_data_type(asm_data),
-            Expression::STRINGLITERAL(string_literal) => string_literal.get_data_type(),
-            Expression::FUNCCALL(function_call) => function_call.get_data_type(),
-            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.get_data_type(asm_data),
-            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.get_data_type(asm_data),
-            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.get_data_type(asm_data),
-        }
-    }
-
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
-        match self {
-            Expression::NUMBERLITERAL(_) => panic!("tried to find memory address of a constant number"),
-            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.put_addr_in_acc(asm_data),
-            Expression::STRINGLITERAL(string_literal) => string_literal.put_addr_in_acc(),
-            Expression::FUNCCALL(function_call) => function_call.put_addr_in_acc(),
-            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.put_addr_in_acc(asm_data),
-            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.put_addr_in_acc(),
-            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.put_addr_in_acc(asm_data),
+            Expression::NUMBERLITERAL(number_literal) => visitor.visit_number_literal(number_literal),
+            Expression::VARIABLE(minimal_data_variable) => visitor.visit_variable(minimal_data_variable, asm_data),
+            Expression::STRINGLITERAL(string_literal) => visitor.visit_string_literal(string_literal),
+            Expression::FUNCCALL(function_call) => visitor.visit_func_call(function_call, asm_data),
+            Expression::UNARYPREFIX(unary_prefix_expression) => visitor.visit_unary_prefix(unary_prefix_expression, asm_data),
+            Expression::BINARYEXPRESSION(binary_expression) => visitor.visit_binary_expression(binary_expression, asm_data),
+            Expression::STRUCTMEMBERACCESS(struct_member_access) => visitor.visit_struct_member_access(struct_member_access, asm_data),
         }
     }
 }
@@ -225,12 +228,12 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
 
     //put lhs on stack
     asm_line!(result, "{}", lhs.put_value_in_accumulator(asm_data));
-    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.get_data_type(asm_data), &promoted_type));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));
     asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
 
     //put rhs in secondary
     asm_line!(result, "{}", rhs.put_value_in_accumulator(asm_data));
-    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(asm_data), &promoted_type));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));
     asm_line!(result, "{}", mov_reg(&promoted_size, &LogicalRegister::SECONDARY, &LogicalRegister::ACC));//mov acc to secondary
 
     //pop lhs to ACC
@@ -243,17 +246,21 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
 pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, promoted_type: &DataType, promoted_size: &MemoryLayout, asm_data: &AsmData) -> String {
     let mut result = String::new();
 
-    if lhs.get_data_type(asm_data).is_array() && rhs.get_data_type(asm_data).is_array() {
+    if lhs.accept(&mut GetDataTypeVisitor, asm_data).is_array() && rhs.accept(&mut GetDataTypeVisitor, asm_data).is_array() {
         //initialising an array? char[12] x = "hello world";//for example
-        asm_line!(result, "{}", lhs.put_addr_in_acc(asm_data));//get dest address
+        let mut lhs_visitor = ReferenceVisitor::new();
+        let mut rhs_visitor = ReferenceVisitor::new();
+        lhs.accept(&mut lhs_visitor, asm_data);
+        rhs.accept(&mut rhs_visitor, asm_data);
+        asm_line!(result, "{}", lhs_visitor.get_assembly());//get dest address
         asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
-        asm_line!(result, "{}", rhs.put_addr_in_acc(asm_data));//get src address
+        asm_line!(result, "{}", lhs_visitor.get_assembly());//get src address
         asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
 
         asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_SI));//pop source to RSI
         asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_DI));//pop destination to RDI
 
-        asm_line!(result, "mov rcx, {}", rhs.get_data_type(asm_data).memory_size().size_bytes());//put number of bytes to copy in RCX
+        asm_line!(result, "mov rcx, {}", rhs.accept(&mut GetDataTypeVisitor, asm_data).memory_size().size_bytes());//put number of bytes to copy in RCX
 
         asm_line!(result, "cld");//reset copy direction flag
         asm_line!(result, "rep movsb");//copy the data
@@ -261,18 +268,20 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, prom
         return result;//all done here
     }
 
-    assert!(!lhs.get_data_type(asm_data).is_array());
-    assert!(lhs.get_data_type(asm_data).memory_size().size_bits() <= 64);
+    assert!(!lhs.accept(&mut GetDataTypeVisitor, asm_data).is_array());
+    assert!(lhs.accept(&mut GetDataTypeVisitor, asm_data).memory_size().size_bits() <= 64);
     //maybe more special cases for pointer assignment etc
 
     //put address of lvalue on stack
-    asm_line!(result, "{}", lhs.put_addr_in_acc(asm_data));
+    let mut visitor = ReferenceVisitor::new();
+    lhs.accept(&mut visitor, asm_data);
+    asm_line!(result, "{}", visitor.get_assembly());
     asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
     
     //put the value to assign in acc
     asm_line!(result, "{}", rhs.put_value_in_accumulator(asm_data));
     //cast to the same type as lhs
-    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(asm_data), &promoted_type));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));
 
     asm_comment!(result, "assigning to a stack variable");
 

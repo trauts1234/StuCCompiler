@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_comment, asm_line}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, expression::Expression, reference_assembly_visitor::ReferenceVisitor};
 use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -8,21 +8,17 @@ pub struct StringLiteral {
 }
 
 impl StringLiteral {
-    pub fn generate_assembly(&self) -> String {
-        self.put_addr_in_acc()//decays to char*
+    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+
+        let mut visitor = ReferenceVisitor::new();
+
+        Expression::STRINGLITERAL(self.clone()).accept(&mut visitor, asm_data);
+
+        visitor.get_assembly()//decays to char*
     }
 
-    pub fn get_data_type(&self) -> DataType {
-        //TODO maybe make it const char?
-        DataType::new_from_base_type(&BaseType::I8, &vec![DeclModifier::ARRAY(self.text.len())])
-    }
-    
-    pub fn put_addr_in_acc(&self) -> String {
-        let mut result = String::new();
-        asm_comment!(result, "getting address of string");
-        asm_line!(result, "lea rax, [rel {}]", self.get_label());
-
-        result
+    pub fn get_num_chars(&self) -> usize {
+        self.text.len()
     }
 }
 

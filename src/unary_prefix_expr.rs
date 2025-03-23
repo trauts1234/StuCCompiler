@@ -1,5 +1,5 @@
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, expression::Expression, lexer::punctuator::Punctuator};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, data_type_visitor::GetDataTypeVisitor, expression::Expression, lexer::punctuator::Punctuator, reference_assembly_visitor::ReferenceVisitor};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -17,7 +17,9 @@ impl UnaryPrefixExpression {
             Punctuator::AMPERSAND => {
                 asm_comment!(result, "getting address of something");
                 //put address of the right hand side in acc
-                asm_line!(result, "{}", self.operand.put_addr_in_acc(asm_data));
+                let mut visitor = ReferenceVisitor::new();
+                self.operand.accept(&mut visitor, asm_data);
+                asm_line!(result, "{}", visitor.get_assembly());
             },
             Punctuator::ASTERISK => {
                 asm_comment!(result, "dereferencing pointer");
@@ -35,17 +37,19 @@ impl UnaryPrefixExpression {
                 let promoted_type = self.get_data_type(asm_data);
 
                 asm_line!(result, "{}", self.operand.put_value_in_accumulator(asm_data));
-                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.get_data_type(asm_data), &promoted_type));//cast to the correct type
+                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to the correct type
 
                 asm_line!(result, "neg {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
             },
             Punctuator::PLUSPLUS => {
 
                 let promoted_type = self.get_data_type(asm_data);
-                let rhs_type = self.operand.get_data_type(asm_data);
+                let rhs_type = self.operand.accept(&mut GetDataTypeVisitor, asm_data);
 
                 //push &self.operand
-                asm_line!(result, "{}", self.operand.put_addr_in_acc(asm_data));
+                let mut visitor = ReferenceVisitor::new();
+                self.operand.accept(&mut visitor, asm_data);
+                asm_line!(result, "{}", visitor.get_assembly());
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
 
                 //put self.operand in acc
@@ -62,7 +66,7 @@ impl UnaryPrefixExpression {
                 //save the new value of self.operand
                 asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_reg_name(&PTR_SIZE), LogicalRegister::ACC.generate_reg_name(&rhs_type.memory_size()));
 
-                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.get_data_type(asm_data), &promoted_type));//cast to the correct type
+                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to the correct type
             }
             _ => panic!("operator to unary prefix is invalid")
         }
@@ -71,7 +75,7 @@ impl UnaryPrefixExpression {
     }
 
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        let operand_type = self.operand.get_data_type(asm_data);
+        let operand_type = self.operand.accept(&mut GetDataTypeVisitor, asm_data);
         match self.operator {
             Punctuator::AMPERSAND => {
                 let mut pointer_modifiers = operand_type.get_modifiers().to_vec();
@@ -87,19 +91,18 @@ impl UnaryPrefixExpression {
             _ => panic!("tried getting data type of a not-implemented prefix")
         }
     }
-
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
-        let mut result = String::new();
-        //&*x == x
-        asm_comment!(result, "getting address of a dereference");
-        asm_line!(result, "{}", &self.operand.put_value_in_accumulator(asm_data));
-
-        result
-    }
 }
 
 impl UnaryPrefixExpression {
     pub fn new(operator: Punctuator, operand: Expression) -> UnaryPrefixExpression {
         UnaryPrefixExpression { operand: Box::new(operand), operator }
+    }
+
+    pub fn get_operator(&self) -> &Punctuator {
+        &self.operator
+    }
+
+    pub fn get_operand(&self) -> &Expression {
+        &self.operand
     }
 }

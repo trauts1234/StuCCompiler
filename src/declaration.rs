@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, data_type_visitor::GetDataTypeVisitor, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, reference_assembly_visitor::ReferenceVisitor, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -18,13 +18,17 @@ impl MinimalDataVariable {
     pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
-        if self.get_data_type(asm_data).is_array() {
+        let my_type = Expression::VARIABLE(self.clone()).accept(&mut GetDataTypeVisitor, asm_data);
+
+        if my_type.is_array() {
             //getting an array, decays to a pointer
             asm_comment!(result, "decaying array {} to pointer", self.name);
-            asm_line!(result, "{}", self.put_addr_in_acc(asm_data));
+            let mut visitor = ReferenceVisitor::new();
+            Expression::VARIABLE(self.clone()).accept(&mut visitor, asm_data);
+            asm_line!(result, "{}", visitor.get_assembly());
 
         } else {
-            let reg_size = &self.get_data_type(asm_data).memory_size();//decide which register size is appropriate for this variable
+            let reg_size = &my_type.memory_size();//decide which register size is appropriate for this variable
             asm_comment!(result, "reading variable: {} to register {}", self.name, LogicalRegister::ACC.generate_reg_name(reg_size));
 
             let result_reg = LogicalRegister::ACC.generate_reg_name(reg_size);
@@ -50,27 +54,6 @@ impl MinimalDataVariable {
                 todo!(),
             VariableAddress::STACKOFFSET(stack_offset) => 
                 todo!()
-        }
-
-        result
-    }
-
-    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        asm_data.get_variable(&self.name).data_type.clone()
-    }
-
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
-        let mut result = String::new();
-
-        asm_comment!(result, "getting address of variable: {}", self.name);
-
-        let ptr_reg = LogicalRegister::ACC.generate_reg_name(&asm_generation::PTR_SIZE);
-        
-        match &asm_data.get_variable(&self.name).location {
-            VariableAddress::CONSTANTADDRESS => 
-                asm_line!(result, "mov {}, {}", ptr_reg, self.name),
-            VariableAddress::STACKOFFSET(stack_offset) => 
-                asm_line!(result, "lea {}, [rbp-{}]", ptr_reg, stack_offset.size_bytes())
         }
 
         result

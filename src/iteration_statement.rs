@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type_visitor::GetDataTypeVisitor, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -109,8 +109,8 @@ impl IterationStatement {
 
                 let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
                 
-                let condition_size = &condition.get_data_type(asm_data).memory_size();
-                assert!(condition.get_data_type(asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
+                let condition_size = &condition.accept(&mut GetDataTypeVisitor, asm_data).memory_size();
+                assert!(condition.accept(&mut GetDataTypeVisitor, asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
                 let generic_label = label_gen.generate_label();
 
@@ -137,7 +137,7 @@ impl IterationStatement {
 
             Self::WHILE { condition, body } => {
 
-                let condition_size = &condition.get_data_type(asm_data).memory_size();
+                let condition_size = &condition.accept(&mut GetDataTypeVisitor, asm_data).memory_size();
 
                 let generic_label = label_gen.generate_label();
 
@@ -145,7 +145,7 @@ impl IterationStatement {
 
                 asm_line!(result, "{}", condition.put_value_in_accumulator(asm_data));//generate the condition
 
-                assert!(condition.get_data_type(asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
+                assert!(condition.accept(&mut GetDataTypeVisitor, asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop

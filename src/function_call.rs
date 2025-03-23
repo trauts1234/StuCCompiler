@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, Expression}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type_visitor::GetDataTypeVisitor, expression::{self, Expression}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -25,7 +25,7 @@ impl FunctionCall {
             }
 
             asm_line!(result, "{}", arg.put_value_in_accumulator(asm_data));//calculate the arg
-            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&arg.get_data_type(asm_data), param_type.get_type()));//cast to requested type
+            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&arg.accept(&mut GetDataTypeVisitor, asm_data), param_type.get_type()));//cast to requested type
 
             asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//implicitly extend to 8 bytes, without conversion/casting
         }
@@ -57,12 +57,8 @@ impl FunctionCall {
         result
     }
 
-    pub fn get_data_type(&self) -> DataType {
-        self.decl.return_type.clone()
-    }
-
-    pub fn put_addr_in_acc(&self) -> String {
-        todo!("tried to get memory address of a function. function pointers not implemented");
+    pub fn get_callee_decl(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 }
 

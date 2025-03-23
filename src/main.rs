@@ -33,6 +33,8 @@ mod global_var_declaration;
 mod struct_definition;
 mod parse_data;
 mod asm_gen_data;
+mod data_type_visitor;
+mod reference_assembly_visitor;
 
 struct CompilationOptions {
     c_file: String,

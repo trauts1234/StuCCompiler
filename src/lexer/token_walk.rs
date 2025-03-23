@@ -99,7 +99,8 @@ impl TokenQueue {
     }
 
     pub fn is_slice_inbounds(&self, slice: &TokenQueueSlice) -> bool {
-        slice.index >= 0 && slice.max_index <= self.tokens.len()
+        assert!(slice.index <= slice.max_index);
+        slice.index <= self.tokens.len() && slice.max_index <= self.tokens.len()
     }
 
     /**

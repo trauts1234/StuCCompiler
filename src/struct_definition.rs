@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, data_type_visitor::GetDataTypeVisitor, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::{collections::HashMap, mem};
 use unwrap_let::unwrap_let;
 
@@ -23,7 +23,7 @@ impl StructMemberAccess {
         todo!("does this function put stuff on the stack? should it be allowed to?")
     }
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        let struct_tree_type = self.struct_tree.get_data_type(asm_data);//get type of the tree that returns the struct
+        let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor, asm_data);//get type of the tree that returns the struct
 
         assert!(struct_tree_type.is_bare_struct());//must be a struct
 

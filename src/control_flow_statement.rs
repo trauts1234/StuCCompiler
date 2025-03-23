@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type_visitor::GetDataTypeVisitor, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -44,7 +44,7 @@ impl ControlFlowChange {
                 if let Some(expr) = expression {
                     asm_line!(result, "{}", expr.put_value_in_accumulator(asm_data));
 
-                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.get_data_type(asm_data), asm_data.get_function_return_type()));
+                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.accept(&mut GetDataTypeVisitor, asm_data), asm_data.get_function_return_type()));
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return
