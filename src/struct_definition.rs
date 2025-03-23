@@ -1,4 +1,6 @@
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use std::{collections::HashMap, mem};
+use unwrap_let::unwrap_let;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructDefinition {
@@ -9,18 +11,31 @@ pub struct StructDefinition {
 
 #[derive(Clone)]
 pub struct StructMemberAccess {
-    struct_name: String,
+    struct_tree: Box<Expression>,//need a tree or something to represent what gives me back the struct
     member_name: String,
 }
 
 impl StructMemberAccess {
+    pub fn new(struct_tree: Expression, member_name: String) -> StructMemberAccess {
+        StructMemberAccess { struct_tree: Box::new(struct_tree), member_name }
+    }
     pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
-        todo!()
+        todo!("does this function put stuff on the stack? should it be allowed to?")
     }
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        todo!()
+        let struct_tree_type = self.struct_tree.get_data_type(asm_data);//get type of the tree that returns the struct
+
+        assert!(struct_tree_type.is_bare_struct());//must be a struct
+
+        unwrap_let!(BaseType::STRUCT(struct_type) = struct_tree_type.underlying_type());//get struct data
+
+        let (member_decl, _) = struct_type.get_member_data(&self.member_name);//get the type of the member
+
+        member_decl.get_type().clone()
     }
     pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
+        //put tree's address in acc
+        //add the member offset
         todo!()
     }
 }
@@ -32,6 +47,14 @@ impl StructDefinition {
 
     pub fn calculate_size(&self) -> Option<MemoryLayout> {
         self.size
+    }
+
+    pub fn get_member_data(&self, member_name: &str) -> (Declaration, MemoryLayout) {
+        self.ordered_members
+        .as_ref()
+        .and_then(|members| members.iter().find(|(decl, _)| decl.name == member_name))//find correctly named member
+        .cloned()
+        .unwrap()
     }
     
     pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<StructDefinition>> {
@@ -140,14 +163,25 @@ fn calculate_alignment(data_type: &DataType) -> MemoryLayout {
 
 #[derive(Clone, Debug)]
 pub struct StructList {
-    struct_decls: Vec<StructDefinition>
+    struct_decls: HashMap<String, StructDefinition>//note: definition also contains a copy of the struct's name
 }
 impl StructList {
     pub fn new() -> StructList {
-        StructList { struct_decls: Vec::new() }
+        StructList { struct_decls: HashMap::new() }
+    }
+    /**
+     * gets my structs and appends the structs from other, overwriting any duplicates
+     */
+    pub fn merge(&self, other: &StructList) -> StructList {
+        StructList { 
+            //merge my and other structs, overwriting mine if there are duplicates
+            struct_decls: self.struct_decls.clone().into_iter().chain(other.struct_decls.clone().into_iter()).collect()
+        }
     }
     pub fn add_struct(&mut self, new_definition: &StructDefinition) {
-        if let Some(definition) = self.struct_decls.iter_mut().find(|x| x.name == new_definition.name){
+        let new_struct_name = new_definition.get_name().as_ref().unwrap();
+
+        if let Some(definition) = self.struct_decls.get_mut(new_struct_name) {
             match (&definition.ordered_members, &new_definition.ordered_members) {
                 (Some(_), Some(_)) => panic!("redefinition of struct {}", definition.name.clone().unwrap()),
 
@@ -156,11 +190,14 @@ impl StructList {
                 _ => {}//new definition provides no new data
             }
         } else {
-            self.struct_decls.push(new_definition.clone());//add new struct
+            self.struct_decls.insert(new_struct_name.to_string(), new_definition.clone());//add new struct
         }
     }
 
+    /**
+     * note: gets struct by name of struct, not by name of any variables
+     */
     pub fn get_struct(&self, name: &str) -> Option<&StructDefinition> {
-        self.struct_decls.iter().find(|x| x.name == Some(name.to_string()))
+        self.struct_decls.get(name)
     }
 }

@@ -30,7 +30,7 @@ impl BinaryExpression {
             Punctuator::PLUS => {
                 asm_comment!(result, "adding {}-bit numbers", promoted_size.size_bits());
 
-                asm_line!(result, "{}", self.lhs.generate_assembly(asm_data));//put lhs in acc
+                asm_line!(result, "{}", self.lhs.put_value_in_accumulator(asm_data));//put lhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.lhs.get_data_type(asm_data), &promoted_type));//cast to the correct type
 
                 if self.rhs.get_data_type(asm_data).decay().is_pointer() {//adding array or pointer to int
@@ -52,7 +52,7 @@ impl BinaryExpression {
                 //save lhs to stack, as preprocessing for it is done
                 asm_line!(result, "{}", asm_boilerplate::push_reg(promoted_size, &LogicalRegister::ACC));
 
-                asm_line!(result, "{}", self.rhs.generate_assembly(asm_data));//put rhs in acc
+                asm_line!(result, "{}", self.rhs.put_value_in_accumulator(asm_data));//put rhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.rhs.get_data_type(asm_data), &promoted_type));//cast to correct type
 
                 if self.lhs.get_data_type(asm_data).decay().is_pointer() {

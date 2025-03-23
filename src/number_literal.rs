@@ -14,7 +14,10 @@ pub struct NumberLiteral {
 }
 
 impl NumberLiteral {
-    pub fn generate_assembly(&self) -> String {
+    /**
+     * puts the number in the AX register
+     */
+    pub fn put_number_in_accumulator(&self) -> String {
         let mut result = String::new();
 
         let reg_size = &self.get_data_type().memory_size();//decide how much storage is needed to temporarily store the constant
@@ -27,10 +30,6 @@ impl NumberLiteral {
 
     pub fn get_data_type(&self) -> DataType {
         DataType::new_from_base_type(&self.data_type, &Vec::new())
-    }
-    
-    pub fn put_addr_in_acc(&self) -> String {
-        panic!("tried to find memory address of a constant number")
     }
 }
 

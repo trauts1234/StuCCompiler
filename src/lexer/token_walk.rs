@@ -98,6 +98,10 @@ impl TokenQueue {
         &self.tokens[slice.index..max_idx]
     }
 
+    pub fn is_slice_inbounds(&self, slice: &TokenQueueSlice) -> bool {
+        slice.index >= 0 && slice.max_index <= self.tokens.len()
+    }
+
     /**
      * tries to find where a closure is first true within the slice
      * returns a slice from the matched token to the end of the input slice

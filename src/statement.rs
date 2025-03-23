@@ -51,7 +51,7 @@ impl Statement {
                 asm_line!(result, "{}", command.generate_assembly(asm_data));
             }
             Self::EXPRESSION(expr) => {
-                asm_line!(result, "{}", expr.generate_assembly(asm_data));
+                asm_line!(result, "{}", expr.put_value_in_accumulator(asm_data));
             }
             Self::SELECTION(selection) => {
                 asm_line!(result, "{}", selection.generate_assembly(label_gen, asm_data));

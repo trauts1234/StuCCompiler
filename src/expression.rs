@@ -16,15 +16,37 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+    /**
+     * calculates the value of the expression and puts the scalar result in AX. does not leave anything on the stack
+     * does not work with structs, as they are not scalar types
+     */
+    pub fn put_value_in_accumulator(&self, asm_data: &AsmData) -> String {
+        assert!(!self.get_data_type(asm_data).is_bare_struct());
         match self {
-            Expression::NUMBERLITERAL(number_literal) => number_literal.generate_assembly(),
+            Expression::NUMBERLITERAL(number_literal) => number_literal.put_number_in_accumulator(),
             Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.generate_assembly(asm_data),
             Expression::STRINGLITERAL(string_literal) => string_literal.generate_assembly(),
             Expression::FUNCCALL(function_call) => function_call.generate_assembly(asm_data),
             Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.generate_assembly(asm_data),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.generate_assembly(asm_data),
             Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.generate_assembly(asm_data),
+        }
+    }
+
+    /**
+     * puts the result of the expression on the stack
+     * only works on expressions that return a struct
+     */
+    pub fn put_struct_on_stack(&self, asm_data: &AsmData) -> String {
+        assert!(self.get_data_type(asm_data).is_bare_struct());
+        match self {
+            Expression::NUMBERLITERAL(_) => panic!("tried to put struct on stack, but it was run on a number literal"),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.put_struct_on_stack(asm_data),
+            Expression::STRUCTMEMBERACCESS(struct_member_access) => todo!(),//struct members can be structs
+            Expression::STRINGLITERAL(_) => panic!("tried to put struct on stack, but it was run on a string literal"),
+            Expression::FUNCCALL(function_call) => todo!(),
+            Expression::UNARYPREFIX(unary_prefix_expression) => todo!(),
+            Expression::BINARYEXPRESSION(binary_expression) => todo!(),
         }
     }
 
@@ -42,7 +64,7 @@ impl Expression {
 
     pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
         match self {
-            Expression::NUMBERLITERAL(number_literal) => number_literal.put_addr_in_acc(),
+            Expression::NUMBERLITERAL(_) => panic!("tried to find memory address of a constant number"),
             Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.put_addr_in_acc(asm_data),
             Expression::STRINGLITERAL(string_literal) => string_literal.put_addr_in_acc(),
             Expression::FUNCCALL(function_call) => function_call.put_addr_in_acc(),
@@ -131,7 +153,7 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                             return Some(Expression::FUNCCALL(func));
                         }
 
-                        if let Some(access) = try_parse_member_access(tokens_queue, &curr_queue_idx, scope_data) {
+                        if let Some(access) = try_parse_member_access(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
                             return Some(Expression::STRUCTMEMBERACCESS(access));
                         }
                     }
@@ -202,12 +224,12 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     let promoted_size = promoted_type.memory_size();
 
     //put lhs on stack
-    asm_line!(result, "{}", lhs.generate_assembly(asm_data));
+    asm_line!(result, "{}", lhs.put_value_in_accumulator(asm_data));
     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.get_data_type(asm_data), &promoted_type));
     asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
 
     //put rhs in secondary
-    asm_line!(result, "{}", rhs.generate_assembly(asm_data));
+    asm_line!(result, "{}", rhs.put_value_in_accumulator(asm_data));
     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(asm_data), &promoted_type));
     asm_line!(result, "{}", mov_reg(&promoted_size, &LogicalRegister::SECONDARY, &LogicalRegister::ACC));//mov acc to secondary
 
@@ -248,7 +270,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, prom
     asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
     
     //put the value to assign in acc
-    asm_line!(result, "{}", rhs.generate_assembly(asm_data));
+    asm_line!(result, "{}", rhs.put_value_in_accumulator(asm_data));
     //cast to the same type as lhs
     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.get_data_type(asm_data), &promoted_type));
 
@@ -329,6 +351,27 @@ fn try_parse_array_index(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueS
     None
 }
 
-fn try_parse_member_access(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, scope_data: &ParseData) -> Option<StructMemberAccess> {
-    None
+fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<StructMemberAccess> {
+
+    let mut curr_queue_idx = expr_slice.clone();
+
+    assert!(tokens_queue.is_slice_inbounds(&curr_queue_idx));//ensure that the end of the slice is not infinite, so that I can decrement it to consume from the back
+    
+    let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
+    curr_queue_idx.max_index -= 1;
+    let penultimate_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
+
+    if penultimate_token != Token::PUNCTUATOR(Punctuator::FULLSTOP) {
+        return None;//no fullstop to represent member access
+    }
+
+    if let Token::IDENTIFIER(member_name) = last_token {//TODO what if a member name is the same as an enum variant
+        //last token is a struct's member name
+        //the first part must return a struct
+        let struct_tree = try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
+
+        return Some(StructMemberAccess::new(struct_tree, member_name));
+    }
+    
+    None//failed to find correct identifiers
 }

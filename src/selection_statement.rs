@@ -76,7 +76,7 @@ impl SelectionStatement {
 
                 let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};
 
-                asm_line!(result, "{}", condition.generate_assembly(asm_data));//generate the condition to acc
+                asm_line!(result, "{}", condition.put_value_in_accumulator(asm_data));//generate the condition to acc
                 
                 let condition_size = &condition.get_data_type(asm_data).memory_size();
 

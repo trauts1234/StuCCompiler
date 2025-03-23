@@ -114,6 +114,9 @@ impl DataType {
 
         false
     }
+    pub fn is_bare_struct(&self) -> bool {
+        self.modifiers.len() == 0 && self.base_type.is_struct()
+    }
 
     /**
      * tries to decay myself as an array to pointer, or return myself if I can't be decayed

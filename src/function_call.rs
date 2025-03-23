@@ -24,7 +24,7 @@ impl FunctionCall {
                 assert!(param_type.get_type().underlying_type().is_va_arg());//more args than params, so must be varadic
             }
 
-            asm_line!(result, "{}", arg.generate_assembly(asm_data));//calculate the arg
+            asm_line!(result, "{}", arg.put_value_in_accumulator(asm_data));//calculate the arg
             asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&arg.get_data_type(asm_data), param_type.get_type()));//cast to requested type
 
             asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//implicitly extend to 8 bytes, without conversion/casting

@@ -42,7 +42,7 @@ impl ControlFlowChange {
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    asm_line!(result, "{}", expr.generate_assembly(asm_data));
+                    asm_line!(result, "{}", expr.put_value_in_accumulator(asm_data));
 
                     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.get_data_type(asm_data), asm_data.get_function_return_type()));
                 }

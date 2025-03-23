@@ -60,6 +60,13 @@ impl BaseType {
         !self.is_unsigned()
     }
 
+    pub fn is_struct(&self) -> bool {
+        match self {
+            BaseType::STRUCT(_) => true,
+            _ => false
+        }
+    }
+
     pub fn memory_size(&self) -> MemoryLayout {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),

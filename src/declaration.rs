@@ -40,6 +40,21 @@ impl MinimalDataVariable {
         result
     }
 
+    pub fn put_struct_on_stack(&self, asm_data: &AsmData) -> String {
+        let mut result = String::new();
+
+        asm_comment!(result, "putting struct on stack: {}", self.name);
+
+        match &asm_data.get_variable(&self.name).location {
+            VariableAddress::CONSTANTADDRESS => 
+                todo!(),
+            VariableAddress::STACKOFFSET(stack_offset) => 
+                todo!()
+        }
+
+        result
+    }
+
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         asm_data.get_variable(&self.name).data_type.clone()
     }
@@ -50,12 +65,13 @@ impl MinimalDataVariable {
         asm_comment!(result, "getting address of variable: {}", self.name);
 
         let ptr_reg = LogicalRegister::ACC.generate_reg_name(&asm_generation::PTR_SIZE);
-            match &asm_data.get_variable(&self.name).location {
-                VariableAddress::CONSTANTADDRESS => 
-                    asm_line!(result, "mov {}, {}", ptr_reg, self.name),
-                VariableAddress::STACKOFFSET(stack_offset) => 
-                    asm_line!(result, "lea {}, [rbp-{}]", ptr_reg, stack_offset.size_bytes())
-            }
+        
+        match &asm_data.get_variable(&self.name).location {
+            VariableAddress::CONSTANTADDRESS => 
+                asm_line!(result, "mov {}, {}", ptr_reg, self.name),
+            VariableAddress::STACKOFFSET(stack_offset) => 
+                asm_line!(result, "lea {}, [rbp-{}]", ptr_reg, stack_offset.size_bytes())
+        }
 
         result
     }
@@ -112,7 +128,7 @@ impl InitialisedDeclaration {
         let mut result = String::new();
 
         if let Some(init) = &self.init_code {
-            asm_line!(result, "{}", init.generate_assembly(asm_data));//init is an expression that assigns to the variable, so no more work for me
+            asm_line!(result, "{}", init.put_value_in_accumulator(asm_data));//init is an expression that assigns to the variable, so no more work for me
         }
 
         result

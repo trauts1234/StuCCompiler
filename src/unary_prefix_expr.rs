@@ -22,7 +22,7 @@ impl UnaryPrefixExpression {
             Punctuator::ASTERISK => {
                 asm_comment!(result, "dereferencing pointer");
                 // put the address pointed to in rax
-                asm_line!(result, "{}", self.operand.generate_assembly(asm_data));
+                asm_line!(result, "{}", self.operand.put_value_in_accumulator(asm_data));
                 if self.get_data_type(asm_data).is_array() {
                     //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
                 } else {
@@ -34,7 +34,7 @@ impl UnaryPrefixExpression {
 
                 let promoted_type = self.get_data_type(asm_data);
 
-                asm_line!(result, "{}", self.operand.generate_assembly(asm_data));
+                asm_line!(result, "{}", self.operand.put_value_in_accumulator(asm_data));
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.get_data_type(asm_data), &promoted_type));//cast to the correct type
 
                 asm_line!(result, "neg {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
@@ -49,7 +49,7 @@ impl UnaryPrefixExpression {
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
 
                 //put self.operand in acc
-                asm_line!(result, "{}", self.operand.generate_assembly(asm_data));
+                asm_line!(result, "{}", self.operand.put_value_in_accumulator(asm_data));
 
                 let rhs_reg = LogicalRegister::ACC.generate_reg_name(&rhs_type.memory_size());
 
@@ -92,7 +92,7 @@ impl UnaryPrefixExpression {
         let mut result = String::new();
         //&*x == x
         asm_comment!(result, "getting address of a dereference");
-        asm_line!(result, "{}", &self.operand.generate_assembly(asm_data));
+        asm_line!(result, "{}", &self.operand.put_value_in_accumulator(asm_data));
 
         result
     }
