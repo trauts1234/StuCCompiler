@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, data_type_visitor::GetDataTypeVisitor, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, reference_assembly_visitor::ReferenceVisitor, struct_definition::StructDefinition};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, data_type_visitor::GetDataTypeVisitor, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, reference_assembly_visitor::ReferenceVisitor, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -23,9 +23,8 @@ impl MinimalDataVariable {
         if my_type.is_array() {
             //getting an array, decays to a pointer
             asm_comment!(result, "decaying array {} to pointer", self.name);
-            let mut visitor = ReferenceVisitor::new();
-            Expression::VARIABLE(self.clone()).accept(&mut visitor, asm_data);
-            asm_line!(result, "{}", visitor.get_assembly());
+            let addr_asm = Expression::VARIABLE(self.clone()).accept(&mut ReferenceVisitor, asm_data);
+            asm_line!(result, "{}", addr_asm);
 
         } else {
             let reg_size = &my_type.memory_size();//decide which register size is appropriate for this variable

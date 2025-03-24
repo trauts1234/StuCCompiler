@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, expression::Expression, reference_assembly_visitor::ReferenceVisitor};
-use std::fmt::Write;
+use crate::{asm_gen_data::AsmData, compilation_state::label_generator::LabelGenerator, expression::Expression, reference_assembly_visitor::ReferenceVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {
@@ -9,12 +8,8 @@ pub struct StringLiteral {
 
 impl StringLiteral {
     pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
-
-        let mut visitor = ReferenceVisitor::new();
-
-        Expression::STRINGLITERAL(self.clone()).accept(&mut visitor, asm_data);
-
-        visitor.get_assembly()//decays to char*
+        Expression::STRINGLITERAL(self.clone())
+        .accept(&mut ReferenceVisitor, asm_data)//decays to char*
     }
 
     pub fn get_num_chars(&self) -> usize {

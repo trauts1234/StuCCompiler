@@ -1,5 +1,5 @@
 use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, data_type_visitor::GetDataTypeVisitor, declaration::MinimalDataVariable, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, reference_assembly_visitor::ReferenceVisitor, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
-use std::{cell::Ref, fmt::Write};
+use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
 //a test to see if a visitor pattern would be useful
@@ -248,13 +248,11 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, prom
 
     if lhs.accept(&mut GetDataTypeVisitor, asm_data).is_array() && rhs.accept(&mut GetDataTypeVisitor, asm_data).is_array() {
         //initialising an array? char[12] x = "hello world";//for example
-        let mut lhs_visitor = ReferenceVisitor::new();
-        let mut rhs_visitor = ReferenceVisitor::new();
-        lhs.accept(&mut lhs_visitor, asm_data);
-        rhs.accept(&mut rhs_visitor, asm_data);
-        asm_line!(result, "{}", lhs_visitor.get_assembly());//get dest address
+        let lhs_asm = lhs.accept(&mut ReferenceVisitor, asm_data);
+        let rhs_asm = rhs.accept(&mut ReferenceVisitor, asm_data);
+        asm_line!(result, "{}", lhs_asm);//get dest address
         asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
-        asm_line!(result, "{}", lhs_visitor.get_assembly());//get src address
+        asm_line!(result, "{}", rhs_asm);//get src address
         asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
 
         asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_SI));//pop source to RSI
@@ -273,9 +271,8 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, prom
     //maybe more special cases for pointer assignment etc
 
     //put address of lvalue on stack
-    let mut visitor = ReferenceVisitor::new();
-    lhs.accept(&mut visitor, asm_data);
-    asm_line!(result, "{}", visitor.get_assembly());
+    let lhs_asm = lhs.accept(&mut ReferenceVisitor, asm_data);
+    asm_line!(result, "{}", lhs_asm);
     asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
     
     //put the value to assign in acc

@@ -17,9 +17,8 @@ impl UnaryPrefixExpression {
             Punctuator::AMPERSAND => {
                 asm_comment!(result, "getting address of something");
                 //put address of the right hand side in acc
-                let mut visitor = ReferenceVisitor::new();
-                self.operand.accept(&mut visitor, asm_data);
-                asm_line!(result, "{}", visitor.get_assembly());
+                let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor, asm_data);
+                asm_line!(result, "{}", operand_ref_asm);
             },
             Punctuator::ASTERISK => {
                 asm_comment!(result, "dereferencing pointer");
@@ -47,9 +46,8 @@ impl UnaryPrefixExpression {
                 let rhs_type = self.operand.accept(&mut GetDataTypeVisitor, asm_data);
 
                 //push &self.operand
-                let mut visitor = ReferenceVisitor::new();
-                self.operand.accept(&mut visitor, asm_data);
-                asm_line!(result, "{}", visitor.get_assembly());
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor, asm_data);
+                asm_line!(result, "{}", operand_asm);
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
 
                 //put self.operand in acc
