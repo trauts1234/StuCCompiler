@@ -1,5 +1,5 @@
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression_visitors::data_type_visitor::GetDataTypeVisitor, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -30,7 +30,8 @@ impl BinaryExpression {
             Punctuator::PLUS => {
                 asm_comment!(result, "adding {}-bit numbers", promoted_size.size_bits());
 
-                asm_line!(result, "{}", self.lhs.put_value_in_accumulator(asm_data));//put lhs in acc
+
+                asm_line!(result, "{}", self.lhs.accept(&mut ScalarInAccVisitor, asm_data));//put lhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.lhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to the correct type
 
                 if self.rhs.accept(&mut GetDataTypeVisitor, asm_data).decay().is_pointer() {//adding array or pointer to int
@@ -52,7 +53,7 @@ impl BinaryExpression {
                 //save lhs to stack, as preprocessing for it is done
                 asm_line!(result, "{}", asm_boilerplate::push_reg(promoted_size, &LogicalRegister::ACC));
 
-                asm_line!(result, "{}", self.rhs.put_value_in_accumulator(asm_data));//put rhs in acc
+                asm_line!(result, "{}", self.rhs.accept(&mut ScalarInAccVisitor, asm_data));//put rhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.rhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to correct type
 
                 if self.lhs.accept(&mut GetDataTypeVisitor, asm_data).decay().is_pointer() {

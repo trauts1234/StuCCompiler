@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, expression_visitors::data_type_visitor::GetDataTypeVisitor, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, expression_visitors::reference_assembly_visitor::ReferenceVisitor, struct_definition::StructDefinition};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -15,33 +15,6 @@ pub struct MinimalDataVariable {
 }
 
 impl MinimalDataVariable {
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
-        let mut result = String::new();
-
-        let my_type = Expression::VARIABLE(self.clone()).accept(&mut GetDataTypeVisitor, asm_data);
-
-        if my_type.is_array() {
-            //getting an array, decays to a pointer
-            asm_comment!(result, "decaying array {} to pointer", self.name);
-            let addr_asm = Expression::VARIABLE(self.clone()).accept(&mut ReferenceVisitor, asm_data);
-            asm_line!(result, "{}", addr_asm);
-
-        } else {
-            let reg_size = &my_type.memory_size();//decide which register size is appropriate for this variable
-            asm_comment!(result, "reading variable: {} to register {}", self.name, LogicalRegister::ACC.generate_reg_name(reg_size));
-
-            let result_reg = LogicalRegister::ACC.generate_reg_name(reg_size);
-
-            match &asm_data.get_variable(&self.name).location {
-                VariableAddress::CONSTANTADDRESS => 
-                    asm_line!(result, "mov {}, [{}]", result_reg, self.name),
-                VariableAddress::STACKOFFSET(stack_offset) => 
-                    asm_line!(result, "mov {}, [rbp-{}]", result_reg, stack_offset.size_bytes())
-            }
-        }
-
-        result
-    }
 
     pub fn put_struct_on_stack(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
@@ -110,7 +83,8 @@ impl InitialisedDeclaration {
         let mut result = String::new();
 
         if let Some(init) = &self.init_code {
-            asm_line!(result, "{}", init.put_value_in_accumulator(asm_data));//init is an expression that assigns to the variable, so no more work for me
+            let init_asm = init.accept(&mut ScalarInAccVisitor, asm_data);
+            asm_line!(result, "{}", init_asm);//init is an expression that assigns to the variable, so no more work for me
         }
 
         result

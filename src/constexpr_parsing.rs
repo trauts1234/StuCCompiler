@@ -124,7 +124,7 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
                 Punctuator::EQUALS => panic!("tried to assign number to number in constant expression"),
                 x if x.as_boolean_instr().is_some() => BaseType::_BOOL,
                 _ => {
-                    let dtype = DataType::calculate_promoted_type_arithmetic(&&x.simple_get_data_type(), &y.simple_get_data_type());
+                    let dtype = DataType::calculate_promoted_type_arithmetic(&&x.get_data_type(), &y.get_data_type());
                     assert!(dtype.get_modifiers().len() == 0);
                     dtype.underlying_type().clone()
                 }

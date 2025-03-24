@@ -1,5 +1,6 @@
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType}, expression_visitors::data_type_visitor::GetDataTypeVisitor, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::{Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::collections::HashMap;
+use std::fmt::Write;
 use unwrap_let::unwrap_let;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -19,9 +20,7 @@ impl StructMemberAccess {
     pub fn new(struct_tree: Expression, member_name: String) -> StructMemberAccess {
         StructMemberAccess { struct_tree: Box::new(struct_tree), member_name }
     }
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
-        todo!("does this function put stuff on the stack? should it be allowed to?")
-    }
+
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor, asm_data);//get type of the tree that returns the struct
 
@@ -33,10 +32,27 @@ impl StructMemberAccess {
 
         member_decl.get_type().clone()
     }
+
     pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
+        let mut result = String::new();
+
+        asm_comment!(result, "getting address of struct's member {}", self.member_name);
         //put tree's address in acc
         //add the member offset
-        todo!()
+
+        let ptr_reg = LogicalRegister::ACC.generate_reg_name(&PTR_SIZE);
+
+        let struct_get_addr = self.struct_tree.accept(&mut ReferenceVisitor, asm_data);//assembly to get address of struct
+        let struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor, asm_data);//get data type of struct
+
+        assert!(struct_type.is_bare_struct());
+        unwrap_let!(BaseType::STRUCT(struct_definition) = struct_type.underlying_type());//get data from base type
+        let (_, struct_member_offset) = struct_definition.get_member_data(&self.member_name);//get offset for the specific member
+
+        asm_line!(result, "{}", struct_get_addr);//get address of struct
+        asm_line!(result, "add {}, {}", ptr_reg, struct_member_offset.size_bytes());//go up by member offset
+
+        result
     }
 }
 

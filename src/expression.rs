@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -16,22 +16,6 @@ pub enum Expression {
 }
 
 impl Expression {
-    /**
-     * calculates the value of the expression and puts the scalar result in AX. does not leave anything on the stack
-     * does not work with structs, as they are not scalar types
-     */
-    pub fn put_value_in_accumulator(&self, asm_data: &AsmData) -> String {
-        assert!(!self.accept(&mut GetDataTypeVisitor, asm_data).is_bare_struct());
-        match self {
-            Expression::NUMBERLITERAL(number_literal) => number_literal.put_number_in_accumulator(),
-            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.generate_assembly(asm_data),
-            Expression::STRINGLITERAL(string_literal) => string_literal.generate_assembly(asm_data),
-            Expression::FUNCCALL(function_call) => function_call.generate_assembly(asm_data),
-            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.generate_assembly(asm_data),
-            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.generate_assembly(asm_data),
-            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.generate_assembly(asm_data),
-        }
-    }
 
     /**
      * puts the result of the expression on the stack
@@ -213,12 +197,14 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     let promoted_size = promoted_type.memory_size();
 
     //put lhs on stack
-    asm_line!(result, "{}", lhs.put_value_in_accumulator(asm_data));
+    let lhs_asm = lhs.accept(&mut ScalarInAccVisitor, asm_data);
+    asm_line!(result, "{}", lhs_asm);
     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));
     asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
 
     //put rhs in secondary
-    asm_line!(result, "{}", rhs.put_value_in_accumulator(asm_data));
+    let rhs_asm = rhs.accept(&mut ScalarInAccVisitor, asm_data);
+    asm_line!(result, "{}", rhs_asm);
     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));
     asm_line!(result, "{}", mov_reg(&promoted_size, &LogicalRegister::SECONDARY, &LogicalRegister::ACC));//mov acc to secondary
 
@@ -262,7 +248,8 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, prom
     asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
     
     //put the value to assign in acc
-    asm_line!(result, "{}", rhs.put_value_in_accumulator(asm_data));
+    let rhs_asm = rhs.accept(&mut ScalarInAccVisitor, asm_data);
+    asm_line!(result, "{}", rhs_asm);
     //cast to the same type as lhs
     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));
 

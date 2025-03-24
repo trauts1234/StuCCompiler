@@ -7,10 +7,6 @@ pub struct StringLiteral {
 }
 
 impl StringLiteral {
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
-        Expression::STRINGLITERAL(self.clone())
-        .accept(&mut ReferenceVisitor, asm_data)//decays to char*
-    }
 
     pub fn get_num_chars(&self) -> usize {
         self.text.len()
