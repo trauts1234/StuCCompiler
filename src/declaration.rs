@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -12,24 +12,6 @@ pub struct InitialisedDeclaration{
 #[derive(Clone)]
 pub struct MinimalDataVariable {
     pub(crate) name: String
-}
-
-impl MinimalDataVariable {
-
-    pub fn put_struct_on_stack(&self, asm_data: &AsmData) -> String {
-        let mut result = String::new();
-
-        asm_comment!(result, "putting struct on stack: {}", self.name);
-
-        match &asm_data.get_variable(&self.name).location {
-            VariableAddress::CONSTANTADDRESS => 
-                todo!(),
-            VariableAddress::STACKOFFSET(stack_offset) => 
-                todo!()
-        }
-
-        result
-    }
 }
 
 /**
@@ -83,7 +65,7 @@ impl InitialisedDeclaration {
         let mut result = String::new();
 
         if let Some(init) = &self.init_code {
-            let init_asm = init.accept(&mut ScalarInAccVisitor, asm_data);
+            let init_asm = init.accept(&mut ScalarInAccVisitor {asm_data});
             asm_line!(result, "{}", init_asm);//init is an expression that assigns to the variable, so no more work for me
         }
 

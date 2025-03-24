@@ -109,8 +109,8 @@ impl IterationStatement {
 
                 let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
                 
-                let condition_size = &condition.accept(&mut GetDataTypeVisitor, asm_data).memory_size();
-                assert!(condition.accept(&mut GetDataTypeVisitor, asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
+                let condition_size = &condition.accept(&mut GetDataTypeVisitor {asm_data}).memory_size();
+                assert!(condition.accept(&mut GetDataTypeVisitor {asm_data}).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
                 let generic_label = label_gen.generate_label();
 
@@ -118,7 +118,7 @@ impl IterationStatement {
 
                 asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
 
-                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor, asm_data));//generate the condition
+                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor {asm_data}));//generate the condition
 
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
@@ -128,7 +128,7 @@ impl IterationStatement {
                 asm_line!(result, "{}_loop_increment:", generic_label);//add label to jump to incrementing the loop
 
                 if let Some(inc) = increment {//if there is an increment
-                    asm_line!(result, "{}", inc.accept(&mut ScalarInAccVisitor, asm_data));//apply the increment
+                    asm_line!(result, "{}", inc.accept(&mut ScalarInAccVisitor {asm_data}));//apply the increment
                 }
                 asm_line!(result, "jmp {}_loop_start", generic_label);//after increment, go to top of loop
 
@@ -137,15 +137,15 @@ impl IterationStatement {
 
             Self::WHILE { condition, body } => {
 
-                let condition_size = &condition.accept(&mut GetDataTypeVisitor, asm_data).memory_size();
+                let condition_size = &condition.accept(&mut GetDataTypeVisitor {asm_data}).memory_size();
 
                 let generic_label = label_gen.generate_label();
 
                 asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
 
-                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor, asm_data));//generate the condition
+                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor {asm_data}));//generate the condition
 
-                assert!(condition.accept(&mut GetDataTypeVisitor, asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
+                assert!(condition.accept(&mut GetDataTypeVisitor {asm_data}).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop

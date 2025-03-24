@@ -1,15 +1,17 @@
-use crate::{asm_gen_data::VariableAddress, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, expression::Expression, expression_visitors::reference_assembly_visitor::ReferenceVisitor};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, expression::Expression, expression_visitors::reference_assembly_visitor::ReferenceVisitor};
 use std::fmt::Write;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
 
-pub struct ScalarInAccVisitor;
+pub struct ScalarInAccVisitor<'a>{
+    pub(crate) asm_data: &'a AsmData
+}
 
 /**
  * calculates the value of the expression and puts the scalar result in AX. does not leave anything on the stack
  * does not work with structs, as they are not scalar types
  */
-impl ExprVisitor for ScalarInAccVisitor {
+impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     type Output = String;
 
     fn visit_number_literal(&mut self, number: &crate::number_literal::NumberLiteral) -> Self::Output {
@@ -23,15 +25,15 @@ impl ExprVisitor for ScalarInAccVisitor {
         result
     }
 
-    fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable, asm_data: &crate::asm_gen_data::AsmData) -> Self::Output {
+    fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable) -> Self::Output {
         let mut result = String::new();
 
-        let my_type = Expression::VARIABLE(var.clone()).accept(&mut GetDataTypeVisitor, asm_data);
+        let my_type = Expression::VARIABLE(var.clone()).accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
 
         if my_type.is_array() {
             //getting an array, decays to a pointer
             asm_comment!(result, "decaying array {} to pointer", var.name);
-            let addr_asm = Expression::VARIABLE(var.clone()).accept(&mut ReferenceVisitor, asm_data);
+            let addr_asm = Expression::VARIABLE(var.clone()).accept(&mut ReferenceVisitor{asm_data: self.asm_data});
             asm_line!(result, "{}", addr_asm);
 
         } else {
@@ -40,7 +42,7 @@ impl ExprVisitor for ScalarInAccVisitor {
 
             let result_reg = LogicalRegister::ACC.generate_reg_name(reg_size);
 
-            match &asm_data.get_variable(&var.name).location {
+            match &self.asm_data.get_variable(&var.name).location {
                 VariableAddress::CONSTANTADDRESS => 
                     asm_line!(result, "mov {}, [{}]", result_reg, var.name),
                 VariableAddress::STACKOFFSET(stack_offset) => 
@@ -55,19 +57,19 @@ impl ExprVisitor for ScalarInAccVisitor {
         format!("lea rax, [rel {}] ; decay string to char pointer", string.get_label())//warning: duplicated code from get address
     }
 
-    fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall, asm_data: &crate::asm_gen_data::AsmData) -> Self::Output {
-        func_call.generate_assembly(asm_data)
+    fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
+        func_call.generate_assembly(self.asm_data)
     }
 
-    fn visit_unary_prefix(&mut self, expr: &crate::unary_prefix_expr::UnaryPrefixExpression, asm_data: &crate::asm_gen_data::AsmData) -> Self::Output {
-        expr.generate_assembly(asm_data)
+    fn visit_unary_prefix(&mut self, expr: &crate::unary_prefix_expr::UnaryPrefixExpression) -> Self::Output {
+        expr.generate_assembly(self.asm_data)
     }
 
-    fn visit_binary_expression(&mut self, expr: &crate::binary_expression::BinaryExpression, asm_data: &crate::asm_gen_data::AsmData) -> Self::Output {
-        expr.generate_assembly(asm_data)
+    fn visit_binary_expression(&mut self, expr: &crate::binary_expression::BinaryExpression) -> Self::Output {
+        expr.generate_assembly(self.asm_data)
     }
 
-    fn visit_struct_member_access(&mut self, expr: &crate::struct_definition::StructMemberAccess, asm_data: &crate::asm_gen_data::AsmData) -> Self::Output {
+    fn visit_struct_member_access(&mut self, expr: &crate::struct_definition::StructMemberAccess) -> Self::Output {
         todo!()
     }
 }

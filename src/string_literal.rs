@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, compilation_state::label_generator::LabelGenerator, expression::Expression, expression_visitors::reference_assembly_visitor::ReferenceVisitor};
+use crate::compilation_state::label_generator::LabelGenerator;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {

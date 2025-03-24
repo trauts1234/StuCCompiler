@@ -17,13 +17,13 @@ impl UnaryPrefixExpression {
             Punctuator::AMPERSAND => {
                 asm_comment!(result, "getting address of something");
                 //put address of the right hand side in acc
-                let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor, asm_data);
+                let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor {asm_data});
                 asm_line!(result, "{}", operand_ref_asm);
             },
             Punctuator::ASTERISK => {
                 asm_comment!(result, "dereferencing pointer");
                 // put the address pointed to in rax
-                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor, asm_data));
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data}));
                 if self.get_data_type(asm_data).is_array() {
                     //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
                 } else {
@@ -35,23 +35,23 @@ impl UnaryPrefixExpression {
 
                 let promoted_type = self.get_data_type(asm_data);
 
-                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor, asm_data));
-                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to the correct type
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data}));
+                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.accept(&mut GetDataTypeVisitor {asm_data}), &promoted_type));//cast to the correct type
 
                 asm_line!(result, "neg {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
             },
             Punctuator::PLUSPLUS => {
 
                 let promoted_type = self.get_data_type(asm_data);
-                let rhs_type = self.operand.accept(&mut GetDataTypeVisitor, asm_data);
+                let rhs_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
                 //push &self.operand
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor, asm_data);
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data});
                 asm_line!(result, "{}", operand_asm);
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
 
                 //put self.operand in acc
-                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor, asm_data));
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data}));
 
                 let rhs_reg = LogicalRegister::ACC.generate_reg_name(&rhs_type.memory_size());
 
@@ -64,7 +64,7 @@ impl UnaryPrefixExpression {
                 //save the new value of self.operand
                 asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_reg_name(&PTR_SIZE), LogicalRegister::ACC.generate_reg_name(&rhs_type.memory_size()));
 
-                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to the correct type
+                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.accept(&mut GetDataTypeVisitor {asm_data}), &promoted_type));//cast to the correct type
             }
             _ => panic!("operator to unary prefix is invalid")
         }
@@ -73,7 +73,7 @@ impl UnaryPrefixExpression {
     }
 
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        let operand_type = self.operand.accept(&mut GetDataTypeVisitor, asm_data);
+        let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
         match self.operator {
             Punctuator::AMPERSAND => {
                 let mut pointer_modifiers = operand_type.get_modifiers().to_vec();

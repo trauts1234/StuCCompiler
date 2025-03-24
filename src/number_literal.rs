@@ -1,4 +1,4 @@
-use crate::data_type::{base_type::BaseType, data_type::DataType};
+use crate::{data_type::{base_type::BaseType, data_type::DataType}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
@@ -16,6 +16,10 @@ impl NumberLiteral {
 
     pub fn get_data_type(&self) -> DataType {
         DataType::new_from_base_type(&self.data_type, &Vec::new())
+    }
+
+    pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
+        visitor.visit_number_literal(self)
     }
 }
 

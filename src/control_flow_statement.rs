@@ -42,9 +42,9 @@ impl ControlFlowChange {
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor, asm_data));
+                    asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor {asm_data}));
 
-                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.accept(&mut GetDataTypeVisitor, asm_data), asm_data.get_function_return_type()));
+                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.accept(&mut GetDataTypeVisitor {asm_data}), asm_data.get_function_return_type()));
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return

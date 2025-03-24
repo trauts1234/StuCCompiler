@@ -15,14 +15,14 @@ impl BinaryExpression {
         let mut result = String::new();
 
         if self.operator == Punctuator::EQUALS {
-            let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor, asm_data);
+            let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
             return generate_assembly_for_assignment(&self.lhs, &self.rhs, &lhs_type, &lhs_type.memory_size(), asm_data);
         }
 
         let promoted_type = match &self.operator {//I already have a function for this?
-            Punctuator::EQUALS => self.lhs.accept(&mut GetDataTypeVisitor, asm_data),//assignment is just the lhs data size
+            Punctuator::EQUALS => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assignment is just the lhs data size
             x if x.as_boolean_instr().is_some() => DataType::new_from_base_type(&BaseType::_BOOL, &Vec::new()),//is a boolean operator, operands are booleans
-            _ => DataType::calculate_promoted_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor, asm_data), &self.rhs.accept(&mut GetDataTypeVisitor, asm_data))//else find a common meeting ground
+            _ => DataType::calculate_promoted_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data}), &self.rhs.accept(&mut GetDataTypeVisitor {asm_data}))//else find a common meeting ground
         };
         let promoted_size = &promoted_type.memory_size();
 
@@ -31,14 +31,14 @@ impl BinaryExpression {
                 asm_comment!(result, "adding {}-bit numbers", promoted_size.size_bits());
 
 
-                asm_line!(result, "{}", self.lhs.accept(&mut ScalarInAccVisitor, asm_data));//put lhs in acc
-                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.lhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to the correct type
+                asm_line!(result, "{}", self.lhs.accept(&mut ScalarInAccVisitor {asm_data}));//put lhs in acc
+                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data}), &promoted_type));//cast to the correct type
 
-                if self.rhs.accept(&mut GetDataTypeVisitor, asm_data).decay().is_pointer() {//adding array or pointer to int
+                if self.rhs.accept(&mut GetDataTypeVisitor {asm_data}).decay().is_pointer() {//adding array or pointer to int
                     //you can only add pointer and number here, as per the C standard
 
                     //get the size of rhs when it is dereferenced
-                    let rhs_dereferenced_size_bytes = self.rhs.accept(&mut GetDataTypeVisitor, asm_data).remove_outer_modifier().memory_size().size_bytes();
+                    let rhs_dereferenced_size_bytes = self.rhs.accept(&mut GetDataTypeVisitor {asm_data}).remove_outer_modifier().memory_size().size_bytes();
                     //convert this number to a string
                     let rhs_deref_size_str = NumberLiteral::new(&rhs_dereferenced_size_bytes.to_string()).nasm_format();
                     asm_comment!(result, "rhs is a pointer. make lhs {} times bigger", rhs_deref_size_str);
@@ -53,13 +53,13 @@ impl BinaryExpression {
                 //save lhs to stack, as preprocessing for it is done
                 asm_line!(result, "{}", asm_boilerplate::push_reg(promoted_size, &LogicalRegister::ACC));
 
-                asm_line!(result, "{}", self.rhs.accept(&mut ScalarInAccVisitor, asm_data));//put rhs in acc
-                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.rhs.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to correct type
+                asm_line!(result, "{}", self.rhs.accept(&mut ScalarInAccVisitor {asm_data}));//put rhs in acc
+                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.rhs.accept(&mut GetDataTypeVisitor {asm_data}), &promoted_type));//cast to correct type
 
-                if self.lhs.accept(&mut GetDataTypeVisitor, asm_data).decay().is_pointer() {
+                if self.lhs.accept(&mut GetDataTypeVisitor {asm_data}).decay().is_pointer() {
                     //you can only add pointer and number here, as per the C standard
                     //get the size of lhs when it is dereferenced
-                    let lhs_dereferenced_size_bytes = self.lhs.accept(&mut GetDataTypeVisitor, asm_data).remove_outer_modifier().memory_size().size_bytes();
+                    let lhs_dereferenced_size_bytes = self.lhs.accept(&mut GetDataTypeVisitor {asm_data}).remove_outer_modifier().memory_size().size_bytes();
                     //convert this number to a string
                     let lhs_deref_size_str = NumberLiteral::new(&lhs_dereferenced_size_bytes.to_string()).nasm_format();
 
@@ -186,9 +186,9 @@ impl BinaryExpression {
             Punctuator::DASH |
             Punctuator::ASTERISK | 
             Punctuator::FORWARDSLASH | 
-            Punctuator::PERCENT => DataType::calculate_promoted_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor, asm_data), &self.rhs.accept(&mut GetDataTypeVisitor, asm_data)),
+            Punctuator::PERCENT => DataType::calculate_promoted_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data}), &self.rhs.accept(&mut GetDataTypeVisitor {asm_data})),
 
-            Punctuator::EQUALS => self.lhs.accept(&mut GetDataTypeVisitor, asm_data),//assigning, rhs must be converted to lhs
+            Punctuator::EQUALS => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
 
             Punctuator::ANGLELEFT |
             Punctuator::ANGLERIGHT |

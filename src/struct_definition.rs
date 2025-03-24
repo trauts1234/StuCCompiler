@@ -22,7 +22,7 @@ impl StructMemberAccess {
     }
 
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor, asm_data);//get type of the tree that returns the struct
+        let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
         assert!(struct_tree_type.is_bare_struct());//must be a struct
 
@@ -42,8 +42,8 @@ impl StructMemberAccess {
 
         let ptr_reg = LogicalRegister::ACC.generate_reg_name(&PTR_SIZE);
 
-        let struct_get_addr = self.struct_tree.accept(&mut ReferenceVisitor, asm_data);//assembly to get address of struct
-        let struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor, asm_data);//get data type of struct
+        let struct_get_addr = self.struct_tree.accept(&mut ReferenceVisitor {asm_data});//assembly to get address of struct
+        let struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get data type of struct
 
         assert!(struct_type.is_bare_struct());
         unwrap_let!(BaseType::STRUCT(struct_definition) = struct_type.underlying_type());//get data from base type
