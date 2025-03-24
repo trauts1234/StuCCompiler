@@ -193,7 +193,7 @@ impl BinaryExpression {
             Punctuator::ANGLELEFT |
             Punctuator::ANGLERIGHT |
             Punctuator::GREATEREQUAL |
-            Punctuator::LESSEQAUAL |
+            Punctuator::LESSEQUAL |
             Punctuator::DOUBLEEQUALS |
             Punctuator::PIPEPIPE |
             Punctuator::ANDAND |
