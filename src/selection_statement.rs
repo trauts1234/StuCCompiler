@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression_visitors::data_type_visitor::GetDataTypeVisitor, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -76,7 +76,7 @@ impl SelectionStatement {
 
                 let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};
 
-                asm_line!(result, "{}", condition.put_value_in_accumulator(asm_data));//generate the condition to acc
+                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor, asm_data));//generate the condition to acc
                 
                 let condition_size = &condition.accept(&mut GetDataTypeVisitor, asm_data).memory_size();
 

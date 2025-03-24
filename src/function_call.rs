@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, expression_visitors::data_type_visitor::GetDataTypeVisitor, expression::{self, Expression}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -24,7 +24,7 @@ impl FunctionCall {
                 assert!(param_type.get_type().underlying_type().is_va_arg());//more args than params, so must be varadic
             }
 
-            asm_line!(result, "{}", arg.put_value_in_accumulator(asm_data));//calculate the arg
+            asm_line!(result, "{}", arg.accept(&mut ScalarInAccVisitor, asm_data));//calculate the arg
             asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&arg.accept(&mut GetDataTypeVisitor, asm_data), param_type.get_type()));//cast to requested type
 
             asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//implicitly extend to 8 bytes, without conversion/casting

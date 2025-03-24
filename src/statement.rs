@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, selection_statement::SelectionStatement};
 use std::fmt::Write;
 
 pub enum Statement {
@@ -51,7 +51,7 @@ impl Statement {
                 asm_line!(result, "{}", command.generate_assembly(asm_data));
             }
             Self::EXPRESSION(expr) => {
-                asm_line!(result, "{}", expr.put_value_in_accumulator(asm_data));
+                asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor, asm_data));
             }
             Self::SELECTION(selection) => {
                 asm_line!(result, "{}", selection.generate_assembly(label_gen, asm_data));

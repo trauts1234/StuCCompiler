@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, expression_visitors::data_type_visitor::GetDataTypeVisitor, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -42,7 +42,7 @@ impl ControlFlowChange {
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    asm_line!(result, "{}", expr.put_value_in_accumulator(asm_data));
+                    asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor, asm_data));
 
                     asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.accept(&mut GetDataTypeVisitor, asm_data), asm_data.get_function_return_type()));
                 }

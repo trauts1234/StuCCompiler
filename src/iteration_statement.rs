@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression_visitors::data_type_visitor::GetDataTypeVisitor, expression::{self, Expression}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -118,7 +118,7 @@ impl IterationStatement {
 
                 asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
 
-                asm_line!(result, "{}", condition.put_value_in_accumulator(asm_data));//generate the condition
+                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor, asm_data));//generate the condition
 
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
@@ -128,7 +128,7 @@ impl IterationStatement {
                 asm_line!(result, "{}_loop_increment:", generic_label);//add label to jump to incrementing the loop
 
                 if let Some(inc) = increment {//if there is an increment
-                    asm_line!(result, "{}", inc.put_value_in_accumulator(asm_data));//apply the increment
+                    asm_line!(result, "{}", inc.accept(&mut ScalarInAccVisitor, asm_data));//apply the increment
                 }
                 asm_line!(result, "jmp {}_loop_start", generic_label);//after increment, go to top of loop
 
@@ -143,7 +143,7 @@ impl IterationStatement {
 
                 asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
 
-                asm_line!(result, "{}", condition.put_value_in_accumulator(asm_data));//generate the condition
+                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor, asm_data));//generate the condition
 
                 assert!(condition.accept(&mut GetDataTypeVisitor, asm_data).underlying_type().is_integer());//cmp 0 may not work for float. but may work for pointers????
 

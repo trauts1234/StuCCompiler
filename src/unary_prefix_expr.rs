@@ -1,5 +1,5 @@
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, expression_visitors::data_type_visitor::GetDataTypeVisitor, expression::Expression, lexer::punctuator::Punctuator, expression_visitors::reference_assembly_visitor::ReferenceVisitor};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -23,7 +23,7 @@ impl UnaryPrefixExpression {
             Punctuator::ASTERISK => {
                 asm_comment!(result, "dereferencing pointer");
                 // put the address pointed to in rax
-                asm_line!(result, "{}", self.operand.put_value_in_accumulator(asm_data));
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor, asm_data));
                 if self.get_data_type(asm_data).is_array() {
                     //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
                 } else {
@@ -35,7 +35,7 @@ impl UnaryPrefixExpression {
 
                 let promoted_type = self.get_data_type(asm_data);
 
-                asm_line!(result, "{}", self.operand.put_value_in_accumulator(asm_data));
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor, asm_data));
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&self.operand.accept(&mut GetDataTypeVisitor, asm_data), &promoted_type));//cast to the correct type
 
                 asm_line!(result, "neg {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size()));//negate the promoted value
@@ -51,7 +51,7 @@ impl UnaryPrefixExpression {
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
 
                 //put self.operand in acc
-                asm_line!(result, "{}", self.operand.put_value_in_accumulator(asm_data));
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor, asm_data));
 
                 let rhs_reg = LogicalRegister::ACC.generate_reg_name(&rhs_type.memory_size());
 
