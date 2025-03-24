@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -10,6 +10,10 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
+    pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
+        visitor.visit_func_call(self)
+    }
+    
     pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         //system V ABI
         let mut result = String::new();

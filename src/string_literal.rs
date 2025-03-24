@@ -1,4 +1,4 @@
-use crate::compilation_state::label_generator::LabelGenerator;
+use crate::{compilation_state::label_generator::LabelGenerator, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {
@@ -10,6 +10,10 @@ impl StringLiteral {
 
     pub fn get_num_chars(&self) -> usize {
         self.text.len()
+    }
+
+    pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
+        visitor.visit_string_literal(self)
     }
 }
 

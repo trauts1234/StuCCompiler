@@ -28,12 +28,12 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable) -> Self::Output {
         let mut result = String::new();
 
-        let my_type = Expression::VARIABLE(var.clone()).accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
+        let my_type = var.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
 
         if my_type.is_array() {
             //getting an array, decays to a pointer
             asm_comment!(result, "decaying array {} to pointer", var.name);
-            let addr_asm = Expression::VARIABLE(var.clone()).accept(&mut ReferenceVisitor{asm_data: self.asm_data});
+            let addr_asm = var.accept(&mut ReferenceVisitor{asm_data: self.asm_data});
             asm_line!(result, "{}", addr_asm);
 
         } else {

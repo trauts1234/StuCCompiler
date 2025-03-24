@@ -19,13 +19,13 @@ impl Expression {
 
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         match self {
-            Expression::NUMBERLITERAL(number_literal) => number_literal.accept(visitor),
-            Expression::VARIABLE(minimal_data_variable) => visitor.visit_variable(minimal_data_variable),
-            Expression::STRINGLITERAL(string_literal) => visitor.visit_string_literal(string_literal),
-            Expression::FUNCCALL(function_call) => visitor.visit_func_call(function_call),
-            Expression::UNARYPREFIX(unary_prefix_expression) => visitor.visit_unary_prefix(unary_prefix_expression),
-            Expression::BINARYEXPRESSION(binary_expression) => visitor.visit_binary_expression(binary_expression),
-            Expression::STRUCTMEMBERACCESS(struct_member_access) => visitor.visit_struct_member_access(struct_member_access),
+            Expression::NUMBERLITERAL(x) => x.accept(visitor),
+            Expression::VARIABLE(x) => x.accept(visitor),
+            Expression::STRINGLITERAL(x) => x.accept(visitor),
+            Expression::FUNCCALL(x) => x.accept(visitor),
+            Expression::UNARYPREFIX(x) => x.accept(visitor),
+            Expression::BINARYEXPRESSION(x) => x.accept(visitor),
+            Expression::STRUCTMEMBERACCESS(x) => x.accept(visitor),
         }
     }
 }

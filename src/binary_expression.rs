@@ -1,5 +1,5 @@
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::DataType}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -11,6 +11,10 @@ pub struct BinaryExpression {
 }
 
 impl BinaryExpression {
+    pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
+        visitor.visit_binary_expression(self)
+    }
+    
     pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 

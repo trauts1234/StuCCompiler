@@ -1,5 +1,5 @@
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -10,6 +10,10 @@ pub struct UnaryPrefixExpression {
 }
 
 impl UnaryPrefixExpression {
+    pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
+        visitor.visit_unary_prefix(self)
+    }
+    
     pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         let mut result = String::new();
 
