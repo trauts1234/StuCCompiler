@@ -33,7 +33,6 @@ mod global_var_declaration;
 mod struct_definition;
 mod parse_data;
 mod asm_gen_data;
-mod reference_assembly_visitor;
 mod expression_visitors;
 
 struct CompilationOptions {

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::VariableAddress, asm_generation::{self, LogicalRegister}, expression::ExprVisitor, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::VariableAddress, asm_generation::{self, LogicalRegister}, expression_visitors::expr_visitor::ExprVisitor, lexer::punctuator::Punctuator};
 use crate::asm_generation::RegisterName;
 
 
@@ -37,7 +37,7 @@ impl ExprVisitor for ReferenceVisitor {
         format!("{}; getting address of a dereference", &expr.get_operand().put_value_in_accumulator(asm_data))
     }
 
-    fn visit_binary_expression(&mut self, expr: &crate::binary_expression::BinaryExpression, asm_data: &crate::asm_gen_data::AsmData) -> Self::Output {
+    fn visit_binary_expression(&mut self, _expr: &crate::binary_expression::BinaryExpression, _asm_data: &crate::asm_gen_data::AsmData) -> Self::Output {
         panic!("tried to get address of binary expression")
     }
 

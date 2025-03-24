@@ -1,5 +1,5 @@
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, data_type_visitor::GetDataTypeVisitor, expression::Expression, lexer::punctuator::Punctuator, reference_assembly_visitor::ReferenceVisitor};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{data_type::DataType, type_modifier::DeclModifier}, expression_visitors::data_type_visitor::GetDataTypeVisitor, expression::Expression, lexer::punctuator::Punctuator, expression_visitors::reference_assembly_visitor::ReferenceVisitor};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
