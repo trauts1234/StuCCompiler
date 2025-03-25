@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use crate::{data_type::data_type::DataType, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::{StructDefinition, StructList}};
+use crate::{data_type::data_type::DataType, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
 use indexmap::IndexMap;
 
 /**

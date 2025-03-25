@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::{DataType, Primative}}, memory_size::MemoryLayout};
+use crate::{asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::Primative}, memory_size::MemoryLayout};
 use std::fmt::Write;
 
 

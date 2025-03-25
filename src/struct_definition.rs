@@ -1,6 +1,6 @@
 use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
-use std::collections::HashMap;
 use std::fmt::Write;
+use indexmap::IndexMap;
 use unwrap_let::unwrap_let;
 
 /**
@@ -196,11 +196,11 @@ fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemoryLayout
 
 #[derive(Clone, Debug)]
 pub struct StructList {
-    pub(crate) struct_decls: HashMap<String, UnpaddedStructDefinition>//note: definition also contains a copy of the struct's name
+    pub(crate) struct_decls: IndexMap<String, UnpaddedStructDefinition>//note: definition also contains a copy of the struct's name
 }
 impl StructList {
     pub fn new() -> StructList {
-        StructList { struct_decls: HashMap::new() }
+        StructList { struct_decls: IndexMap::new() }
     }
 
     pub fn add_struct(&mut self, new_definition: &UnpaddedStructDefinition) {
