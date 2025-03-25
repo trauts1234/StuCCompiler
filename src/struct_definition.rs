@@ -1,6 +1,5 @@
 use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
-use indexmap::IndexMap;
 use unwrap_let::unwrap_let;
 
 /**
@@ -9,7 +8,7 @@ use unwrap_let::unwrap_let;
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnpaddedStructDefinition {
     pub(crate) name: Option<String>,
-    ordered_members: Option<Vec<Declaration>>
+    pub(crate) ordered_members: Option<Vec<Declaration>>
 }
 
 impl UnpaddedStructDefinition {
@@ -146,7 +145,7 @@ impl StructDefinition {
                 assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
 
                 let struct_definition = UnpaddedStructDefinition { name: Some(struct_name), ordered_members: Some(members),  };
-                scope_data.structs.add_struct(&struct_definition);
+                scope_data.add_struct(&struct_definition);
 
                 Some(ASTMetadata {
                     remaining_slice,
@@ -156,7 +155,7 @@ impl StructDefinition {
 
             _ => Some(ASTMetadata { 
                 remaining_slice: curr_queue_idx,
-                resultant_tree: scope_data.structs.get_struct(&struct_name).unwrap().clone()//TODO this could declare a struct?
+                resultant_tree: scope_data.get_struct(&struct_name).unwrap().clone()//TODO this could declare a struct?
             })
         }
     }
@@ -191,38 +190,5 @@ fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemoryLayout
         calculate_alignment(&data_type.remove_outer_modifier(), asm_data) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
     } else {
         data_type.memory_size(asm_data)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct StructList {
-    pub(crate) struct_decls: IndexMap<String, UnpaddedStructDefinition>//note: definition also contains a copy of the struct's name
-}
-impl StructList {
-    pub fn new() -> StructList {
-        StructList { struct_decls: IndexMap::new() }
-    }
-
-    pub fn add_struct(&mut self, new_definition: &UnpaddedStructDefinition) {
-        let new_struct_name = new_definition.name.as_ref().unwrap();
-
-        if let Some(definition) = self.struct_decls.get_mut(new_struct_name) {
-            match (&definition.ordered_members, &new_definition.ordered_members) {
-                (Some(_), Some(_)) => panic!("redefinition of struct {}", definition.name.clone().unwrap()),
-
-                (None, Some(_)) => definition.ordered_members = new_definition.ordered_members.clone(),//new definition contains more data
-
-                _ => {}//new definition provides no new data
-            }
-        } else {
-            self.struct_decls.insert(new_struct_name.to_string(), new_definition.clone());//add new struct
-        }
-    }
-
-    /**
-     * note: gets struct by name of struct, not by name of any variables
-     */
-    pub fn get_struct(&self, name: &str) -> Option<&UnpaddedStructDefinition> {
-        self.struct_decls.get(name)
     }
 }

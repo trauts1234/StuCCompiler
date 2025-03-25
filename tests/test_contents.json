@@ -439,5 +439,9 @@
     {
         "filename":"structdefinitionnotused.c",
         "return_code":0
+    },
+    {
+        "filename":"structvariable.c",
+        "return_code":0
     }
 ]

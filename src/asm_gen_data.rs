@@ -42,7 +42,7 @@ impl AsmData {
             struct_list:IndexMap::new()//will get filled soon
         };
 
-        for (name, unpadded) in parse_data.structs.struct_decls.iter() {
+        for (name, unpadded) in parse_data.get_all_structs().iter() {
             result.struct_list.insert(name.to_string(), unpadded.pad_members(&result));//add structs in order
         }
 
@@ -66,7 +66,7 @@ impl AsmData {
             struct_list: self.struct_list.clone()
         };
 
-        for (name, unpadded) in parse_data.structs.struct_decls.iter() {
+        for (name, unpadded) in parse_data.get_all_structs().iter() {
             result.struct_list.insert(name.to_string(), unpadded.pad_members(&result));//add new structs in order
         }
 
