@@ -84,13 +84,13 @@ impl FunctionDefinition {
                 let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
                 asm_line!(result, "mov {}, [rbp+{}]", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(8)), arg_bp_offset.size_bytes());//grab as 64 bit
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(), &LogicalRegister::ACC));//push how many bits I actually need
-                param_stack_used += param.get_type().memory_size();
+                asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(asm_data), &LogicalRegister::ACC));//push how many bits I actually need
+                param_stack_used += param.get_type().memory_size(asm_data);
             } else {
                 let param_reg = asm_generation::generate_param_reg(param_idx);
-                println!("{:?} {}", param.get_type(), param.get_type().memory_size().size_bytes());
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(), &param_reg));//truncate param reg to desired size, then push to stack
-                param_stack_used += param.get_type().memory_size();
+                println!("{:?} {}", param.get_type(), param.get_type().memory_size(asm_data).size_bytes());
+                asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(asm_data), &param_reg));//truncate param reg to desired size, then push to stack
+                param_stack_used += param.get_type().memory_size(asm_data);
             }
 
         }

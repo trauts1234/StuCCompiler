@@ -1,4 +1,6 @@
-use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
+use unwrap_let::unwrap_let;
+
+use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -12,9 +14,11 @@ impl GlobalVariable {
             ConstexprValue::NUMBER(number_literal) => {
                 assert!(self.decl.data_type.get_modifiers().len() == 0);//casting number literal to pointer is not allowed
 
+                unwrap_let!(DataType::PRIMATIVE(decl_primative_type) = &self.decl.data_type);
+
                 format!("{} db {}\n", 
                     self.decl.get_name(), 
-                    number_literal.cast(self.decl.data_type.underlying_type()).get_comma_separated_bytes()//cast the number to the variable's type, then write the bytes for it
+                    number_literal.cast(decl_primative_type.underlying_type()).get_comma_separated_bytes()//cast the number to the variable's type, then write the bytes for it
                 )
             },
             ConstexprValue::STRING(string_literal) => format!("{} db {}\n", self.decl.get_name(), string_literal.get_comma_separated_bytes()),
@@ -54,7 +58,7 @@ impl GlobalVariable {
     }
 }
 
-fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ParseData) -> Option<ASTMetadata<GlobalVariable>> {
+fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &mut ParseData) -> Option<ASTMetadata<GlobalVariable>> {
     if slice.get_slice_size() == 0 {
         return None;
     }
@@ -63,7 +67,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
     
     let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
     
-    let data_type = DataType::new_from_base_type(&base_type, modifiers.get_modifiers());
+    let data_type = base_type.replace_modifiers(modifiers.get_modifiers().to_vec());
 
     scope_data.add_variable(&var_name, data_type.clone());//save variable to variable list early, so that I can reference it in the initialisation
 

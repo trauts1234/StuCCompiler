@@ -8,7 +8,7 @@ impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
     type Output = DataType;
 
     fn visit_number_literal(&mut self, number: &NumberLiteral) -> Self::Output {
-        number.get_data_type()
+        DataType::PRIMATIVE(number.get_data_type())
     }
 
     fn visit_variable(&mut self, var: &MinimalDataVariable) -> Self::Output {

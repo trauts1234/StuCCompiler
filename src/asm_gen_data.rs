@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{data_type::data_type::DataType, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::{StructDefinition, StructList}};
 use indexmap::IndexMap;
 
@@ -24,7 +26,7 @@ pub struct AsmData {
     function_decls: Vec<FunctionDeclaration>,
     current_function_return_type: DataType,
     current_stack_size: MemoryLayout,//difference of RSP and RBP, positive number
-    struct_list: StructList,
+    struct_list: IndexMap<String, StructDefinition>,//needs to be ordered since some structs need previously declared structs as members
 }
 
 impl AsmData {
@@ -34,13 +36,19 @@ impl AsmData {
             .map(add_global_variable)
             .collect();
 
-        AsmData {
+        let mut result = AsmData {
             variables: global_variables,//store global variables
             function_decls: parse_data.func_declarations_as_vec(),//store possible functions to call
             current_function_return_type: DataType::make_void(),//global namespace has no return type
             current_stack_size: MemoryLayout::new(),//no stack currently used
-            struct_list:parse_data.structs.clone(),//use structs declared in the global scope
+            struct_list:IndexMap::new()//will get filled soon
+        };
+
+        for (name, unpadded) in parse_data.structs.struct_decls.iter() {
+            result.struct_list.insert(name.to_string(), unpadded.pad_members(&result));//add structs in order
         }
+
+        result
     }
     pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: DataType) -> AsmData {
         let mut new_stack_height = self.current_stack_size;
@@ -51,17 +59,20 @@ impl AsmData {
 
         //add all current variables then overwrite with local variables (shadowing)
         let variables: IndexMap<String, AddressedDeclaration> = self.variables.clone().into_iter().chain(local_variables).collect();
-        //same for structs
-        let structs = self.struct_list.merge(&parse_data.structs);
 
-
-        AsmData { 
+        let mut result = AsmData { 
             variables,
             function_decls: parse_data.func_declarations_as_vec(),
             current_function_return_type,
             current_stack_size: new_stack_height,
-            struct_list:structs
+            struct_list: self.struct_list.clone()
+        };
+
+        for (name, unpadded) in parse_data.structs.struct_decls.iter() {
+            result.struct_list.insert(name.to_string(), unpadded.pad_members(&result));//add new structs in order
         }
+
+        result
     }
 
     pub fn get_stack_height(&self) -> MemoryLayout {
@@ -80,7 +91,7 @@ impl AsmData {
         &self.current_function_return_type
     }
     pub fn get_struct(&self, name: &str) -> &StructDefinition {
-        self.struct_list.get_struct(name).unwrap()
+        self.struct_list.get(name).unwrap()
     }
 }
 

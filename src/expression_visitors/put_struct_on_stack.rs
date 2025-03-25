@@ -1,5 +1,6 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, data_type::data_type::{Composite, DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
 use std::fmt::Write;
+use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
 
 
@@ -59,8 +60,9 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
         let mut result = String::new();
 
         let member_name = expr.get_member_name();
-        let struct_type = expr.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
-        let member_data = struct_type.as_bare_struct().get_member_data(member_name);
+        unwrap_let!(DataType::COMPOSITE(Composite { struct_name, modifiers }) = expr.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        assert!(modifiers.len() == 0);
+        let member_data = self.asm_data.get_struct(&struct_name).get_member_data(member_name);
 
         asm_line!(result, "{}", expr.accept(&mut PutStructOnStack{asm_data: self.asm_data}));//generate struct that I am getting member of
 

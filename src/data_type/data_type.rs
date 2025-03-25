@@ -68,8 +68,8 @@ impl Primative {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Composite {
-    struct_name: String,
-    modifiers: Vec<DeclModifier>,
+    pub(crate) struct_name: String,
+    pub(crate) modifiers: Vec<DeclModifier>,
 }
 impl Composite {
     pub fn new(struct_name: String, modifiers: Vec<DeclModifier>) -> Composite {
@@ -112,6 +112,16 @@ impl Composite {
         } else {
             false
         }
+    }
+
+    pub fn remove_outer_modifier(&self) -> Composite {
+        let mut modifiers = self.modifiers.to_vec();
+
+        if modifiers.len() > 0 {
+            modifiers.remove(0);
+        }
+
+        Composite {struct_name: self.struct_name.clone(), modifiers }
     }
 }
 
@@ -252,8 +262,8 @@ impl DataType {
         }
 
         match self {
-            DataType::PRIMATIVE(primative) => todo!(),
-            DataType::COMPOSITE(composite) => todo!(),
+            DataType::PRIMATIVE(primative) => DataType::PRIMATIVE(primative.remove_outer_modifier()),
+            DataType::COMPOSITE(composite) => DataType::COMPOSITE(composite.remove_outer_modifier()),
         }
     }
     

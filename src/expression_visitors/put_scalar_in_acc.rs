@@ -37,7 +37,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             asm_line!(result, "{}", addr_asm);
 
         } else {
-            let reg_size = &my_type.memory_size();//decide which register size is appropriate for this variable
+            let reg_size = &my_type.memory_size(self.asm_data);//decide which register size is appropriate for this variable
             asm_comment!(result, "reading variable: {} to register {}", var.name, LogicalRegister::ACC.generate_reg_name(reg_size));
 
             let result_reg = LogicalRegister::ACC.generate_reg_name(reg_size);

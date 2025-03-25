@@ -48,7 +48,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
 
     let mut return_modifiers = Vec::new();
 
-    let ASTMetadata { remaining_slice, resultant_tree:return_base_type } = consume_base_type(tokens_queue, previous_queue_idx, scope_data)?;
+    let ASTMetadata { remaining_slice, resultant_tree:return_data_type } = consume_base_type(tokens_queue, previous_queue_idx, scope_data)?;
 
     let mut curr_queue_idx = remaining_slice.clone();
 
@@ -104,7 +104,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
         FunctionDeclaration {
             function_name: func_name,
             params: args,
-            return_type: DataType::new_from_base_type(&return_base_type, &return_modifiers)
+            return_type: return_data_type.replace_modifiers(return_modifiers),
         },
         remaining_slice: curr_queue_idx});
 }
@@ -130,7 +130,7 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
     } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base, scope_data)?;
 
     Some(Declaration {
-        data_type: DataType::new_from_base_type(&data_type_base, modifiers.get_modifiers()).decay(),//.decay since arrays ALWAYS decay to pointers, even when sizeof is involved
+        data_type: data_type_base.replace_modifiers(modifiers.get_modifiers().to_vec()).decay(),//.decay since arrays ALWAYS decay to pointers, even when sizeof is involved
         name: var_name
     })
 }

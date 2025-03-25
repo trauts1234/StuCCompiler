@@ -3,6 +3,48 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 
+/**
+ * before assembly generation, structs have not had padding calculated
+ */
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnpaddedStructDefinition {
+    pub(crate) name: Option<String>,
+    ordered_members: Option<Vec<Declaration>>
+}
+
+impl UnpaddedStructDefinition {
+    /**
+     * returns padded members, and the overall size of the struct
+     */
+    pub fn pad_members(&self, asm_data: &AsmData) -> StructDefinition {
+        let mut current_offset = MemoryLayout::new();
+
+        let mut result = Vec::new();
+
+        for m in self.ordered_members.as_ref().expect("tried to create struct with no members") {
+            let alignment_bytes = calculate_alignment(m.get_type(), asm_data).size_bytes();
+
+            let bytes_past_last_boundary = current_offset.size_bytes() % alignment_bytes;
+            let extra_padding = (alignment_bytes - bytes_past_last_boundary) % alignment_bytes;
+            current_offset += MemoryLayout::from_bytes(extra_padding);//increase offset in this struct to reach optimal alignment
+
+            result.push((m.clone(), current_offset));
+            current_offset += m.get_type().memory_size(asm_data);//increase offset in struct by the size of the member
+        }
+
+        //lastly, align to largest member's alignment, so that if this struct is in an array, subsequent structs are aligned
+        let largest_member = self.ordered_members.as_ref().unwrap().iter()
+            .map(|x| calculate_alignment(x.get_type(), asm_data))
+            .fold(MemoryLayout::new(), |acc, x| MemoryLayout::biggest(&acc, &x))
+            .size_bytes();
+        let bytes_past_last_boundary = current_offset.size_bytes() % largest_member;
+        let extra_padding = (largest_member - bytes_past_last_boundary) % largest_member;
+        current_offset += MemoryLayout::from_bytes(extra_padding);
+
+        StructDefinition { name: self.name.clone(), ordered_members: Some(result), size: Some(current_offset) }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructDefinition {
     name: Option<String>,
@@ -35,11 +77,9 @@ impl StructMemberAccess {
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
-        assert!(struct_tree_type.is_bare_struct());//must be a struct
+        unwrap_let!(DataType::COMPOSITE(struct_data) = struct_tree_type);
 
-        unwrap_let!(BaseType::STRUCT(struct_name) = struct_tree_type.underlying_type());//get struct data
-
-        let (member_decl, _) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get the type of the member
+        let (member_decl, _) = asm_data.get_struct(&struct_data.struct_name).get_member_data(&self.member_name);//get the type of the member
 
         member_decl.get_type().clone()
     }
@@ -54,11 +94,10 @@ impl StructMemberAccess {
         let ptr_reg = LogicalRegister::ACC.generate_reg_name(&PTR_SIZE);
 
         let struct_get_addr = self.struct_tree.accept(&mut ReferenceVisitor {asm_data});//assembly to get address of struct
-        let struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get data type of struct
 
-        assert!(struct_type.is_bare_struct());
-        unwrap_let!(BaseType::STRUCT(struct_name) = struct_type.underlying_type());//get data from base type
-        let (_, struct_member_offset) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get offset for the specific member
+        unwrap_let!(DataType::COMPOSITE(struct_type) = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data}));//get data type of struct
+
+        let (_, struct_member_offset) = asm_data.get_struct(&struct_type.struct_name).get_member_data(&self.member_name);//get offset for the specific member
 
         asm_line!(result, "{}", struct_get_addr);//get address of struct
         asm_line!(result, "add {}, {}", ptr_reg, struct_member_offset.size_bytes());//go up by member offset
@@ -84,7 +123,7 @@ impl StructDefinition {
         .unwrap()
     }
     
-    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<StructDefinition>> {
+    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<UnpaddedStructDefinition>> {
 
         let mut curr_queue_idx = previous_slice.clone();
 
@@ -106,9 +145,7 @@ impl StructDefinition {
                 }
                 assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
 
-                let (aligned_members, struct_size) = pad_members(members);//pad each member correctly
-
-                let struct_definition = StructDefinition { name: Some(struct_name), ordered_members: Some(aligned_members), size: Some(struct_size) };
+                let struct_definition = UnpaddedStructDefinition { name: Some(struct_name), ordered_members: Some(members),  };
                 scope_data.structs.add_struct(&struct_definition);
 
                 Some(ASTMetadata {
@@ -142,71 +179,32 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
     //consume pointer or array info, and member name
     let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: member_name }, ..} = try_consume_declaration_modifiers(tokens_queue, &all_declarators_segment, &base_type, scope_data)?;
 
-    let data_type = DataType::new_from_base_type(&base_type, modifiers.get_modifiers());
+    let data_type = base_type.replace_modifiers(modifiers.get_modifiers().to_vec());
 
     curr_queue_idx.index = semicolon_idx.index + 1;
 
     Some(Declaration { data_type, name: member_name })
 }
 
-/**
- * returns padded members, and the overall size of the struct
- */
-fn pad_members(members: Vec<Declaration>) -> (Vec<(Declaration, MemoryLayout)>, MemoryLayout) {
-    let mut current_offset = MemoryLayout::new();
-
-    let mut result = Vec::new();
-
-    for m in &members {
-        let alignment_bytes = calculate_alignment(m.get_type()).size_bytes();
-
-        let bytes_past_last_boundary = current_offset.size_bytes() % alignment_bytes;
-        let extra_padding = (alignment_bytes - bytes_past_last_boundary) % alignment_bytes;
-        current_offset += MemoryLayout::from_bytes(extra_padding);//increase offset in this struct to reach optimal alignment
-
-        result.push((m.clone(), current_offset));
-        current_offset += m.get_type().memory_size();//increase offset in struct by the size of the member
-    }
-
-    //lastly, align to largest member's alignment, so that if this struct is in an array, subsequent structs are aligned
-    let largest_member = members.iter()
-        .map(|x| calculate_alignment(x.get_type()))
-        .fold(MemoryLayout::new(), |acc, x| MemoryLayout::biggest(&acc, &x))
-        .size_bytes();
-    let bytes_past_last_boundary = current_offset.size_bytes() % largest_member;
-    let extra_padding = (largest_member - bytes_past_last_boundary) % largest_member;
-    current_offset += MemoryLayout::from_bytes(extra_padding);
-
-    (result, current_offset)
-}
-
-fn calculate_alignment(data_type: &DataType) -> MemoryLayout {
+fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemoryLayout {
     if data_type.is_array() {
-        calculate_alignment(&data_type.remove_outer_modifier()) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
+        calculate_alignment(&data_type.remove_outer_modifier(), asm_data) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
     } else {
-        data_type.memory_size()
+        data_type.memory_size(asm_data)
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct StructList {
-    struct_decls: HashMap<String, StructDefinition>//note: definition also contains a copy of the struct's name
+    pub(crate) struct_decls: HashMap<String, UnpaddedStructDefinition>//note: definition also contains a copy of the struct's name
 }
 impl StructList {
     pub fn new() -> StructList {
         StructList { struct_decls: HashMap::new() }
     }
-    /**
-     * gets my structs and appends the structs from other, overwriting any duplicates
-     */
-    pub fn merge(&self, other: &StructList) -> StructList {
-        StructList { 
-            //merge my and other structs, overwriting mine if there are duplicates
-            struct_decls: self.struct_decls.clone().into_iter().chain(other.struct_decls.clone().into_iter()).collect()
-        }
-    }
-    pub fn add_struct(&mut self, new_definition: &StructDefinition) {
-        let new_struct_name = new_definition.get_name().as_ref().unwrap();
+
+    pub fn add_struct(&mut self, new_definition: &UnpaddedStructDefinition) {
+        let new_struct_name = new_definition.name.as_ref().unwrap();
 
         if let Some(definition) = self.struct_decls.get_mut(new_struct_name) {
             match (&definition.ordered_members, &new_definition.ordered_members) {
@@ -224,7 +222,7 @@ impl StructList {
     /**
      * note: gets struct by name of struct, not by name of any variables
      */
-    pub fn get_struct(&self, name: &str) -> Option<&StructDefinition> {
+    pub fn get_struct(&self, name: &str) -> Option<&UnpaddedStructDefinition> {
         self.struct_decls.get(name)
     }
 }
