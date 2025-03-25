@@ -1,16 +1,16 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, expression::Expression, expression_visitors::reference_assembly_visitor::ReferenceVisitor};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, expression_visitors::reference_assembly_visitor::ReferenceVisitor};
 use std::fmt::Write;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
-
-pub struct ScalarInAccVisitor<'a>{
-    pub(crate) asm_data: &'a AsmData
-}
 
 /**
  * calculates the value of the expression and puts the scalar result in AX. does not leave anything on the stack
  * does not work with structs, as they are not scalar types
  */
+pub struct ScalarInAccVisitor<'a>{
+    pub(crate) asm_data: &'a AsmData
+}
+
 impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     type Output = String;
 
@@ -71,5 +71,6 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
     fn visit_struct_member_access(&mut self, expr: &crate::struct_definition::StructMemberAccess) -> Self::Output {
         todo!()
+        //remember to deallocate struct
     }
 }

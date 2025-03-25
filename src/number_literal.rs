@@ -101,7 +101,7 @@ impl NumberLiteral {
     }
 
     pub fn get_comma_separated_bytes(&self) -> String {
-        let bytes_size = self.data_type.memory_size().size_bytes();
+        let bytes_size = self.data_type.memory_size().size_bytes();//pass in blank
 
         let number_bytes = match self.value {
             LiteralValue::SIGNED(x) => {

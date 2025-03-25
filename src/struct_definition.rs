@@ -25,14 +25,21 @@ impl StructMemberAccess {
         visitor.visit_struct_member_access(self)
     }
 
+    pub fn get_base_struct_tree(&self) -> &Expression {
+        &self.struct_tree
+    }
+    pub fn get_member_name(&self) -> &str {
+        &self.member_name
+    }
+
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
         assert!(struct_tree_type.is_bare_struct());//must be a struct
 
-        unwrap_let!(BaseType::STRUCT(struct_type) = struct_tree_type.underlying_type());//get struct data
+        unwrap_let!(BaseType::STRUCT(struct_name) = struct_tree_type.underlying_type());//get struct data
 
-        let (member_decl, _) = struct_type.get_member_data(&self.member_name);//get the type of the member
+        let (member_decl, _) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get the type of the member
 
         member_decl.get_type().clone()
     }
@@ -50,8 +57,8 @@ impl StructMemberAccess {
         let struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get data type of struct
 
         assert!(struct_type.is_bare_struct());
-        unwrap_let!(BaseType::STRUCT(struct_definition) = struct_type.underlying_type());//get data from base type
-        let (_, struct_member_offset) = struct_definition.get_member_data(&self.member_name);//get offset for the specific member
+        unwrap_let!(BaseType::STRUCT(struct_name) = struct_type.underlying_type());//get data from base type
+        let (_, struct_member_offset) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get offset for the specific member
 
         asm_line!(result, "{}", struct_get_addr);//get address of struct
         asm_line!(result, "add {}, {}", ptr_reg, struct_member_offset.size_bytes());//go up by member offset

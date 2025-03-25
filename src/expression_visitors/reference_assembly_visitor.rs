@@ -1,7 +1,10 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, LogicalRegister}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
 use crate::asm_generation::RegisterName;
+use std::fmt::Write;
 
-
+/**
+ * puts the address of the visited Expression in RAX
+ */
 pub struct ReferenceVisitor<'a>{
     pub(crate) asm_data: &'a AsmData
 }
@@ -29,7 +32,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
     }
 
     fn visit_func_call(&mut self, _func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        todo!("function pointers")
+        panic!("cannot get address of function call")
     }
 
     fn visit_unary_prefix(&mut self, expr: &crate::unary_prefix_expr::UnaryPrefixExpression) -> Self::Output {
@@ -46,6 +49,18 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
     }
 
     fn visit_struct_member_access(&mut self, expr: &crate::struct_definition::StructMemberAccess) -> Self::Output {
-        todo!()
+        let mut result = String::new();
+
+        let member_name = expr.get_member_name();
+        let struct_type = expr.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
+        let member_data = struct_type.as_bare_struct().get_member_data(member_name);
+
+        asm_line!(result, "{}", expr.accept(&mut ReferenceVisitor{asm_data: self.asm_data}));//get address of the base struct
+
+        asm_comment!(result, "increasing pointer to get address of member {}", member_data.0.get_name());
+
+        asm_line!(result, "add rax, {}", member_data.1.size_bytes());//increase pointer to index of member
+
+        result
     }
 }

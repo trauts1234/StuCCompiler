@@ -1,14 +1,105 @@
-use crate::memory_size::MemoryLayout;
+use crate::{asm_gen_data::AsmData, memory_size::MemoryLayout};
 
 use super::{base_type::BaseType, type_modifier::DeclModifier, type_token::TypeInfo};
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Primative {
+    base_type: BaseType,
+    modifiers: Vec<DeclModifier>,
+}
+
+impl Primative {
+    pub fn memory_size(&self) -> MemoryLayout {
+        let base_size = self.base_type.memory_size();
+        fold_modifiers_calculate_size(base_size, &self.modifiers)
+    }
+
+    pub fn decay(&self) -> Primative {
+        if self.modifiers.len() == 0{
+            return self.clone();
+        }
+
+        if let DeclModifier::ARRAY(_) = self.modifiers[0] {
+
+            let mut modifiers = self.modifiers.to_vec();
+            modifiers[0] = DeclModifier::POINTER;
+
+            Primative {
+                base_type: self.base_type.clone(),
+                modifiers,
+            }
+        } else {
+            self.clone()
+        }
+    }
+    pub fn is_array(&self) -> bool {
+        if let [DeclModifier::ARRAY(_), ..] = self.modifiers.as_slice() {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_pointer(&self) -> bool {
+        if let [DeclModifier::POINTER, ..] = self.modifiers.as_slice() {
+            true
+        } else {
+            false
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct Composite {
+    struct_name: String,
+    modifiers: Vec<DeclModifier>,
+}
+impl Composite {
+    pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
+        let base_size = asm_data.get_struct(&self.struct_name).calculate_size().unwrap();
+        fold_modifiers_calculate_size(base_size, &self.modifiers)
+    }
+
+    pub fn decay(&self) -> Composite {
+        if self.modifiers.len() == 0{
+            return self.clone();
+        }
+
+        if let DeclModifier::ARRAY(_) = self.modifiers[0] {
+
+            let mut modifiers = self.modifiers.to_vec();
+            modifiers[0] = DeclModifier::POINTER;
+
+            Composite {
+                struct_name: self.struct_name.clone(),
+                modifiers,
+            }
+        } else {
+            self.clone()
+        }
+    }
+    pub fn is_array(&self) -> bool {
+        if let [DeclModifier::ARRAY(_), ..] = self.modifiers.as_slice() {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_pointer(&self) -> bool {
+        if let [DeclModifier::POINTER, ..] = self.modifiers.as_slice() {
+            true
+        } else {
+            false
+        }
+    }
+}
 
 /**
  * an entire type to describe anything's type
  */
 #[derive(Debug, Clone, PartialEq)]
-pub struct DataType {
-    base_type: BaseType,
-    modifiers: Vec<DeclModifier>,//apply top to bottom of stack, so [POINTER, ARRAY(4)] is an (array of 4) pointer
+pub enum DataType {
+    PRIMATIVE (Primative),
+
+    COMPOSITE (Composite)
 }
 
 impl DataType {
@@ -27,17 +118,17 @@ impl DataType {
 
         //void type
         if type_info.contains(&TypeInfo::VOID){
-            return DataType { base_type:BaseType::VOID, modifiers:modifiers.to_vec()};
+            return DataType::PRIMATIVE(Primative{ base_type: BaseType::VOID, modifiers: modifiers.to_vec() })
         }
         //varadic arg
         if type_info.contains(&TypeInfo::VaArg) {
             assert!(modifiers.len() == 0);//can't have a va arg pointer???
-            return DataType {base_type: BaseType::VaArg, modifiers: Vec::new()};
+            return DataType::PRIMATIVE(Primative{ base_type: BaseType::VaArg, modifiers: Vec::new() })
         }
         //boolean
         if type_info.contains(&TypeInfo::_BOOL) {
             assert!(type_info.len() == 1);
-            return DataType {base_type: BaseType::_BOOL, modifiers:modifiers.to_vec()};
+            return DataType::PRIMATIVE(Primative{ base_type: BaseType::_BOOL, modifiers: modifiers.to_vec() });
         }
 
         //int assumed from now on
@@ -68,70 +159,65 @@ impl DataType {
             (_, _) => panic!("unsupported size"),
         };
 
-        DataType {base_type, modifiers:modifiers.to_vec()}
+        DataType::PRIMATIVE( Primative{ base_type, modifiers: modifiers.to_vec() })
 
     }
     pub fn new_from_base_type(base_type: &BaseType, modifiers: &[DeclModifier]) -> DataType {
-        DataType { base_type: base_type.clone(), modifiers: modifiers.to_vec() }
+        DataType::PRIMATIVE(Primative{ base_type: base_type.clone(), modifiers: modifiers.to_vec() })
     }
 
-    pub fn memory_size(&self) -> MemoryLayout {
+    /*pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
 
-        let base_size = self.underlying_type().memory_size();
+        let (base_size ,modifiers) = self.underlying_type().memory_size(asm_data);
 
         //take into account if this is a pointer, array, etc.
-        self.modifiers.iter().rev()//reverse to start with base type and apply each modifier in turn
+        modifiers.iter().rev()//reverse to start with base type and apply each modifier in turn
         .fold(base_size, |acc,x| match x {
             DeclModifier::POINTER => MemoryLayout::from_bytes(8),//pointer to anything is always 8 bytes
             DeclModifier::ARRAY(arr_elements) => MemoryLayout::from_bytes(acc.size_bytes() * arr_elements),
             DeclModifier::FUNCTION => panic!("tried to calculate size of function???")
         })
-    }
+    }*/
 
     pub fn get_modifiers(&self) -> &[DeclModifier] {
-        &self.modifiers
+        match self {
+            DataType::PRIMATIVE(primative) => &primative.modifiers,
+            DataType::COMPOSITE(composite) => &composite.modifiers,
+        }
     }
-
-    pub fn underlying_type(&self) -> &BaseType {
-        &self.base_type
+    fn replace_modifiers(&self, new_modifiers: Vec<DeclModifier>) -> DataType {
+        match self {
+            DataType::PRIMATIVE(Primative { base_type, modifiers: _ }) => DataType::PRIMATIVE(Primative { base_type: base_type.clone(), modifiers: new_modifiers }),
+            DataType::COMPOSITE(Composite { struct_name, modifiers: _ }) => DataType::COMPOSITE(Composite { struct_name: struct_name.clone(), modifiers: new_modifiers }),
+        }
     }
 
     pub fn is_pointer(&self) -> bool {
-        if self.modifiers.len() == 0{
+        if self.get_modifiers().len() == 0{
             return false;
         }
         
-        return self.modifiers[0] == DeclModifier::POINTER;//pointer to anything
+        return self.get_modifiers()[0] == DeclModifier::POINTER;//pointer to anything
     }
     pub fn is_array(&self) -> bool {
-        if self.modifiers.len() == 0{
+        if self.get_modifiers().len() == 0{
             return false;
         }
 
-        if let DeclModifier::ARRAY(_) = self.modifiers[0] {
+        if let DeclModifier::ARRAY(_) = self.get_modifiers()[0] {
             return true;
         }
 
         false
-    }
-    pub fn is_bare_struct(&self) -> bool {
-        self.modifiers.len() == 0 && self.base_type.is_struct()
     }
 
     /**
      * tries to decay myself as an array to pointer, or return myself if I can't be decayed
      */
     pub fn decay(&self) -> DataType {
-        if self.modifiers.len() == 0{
-            return self.clone();
-        }
-
-        if let DeclModifier::ARRAY(_) = self.modifiers[0] {
-            let mut result = self.clone();
-            result.modifiers[0] = DeclModifier::POINTER;//turn the array of x into a pointer to x
-            result
-        } else {
-            self.clone()
+        match self {
+            DataType::PRIMATIVE(primative) => DataType::PRIMATIVE(primative.decay()),
+            DataType::COMPOSITE(composite) => DataType::COMPOSITE(composite.decay()),
         }
     }
 
@@ -141,13 +227,17 @@ impl DataType {
      * *int[] -> int* (I think)
      */
     pub fn remove_outer_modifier(&self) -> DataType {
-        let mut result = self.clone();
 
-        if result.modifiers.len() > 0 {
-            result.modifiers.remove(0);//remove the first modifier
+        let mut modifiers = self.get_modifiers().to_vec();
+
+        if modifiers.len() > 0 {
+            modifiers.remove(0);
         }
 
-        result
+        match self {
+            DataType::PRIMATIVE(primative) => todo!(),
+            DataType::COMPOSITE(composite) => todo!(),
+        }
     }
     
     /**
@@ -156,7 +246,7 @@ impl DataType {
      * can be used for the operators add, subtract, multiply, divide
      * also works for pointers
      */
-    pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> DataType {
+    pub fn calculate_promoted_type_arithmetic(lhs: &Primative, rhs: &Primative) -> Primative {
 
         //see if either side wants to be a pointer
         if lhs.is_array() {
@@ -177,23 +267,23 @@ impl DataType {
 
         //todo float managment
 
-        if lhs.underlying_type().is_integer() && rhs.underlying_type().is_integer() {
+        if lhs.base_type.is_integer() && rhs.base_type.is_integer() {
             //integer type promotion
             let biggest_size = lhs.memory_size().size_bits().max(rhs.memory_size().size_bits());
 
-            return match (biggest_size, lhs.underlying_type().is_unsigned(), rhs.underlying_type().is_unsigned()) {
+            return match (biggest_size, lhs.base_type.is_unsigned(), rhs.base_type.is_unsigned()) {
                 (0..=31, _, _) |// small enough to be cast to int easily
                 (32, false, false)//signed, and both int sized
-                 => DataType::new_from_base_type(&BaseType::I32, &Vec::new()),
+                 => Primative{base_type: BaseType::I32, modifiers: Vec::new()},
 
-                (32, _, _) => DataType::new_from_base_type(&BaseType::U32, &Vec::new()),
+                (32, _, _) => Primative{base_type: BaseType::U32, modifiers: Vec::new()},
 
                 (33..=63, _, _) |// small enough to be cast to long long easily
                 (64, false, false)//signed, and both are long long sized
-                 => DataType::new_from_base_type(&BaseType::I64, &Vec::new()),
+                 => Primative{base_type: BaseType::I64, modifiers: Vec::new()},
 
                 (64, _, _) //64 bit, with one being unsigned
-                => DataType::new_from_base_type(&BaseType::U64, &Vec::new()),
+                => Primative{base_type: BaseType::U64, modifiers: Vec::new()},
 
                 (65.., _, _) => panic!("integer size too large!")
 
@@ -219,10 +309,11 @@ impl DataType {
 
         //todo float managment
 
-        if lhs.underlying_type().is_integer() {
+        if let DataType::PRIMATIVE(primative) = lhs {
+            assert!(primative.base_type.is_integer());
             //integer type promotion
 
-            return match (lhs.memory_size().size_bits(), lhs.underlying_type().is_unsigned()) {
+            return match (primative.memory_size().size_bits(), primative.base_type.is_unsigned()) {
                 (0..=31, _) |// small enough to be cast to int easily
                 (32, false)//signed, and both int sized
                  => DataType::new_from_base_type(&BaseType::I32, &Vec::new()),
@@ -244,4 +335,15 @@ impl DataType {
 
         panic!();//integers already handled
     }
+}
+
+fn fold_modifiers_calculate_size(base_size: MemoryLayout, modifiers: &[DeclModifier]) -> MemoryLayout {
+
+    //take into account if this is a pointer, array, etc.
+    modifiers.iter().rev()//reverse to start with base type and apply each modifier in turn
+    .fold(base_size, |acc,x| match x {
+        DeclModifier::POINTER => MemoryLayout::from_bytes(8),//pointer to anything is always 8 bytes
+        DeclModifier::ARRAY(arr_elements) => MemoryLayout::from_bytes(acc.size_bytes() * arr_elements),
+        DeclModifier::FUNCTION => panic!("tried to calculate size of function???")
+    })
 }
