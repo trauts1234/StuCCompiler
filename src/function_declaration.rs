@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, data_type::DataType, modifier_list::ModifierList, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
@@ -104,7 +104,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
         FunctionDeclaration {
             function_name: func_name,
             params: args,
-            return_type: return_data_type.replace_modifiers(return_modifiers),
+            return_type: return_data_type.replace_modifiers(ModifierList::new_from_slice(&return_modifiers)),
         },
         remaining_slice: curr_queue_idx});
 }
@@ -115,7 +115,7 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
     if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
         tokens_queue.consume(&mut curr_queue_idx, &scope_data);
         return Some(Declaration { data_type: 
-            DataType::new_from_base_type(&BaseType::VaArg, &Vec::new()),
+            DataType::new_from_base_type(&BaseType::VaArg),
              name: String::new()//va arg has no name 
         })
     }
@@ -130,7 +130,7 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
     } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base, scope_data)?;
 
     Some(Declaration {
-        data_type: data_type_base.replace_modifiers(modifiers.get_modifiers().to_vec()).decay(),//.decay since arrays ALWAYS decay to pointers, even when sizeof is involved
+        data_type: data_type_base.replace_modifiers(modifiers.get_modifiers().clone()).decay(),//.decay since arrays ALWAYS decay to pointers, even when sizeof is involved
         name: var_name
     })
 }

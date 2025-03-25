@@ -33,31 +33,31 @@ pub fn mov_reg<T: RegisterName, U: RegisterName>(reg_size: &MemoryLayout, to: &T
 
 pub fn cast_from_acc(original: &Primative, new_type: &Primative) -> String {
 
-    assert!(!new_type.is_array());//cannot cast to array
+    assert!(!new_type.get_modifiers().is_array());//cannot cast to array
 
     if new_type.underlying_type().is_va_arg() {
-        assert!(new_type.modifiers_count() == 0);//can never have pointer to varadic arg
+        assert!(new_type.get_modifiers().modifiers_count() == 0);//can never have pointer to varadic arg
         return String::new();//cast to varadic arg does nothing, as types are not specified for va args
     }
 
-    if original.is_array() {
+    if original.get_modifiers().is_array() {
         let ptr = original.decay();
         return cast_from_acc(&ptr, new_type);
     }
 
     let mut result = String::new();
 
-    if original.is_pointer() {
+    if original.get_modifiers().is_pointer() {
         //cast pointer to u64
         //pointers are stored in memory just like u64, so no modifications needed
-        let original_implicitly_as_u64 = Primative::new(BaseType::U64, Vec::new());
+        let original_implicitly_as_u64 = Primative::new(BaseType::U64);
         //cast from
         return cast_from_acc(&original_implicitly_as_u64, new_type);
     }
 
-    if new_type.is_pointer() {
+    if new_type.get_modifiers().is_pointer() {
         //cast u64 to pointer
-        let new_implicitly_as_u64 = Primative::new(BaseType::U64, Vec::new());
+        let new_implicitly_as_u64 = Primative::new(BaseType::U64);
         //cast from
         return cast_from_acc(original, &new_implicitly_as_u64);
     }
@@ -87,7 +87,7 @@ pub fn cast_from_acc(original: &Primative, new_type: &Primative) -> String {
                 asm_comment!(result, "casting i{} to i64", data_size.size_bits());
                 asm_line!(result, "{}", sign_extend_acc(&data_size));//sign extend rax to i64
 
-                let original_now_as_i64 = Primative::new(BaseType::I64, Vec::new());
+                let original_now_as_i64 = Primative::new(BaseType::I64);
                 asm_line!(result, "{}", cast_from_acc(&original_now_as_i64, new_type));//cast the i64 back down to whatever new_type is
             }
             (x, true) => {
@@ -96,7 +96,7 @@ pub fn cast_from_acc(original: &Primative, new_type: &Primative) -> String {
                 asm_comment!(result, "casting u{} to u64", data_size.size_bits());
                 asm_line!(result, "{}", zero_extend_acc(&data_size));//zero extend rax to u64
 
-                let original_now_as_u64 = Primative::new(BaseType::U64, Vec::new());
+                let original_now_as_u64 = Primative::new(BaseType::U64);
                 asm_line!(result, "{}", cast_from_acc(&original_now_as_u64, new_type));//cast the u64 back down to whatever new_type is
 
             }

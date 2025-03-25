@@ -54,7 +54,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
 
         let member_name = expr.get_member_name();
         unwrap_let!(DataType::COMPOSITE(Composite { struct_name, modifiers }) = expr.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
-        assert!(modifiers.len() == 0);
+        assert!(modifiers.modifiers_count() == 0);
         let member_data = self.asm_data.get_struct(&struct_name).get_member_data(member_name);
 
         asm_line!(result, "{}", expr.accept(&mut ReferenceVisitor{asm_data: self.asm_data}));//get address of the base struct

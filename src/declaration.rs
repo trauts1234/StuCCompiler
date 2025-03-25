@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{data_type::{Composite, DataType}, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{data_type::{Composite, DataType}, modifier_list::ModifierList, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -105,7 +105,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
 
     assert!(tokens_queue.peek(&curr_queue_idx, scope_data) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
-    let data_type = data_type.replace_modifiers(modifiers.get_modifiers().to_vec());
+    let data_type = data_type.replace_modifiers(modifiers.get_modifiers().clone());
 
     scope_data.add_variable(&var_name, data_type);//save variable to variable list early, so that I can reference it in the initialisation
 
@@ -160,7 +160,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume token
             //identifier name in the middle, grab it
             Declaration {
-                data_type: data_type.replace_modifiers(Vec::new()),
+                data_type: data_type.replace_modifiers(ModifierList::new()),
                 name: ident.to_string(),
             }
         }
@@ -185,14 +185,14 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
 
     //take the example int *(*foo)[10]
     let ordered_modifiers: Vec<DeclModifier> = //foo is a:
-        [inner_data.data_type.get_modifiers(),//pointer to
+        [inner_data.data_type.get_modifiers().raw_modifiers(),//pointer to
          &pointer_modifiers, //pointer to
          &array_modifiers].concat();//array of 10 integers
 
     Some(ASTMetadata {
         remaining_slice: curr_queue_idx,
         resultant_tree: Declaration {
-            data_type: data_type.replace_modifiers(ordered_modifiers),
+            data_type: data_type.replace_modifiers(ModifierList::new_from_slice(&ordered_modifiers)),
             name: inner_data.name,//inner always contains a name
         },
     })
@@ -213,7 +213,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
 
             Some(ASTMetadata {
                 remaining_slice,
-                resultant_tree: DataType::COMPOSITE(Composite::new(struct_type.name.clone().expect("not implemented: anonymous structs"), Vec::new()))
+                resultant_tree: DataType::COMPOSITE(Composite::new(struct_type.name.clone().expect("not implemented: anonymous structs")))
             })
         }
         _ => {
@@ -233,7 +233,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
             Some(ASTMetadata {
                 remaining_slice: curr_queue_idx,
                 //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-                resultant_tree: DataType::new_from_type_list(&data_type_info, &Vec::new())
+                resultant_tree: DataType::new_from_type_list(&data_type_info, ModifierList::new())
             })
         }
     }

@@ -129,7 +129,7 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
                     let x_type = x.get_data_type();
                     let y_type = y.get_data_type();
                     let dtype = DataType::calculate_promoted_type_arithmetic(&x_type, &y_type);
-                    assert!(dtype.modifiers_count() == 0);
+                    assert!(dtype.get_modifiers().modifiers_count() == 0);
                     dtype.underlying_type().clone()
                 }
             };

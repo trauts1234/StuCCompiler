@@ -33,7 +33,7 @@ pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, previous_slice: &mut 
 
             let mut prev_num = -1;//this is a temporary counter, as when custom types are used for enums, this may break
 
-            let data_type = DataType::new_from_base_type(&BaseType::I32, &Vec::new());
+            let data_type = DataType::new_from_base_type(&BaseType::I32);
 
             while let Some(variant) = try_consume_enum_variant_definition(tokens_queue, &mut inside_variants, &mut prev_num, scope_data) {
                 scope_data.enums.add_variant(variant);

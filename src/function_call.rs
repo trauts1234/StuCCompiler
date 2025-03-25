@@ -26,7 +26,7 @@ impl FunctionCall {
             let param_type = &self.decl.params[i.min(self.decl.params.len()-1)];//when len(params) > len(args), grab the last of params, as it could be a varadic param
             
             if i >= self.decl.params.len() {
-                assert!(*param_type.get_type() == DataType::new_from_base_type(&BaseType::VaArg, &Vec::new()));//more args than params, so must be varadic
+                assert!(*param_type.get_type() == DataType::new_from_base_type(&BaseType::VaArg));//more args than params, so must be varadic
             }
 
             asm_line!(result, "{}", arg.accept(&mut ScalarInAccVisitor {asm_data}));//calculate the arg

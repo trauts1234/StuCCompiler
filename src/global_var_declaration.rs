@@ -12,7 +12,7 @@ impl GlobalVariable {
     pub fn generate_assembly(&self) -> String {
         match &self.default_value {
             ConstexprValue::NUMBER(number_literal) => {
-                assert!(self.decl.data_type.get_modifiers().len() == 0);//casting number literal to pointer is not allowed
+                assert!(self.decl.data_type.get_modifiers().modifiers_count() == 0);//casting number literal to pointer is not allowed
 
                 unwrap_let!(DataType::PRIMATIVE(decl_primative_type) = &self.decl.data_type);
 
@@ -67,7 +67,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
     
     let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
     
-    let data_type = base_type.replace_modifiers(modifiers.get_modifiers().to_vec());
+    let data_type = base_type.replace_modifiers(modifiers.get_modifiers().clone());
 
     scope_data.add_variable(&var_name, data_type.clone());//save variable to variable list early, so that I can reference it in the initialisation
 

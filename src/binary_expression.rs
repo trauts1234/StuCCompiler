@@ -29,7 +29,7 @@ impl BinaryExpression {
 
         let promoted_type = match &self.operator {//I already have a function for this?
             Punctuator::EQUALS => panic!("assignment already done"),
-            x if x.as_boolean_instr().is_some() => Primative::new(BaseType::_BOOL, Vec::new()),//is a boolean operator, operands are booleans
+            x if x.as_boolean_instr().is_some() => Primative::new(BaseType::_BOOL),//is a boolean operator, operands are booleans
             _ => DataType::calculate_promoted_type_arithmetic(&lhs_type, &rhs_type)//else find a common meeting ground
         };
         let promoted_size = &promoted_type.memory_size();
@@ -209,7 +209,7 @@ impl BinaryExpression {
             Punctuator::DOUBLEEQUALS |
             Punctuator::PIPEPIPE |
             Punctuator::ANDAND |
-            Punctuator::EXCLAMATIONEQUALS => DataType::new_from_base_type(&BaseType::_BOOL, &Vec::new()),
+            Punctuator::EXCLAMATIONEQUALS => DataType::new_from_base_type(&BaseType::_BOOL),
 
             _ => panic!("data type calculation for this binary operator is not implemented")
         }

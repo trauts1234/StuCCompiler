@@ -83,10 +83,9 @@ impl UnaryPrefixExpression {
         let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
         match self.operator {
             Punctuator::AMPERSAND => {
-                let mut pointer_modifiers = operand_type.get_modifiers().to_vec();
-                pointer_modifiers.insert(0, DeclModifier::POINTER);//pointer to whatever rhs is
-
-                operand_type.replace_modifiers(pointer_modifiers)
+                operand_type.replace_modifiers(
+                    operand_type.get_modifiers().add_outer_modifier(DeclModifier::POINTER)//pointer to whatever rhs is
+                )
             },
             Punctuator::ASTERISK => operand_type.remove_outer_modifier(),
             Punctuator::DASH | Punctuator::PLUSPLUS => DataType::calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
