@@ -1,4 +1,6 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use unwrap_let::unwrap_let;
+
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -44,7 +46,14 @@ impl ControlFlowChange {
                 if let Some(expr) = expression {
                     asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor {asm_data}));
 
-                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr.accept(&mut GetDataTypeVisitor {asm_data}), asm_data.get_function_return_type()));
+                    match expr.accept(&mut GetDataTypeVisitor {asm_data}) {
+                        DataType::PRIMATIVE(primative) => { 
+                            unwrap_let!(DataType::PRIMATIVE(ret_type_primative) = asm_data.get_function_return_type());
+                            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&primative, ret_type_primative))
+                        },
+                        DataType::COMPOSITE(composite) => todo!("returning composite value from function"),
+                    }
+
                 }
                 //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return

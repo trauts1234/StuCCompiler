@@ -1,3 +1,5 @@
+use unwrap_let::unwrap_let;
+
 use crate::{data_type::{base_type::BaseType, data_type::DataType}, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
 
 pub enum ConstexprValue {
@@ -124,8 +126,10 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
                 Punctuator::EQUALS => panic!("tried to assign number to number in constant expression"),
                 x if x.as_boolean_instr().is_some() => BaseType::_BOOL,
                 _ => {
-                    let dtype = DataType::calculate_promoted_type_arithmetic(&&x.get_data_type(), &y.get_data_type());
-                    assert!(dtype.get_modifiers().len() == 0);
+                    unwrap_let!(DataType::PRIMATIVE(x_type) = x.get_data_type());
+                    unwrap_let!(DataType::PRIMATIVE(y_type) = y.get_data_type());
+                    let dtype = DataType::calculate_promoted_type_arithmetic(&x_type, &y_type);
+                    assert!(dtype.modifiers_count() == 0);
                     dtype.underlying_type().clone()
                 }
             };

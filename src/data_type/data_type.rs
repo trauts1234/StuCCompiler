@@ -9,6 +9,9 @@ pub struct Primative {
 }
 
 impl Primative {
+    pub fn new(base_type: BaseType, modifiers: Vec<DeclModifier>) -> Primative {
+        Primative { base_type, modifiers }
+    }
     pub fn memory_size(&self) -> MemoryLayout {
         let base_size = self.base_type.memory_size();
         fold_modifiers_calculate_size(base_size, &self.modifiers)
@@ -46,6 +49,22 @@ impl Primative {
             false
         }
     }
+    pub fn modifiers_count(&self) -> usize {
+        self.modifiers.len()
+    }
+    pub fn underlying_type(&self) -> &BaseType {
+        &self.base_type
+    }
+
+    pub fn remove_outer_modifier(&self) -> Primative {
+        let mut modifiers = self.modifiers.to_vec();
+
+        if modifiers.len() > 0 {
+            modifiers.remove(0);
+        }
+
+        Primative { base_type: self.base_type.clone(), modifiers }
+    }
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Composite {
@@ -53,6 +72,10 @@ pub struct Composite {
     modifiers: Vec<DeclModifier>,
 }
 impl Composite {
+    pub fn new(struct_name: String, modifiers: Vec<DeclModifier>) -> Composite {
+        Composite { struct_name, modifiers }
+    }
+
     pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
         let base_size = asm_data.get_struct(&self.struct_name).calculate_size().unwrap();
         fold_modifiers_calculate_size(base_size, &self.modifiers)
@@ -166,18 +189,12 @@ impl DataType {
         DataType::PRIMATIVE(Primative{ base_type: base_type.clone(), modifiers: modifiers.to_vec() })
     }
 
-    /*pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
-
-        let (base_size ,modifiers) = self.underlying_type().memory_size(asm_data);
-
-        //take into account if this is a pointer, array, etc.
-        modifiers.iter().rev()//reverse to start with base type and apply each modifier in turn
-        .fold(base_size, |acc,x| match x {
-            DeclModifier::POINTER => MemoryLayout::from_bytes(8),//pointer to anything is always 8 bytes
-            DeclModifier::ARRAY(arr_elements) => MemoryLayout::from_bytes(acc.size_bytes() * arr_elements),
-            DeclModifier::FUNCTION => panic!("tried to calculate size of function???")
-        })
-    }*/
+    pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
+        match self {
+            DataType::PRIMATIVE(primative) => primative.memory_size(),
+            DataType::COMPOSITE(composite) => composite.memory_size(asm_data),
+        }
+    }
 
     pub fn get_modifiers(&self) -> &[DeclModifier] {
         match self {
@@ -185,7 +202,7 @@ impl DataType {
             DataType::COMPOSITE(composite) => &composite.modifiers,
         }
     }
-    fn replace_modifiers(&self, new_modifiers: Vec<DeclModifier>) -> DataType {
+    pub fn replace_modifiers(&self, new_modifiers: Vec<DeclModifier>) -> DataType {
         match self {
             DataType::PRIMATIVE(Primative { base_type, modifiers: _ }) => DataType::PRIMATIVE(Primative { base_type: base_type.clone(), modifiers: new_modifiers }),
             DataType::COMPOSITE(Composite { struct_name, modifiers: _ }) => DataType::COMPOSITE(Composite { struct_name: struct_name.clone(), modifiers: new_modifiers }),

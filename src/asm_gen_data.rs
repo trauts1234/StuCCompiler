@@ -47,7 +47,7 @@ impl AsmData {
 
         let local_variables = parse_data.get_symbol_table()
             .iter()
-            .map(|(var_name, var_type)| add_variable(&mut new_stack_height, var_name, var_type));//add each variable and generate metadata
+            .map(|(var_name, var_type)| add_variable(&mut new_stack_height, var_name, var_type, self));//add each variable and generate metadata
 
         //add all current variables then overwrite with local variables (shadowing)
         let variables: IndexMap<String, AddressedDeclaration> = self.variables.clone().into_iter().chain(local_variables).collect();
@@ -84,9 +84,9 @@ impl AsmData {
     }
 }
 
-fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &DataType) -> (String, AddressedDeclaration) {
+fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &DataType, asm_data: &AsmData) -> (String, AddressedDeclaration) {
 
-    *stack_height += var_type.memory_size();//increase stack pointer to store extra variable
+    *stack_height += var_type.memory_size(asm_data);//increase stack pointer to store extra variable
 
     let decl = AddressedDeclaration { data_type: var_type.clone(), location: VariableAddress::STACKOFFSET(stack_height.clone()) };//then generate address, as to not overwrite the stack frame
 

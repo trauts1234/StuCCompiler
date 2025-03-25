@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::{Composite, DataType, Primative}, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -41,7 +41,7 @@ impl InitialisedDeclaration {
         let mut declarations = Vec::new();
         
         //consume int or unsigned int or enum etc.
-        let ASTMetadata { remaining_slice, resultant_tree: base_type } = consume_base_type(tokens_queue, &previous_queue_idx, scope_data)?;
+        let ASTMetadata { remaining_slice, resultant_tree: data_type } = consume_base_type(tokens_queue, &previous_queue_idx, scope_data)?;
 
         let mut curr_queue_idx = remaining_slice.clone();
 
@@ -54,7 +54,7 @@ impl InitialisedDeclaration {
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator
-            if let Some(ASTMetadata { remaining_slice: _, resultant_tree}) = try_consume_declarator(tokens_queue, &declarator_segment, &base_type, accessible_funcs, scope_data) {
+            if let Some(ASTMetadata { remaining_slice: _, resultant_tree}) = try_consume_declarator(tokens_queue, &declarator_segment, &data_type, accessible_funcs, scope_data) {
                 declarations.push(resultant_tree);//the declarator consumption actaully gives us a full declaration
             }
         }
@@ -94,18 +94,18 @@ impl Declaration {
 /**
  * claims to consume a declarator, but actaully takes in the data type too, and gives back a full declaration
  */
-pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<InitialisedDeclaration>> {
+pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, data_type: &DataType, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<InitialisedDeclaration>> {
     if slice.get_slice_size() == 0 {
         return None;//obviously no declarations in ""
     }
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, data_type, scope_data)?;
 
     assert!(tokens_queue.peek(&curr_queue_idx, scope_data) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
-    let data_type = DataType::new_from_base_type(&base_type, modifiers.get_modifiers());
+    let data_type = data_type.replace_modifiers(modifiers.get_modifiers().to_vec());
 
     scope_data.add_variable(&var_name, data_type);//save variable to variable list early, so that I can reference it in the initialisation
 
@@ -127,7 +127,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
  * also used in function params
  * TODO function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ParseData) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, data_type: &DataType, scope_data: &mut ParseData) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
@@ -149,7 +149,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             //find the corresponding close bracket, and deal with it
             let in_brackets_tokens = tokens_queue.consume_inside_parenthesis(&mut curr_queue_idx);
 
-            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, base_type, scope_data)?;
+            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, data_type, scope_data)?;
 
             //curr queue idx is already advanced from consuming the parenthesis
 
@@ -160,7 +160,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume token
             //identifier name in the middle, grab it
             Declaration {
-                data_type: DataType::new_from_base_type(&base_type, &Vec::new()),
+                data_type: data_type.replace_modifiers(Vec::new()),
                 name: ident.to_string(),
             }
         }
@@ -192,13 +192,13 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
     Some(ASTMetadata {
         remaining_slice: curr_queue_idx,
         resultant_tree: Declaration {
-            data_type: DataType::new_from_base_type(&base_type, &ordered_modifiers),
+            data_type: data_type.replace_modifiers(ordered_modifiers),
             name: inner_data.name,//inner always contains a name
         },
     })
 }
 
-pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<BaseType>> {
+pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<DataType>> {
 
     let mut curr_queue_idx = previous_slice.clone();
 
@@ -206,14 +206,14 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
         Token::KEYWORD(Keyword::ENUM) => {
             let ASTMetadata { remaining_slice, resultant_tree } = try_consume_enum_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
-            Some(ASTMetadata { remaining_slice, resultant_tree: resultant_tree.underlying_type().clone() })
+            Some(ASTMetadata { remaining_slice, resultant_tree })
         }
         Token::KEYWORD(Keyword::STRUCT) => {
             let ASTMetadata { remaining_slice, resultant_tree: struct_type } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
             Some(ASTMetadata {
                 remaining_slice,
-                resultant_tree: BaseType::STRUCT(struct_type)
+                resultant_tree: DataType::COMPOSITE(Composite::new(struct_type.get_name().clone().expect("not implemented: anonymous structs"), Vec::new()))
             })
         }
         _ => {
@@ -233,7 +233,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
             Some(ASTMetadata {
                 remaining_slice: curr_queue_idx,
                 //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-                resultant_tree: DataType::new_from_type_list(&data_type_info, &Vec::new()).underlying_type().clone()
+                resultant_tree: DataType::new_from_type_list(&data_type_info, &Vec::new())
             })
         }
     }
