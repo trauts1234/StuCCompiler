@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::data_type::DataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData, statement::Statement};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::recursive_data_type::RecursiveDataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -16,7 +16,7 @@ impl FunctionDefinition {
     pub fn get_name(&self) -> &str {
         &self.decl.function_name
     }
-    pub fn get_return_type(&self) -> DataType {
+    pub fn get_return_type(&self) -> RecursiveDataType {
         self.decl.return_type.clone()
     }
     pub fn as_decl(&self) -> FunctionDeclaration {

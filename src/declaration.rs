@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{data_type::{Composite, DataType}, modifier_list::ModifierList, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::RecursiveDataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -26,7 +26,7 @@ impl MinimalDataVariable {
  */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
-    pub(crate) data_type: DataType,
+    pub(crate) data_type: RecursiveDataType,
     pub(crate) name: String,
 }
 
@@ -80,7 +80,7 @@ impl InitialisedDeclaration {
 }
 
 impl Declaration {
-    pub fn get_type(&self) -> &DataType {
+    pub fn get_type(&self) -> &RecursiveDataType {
         //maybe unused
         &self.data_type
     }
@@ -94,20 +94,18 @@ impl Declaration {
 /**
  * claims to consume a declarator, but actaully takes in the data type too, and gives back a full declaration
  */
-pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, data_type: &DataType, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<InitialisedDeclaration>> {
+pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<InitialisedDeclaration>> {
     if slice.get_slice_size() == 0 {
         return None;//obviously no declarations in ""
     }
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, data_type, scope_data)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: data_type_with_modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
 
     assert!(tokens_queue.peek(&curr_queue_idx, scope_data) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
-    let data_type = data_type.replace_modifiers(modifiers.get_modifiers().clone());
-
-    scope_data.add_variable(&var_name, data_type);//save variable to variable list early, so that I can reference it in the initialisation
+    scope_data.add_variable(&var_name,data_type_with_modifiers);//save variable to variable list early, so that I can reference it in the initialisation
 
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 
@@ -127,7 +125,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
  * also used in function params
  * TODO function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, data_type: &DataType, scope_data: &mut ParseData) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ParseData) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
@@ -149,7 +147,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             //find the corresponding close bracket, and deal with it
             let in_brackets_tokens = tokens_queue.consume_inside_parenthesis(&mut curr_queue_idx);
 
-            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, data_type, scope_data)?;
+            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, base_type, scope_data)?;
 
             //curr queue idx is already advanced from consuming the parenthesis
 
@@ -160,7 +158,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume token
             //identifier name in the middle, grab it
             Declaration {
-                data_type: data_type.replace_modifiers(ModifierList::new()),
+                data_type: RecursiveDataType::RAW(base_type.clone()),
                 name: ident.to_string(),
             }
         }
@@ -183,22 +181,30 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
         }
     }
 
-    //take the example int *(*foo)[10]
-    let ordered_modifiers: Vec<DeclModifier> = //foo is a:
-        [inner_data.data_type.get_modifiers().raw_modifiers(),//pointer to
-         &pointer_modifiers, //pointer to
-         &array_modifiers].concat();//array of 10 integers
+    //iterator item 0 is the outermost modifier. if it was pointer, it would be a pointer to whatever the rest was
+    let extra_modifiers = 
+    pointer_modifiers.iter()//all pointers take priority
+    .chain(array_modifiers.iter())//first on this iterator is the first [x] found after the variable name
+    .cloned();
+    
+    let result_type = Declaration {
+        data_type: 
+            extra_modifiers
+            .rev()//reverse, to put innermost first, then outer ones
+            .fold(
+                inner_data.get_type().clone(),//start with inner type
+                |curr_type, modifier| curr_type.add_outer_modifier(modifier)//add each modifier, innermost first
+            ),
+        name: inner_data.get_name().to_string(),
+    };
 
     Some(ASTMetadata {
         remaining_slice: curr_queue_idx,
-        resultant_tree: Declaration {
-            data_type: data_type.replace_modifiers(ModifierList::new_from_slice(&ordered_modifiers)),
-            name: inner_data.name,//inner always contains a name
-        },
+        resultant_tree: result_type,
     })
 }
 
-pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<DataType>> {
+pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<BaseType>> {
 
     let mut curr_queue_idx = previous_slice.clone();
 
@@ -213,7 +219,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
 
             Some(ASTMetadata {
                 remaining_slice,
-                resultant_tree: DataType::COMPOSITE(Composite::new(struct_type.name.clone().expect("not implemented: anonymous structs")))
+                resultant_tree: BaseType::STRUCT(struct_type.name.clone().expect("not implemented: anonymous structs"))
             })
         }
         _ => {
@@ -233,7 +239,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
             Some(ASTMetadata {
                 remaining_slice: curr_queue_idx,
                 //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-                resultant_tree: DataType::new_from_type_list(&data_type_info, ModifierList::new())
+                resultant_tree: base_type::new_from_type_list(&data_type_info)
             })
         }
     }

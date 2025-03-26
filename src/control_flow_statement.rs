@@ -1,6 +1,4 @@
-use unwrap_let::unwrap_let;
-
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::data_type::DataType, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -46,12 +44,15 @@ impl ControlFlowChange {
                 if let Some(expr) = expression {
                     asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor {asm_data}));
 
-                    match expr.accept(&mut GetDataTypeVisitor {asm_data}) {
-                        DataType::PRIMATIVE(primative) => { 
-                            unwrap_let!(DataType::PRIMATIVE(ret_type_primative) = asm_data.get_function_return_type());
-                            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&primative, ret_type_primative))
+                    match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
+                        crate::data_type::recursive_data_type::RecursiveDataType::ARRAY { size, element } => panic!("tried to return array from function!"),
+                        expr_type => {
+                            if let RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = expr_type {
+                                todo!("returning struct from function")
+                            } else {
+                                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr_type, asm_data.get_function_return_type(), asm_data))
+                            }
                         },
-                        DataType::COMPOSITE(composite) => todo!("returning composite value from function"),
                     }
 
                 }

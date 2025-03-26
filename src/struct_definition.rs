@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 
@@ -73,12 +73,12 @@ impl StructMemberAccess {
         &self.member_name
     }
 
-    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+    pub fn get_data_type(&self, asm_data: &AsmData) -> RecursiveDataType {
         let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
-        unwrap_let!(DataType::COMPOSITE(struct_data) = struct_tree_type);
+        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = struct_tree_type);
 
-        let (member_decl, _) = asm_data.get_struct(&struct_data.struct_name).get_member_data(&self.member_name);//get the type of the member
+        let (member_decl, _) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get the type of the member
 
         member_decl.get_type().clone()
     }
@@ -94,9 +94,11 @@ impl StructMemberAccess {
 
         let struct_get_addr = self.struct_tree.accept(&mut ReferenceVisitor {asm_data});//assembly to get address of struct
 
-        unwrap_let!(DataType::COMPOSITE(struct_type) = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data}));//get data type of struct
+        let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
-        let (_, struct_member_offset) = asm_data.get_struct(&struct_type.struct_name).get_member_data(&self.member_name);//get offset for the specific member
+        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = struct_tree_type);
+
+        let (_, struct_member_offset) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get offset for the specific member
 
         asm_line!(result, "{}", struct_get_addr);//get address of struct
         asm_line!(result, "add {}, {}", ptr_reg, struct_member_offset.size_bytes());//go up by member offset
@@ -176,17 +178,15 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
     let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
 
     //consume pointer or array info, and member name
-    let ASTMetadata{resultant_tree: Declaration { data_type: modifiers, name: member_name }, ..} = try_consume_declaration_modifiers(tokens_queue, &all_declarators_segment, &base_type, scope_data)?;
-
-    let data_type = base_type.replace_modifiers(modifiers.get_modifiers().clone());
+    let ASTMetadata{resultant_tree: decl, ..} = try_consume_declaration_modifiers(tokens_queue, &all_declarators_segment, &base_type, scope_data)?;
 
     curr_queue_idx.index = semicolon_idx.index + 1;
 
-    Some(Declaration { data_type, name: member_name })
+    Some(decl)
 }
 
-fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemoryLayout {
-    if data_type.is_array() {
+fn calculate_alignment(data_type: &RecursiveDataType, asm_data: &AsmData) -> MemoryLayout {
+    if let RecursiveDataType::ARRAY {..} = data_type {
         calculate_alignment(&data_type.remove_outer_modifier(), asm_data) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
     } else {
         data_type.memory_size(asm_data)

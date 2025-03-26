@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::data_type::{DataType, Primative}, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{asm_boilerplate::{self, mov_reg}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::recursive_data_type::RecursiveDataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -175,23 +175,23 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
  * used in binary expressions, where you need both sides in registers
  * does NOT work for assignment expressions
  */
-pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &Primative, asm_data: &AsmData) -> String {
+pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &RecursiveDataType, asm_data: &AsmData) -> String {
     let mut result = String::new();
 
-    let promoted_size = promoted_type.memory_size();
+    let promoted_size = promoted_type.memory_size(asm_data);
 
     //put lhs on stack
     let lhs_asm = lhs.accept(&mut ScalarInAccVisitor{asm_data});
-    unwrap_let!(DataType::PRIMATIVE(lhs_type) = lhs.accept(&mut GetDataTypeVisitor{asm_data}));
+    let lhs_type = lhs.accept(&mut GetDataTypeVisitor{asm_data});
     asm_line!(result, "{}", lhs_asm);
-    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs_type, &promoted_type));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs_type, &promoted_type, asm_data));
     asm_line!(result, "{}", asm_boilerplate::push_reg(&promoted_size, &LogicalRegister::ACC));
 
     //put rhs in secondary
     let rhs_asm = rhs.accept(&mut ScalarInAccVisitor{asm_data});
-    unwrap_let!(DataType::PRIMATIVE(rhs_type) = rhs.accept(&mut GetDataTypeVisitor{asm_data}));
+    let rhs_type = rhs.accept(&mut GetDataTypeVisitor{asm_data});
     asm_line!(result, "{}", rhs_asm);
-    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs_type, &promoted_type));
+    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs_type, &promoted_type, asm_data));
     asm_line!(result, "{}", mov_reg(&promoted_size, &LogicalRegister::SECONDARY, &LogicalRegister::ACC));//mov acc to secondary
 
     //pop lhs to ACC
@@ -206,7 +206,8 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
     let promoted_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
 
-    if promoted_type.is_array() && rhs.accept(&mut GetDataTypeVisitor {asm_data}).is_array() {
+    if let (RecursiveDataType::ARRAY {..}, RecursiveDataType::ARRAY {..}) = (&promoted_type, rhs.accept(&mut GetDataTypeVisitor {asm_data})){
+        //promoted type and rhs are arrays
         //initialising an array? char[12] x = "hello world";//for example
         let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data});
         let rhs_asm = rhs.accept(&mut ReferenceVisitor {asm_data});
@@ -226,16 +227,29 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
         return result;//all done here
     }
 
-    match promoted_type {
-        DataType::COMPOSITE(_) => 
-            panic!("assigning structs is unsupported"), 
+    match &promoted_type {
+        RecursiveDataType::ARRAY { size, element } => {
+            unwrap_let!(RecursiveDataType::ARRAY {..} = rhs.accept(&mut GetDataTypeVisitor{asm_data}));//rhs must be an array?
 
-        DataType::PRIMATIVE(promoted_primative_type) => {
-            assert!(!promoted_primative_type.get_modifiers().is_array());
-            assert!(promoted_primative_type.memory_size().size_bits() <= 64);
+            //initialising an array? char[12] x = "hello world";//for example
+            let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data});
+            let rhs_asm = rhs.accept(&mut ReferenceVisitor {asm_data});
+            asm_line!(result, "{}", lhs_asm);//get dest address
+            asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
+            asm_line!(result, "{}", rhs_asm);//get src address
+            asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
+
+            asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_SI));//pop source to RSI
+            asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_DI));//pop destination to RDI
+
+            asm_line!(result, "mov rcx, {}", promoted_type.memory_size(asm_data).size_bytes());//put number of bytes to copy in RCX
+
+            asm_line!(result, "cld");//reset copy direction flag
+            asm_line!(result, "rep movsb");//copy the data
+        },
+        data_type => {
+            assert!(data_type.memory_size(asm_data).size_bits() <= 64);
             //maybe more special cases for pointer assignment etc
-
-            unwrap_let!(DataType::PRIMATIVE(rhs_primative_type) = rhs.accept(&mut GetDataTypeVisitor{asm_data}));
 
             //put address of lvalue on stack
             let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data});
@@ -246,15 +260,15 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             let rhs_asm = rhs.accept(&mut ScalarInAccVisitor {asm_data});
             asm_line!(result, "{}", rhs_asm);
             //cast to the same type as lhs
-            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs_primative_type, &promoted_primative_type));
+            asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs.accept(&mut GetDataTypeVisitor{asm_data}), &promoted_type, asm_data));
 
             asm_comment!(result, "assigning to a stack variable");
 
             //pop address to assign to
             asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::SECONDARY));
             //save to memory
-            asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_reg_name(&PTR_SIZE), LogicalRegister::ACC.generate_reg_name(&promoted_primative_type.memory_size()));
-        }
+            asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_reg_name(&PTR_SIZE), LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size(asm_data)));
+        },
     }
 
     result

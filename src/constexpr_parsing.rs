@@ -1,4 +1,4 @@
-use crate::{data_type::{base_type::BaseType, data_type::DataType}, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
+use crate::{data_type::base_type::BaseType, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -120,20 +120,9 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
 
     match (parsed_left, parsed_right) {
         (ConstexprValue::NUMBER(x), ConstexprValue::NUMBER(y)) => {
-            let promoted_base = match &operator {
-                Punctuator::EQUALS => panic!("tried to assign number to number in constant expression"),
-                x if x.as_boolean_instr().is_some() => BaseType::_BOOL,
-                _ => {
-                    let x_type = x.get_data_type();
-                    let y_type = y.get_data_type();
-                    let dtype = DataType::calculate_promoted_type_arithmetic(&x_type, &y_type);
-                    assert!(dtype.get_modifiers().modifiers_count() == 0);
-                    dtype.underlying_type().clone()
-                }
-            };
 
-            let lhs_val = x.cast(&promoted_base).get_value().clone();
-            let rhs_val = y.cast(&promoted_base).get_value().clone();
+            let lhs_val = x.get_value().clone();
+            let rhs_val = y.get_value().clone();
 
             let new_value = match &operator {
                 Punctuator::PLUS => {
@@ -154,7 +143,7 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
             };
 
             //construct a number from the promoted type and the calculated value
-            Some(ConstexprValue::NUMBER(NumberLiteral::new_from_literal_value(new_value).cast(&promoted_base)))
+            Some(ConstexprValue::NUMBER(NumberLiteral::new_from_literal_value(new_value).cast(&BaseType::I64)))//TODO proper base types!
         }
         _ => todo!()
     }

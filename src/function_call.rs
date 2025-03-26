@@ -1,6 +1,5 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
-use unwrap_let::unwrap_let;
 
 #[derive(Clone)]
 pub struct FunctionCall {
@@ -26,20 +25,19 @@ impl FunctionCall {
             let param_type = &self.decl.params[i.min(self.decl.params.len()-1)];//when len(params) > len(args), grab the last of params, as it could be a varadic param
             
             if i >= self.decl.params.len() {
-                assert!(*param_type.get_type() == DataType::new_from_base_type(&BaseType::VaArg));//more args than params, so must be varadic
+                assert!(*param_type.get_type() == RecursiveDataType::new(BaseType::VaArg));//more args than params, so must be varadic
             }
 
-            asm_line!(result, "{}", arg.accept(&mut ScalarInAccVisitor {asm_data}));//calculate the arg
+            match arg.accept(&mut GetDataTypeVisitor{asm_data}) {
+                RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) => todo!("struct param values"),
 
-            match arg.accept(&mut GetDataTypeVisitor {asm_data}) {
-                DataType::PRIMATIVE(primative) => {
-                    unwrap_let!(DataType::PRIMATIVE(param_as_primative) = param_type.get_type());
-                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&primative, param_as_primative));//cast to requested type
-                },
-                DataType::COMPOSITE(composite) => todo!("struct return values"),
+                data_type => {
+                    assert!(data_type.memory_size(asm_data).size_bits() <= 64);//must fit in register
+                    asm_line!(result, "{}", arg.accept(&mut ScalarInAccVisitor {asm_data}));//calculate the arg
+                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&data_type, param_type.get_type(), asm_data));//cast to requested type
+                    asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//implicitly extend to 8 bytes, without conversion/casting
+                }
             }
-
-            asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//implicitly extend to 8 bytes, without conversion/casting
         }
 
         //loop thru args that could be put in registers (any params up to 6)
