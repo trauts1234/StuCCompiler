@@ -239,7 +239,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
             Some(ASTMetadata {
                 remaining_slice: curr_queue_idx,
                 //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-                resultant_tree: base_type::new_from_type_list(&data_type_info)
+                resultant_tree: base_type::new_from_type_list(&data_type_info)?
             })
         }
     }

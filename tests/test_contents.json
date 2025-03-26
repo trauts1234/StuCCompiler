@@ -455,5 +455,9 @@
     {
         "filename":"structinscope.c",
         "return_code":0
+    },
+    {
+        "filename":"structdeclinscopes.c",
+        "return_code":0
     }
 ]

@@ -1,5 +1,3 @@
-use unwrap_let::unwrap_let;
-
 use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
@@ -52,6 +50,8 @@ impl IterationStatement {
                     index:init_slice.index,
                     max_index:init_slice.max_index+1
                 };
+
+                //TODO let for loops have blank slices: for(;true;) IS VALID
 
                 let ASTMetadata {resultant_tree:init, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, accessible_funcs, &mut in_loop_data).unwrap();
                 let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data).unwrap();
