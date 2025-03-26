@@ -56,17 +56,17 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
         panic!("tried to put struct on stack but found binary expression");
     }
 
-    fn visit_struct_member_access(&mut self, expr: &crate::struct_definition::StructMemberAccess) -> Self::Output {
+    fn visit_struct_member_access(&mut self, member_access: &crate::struct_definition::StructMemberAccess) -> Self::Output {
         let mut result = String::new();
 
-        let member_name = expr.get_member_name();
-        unwrap_let!(DataType::COMPOSITE(Composite { struct_name, modifiers }) = expr.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
-        assert!(modifiers.modifiers_count() == 0);
-        let member_data = self.asm_data.get_struct(&struct_name).get_member_data(member_name);
+        let member_name = member_access.get_member_name();
+        unwrap_let!(DataType::COMPOSITE(Composite { struct_name: original_struct_name, modifiers: original_modifiers }) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        assert!(original_modifiers.modifiers_count() == 0);
+        let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
-        asm_line!(result, "{}", expr.accept(&mut PutStructOnStack{asm_data: self.asm_data}));//generate struct that I am getting member of
+        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut PutStructOnStack{asm_data: self.asm_data}));//generate struct that I am getting member of
 
-        asm_comment!(result, "increasing pointer to get index of member {}", member_data.0.get_name());
+        asm_comment!(result, "increasing pointer to get index of member struct {}", member_data.0.get_name());
 
         asm_line!(result, "add rax, {}", member_data.1.size_bytes());//increase pointer to index of member
 

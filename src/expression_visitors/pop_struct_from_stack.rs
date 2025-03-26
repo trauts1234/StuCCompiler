@@ -4,6 +4,10 @@ use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
 
 
+/**
+ * pops the struct specified from the stack
+ * guaranteed to not modify RAX
+ */
 pub struct PopStructFromStack<'a>{
     pub(crate) asm_data: &'a AsmData
 }

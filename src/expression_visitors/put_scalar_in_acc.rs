@@ -1,5 +1,6 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, expression_visitors::reference_assembly_visitor::ReferenceVisitor};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::data_type::{Composite, DataType}, expression_visitors::{pop_struct_from_stack::PopStructFromStack, put_struct_on_stack::PutStructOnStack, reference_assembly_visitor::ReferenceVisitor}};
 use std::fmt::Write;
+use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
 
@@ -69,8 +70,26 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         expr.generate_assembly(self.asm_data)
     }
 
-    fn visit_struct_member_access(&mut self, expr: &crate::struct_definition::StructMemberAccess) -> Self::Output {
-        todo!()
-        //remember to deallocate struct
+    fn visit_struct_member_access(&mut self, member_access: &crate::struct_definition::StructMemberAccess) -> Self::Output {
+        let mut result = String::new();
+
+        let member_name = member_access.get_member_name();
+        unwrap_let!(DataType::COMPOSITE(Composite { struct_name: original_struct_name, modifiers: original_modifiers }) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        assert!(original_modifiers.modifiers_count() == 0);
+
+        let (member_decl, member_offset) = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
+        unwrap_let!(DataType::PRIMATIVE(member_primative) = member_decl.get_type());
+
+        let result_reg = LogicalRegister::ACC.generate_reg_name(&member_primative.memory_size());
+
+        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut PutStructOnStack{asm_data: self.asm_data}));//generate struct that I am getting member of
+
+        asm_comment!(result, "getting struct's member {}", member_name);
+
+        asm_line!(result, "mov {}, [rax+{}]", result_reg, member_offset.size_bytes());//get member as an offset from the struct beginning
+
+        asm_line!(result, "{}", member_access.accept(&mut PopStructFromStack{asm_data: self.asm_data}));//pop the struct if needed
+
+        result
     }
 }

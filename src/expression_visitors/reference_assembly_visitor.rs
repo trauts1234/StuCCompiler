@@ -53,11 +53,13 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         let mut result = String::new();
 
         let member_name = expr.get_member_name();
-        unwrap_let!(DataType::COMPOSITE(Composite { struct_name, modifiers }) = expr.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        let struct_to_get_member_from = expr.get_base_struct_tree();
+        //get the struct whose member I am getting
+        unwrap_let!(DataType::COMPOSITE(Composite { struct_name, modifiers }) = struct_to_get_member_from.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         assert!(modifiers.modifiers_count() == 0);
         let member_data = self.asm_data.get_struct(&struct_name).get_member_data(member_name);
 
-        asm_line!(result, "{}", expr.accept(&mut ReferenceVisitor{asm_data: self.asm_data}));//get address of the base struct
+        asm_line!(result, "{}", struct_to_get_member_from.accept(&mut ReferenceVisitor{asm_data: self.asm_data}));//get address of the base struct
 
         asm_comment!(result, "increasing pointer to get address of member {}", member_data.0.get_name());
 

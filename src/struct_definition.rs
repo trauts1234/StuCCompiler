@@ -115,11 +115,11 @@ impl StructDefinition {
     }
 
     pub fn get_member_data(&self, member_name: &str) -> (Declaration, MemoryLayout) {
-        self.ordered_members
-        .as_ref()
-        .and_then(|members| members.iter().find(|(decl, _)| decl.name == member_name))//find correctly named member
-        .cloned()
-        .unwrap()
+        self.ordered_members.as_ref().expect("looking for member in struct with no members")
+        .iter()
+        .find(|(decl, _)| decl.name == member_name)//find correctly named member
+        .expect("couldn't find member in struct")
+        .clone()
     }
     
     pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<UnpaddedStructDefinition>> {

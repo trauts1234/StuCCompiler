@@ -443,5 +443,13 @@
     {
         "filename":"structvariable.c",
         "return_code":0
+    },
+    {
+        "filename":"structscalarmembers.c",
+        "return_code":0
+    },
+    {
+        "filename":"structmemberaddress.c",
+        "return_code":0
     }
 ]
