@@ -1,7 +1,5 @@
 use crate::{asm_gen_data::AsmData, data_type::type_token::TypeInfo, memory_size::MemoryLayout};
 
-use super::recursive_data_type::RecursiveDataType;
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BaseType {

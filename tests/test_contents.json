@@ -451,5 +451,9 @@
     {
         "filename":"structmemberaddress.c",
         "return_code":0
+    },
+    {
+        "filename":"structinscope.c",
+        "return_code":0
     }
 ]

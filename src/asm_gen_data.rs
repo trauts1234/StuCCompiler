@@ -49,25 +49,29 @@ impl AsmData {
         result
     }
     pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: RecursiveDataType) -> AsmData {
-        let mut new_stack_height = self.current_stack_size;
+        let mut result = self.clone();
 
-        let local_variables = parse_data.get_symbol_table()
-            .iter()
-            .map(|(var_name, var_type)| add_variable(&mut new_stack_height, var_name, var_type, self));//add each variable and generate metadata
+        //add functions
+        result.function_decls = parse_data.func_declarations_as_vec();
 
-        //add all current variables then overwrite with local variables (shadowing)
-        let variables: IndexMap<String, AddressedDeclaration> = self.variables.clone().into_iter().chain(local_variables).collect();
+        //set return type
+        result.current_function_return_type = current_function_return_type;
 
-        let mut result = AsmData { 
-            variables,
-            function_decls: parse_data.func_declarations_as_vec(),
-            current_function_return_type,
-            current_stack_size: new_stack_height,
-            struct_list: self.struct_list.clone()
-        };
-
+        //add new structs
         for (name, unpadded) in parse_data.get_all_structs().iter() {
             result.struct_list.insert(name.to_string(), unpadded.pad_members(&result));//add new structs in order
+        }
+
+        //when creating local variables, I need struct data beforehand
+        let local_variables: Vec<_> = parse_data.get_symbol_table()
+            .iter()
+            .map(|(var_name, var_type)| add_variable(var_name, var_type, &mut result))//add each variable and generate metadata
+            .collect();
+
+        //overwrite stack variable symbols with local variables (shadowing)
+        for (name, decl) in local_variables {
+            result.variables.shift_remove(&name);//ensure the new variable is put on the front of the indexmap
+            result.variables.insert(name, decl);
         }
 
         result
@@ -93,11 +97,14 @@ impl AsmData {
     }
 }
 
-fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &RecursiveDataType, asm_data: &AsmData) -> (String, AddressedDeclaration) {
+/**
+ * modifies asm_data's stack height when the new variable is added
+ */
+fn add_variable(var_name: &str, var_type: &RecursiveDataType, asm_data: &mut AsmData) -> (String, AddressedDeclaration) {
 
-    *stack_height += var_type.memory_size(asm_data);//increase stack pointer to store extra variable
+    asm_data.current_stack_size += var_type.memory_size(asm_data);//increase stack pointer to store extra variable
 
-    let decl = AddressedDeclaration { data_type: var_type.clone(), location: VariableAddress::STACKOFFSET(stack_height.clone()) };//then generate address, as to not overwrite the stack frame
+    let decl = AddressedDeclaration { data_type: var_type.clone(), location: VariableAddress::STACKOFFSET(asm_data.current_stack_size) };//then generate address, as to not overwrite the stack frame
 
     (var_name.to_string(), decl)
 }
