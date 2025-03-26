@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, data_type::data_type::{Composite, DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
@@ -60,8 +60,7 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
         let mut result = String::new();
 
         let member_name = member_access.get_member_name();
-        unwrap_let!(DataType::COMPOSITE(Composite { struct_name: original_struct_name, modifiers: original_modifiers }) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
-        assert!(original_modifiers.modifiers_count() == 0);
+        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
         asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut PutStructOnStack{asm_data: self.asm_data}));//generate struct that I am getting member of

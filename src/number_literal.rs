@@ -1,4 +1,4 @@
-use crate::{data_type::{base_type::BaseType, data_type::Primative}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::AsmData, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
@@ -14,8 +14,8 @@ pub struct NumberLiteral {
 
 impl NumberLiteral {
 
-    pub fn get_data_type(&self) -> Primative {
-        Primative::new(self.data_type.clone())
+    pub fn get_data_type(&self) -> RecursiveDataType {
+        RecursiveDataType::new(self.data_type.clone())
     }
 
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
@@ -100,8 +100,8 @@ impl NumberLiteral {
         }
     }
 
-    pub fn get_comma_separated_bytes(&self) -> String {
-        let bytes_size = self.data_type.memory_size().size_bytes();//pass in blank
+    pub fn get_comma_separated_bytes(&self, asm_data: &AsmData) -> String {
+        let bytes_size = self.data_type.memory_size(asm_data).size_bytes();//pass in blank
 
         let number_bytes = match self.value {
             LiteralValue::SIGNED(x) => {

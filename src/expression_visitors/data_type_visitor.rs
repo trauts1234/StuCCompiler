@@ -1,14 +1,14 @@
-use crate::{asm_gen_data::AsmData, binary_expression::BinaryExpression, data_type::{base_type::BaseType, data_type::{DataType, Primative}, modifier_list::ModifierList, type_modifier::DeclModifier}, declaration::MinimalDataVariable, expression_visitors::expr_visitor::ExprVisitor, function_call::FunctionCall, number_literal::NumberLiteral, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{asm_gen_data::AsmData, binary_expression::BinaryExpression, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType, type_modifier::DeclModifier}, declaration::MinimalDataVariable, expression_visitors::expr_visitor::ExprVisitor, function_call::FunctionCall, number_literal::NumberLiteral, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 pub struct GetDataTypeVisitor<'a>{
     pub(crate) asm_data: &'a AsmData
 }
 
 impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
-    type Output = DataType;
+    type Output = RecursiveDataType;
 
     fn visit_number_literal(&mut self, number: &NumberLiteral) -> Self::Output {
-        DataType::PRIMATIVE(number.get_data_type())
+        number.get_data_type()
     }
 
     fn visit_variable(&mut self, var: &MinimalDataVariable) -> Self::Output {
@@ -16,8 +16,8 @@ impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
     }
 
     fn visit_string_literal(&mut self, string: &StringLiteral) -> Self::Output {
-        DataType::PRIMATIVE(Primative::new(BaseType::I8))//8 bit integer
-        .replace_modifiers(ModifierList::new_from_slice(&vec![DeclModifier::ARRAY(string.get_num_chars())]))//but replace modifiers to change it to an array of integers
+        RecursiveDataType::new(BaseType::I8)//8 bit integer
+        .add_outer_modifier(DeclModifier::ARRAY(string.get_num_chars()))//but replace modifiers to change it to an array of integers
     }
 
     fn visit_func_call(&mut self, func_call: &FunctionCall) -> Self::Output {

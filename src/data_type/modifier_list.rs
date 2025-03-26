@@ -45,7 +45,6 @@ impl ModifierList {
         .enumerate()
         .map(|(i, item)| 
             if i == 0 {
-                assert!(*item != DeclModifier::FUNCTION);
                 DeclModifier::POINTER//first item replaced with pointer, so it is a pointer to something
             } else {item.clone()}
         )
@@ -69,7 +68,6 @@ impl ModifierList {
         .fold(base_size, |acc,x| match x {
             DeclModifier::POINTER => MemoryLayout::from_bytes(8),//pointer to anything is always 8 bytes
             DeclModifier::ARRAY(arr_elements) => MemoryLayout::from_bytes(acc.size_bytes() * arr_elements),
-            DeclModifier::FUNCTION => panic!("tried to calculate size of function???")
         })
     }
 }

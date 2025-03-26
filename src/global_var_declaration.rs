@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::data_type::DataType, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue,declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -18,7 +18,7 @@ impl GlobalVariable {
 
                 format!("{} db {}\n", 
                     self.decl.get_name(), 
-                    number_literal.cast(decl_primative_type.underlying_type()).get_comma_separated_bytes()//cast the number to the variable's type, then write the bytes for it
+                    number_literal.cast(decl_primative_type.underlying_type()).get_comma_separated_bytes(asm_data)//cast the number to the variable's type, then write the bytes for it
                 )
             },
             ConstexprValue::STRING(string_literal) => format!("{} db {}\n", self.decl.get_name(), string_literal.get_comma_separated_bytes()),

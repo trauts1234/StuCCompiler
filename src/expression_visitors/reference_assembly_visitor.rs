@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, data_type::data_type::{Composite, DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
 use crate::asm_generation::RegisterName;
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
@@ -49,17 +49,15 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         panic!("tried to get address of binary expression")
     }
 
-    fn visit_struct_member_access(&mut self, expr: &crate::struct_definition::StructMemberAccess) -> Self::Output {
+    fn visit_struct_member_access(&mut self, member_access: &crate::struct_definition::StructMemberAccess) -> Self::Output {
         let mut result = String::new();
 
-        let member_name = expr.get_member_name();
-        let struct_to_get_member_from = expr.get_base_struct_tree();
+        let member_name = member_access.get_member_name();
         //get the struct whose member I am getting
-        unwrap_let!(DataType::COMPOSITE(Composite { struct_name, modifiers }) = struct_to_get_member_from.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
-        assert!(modifiers.modifiers_count() == 0);
-        let member_data = self.asm_data.get_struct(&struct_name).get_member_data(member_name);
+        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
-        asm_line!(result, "{}", struct_to_get_member_from.accept(&mut ReferenceVisitor{asm_data: self.asm_data}));//get address of the base struct
+        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data: self.asm_data}));//get address of the base struct
 
         asm_comment!(result, "increasing pointer to get address of member {}", member_data.0.get_name());
 

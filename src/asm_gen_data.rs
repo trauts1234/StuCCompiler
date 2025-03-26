@@ -1,4 +1,4 @@
-use crate::{data_type::data_type::DataType, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
 use indexmap::IndexMap;
 
 /**
@@ -14,7 +14,7 @@ pub enum VariableAddress{
 
 #[derive(Debug, Clone)]
 pub struct AddressedDeclaration {
-    pub(crate) data_type: DataType,
+    pub(crate) data_type: RecursiveDataType,
     pub(crate) location: VariableAddress
 }
 
@@ -22,7 +22,7 @@ pub struct AddressedDeclaration {
 pub struct AsmData {
     variables: IndexMap<String, AddressedDeclaration>,//hashmap, but keeps order to keep the stack sorted correctly
     function_decls: Vec<FunctionDeclaration>,
-    current_function_return_type: DataType,
+    current_function_return_type: RecursiveDataType,
     current_stack_size: MemoryLayout,//difference of RSP and RBP, positive number
     struct_list: IndexMap<String, StructDefinition>,//needs to be ordered since some structs need previously declared structs as members
 }
@@ -37,7 +37,7 @@ impl AsmData {
         let mut result = AsmData {
             variables: global_variables,//store global variables
             function_decls: parse_data.func_declarations_as_vec(),//store possible functions to call
-            current_function_return_type: DataType::make_void(),//global namespace has no return type
+            current_function_return_type: RecursiveDataType::RAW(BaseType::VOID),//global namespace has no return type
             current_stack_size: MemoryLayout::new(),//no stack currently used
             struct_list:IndexMap::new()//will get filled soon
         };
@@ -48,7 +48,7 @@ impl AsmData {
 
         result
     }
-    pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: DataType) -> AsmData {
+    pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: RecursiveDataType) -> AsmData {
         let mut new_stack_height = self.current_stack_size;
 
         let local_variables = parse_data.get_symbol_table()
@@ -85,7 +85,7 @@ impl AsmData {
     pub fn get_variable(&self, name: &str) -> &AddressedDeclaration {
         self.variables.get(name).unwrap()
     }
-    pub fn get_function_return_type(&self) -> &DataType {
+    pub fn get_function_return_type(&self) -> &RecursiveDataType {
         &self.current_function_return_type
     }
     pub fn get_struct(&self, name: &str) -> &StructDefinition {
@@ -93,7 +93,7 @@ impl AsmData {
     }
 }
 
-fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &DataType, asm_data: &AsmData) -> (String, AddressedDeclaration) {
+fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &RecursiveDataType, asm_data: &AsmData) -> (String, AddressedDeclaration) {
 
     *stack_height += var_type.memory_size(asm_data);//increase stack pointer to store extra variable
 
@@ -105,7 +105,7 @@ fn add_variable(stack_height: &mut MemoryLayout, var_name: &str, var_type: &Data
 /**
  * note this takes a tuple, so that it can be run in an iterator map()
  */
-fn add_global_variable(data: (&String, &DataType)) -> (String, AddressedDeclaration) {
+fn add_global_variable(data: (&String, &RecursiveDataType)) -> (String, AddressedDeclaration) {
     let (var_name, var_type) = data;
     (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: VariableAddress::CONSTANTADDRESS })
 }

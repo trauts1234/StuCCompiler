@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::data_type::{Composite, DataType}, expression_visitors::{pop_struct_from_stack::PopStructFromStack, put_struct_on_stack::PutStructOnStack, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{pop_struct_from_stack::PopStructFromStack, put_struct_on_stack::PutStructOnStack, reference_assembly_visitor::ReferenceVisitor}};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
@@ -18,7 +18,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     fn visit_number_literal(&mut self, number: &crate::number_literal::NumberLiteral) -> Self::Output {
         let mut result = String::new();
 
-        let reg_size = &number.get_data_type().memory_size();//decide how much storage is needed to temporarily store the constant
+        let reg_size = &number.get_data_type().memory_size(self.asm_data);//decide how much storage is needed to temporarily store the constant
         asm_comment!(result, "reading number literal: {} via register {}", number.nasm_format(), LogicalRegister::ACC.generate_reg_name(reg_size));
 
         asm_line!(result, "mov {}, {}", LogicalRegister::ACC.generate_reg_name(reg_size), number.nasm_format());
@@ -31,7 +31,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         let my_type = var.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
 
-        if my_type.is_array() {
+        if let RecursiveDataType::ARRAY { size:_, element:_ } = my_type {//is array
             //getting an array, decays to a pointer
             asm_comment!(result, "decaying array {} to pointer", var.name);
             let addr_asm = var.accept(&mut ReferenceVisitor{asm_data: self.asm_data});
@@ -74,13 +74,11 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         let mut result = String::new();
 
         let member_name = member_access.get_member_name();
-        unwrap_let!(DataType::COMPOSITE(Composite { struct_name: original_struct_name, modifiers: original_modifiers }) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
-        assert!(original_modifiers.modifiers_count() == 0);
+        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
 
         let (member_decl, member_offset) = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
-        unwrap_let!(DataType::PRIMATIVE(member_primative) = member_decl.get_type());
 
-        let result_reg = LogicalRegister::ACC.generate_reg_name(&member_primative.memory_size());
+        let result_reg = LogicalRegister::ACC.generate_reg_name(&member_decl.get_type().memory_size(self.asm_data));
 
         asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut PutStructOnStack{asm_data: self.asm_data}));//generate struct that I am getting member of
 

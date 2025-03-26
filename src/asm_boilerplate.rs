@@ -1,4 +1,4 @@
-use crate::{asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, data_type::Primative}, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, memory_size::MemoryLayout};
 use std::fmt::Write;
 
 
@@ -31,81 +31,55 @@ pub fn mov_reg<T: RegisterName, U: RegisterName>(reg_size: &MemoryLayout, to: &T
     )
 }
 
-pub fn cast_from_acc(original: &Primative, new_type: &Primative) -> String {
+pub fn cast_from_acc(original: &RecursiveDataType, new_type: &RecursiveDataType, asm_data: &AsmData) -> String {
+    match (original, new_type) {
+        (_, RecursiveDataType::ARRAY { size:_, element:_ }) => panic!("cannot cast to array"),
+        (_, RecursiveDataType::RAW(BaseType::VaArg)) => String::new(),//cast to varadic arg does nothing, as types are not specified for va args
+        (RecursiveDataType::ARRAY { size:_, element:_ }, _) => cast_from_acc(&original.decay(), new_type, asm_data),//decay arrays
+        (RecursiveDataType::POINTER(_), _) => cast_from_acc(&RecursiveDataType::RAW(BaseType::U64), new_type, asm_data),//pointers are stored in memory just like u64, so cast to u64
+        (_, RecursiveDataType::POINTER(_)) => cast_from_acc(original, &RecursiveDataType::RAW(BaseType::U64), asm_data),// ''
+        (RecursiveDataType::RAW(from_raw), RecursiveDataType::RAW(to_raw)) => {
+            //TODO move to separate function
+            let mut result = String::new();
+            if to_raw == &BaseType::_BOOL {
+                //boolean, so I need to cmp 0
+                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(&from_raw.memory_size(asm_data)));
+                //set to 1 or 0 based on whether that value was 0
+                asm_line!(result, "setne {}", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(1)));
+    
+                return result;
+            }
+    
+            match (from_raw.memory_size(asm_data).size_bytes(), from_raw.is_unsigned()) {
+                (8, _) => {
+                    //no matter the signedness of original, you just need to get the bottom few bits of it,
+                    //because positive numbers are the same for uxx and ixx in original
+                    //negative numbers are already sign extended, so need no special treatment
+    
+                    //do nothing
+                }
+                (x, false) => {
+                    let data_size = MemoryLayout::from_bytes(x);
+    
+                    asm_comment!(result, "casting i{} to i64", data_size.size_bits());
+                    asm_line!(result, "{}", sign_extend_acc(&data_size));//sign extend rax to i64
+    
+                    asm_line!(result, "{}", cast_from_acc(&RecursiveDataType::RAW(BaseType::I64), new_type, asm_data));//cast the i64 back down to whatever new_type is
+                }
+                (x, true) => {
+                    let data_size = MemoryLayout::from_bytes(x);
+    
+                    asm_comment!(result, "casting u{} to u64", data_size.size_bits());
+                    asm_line!(result, "{}", zero_extend_acc(&data_size));//zero extend rax to u64
 
-    assert!(!new_type.get_modifiers().is_array());//cannot cast to array
+                    asm_line!(result, "{}", cast_from_acc(&RecursiveDataType::RAW(BaseType::I64), new_type, asm_data));//cast the u64 back down to whatever new_type is
+    
+                }
+            }
 
-    if new_type.underlying_type().is_va_arg() {
-        assert!(new_type.get_modifiers().modifiers_count() == 0);//can never have pointer to varadic arg
-        return String::new();//cast to varadic arg does nothing, as types are not specified for va args
-    }
-
-    if original.get_modifiers().is_array() {
-        let ptr = original.decay();
-        return cast_from_acc(&ptr, new_type);
-    }
-
-    let mut result = String::new();
-
-    if original.get_modifiers().is_pointer() {
-        //cast pointer to u64
-        //pointers are stored in memory just like u64, so no modifications needed
-        let original_implicitly_as_u64 = Primative::new(BaseType::U64);
-        //cast from
-        return cast_from_acc(&original_implicitly_as_u64, new_type);
-    }
-
-    if new_type.get_modifiers().is_pointer() {
-        //cast u64 to pointer
-        let new_implicitly_as_u64 = Primative::new(BaseType::U64);
-        //cast from
-        return cast_from_acc(original, &new_implicitly_as_u64);
-    }
-
-    if original.underlying_type().is_integer() && new_type.underlying_type().is_integer() {
-
-        if new_type.underlying_type() == &BaseType::_BOOL {
-            //boolean, so I need to cmp 0
-            asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(&original.memory_size()));
-            //set to 1 or 0 based on whether that value was 0
-            asm_line!(result, "setne {}", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(1)));
-
-            return result;
+            result
         }
-
-        match (original.memory_size().size_bytes(), original.underlying_type().is_unsigned()) {
-            (8, _) => {
-                //no matter the signedness of original, you just need to get the bottom few bits of it,
-                //because positive numbers are the same for uxx and ixx in original
-                //negative numbers are already sign extended, so need no special treatment
-
-                //do nothing
-            }
-            (x, false) => {
-                let data_size = MemoryLayout::from_bytes(x);
-
-                asm_comment!(result, "casting i{} to i64", data_size.size_bits());
-                asm_line!(result, "{}", sign_extend_acc(&data_size));//sign extend rax to i64
-
-                let original_now_as_i64 = Primative::new(BaseType::I64);
-                asm_line!(result, "{}", cast_from_acc(&original_now_as_i64, new_type));//cast the i64 back down to whatever new_type is
-            }
-            (x, true) => {
-                let data_size = MemoryLayout::from_bytes(x);
-
-                asm_comment!(result, "casting u{} to u64", data_size.size_bits());
-                asm_line!(result, "{}", zero_extend_acc(&data_size));//zero extend rax to u64
-
-                let original_now_as_u64 = Primative::new(BaseType::U64);
-                asm_line!(result, "{}", cast_from_acc(&original_now_as_u64, new_type));//cast the u64 back down to whatever new_type is
-
-            }
-        }
-        return result;
     }
-
-
-    panic!("can't cast these");
 }
 
 /**

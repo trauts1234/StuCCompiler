@@ -1,4 +1,4 @@
-use crate::memory_size::MemoryLayout;
+use crate::{asm_gen_data::AsmData, memory_size::MemoryLayout};
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,6 +14,7 @@ pub enum BaseType {
     U32,
     I64,
     U64,
+    STRUCT(String)
 }
 
 impl BaseType {
@@ -25,7 +26,7 @@ impl BaseType {
     }
     pub fn is_integer(&self) -> bool {
         match self {
-            BaseType::VOID | BaseType::VaArg => false,
+            BaseType::VOID | BaseType::VaArg | BaseType::STRUCT(_) => false,
 
             BaseType::_BOOL |
             BaseType::I8 | 
@@ -41,7 +42,7 @@ impl BaseType {
     
     pub fn is_unsigned(&self) -> bool {
         match self {
-            BaseType::VOID | BaseType::VaArg => panic!("tried to detect signedness of void or varadic arg"),
+            BaseType::VOID | BaseType::VaArg | BaseType::STRUCT(_) => panic!("tried to detect signedness of void or varadic arg"),
 
             BaseType::I8 | 
             BaseType::I16 | 
@@ -59,12 +60,12 @@ impl BaseType {
         !self.is_unsigned()
     }
 
-    pub fn memory_size(&self) -> MemoryLayout {
+    pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
 
-            //BaseType::STRUCT(x) => asm_data.get_struct(x).calculate_size().expect("tried to calculate size of partially declared struct"),
+            BaseType::STRUCT(x) => asm_data.get_struct(x).calculate_size().expect("tried to calculate size of partially declared struct"),
 
             BaseType::_BOOL |
             BaseType::I8 |

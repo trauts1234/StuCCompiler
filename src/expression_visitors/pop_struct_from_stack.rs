@@ -1,6 +1,5 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, data_type::data_type::DataType, expression_visitors::data_type_visitor::GetDataTypeVisitor};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, expression_visitors::data_type_visitor::GetDataTypeVisitor};
 use std::fmt::Write;
-use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
 
 
@@ -30,7 +29,7 @@ impl<'a> ExprVisitor for PopStructFromStack<'a> {
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
         let mut result = String::new();
 
-        unwrap_let!(DataType::COMPOSITE(return_value) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        let return_value = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
 
         let callee_name = &func_call.get_callee_decl().function_name;
 
