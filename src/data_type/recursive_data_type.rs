@@ -79,31 +79,35 @@ pub fn calculate_promoted_type_arithmetic(lhs: &RecursiveDataType, rhs: &Recursi
         (_, RecursiveDataType::POINTER(_)) => rhs.clone(),
 
         (RecursiveDataType::RAW(lhs_base), RecursiveDataType::RAW(rhs_base)) => {
-            assert!(lhs_base.is_integer() && rhs_base.is_integer());
-
-            //integer type promotion
-            let biggest_size = lhs_base.memory_size(asm_data).size_bits().max(rhs_base.memory_size(asm_data).size_bits());
-
-            match (biggest_size, lhs_base.is_unsigned(), rhs_base.is_unsigned()) {
-                (0..=31, _, _) |// small enough to be cast to int easily
-                (32, false, false)//signed, and both int sized
-                    => RecursiveDataType::new(BaseType::I32),
-
-                (32, _, _) => RecursiveDataType::new(BaseType::U32),
-
-                (33..=63, _, _) |// small enough to be cast to long long easily
-                (64, false, false)//signed, and both are long long sized
-                    => RecursiveDataType::new(BaseType::I64),
-
-                (64, _, _) //64 bit, with one being unsigned
-                => RecursiveDataType::new(BaseType::U64),
-
-                (65.., _, _) => panic!("integer size too large!")
-
-            }
+            RecursiveDataType::RAW(calculate_integer_promoted_type(lhs_base, rhs_base))
         }
     }
 
+}
+
+pub fn calculate_integer_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseType {
+    assert!(lhs.is_integer() && rhs.is_integer());
+
+    //integer type promotion
+    let biggest_size = lhs.get_non_struct_memory_size().size_bits().max(rhs.get_non_struct_memory_size().size_bits());
+
+    match (biggest_size, lhs.is_unsigned(), rhs.is_unsigned()) {
+        (0..=31, _, _) |// small enough to be cast to int easily
+        (32, false, false)//signed, and both int sized
+            => BaseType::I32,
+
+        (32, _, _) => BaseType::U32,
+
+        (33..=63, _, _) |// small enough to be cast to long long easily
+        (64, false, false)//signed, and both are long long sized
+            => BaseType::I64,
+
+        (64, _, _) //64 bit, with one being unsigned
+        => BaseType::U64,
+
+        (65.., _, _) => panic!("integer size too large!")
+
+    }
 }
 
 pub fn calculate_unary_type_arithmetic(lhs: &RecursiveDataType, asm_data: &AsmData) -> RecursiveDataType {

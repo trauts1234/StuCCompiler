@@ -1,4 +1,6 @@
-use crate::{data_type::base_type::BaseType, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
+use unwrap_let::unwrap_let;
+
+use crate::{data_type::{base_type::BaseType, recursive_data_type::{calculate_integer_promoted_type, RecursiveDataType}}, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -121,8 +123,13 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
     match (parsed_left, parsed_right) {
         (ConstexprValue::NUMBER(x), ConstexprValue::NUMBER(y)) => {
 
-            let lhs_val = x.get_value().clone();
-            let rhs_val = y.get_value().clone();
+            unwrap_let!(RecursiveDataType::RAW(x_base) = x.get_data_type());
+            unwrap_let!(RecursiveDataType::RAW(y_base) = y.get_data_type());
+
+            let promoted_type = calculate_integer_promoted_type(&x_base, &y_base);
+
+            let lhs_val = x.cast(&promoted_type).get_value().clone();
+            let rhs_val = y.cast(&promoted_type).get_value().clone();
 
             let new_value = match &operator {
                 Punctuator::PLUS => {
@@ -143,7 +150,7 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
             };
 
             //construct a number from the promoted type and the calculated value
-            Some(ConstexprValue::NUMBER(NumberLiteral::new_from_literal_value(new_value).cast(&BaseType::I64)))//TODO proper base types!
+            Some(ConstexprValue::NUMBER(NumberLiteral::new_from_literal_value(new_value).cast(&promoted_type)))//TODO proper base types!
         }
         _ => todo!()
     }

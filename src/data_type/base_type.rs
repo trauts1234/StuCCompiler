@@ -83,6 +83,27 @@ impl BaseType {
             BaseType::U64 => MemoryLayout::from_bits(64),
         }
     }
+    pub fn get_non_struct_memory_size(&self) -> MemoryLayout {
+        match self {
+            BaseType::VOID => panic!("tried to get size of void"),
+            BaseType::VaArg => panic!("tried to get size of varadic arg"),
+
+            BaseType::STRUCT(_) => panic!("tried to calculate size of struct without an asm_data"),
+
+            BaseType::_BOOL |
+            BaseType::I8 |
+            BaseType::U8 => MemoryLayout::from_bits(8),
+
+            BaseType::I16 |
+            BaseType::U16 => MemoryLayout::from_bits(16),
+
+            BaseType::I32 |
+            BaseType::U32 => MemoryLayout::from_bits(32),
+
+            BaseType::I64 |
+            BaseType::U64 => MemoryLayout::from_bits(64),
+        }
+    }
 }
 
 pub fn new_from_type_list(type_info: &[TypeInfo]) -> BaseType {

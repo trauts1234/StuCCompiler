@@ -79,12 +79,12 @@ impl TranslationUnit {
             .map(|x| format!("{} db {}\n", x.get_label(), x.get_comma_separated_bytes()))
             .collect::<String>();
 
-        let global_vars = self.global_variables.iter()
-            .map(|x| x.generate_assembly())
-            .collect::<String>();
-
         let mut label_generator = LabelGenerator::new();
         let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);//no return type for a global scope
+
+        let global_vars = self.global_variables.iter()
+            .map(|x| x.generate_assembly(&asm_data))
+            .collect::<String>();
 
         let instructions = self.functions.func_definitions_as_slice().iter()
             .map(|x| x.generate_assembly(&mut label_generator, &asm_data))

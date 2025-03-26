@@ -28,7 +28,7 @@ impl FunctionCall {
                 assert!(*param_type.get_type() == RecursiveDataType::new(BaseType::VaArg));//more args than params, so must be varadic
             }
 
-            match arg.accept(&mut GetDataTypeVisitor{asm_data}) {
+            match arg.accept(&mut GetDataTypeVisitor{asm_data}).decay() {//decay the result, as params are automatically cast to pointers
                 RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) => todo!("struct param values"),
 
                 data_type => {
