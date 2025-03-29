@@ -45,7 +45,7 @@ impl ControlFlowChange {
                     asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor {asm_data}));
 
                     match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
-                        crate::data_type::recursive_data_type::RecursiveDataType::ARRAY { size, element } => panic!("tried to return array from function!"),
+                        crate::data_type::recursive_data_type::RecursiveDataType::ARRAY {..} => panic!("tried to return array from function!"),
                         expr_type => {
                             if let RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = expr_type {
                                 todo!("returning struct from function")

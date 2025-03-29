@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, expression_visitors::data_type_visitor::GetDataTypeVisitor};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, expression_visitors::data_type_visitor::GetDataTypeVisitor};
 use std::fmt::Write;
 use super::expr_visitor::ExprVisitor;
 
@@ -18,8 +18,14 @@ impl<'a> ExprVisitor for PopStructFromStack<'a> {
         panic!()
     }
 
-    fn visit_variable(&mut self, _: &crate::declaration::MinimalDataVariable) -> Self::Output {
-        String::new()//accessing stack variable does not allocate so needs no deallocation
+    fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable) -> Self::Output {
+        let mut result = String::new();
+
+        asm_comment!(result, "popping struct {}", var.name);
+
+        asm_line!(result, "add rsp, {}", var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data).size_bytes());
+
+        result
     }
 
     fn visit_string_literal(&mut self, _string: &crate::string_literal::StringLiteral) -> Self::Output {
@@ -38,8 +44,12 @@ impl<'a> ExprVisitor for PopStructFromStack<'a> {
         result
     }
 
-    fn visit_unary_prefix(&mut self, _: &crate::unary_prefix_expr::UnaryPrefixExpression) -> Self::Output {
-        String::new()//pointer dereference does not allocate, so no deallocation needed
+    fn visit_unary_prefix(&mut self, expr: &crate::unary_prefix_expr::UnaryPrefixExpression) -> Self::Output {
+        let mut result = String::new();
+        
+        asm_line!(result, "add rsp, {}", expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data).size_bytes());
+
+        result
     }
 
     fn visit_binary_expression(&mut self, _expr: &crate::binary_expression::BinaryExpression) -> Self::Output {

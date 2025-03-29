@@ -33,6 +33,17 @@ impl RecursiveDataType
         }
     }
 
+    /**
+     * if I am a varadic arg, replace myself with to_replace
+     */
+    pub fn replace_va_arg(&self, to_replace: RecursiveDataType) -> RecursiveDataType {
+        if RecursiveDataType::RAW(BaseType::VaArg) == *self {
+            to_replace
+        } else {
+            self.clone()
+        }
+    }
+
     pub fn remove_outer_modifier(&self) -> Self {
         match self {
             Self::ARRAY { size:_, element } => *element.clone(),

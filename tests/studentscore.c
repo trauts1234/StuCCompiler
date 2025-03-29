@@ -21,7 +21,7 @@ void write_results(char *student_name, int score) {
         grade_text = "F";
     }
 
-    printf("student name: %s grade: %s\n", student_name, grade_text);  // Write to the file
+    printf("student name: %s grade: %s\n", student_name, grade_text);
 }
 
 int main(int argc, char** argv) {

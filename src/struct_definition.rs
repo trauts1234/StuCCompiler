@@ -32,12 +32,12 @@ impl UnpaddedStructDefinition {
         }
 
         //lastly, align to largest member's alignment, so that if this struct is in an array, subsequent structs are aligned
-        let largest_member = self.ordered_members.as_ref().unwrap().iter()
+        let largest_member_alignment = self.ordered_members.as_ref().unwrap().iter()
             .map(|x| calculate_alignment(x.get_type(), asm_data))
             .fold(MemoryLayout::new(), |acc, x| MemoryLayout::biggest(&acc, &x))
             .size_bytes();
-        let bytes_past_last_boundary = current_offset.size_bytes() % largest_member;
-        let extra_padding = (largest_member - bytes_past_last_boundary) % largest_member;
+        let bytes_past_last_boundary = current_offset.size_bytes() % largest_member_alignment;
+        let extra_padding = (largest_member_alignment - bytes_past_last_boundary) % largest_member_alignment;
         current_offset += MemoryLayout::from_bytes(extra_padding);
 
         StructDefinition { name: self.name.clone(), ordered_members: Some(result), size: Some(current_offset) }
@@ -122,6 +122,9 @@ impl StructDefinition {
         .find(|(decl, _)| decl.name == member_name)//find correctly named member
         .expect("couldn't find member in struct")
         .clone()
+    }
+    pub fn get_all_members(&self) -> &Option<Vec<(Declaration, MemoryLayout)>> {
+        &self.ordered_members
     }
     
     pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<UnpaddedStructDefinition>> {

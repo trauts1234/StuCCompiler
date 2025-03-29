@@ -34,6 +34,7 @@ mod struct_definition;
 mod parse_data;
 mod asm_gen_data;
 mod expression_visitors;
+mod classify_param;
 
 struct CompilationOptions {
     c_file: String,

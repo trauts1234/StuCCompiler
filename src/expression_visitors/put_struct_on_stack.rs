@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName, PTR_SIZE}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
@@ -12,7 +12,7 @@ pub struct PutStructOnStack<'a>{
 
 /**
  * sets RAX to valid pointer to struct
- * allocates on stack if required
+ * always clones the struct
  */
 impl<'a> ExprVisitor for PutStructOnStack<'a> {
     type Output = String;
@@ -21,15 +21,13 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
         panic!("tried to put struct on stack but found number literal")
     }
 
-    /**
-     * note: this does not allocate, since the variable already exists
-     * warning: you need to deallocate the stack allocated by this assembly, if it does allocate
-     */
     fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable) -> Self::Output {
         let mut result = String::new();
 
-        asm_comment!(result, "getting address of struct {} instead of copying to stack", var.name);
+        asm_comment!(result, "cloning struct {}", var.name);
         asm_line!(result, "{}", var.accept(&mut ReferenceVisitor{asm_data:self.asm_data}));
+
+        asm_line!(result, "{}", clone_struct_to_stack(var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data)));
 
         result
     }
@@ -47,9 +45,14 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
      * node: this does not allocate, since the pointer points to already-allocated memory
      */
     fn visit_unary_prefix(&mut self, expr: &crate::unary_prefix_expr::UnaryPrefixExpression) -> Self::Output {
+        let mut result = String::new();
         assert!(*expr.get_operator() == Punctuator::ASTERISK);// unary prefix can only return a struct when it is a dereference operation
         
-        expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data})//put address in RAX, since the data is already allocated
+        asm_line!(result, "{}", expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data}));
+
+        asm_line!(result, "{}", clone_struct_to_stack(expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data)));
+
+        result
     }
 
     fn visit_binary_expression(&mut self, _expr: &crate::binary_expression::BinaryExpression) -> Self::Output {
@@ -71,4 +74,28 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
 
         result
     }
+}
+
+/**
+ * clones the struct pointed to by acc onto the stack
+ * moves acc to point to the start of the cloned struct
+ */
+fn clone_struct_to_stack(struct_size: MemoryLayout) -> String {
+    let mut result = String::new();
+
+    let acc_reg = LogicalRegister::ACC.generate_reg_name(&PTR_SIZE);
+
+    asm_line!(result, "sub rsp, {}", struct_size.size_bytes());//allocate on the stack
+
+    asm_line!(result, "mov rdi, rsp");//put destination in RDI
+    asm_line!(result, "mov rsi, {}", acc_reg);//put source in RSI
+
+    asm_line!(result, "mov rcx, {}", struct_size.size_bytes());//put number of bytes to copy in RCX
+
+    asm_line!(result, "cld");//reset copy direction flag
+    asm_line!(result, "rep movsb");//copy the data
+
+    asm_line!(result, "mov {}, rsp", acc_reg);//point to the cloned struct
+
+    result
 }
