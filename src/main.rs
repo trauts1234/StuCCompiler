@@ -62,5 +62,5 @@ fn main() {
     }
 
 
-    compile::compile(&options.c_file, &options.out_file).unwrap();
+    compile::compile(&options.c_file, &options.out_file, &[]).unwrap();
 }

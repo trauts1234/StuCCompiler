@@ -3,7 +3,7 @@ use std::process::Command;
 use crate::{compilation_error::CompilationError, translation_unit::TranslationUnit};
 
 
-pub fn compile(input_path: &str, output_name: &str) -> Result<(),CompilationError> {
+pub fn compile(input_path: &str, output_name: &str, link_with: &[&str]) -> Result<(),CompilationError> {
     println!("compiling {}", input_path);
     let assembly_filename = format!("{}.asm", output_name);
     let object_filename = format!("{}.o", output_name);
@@ -39,6 +39,7 @@ pub fn compile(input_path: &str, output_name: &str) -> Result<(),CompilationErro
 
         .arg("/usr/lib/x86_64-linux-gnu/crt1.o")//link c runtime
         .arg("/usr/lib/x86_64-linux-gnu/crti.o")//..
+        .args(link_with)//link with other requested binaries
 
         .arg(object_filename)//link my code with the library
         .arg("-lc")//link with libc

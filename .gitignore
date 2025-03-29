@@ -1,9 +1,8 @@
 /target
-a.out.asm
-a.out.o
-a.out
+*.o
+*.out
+*.asm
 make_it.sh
-test_output*
 Cargo.lock
 test.c
 testout.txt
