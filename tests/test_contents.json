@@ -459,5 +459,9 @@
     {
         "filename":"structdeclinscopes.c",
         "return_code":0
+    },
+    {
+        "filename":"functioneightparams.c",
+        "return_code":0
     }
 ]

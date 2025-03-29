@@ -22,7 +22,7 @@ impl FunctionCall {
 
         //attach type to each of the args
         //should this be reversed?
-        let type_matched_args: Vec<_> = self.args.iter().rev().enumerate().map(|(i, x)|{
+        let type_matched_args: Vec<_> = self.args.iter().enumerate().map(|(i, x)|{
             
             let param_type = if i >= self.decl.params.len() {
                 assert!(*self.decl.params.last().unwrap().get_type() == RecursiveDataType::new(BaseType::VaArg));//more args than params, so must be varadic
@@ -54,7 +54,7 @@ impl FunctionCall {
                     //if there are less than 5 memory args, there is enough room for both the first and second eightbyte
                     acc.add_integer_arg(allocated_arg, true);
                 }
-                _ => acc.memory_args.push(allocated_arg),//add if memory or if there are too many integer args
+                _ => acc.memory_args.insert(0, allocated_arg),//add if memory or if there are too many integer args, written backwards so that they are pushed forwards
             }
 
             acc
@@ -76,7 +76,8 @@ impl FunctionCall {
         asm_line!(result, "{}", integer_args_asm);//write integer args
         assert!(integer_args_stack_usage.size_bytes() % 8 == 0);//cannot have half a register's worth of bytes, since everything is padded to 64 bits
         let registers_required = integer_args_stack_usage.size_bits()/64;//1 register for each 64 bits
-        for register_number in 0..registers_required {
+        
+        for register_number in (0..registers_required).rev() {//reversed because they were pushed forwards and must be popped backwards
             asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &asm_generation::generate_param_reg(register_number)));//pop aligned data to registers
         }
 
