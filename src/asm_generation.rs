@@ -4,14 +4,16 @@ pub const PTR_SIZE: MemoryLayout = MemoryLayout::from_bytes(8);
 
 
 /**
- * this funky macro runs like writeln!("text {}", foo), but
+ * this funky macro runs like writeln!(result, "text {}", foo), but
  * requires no unwrap and
  * automatically manages newlines
  */
 macro_rules! asm_line {
     ($dest:expr, $($arg:tt)*) => {{
         let s = format!($($arg)*);
-        if s.ends_with('\n') {
+        if s.trim().is_empty() {
+            // blank or whitespace - do not save anything
+        } else if s.ends_with('\n') {
             write!($dest, "{}", s).unwrap()
         } else {
             writeln!($dest, "{}", s).unwrap()
