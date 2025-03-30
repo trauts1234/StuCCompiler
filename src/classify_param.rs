@@ -1,11 +1,11 @@
-use crate::{asm_gen_data::AsmData, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::Declaration, expression_visitors::data_type_visitor::GetDataTypeVisitor, function_call::AllocatedArg, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::Declaration, memory_size::MemoryLayout};
 
 
 #[derive(PartialEq, Clone)]
 pub enum ArgType {
     INTEGER,
     MEMORY,
-    NO_CLASS,//null type
+    NoClass,//null type
     STRUCT {first_eightbyte: Box<ArgType>, second_eightbyte: Box<ArgType>}
 }
 
@@ -46,7 +46,7 @@ impl ArgType {
                             (ArgType::MEMORY, _) |
                             (_, ArgType::MEMORY) => ArgType::MEMORY,
 
-                            (x, ArgType::NO_CLASS) => x,//struct is too small, so just need one arg type to store it
+                            (x, ArgType::NoClass) => x,//struct is too small, so just need one arg type to store it
 
                             (x, y) => ArgType::STRUCT { first_eightbyte: Box::new(x), second_eightbyte: Box::new(y) }
                         }
@@ -66,14 +66,14 @@ impl ArgType {
 fn classify_eightbyte(member_types: &[ArgType]) -> ArgType {
     member_types
     .iter()
-    .fold(ArgType::NO_CLASS, classify_pair)
+    .fold(ArgType::NoClass, classify_pair)
 }
 fn classify_pair(first: ArgType, second: &ArgType) -> ArgType {
     match (&first, second) {
         (x, y) if x == y => y.clone(),//if pair are the same type, result is the same type
 
-        (ArgType::NO_CLASS, y) => y.clone(),//if either is NO_CLASS, return the other
-        (x, ArgType::NO_CLASS) => x.clone(),// ''
+        (ArgType::NoClass, y) => y.clone(),//if either is NO_CLASS, return the other
+        (x, ArgType::NoClass) => x.clone(),// ''
 
         (ArgType::MEMORY, _) |
         (_, ArgType::MEMORY) => ArgType::MEMORY,//if either is MEMORY, result is MEMORY

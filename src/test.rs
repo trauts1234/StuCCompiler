@@ -26,7 +26,7 @@ pub mod test {
 
         for testfile in test_cases {
             let filename = format!("{}/{}", test_folder, testfile.filename);
-            let output_filename = format!("{}/{}", test_folder, "test_output");
+            let output_filename = format!("{}/{}", test_folder, "test_output.out");
             compile::compile(&filename, &output_filename, &[]).unwrap();
 
             let fixed_args  = testfile.args.or(Some(Vec::new())).unwrap();
@@ -96,7 +96,7 @@ pub mod test {
 
             //compile my part of the test
             let filename = format!("{}/{}", test_folder, "main.c");
-            let output_filename = format!("{}/{}", test_folder, "test_output");
+            let output_filename = format!("{}/{}", test_folder, "test_output.out");
             compile::compile(&filename, &output_filename, &[&gcc_object]).unwrap();//compile, and link with gcc's code
 
             //test the code

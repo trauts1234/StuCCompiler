@@ -6,5 +6,9 @@
     {
         "foldername": "call_eight_integer_params",
         "return_code": 0
+    },
+    {
+        "foldername": "call_structs",
+        "return_code": 0
     }
 ]

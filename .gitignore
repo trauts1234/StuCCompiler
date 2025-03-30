@@ -2,7 +2,6 @@
 *.o
 *.out
 *.asm
-[^\.]*
 make_it.sh
 Cargo.lock
 test.c

@@ -80,7 +80,7 @@ impl RecursiveDataType
  * can be used for the operators add, subtract, multiply, divide
  * also works for pointers
  */
-pub fn calculate_promoted_type_arithmetic(lhs: &RecursiveDataType, rhs: &RecursiveDataType, asm_data: &AsmData) -> RecursiveDataType {
+pub fn calculate_promoted_type_arithmetic(lhs: &RecursiveDataType, rhs: &RecursiveDataType) -> RecursiveDataType {
 
     match (lhs, rhs) {
         (RecursiveDataType::ARRAY { size:_, element:_ }, _) => lhs.decay(),//lhs is array, so promoted type is pointer

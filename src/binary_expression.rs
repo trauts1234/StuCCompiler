@@ -30,7 +30,7 @@ impl BinaryExpression {
         let promoted_type = match &self.operator {//I already have a function for this?
             Punctuator::EQUALS => panic!("assignment already done"),
             x if x.as_boolean_instr().is_some() => RecursiveDataType::RAW(BaseType::_BOOL),//is a boolean operator, operands are booleans
-            _ => calculate_promoted_type_arithmetic(&lhs_type, &rhs_type, asm_data)//else find a common meeting ground
+            _ => calculate_promoted_type_arithmetic(&lhs_type, &rhs_type)//else find a common meeting ground
         };
         let promoted_size = &promoted_type.memory_size(asm_data);
 
@@ -208,7 +208,6 @@ impl BinaryExpression {
                 calculate_promoted_type_arithmetic(//calculate type when data types:
                     &self.lhs.accept(&mut GetDataTypeVisitor { asm_data }),//type of lhs
                     &self.rhs.accept(&mut GetDataTypeVisitor { asm_data }),//type of rhs
-                    asm_data//are promoted together
                 )
             },
 

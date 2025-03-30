@@ -76,6 +76,7 @@ impl FunctionCall {
         asm_line!(result, "{}", integer_args_asm);//write integer args
         assert!(integer_args_stack_usage.size_bytes() % 8 == 0);//cannot have half a register's worth of bytes, since everything is padded to 64 bits
         let registers_required = integer_args_stack_usage.size_bits()/64;//1 register for each 64 bits
+        assert!(registers_required <= 6);
         
         for register_number in (0..registers_required).rev() {//reversed because they were pushed forwards and must be popped backwards
             asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &asm_generation::generate_param_reg(register_number)));//pop aligned data to registers
@@ -172,6 +173,12 @@ fn align(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLayout 
         (alignment.size_bytes() - bytes_past_last_boundary) % alignment.size_bytes()
     )
 }
+/**
+ * detects whether item_size to fit in an integer number of segment_size
+ */
+fn fits_multiple_of(item_size: MemoryLayout, segment_size: MemoryLayout) -> bool {
+    item_size.size_bytes() % segment_size.size_bytes() == 0
+}
 
 /**
  * pushes the args specified, aligning all to to 64 bit
@@ -198,17 +205,23 @@ fn push_args_to_stack(args: &[AllocatedArg], asm_data: &AsmData) -> (String, Mem
         //this code is messy:
         match (&arg_type.decay(), &arg.param_type) {
             (RecursiveDataType::RAW(BaseType::STRUCT(_)), _) => {
+                assert!(stack_taken_by_args.size_bytes() % 8 == 0);
                 //struct param passed via memory
                 asm_comment!(result, "putting struct arg on stack");
+                let arg_size = arg.param_type.memory_size(asm_data);
+                let extra_stack_for_alignment = alignment_size - MemoryLayout::from_bytes(arg_size.size_bytes() % alignment_size.size_bytes());//align so that the *next* param is aligned
+                asm_line!(result, "sub rsp, {} ; align struct to 8 byte boundary", extra_stack_for_alignment.size_bytes());
+                stack_taken_by_args += extra_stack_for_alignment;
+
                 asm_line!(result, "{}", arg.arg_tree.accept(&mut PutStructOnStack{asm_data}));
 
-                stack_taken_by_args += arg.param_type.memory_size(asm_data)
+                stack_taken_by_args += arg.param_type.memory_size(asm_data);
+
+                assert!(stack_taken_by_args.size_bytes() % 8 == 0);
 
             },
             (original_type, RecursiveDataType::RAW(BaseType::VaArg)) => {
                 asm_comment!(result, "putting varadic arg on stack");
-
-                println!("{}", original_type.memory_size(asm_data).size_bits());
                 assert!(original_type.memory_size(asm_data).size_bits() <= 64);
 
                 asm_line!(result, "{}", arg.arg_tree.accept(&mut ScalarInAccVisitor{asm_data}));//put value in acc
@@ -217,6 +230,8 @@ fn push_args_to_stack(args: &[AllocatedArg], asm_data: &AsmData) -> (String, Mem
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//push onto stack, padding to 8 bytes as it is a primative
 
                 stack_taken_by_args += MemoryLayout::from_bytes(8);
+
+                assert!(stack_taken_by_args.size_bytes() % 8 == 0);
             },
             (original_type, casted_type) => {
                 //primative type
@@ -232,6 +247,8 @@ fn push_args_to_stack(args: &[AllocatedArg], asm_data: &AsmData) -> (String, Mem
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&MemoryLayout::from_bytes(8), &LogicalRegister::ACC));//push onto stack, padding to 8 bytes as it is a primative
 
                 stack_taken_by_args += MemoryLayout::from_bytes(8);
+
+                assert!(stack_taken_by_args.size_bytes() % 8 == 0);
             }
         }
     }
