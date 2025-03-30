@@ -17,7 +17,7 @@ pub mod test {
 
     #[test]
     fn test_all() {
-        let test_folder = "tests";
+        let test_folder = "tests/standalone";
 
         let contents_filename = format!("{}/test_contents.json", test_folder);
         let json_data = fs::read_to_string(contents_filename).expect("Unable to read file");

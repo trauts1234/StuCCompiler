@@ -1,3 +1,4 @@
+#include <stdio.h>
 struct x { int a; };
 struct y { int a; int b; char c; };
 
@@ -14,6 +15,8 @@ int f3(int p1, struct x p2, int p3, int p4, int p5, int p6, int p7) {
 }
 
 int f4(int p1, struct y p2, int p3, int p4, int p5, int p6, int p7) {
+    printf("f4 received: p1=%d, p2.a=%d, p2.b=%d, p2.c=%d, p3=%d, p4=%d, p5=%d, p6=%d, p7=%d\n", 
+           p1, p2.a, p2.b, p2.c, p3, p4, p5, p6, p7);
     return (p1 == 1 && p2.a == 1 && p2.b == 2 && p2.c == 3 && p3 == 3 && p4 == 4 && p5 == 5 && p6 == 6 && p7 == 7) ? 0 : 1;
 }
 

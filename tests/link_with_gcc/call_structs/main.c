@@ -32,6 +32,8 @@ int main() {
     if(f4(1,bar, 3, 4, 5, 6, 7)) {
         return 4;
     }
+
+    
     if(f5(1,2,3,4,5,bar,7)) {
         return 5;
     }
