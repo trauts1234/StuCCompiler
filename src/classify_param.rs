@@ -28,7 +28,12 @@ impl ArgType {
                 match struct_type.calculate_size().unwrap().size_bytes() {
                     ..=16 => {
                         let args_iter = struct_type.get_all_members().as_ref().expect("tried to pass a struct as a param but it had no members").iter();
-                        let is_first_eightbyte_predicate = |(_, offset): &&(Declaration, MemoryLayout)| offset.size_bytes() <= 8;
+                        
+                        let is_first_eightbyte_predicate = |(decl, offset): &&(Declaration, MemoryLayout)| {
+                            let last_byte_of_member_offset = decl.get_type().memory_size(asm_data) + *offset;
+
+                            last_byte_of_member_offset.size_bytes() <= 8
+                        };
 
                         let first_eightbyte_types: Vec<_> = args_iter.clone()
                             .take_while(is_first_eightbyte_predicate)

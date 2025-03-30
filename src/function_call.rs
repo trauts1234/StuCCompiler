@@ -49,12 +49,19 @@ impl FunctionCall {
             };
 
             match arg_location {
-                ArgType::INTEGER if acc.integer_regs_used < 6 => acc.add_integer_arg(allocated_arg, false),
-                ArgType::STRUCT {..} if acc.integer_regs_used < 5 => {
+                ArgType::INTEGER if acc.integer_regs_used < 6 => {
+                    println!("integer");
+                    acc.add_integer_arg(allocated_arg, false)
+                },
+                ArgType::STRUCT {..} if acc.integer_regs_used <= 4 => {
                     //if there are less than 5 memory args, there is enough room for both the first and second eightbyte
+                    println!("struct");
                     acc.add_integer_arg(allocated_arg, true);
                 }
-                _ => acc.memory_args.insert(0, allocated_arg),//add if memory or if there are too many integer args, written backwards so that they are pushed forwards
+                _ => {
+                    println!("memory");
+                    acc.memory_args.insert(0, allocated_arg)
+                },//add if memory or if there are too many integer args, written backwards so that they are pushed forwards
             }
 
             acc
@@ -173,12 +180,6 @@ fn align(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLayout 
         (alignment.size_bytes() - bytes_past_last_boundary) % alignment.size_bytes()
     )
 }
-/**
- * detects whether item_size to fit in an integer number of segment_size
- */
-fn fits_multiple_of(item_size: MemoryLayout, segment_size: MemoryLayout) -> bool {
-    item_size.size_bytes() % segment_size.size_bytes() == 0
-}
 
 /**
  * pushes the args specified, aligning all to to 64 bit
@@ -192,12 +193,7 @@ fn push_args_to_stack(args: &[AllocatedArg], asm_data: &AsmData) -> (String, Mem
     for arg in args {
         let alignment_size = MemoryLayout::from_bytes(8);//I think everything is 8 byte aligned here?
 
-        //increase alignment to an 8 byte boundary
-        let extra_padding = align(stack_taken_by_args, alignment_size);
-
-        stack_taken_by_args += extra_padding;//increase offset to reach optimal alignment
-        asm_line!(result, "sub rsp, {} ; align for next arg", extra_padding.size_bytes());
-        assert!(stack_taken_by_args.size_bytes() % 8 == 0);//ensure stack is aligned
+        assert!(stack_taken_by_args.size_bytes() % 8 == 0);//ensure stack is aligned *af
 
         //push arg to stack
         let arg_type = arg.arg_tree.accept(&mut GetDataTypeVisitor{asm_data});
@@ -208,6 +204,8 @@ fn push_args_to_stack(args: &[AllocatedArg], asm_data: &AsmData) -> (String, Mem
                 assert!(stack_taken_by_args.size_bytes() % 8 == 0);
                 //struct param passed via memory
                 asm_comment!(result, "putting struct arg on stack");
+
+                //align so that the struct ends up on an 8 byte boundary
                 let arg_size = arg.param_type.memory_size(asm_data);
                 let extra_stack_for_alignment = alignment_size - MemoryLayout::from_bytes(arg_size.size_bytes() % alignment_size.size_bytes());//align so that the *next* param is aligned
                 asm_line!(result, "sub rsp, {} ; align struct to 8 byte boundary", extra_stack_for_alignment.size_bytes());
