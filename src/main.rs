@@ -38,13 +38,14 @@ mod classify_param;
 
 struct CompilationOptions {
     c_file: String,
+    link_with: Vec<String>,
     out_file: String
 }
 
 //TODO maybe use objdump -M intel --dwarf to find debug symbols???
 
 fn main() {
-    let mut options = CompilationOptions{c_file: "test.c".to_string(), out_file: "a.out".to_string()};
+    let mut options = CompilationOptions{c_file: "test.c".to_string(), out_file: "a.out".to_string(), link_with: Vec::new()};
 
     let args_vec = env::args().collect::<Vec<String>>();
     let mut args = args_vec.iter().skip(1);
@@ -57,10 +58,14 @@ fn main() {
                 options.out_file = arg[2..].to_string();
             }
         } else {
-            options.c_file = arg.to_string();
+            match arg.split_once(".").unwrap().1 {
+                "c" => options.c_file = arg.to_string(),
+                "o" => options.link_with.push(arg.to_string()),
+                _ => panic!()
+            }
         }
     }
 
-
-    compile::compile(&options.c_file, &options.out_file, &[]).unwrap();
+    let link_with: Vec<&str> = options.link_with.iter().map(|s| s.as_str()).collect();
+    compile::compile(&options.c_file, &options.out_file, &link_with).unwrap();
 }

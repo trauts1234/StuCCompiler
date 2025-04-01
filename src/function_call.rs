@@ -1,5 +1,5 @@
 use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::PutStructOnStack}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
-use std::fmt::Write;
+use std::{clone, fmt::Write};
 
 #[derive(Clone)]
 pub struct FunctionCall {
@@ -45,7 +45,7 @@ impl FunctionCall {
 
             let allocated_arg = AllocatedArg{
                 param_type: type_of_curr_arg,
-                arg_tree: arg_data.1,
+                arg_tree: arg_data.1.clone(),
             };
 
             match arg_location {
@@ -60,7 +60,7 @@ impl FunctionCall {
                 }
                 _ => {
                     println!("memory");
-                    acc.memory_args.insert(0, allocated_arg)
+                    acc.memory_args.push(allocated_arg);
                 },//add if memory or if there are too many integer args, written backwards so that they are pushed forwards
             }
 
@@ -72,9 +72,11 @@ impl FunctionCall {
         //TODO what if something was pushed as part of a binary expression before this was called?
         //assert!(asm_data.get_stack_height().size_bytes() % 16 == 0);//aligned for function call? perhaps I could add this to the params later
 
-        let (memory_args_asm, memory_args_stack_usage) = push_args_to_stack(&sorted_args.memory_args, asm_data);
-        
-        let (integer_args_asm, integer_args_stack_usage) = push_args_to_stack(&sorted_args.integer_args, asm_data);
+        //push backwards because the ABI requires it
+        let (memory_args_asm, memory_args_stack_usage) = push_args_to_stack_backwards(&sorted_args.memory_args, asm_data);
+
+        //push backwards because they can be popped into registers forwards
+        let (integer_args_asm, integer_args_stack_usage) = push_args_to_stack_backwards(&sorted_args.integer_args, asm_data);
 
         let extra_stack_to_align_memory_args = align(memory_args_stack_usage, MemoryLayout::from_bytes(16));//align stack so that call happens on a 16 byte boundary
         asm_line!(result, "sub rsp, {}", extra_stack_to_align_memory_args.size_bytes());
@@ -85,7 +87,7 @@ impl FunctionCall {
         let registers_required = integer_args_stack_usage.size_bits()/64;//1 register for each 64 bits
         assert!(registers_required <= 6);
         
-        for register_number in (0..registers_required).rev() {//reversed because they were pushed forwards and must be popped backwards
+        for register_number in 0..registers_required {//reversed because they were pushed forwards and must be popped backwards
             asm_line!(result, "{}", asm_boilerplate::pop_reg(&MemoryLayout::from_bytes(8), &asm_generation::generate_param_reg(register_number)));//pop aligned data to registers
         }
 
@@ -146,16 +148,18 @@ impl FunctionCall {
     }
 }
 
-pub struct AllocatedArg<'a> {
+#[derive(Clone)]
+pub struct AllocatedArg {
     pub(crate) param_type: RecursiveDataType,//what type the arg should be cast into
-    pub(crate) arg_tree: &'a Expression
+    pub(crate) arg_tree: Expression
 }
-struct AllocatedArgs<'a> {
-    integer_args: Vec<AllocatedArg<'a>>,
+
+struct AllocatedArgs {
+    integer_args: Vec<AllocatedArg>,
     integer_regs_used: i32,
-    memory_args: Vec<AllocatedArg<'a>>,
+    memory_args: Vec<AllocatedArg>,
 }
-impl<'a> AllocatedArgs<'a> {
+impl AllocatedArgs {
     pub fn new() -> Self {
         AllocatedArgs { integer_args: Vec::new(), memory_args: Vec::new(), integer_regs_used:0 }
     }
@@ -163,7 +167,7 @@ impl<'a> AllocatedArgs<'a> {
      * is_double_eightbyte_struct: is the struct one that is passed by 2 registers
      * param data: the struct to be passed
      */
-    pub fn add_integer_arg(&mut self, data: AllocatedArg<'a>, is_double_eightbyte_struct: bool) {
+    pub fn add_integer_arg(&mut self, data: AllocatedArg, is_double_eightbyte_struct: bool) {
         self.integer_args.push(data);
         if !is_double_eightbyte_struct {
             self.integer_regs_used += 1;
@@ -186,11 +190,11 @@ fn align(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLayout 
  * returns (assembly required, stack used to do it)
  * assumes stack alignment at point where assembly is injected
  */
-fn push_args_to_stack(args: &[AllocatedArg], asm_data: &AsmData) -> (String, MemoryLayout) {
+fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData) -> (String, MemoryLayout) {
     let mut stack_taken_by_args = MemoryLayout::new();
     let mut result = String::new();
 
-    for arg in args {
+    for arg in args.iter().rev() {
         let alignment_size = MemoryLayout::from_bytes(8);//I think everything is 8 byte aligned here?
 
         assert!(stack_taken_by_args.size_bytes() % 8 == 0);//ensure stack is aligned *af
