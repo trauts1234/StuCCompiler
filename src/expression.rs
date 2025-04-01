@@ -228,7 +228,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
     }
 
     match &promoted_type {
-        RecursiveDataType::ARRAY { size, element } => {
+        RecursiveDataType::ARRAY {..} => {
             unwrap_let!(RecursiveDataType::ARRAY {..} = rhs.accept(&mut GetDataTypeVisitor{asm_data}));//rhs must be an array?
 
             //initialising an array? char[12] x = "hello world";//for example
