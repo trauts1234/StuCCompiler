@@ -1,11 +1,11 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, assembly_metadata::AssemblyMetadata, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 /**
  * this represents all the code inside a scope (i.e function definition)
  */
 pub struct ScopeStatements {
     statements: Vec<StatementOrDeclaration>,
-    local_scope_data: ParseData//metadata to help with assembly generation
+    local_scope_data: ParseData,//metadata to help with assembly generation
 }
 
 impl ScopeStatements {
@@ -43,25 +43,16 @@ impl ScopeStatements {
         })
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &StackUsage) -> AssemblyMetadata {
         let mut result = String::new();
+        let mut stack_required = stack_data.clone_for_new_scope();
 
-        let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, asm_data.get_function_return_type().clone());
+        let asm_data = asm_data.clone_for_new_scope(&self.local_scope_data, asm_data.get_function_return_type().clone(), &mut stack_required);
 
         for statement in &self.statements {
-            asm_line!(result, "{}", statement.generate_assembly(label_gen, asm_data));
+            asm_line!(result, "{}", statement.generate_assembly(label_gen, &asm_data, &mut stack_required));
         }
 
-        result
-    }
-
-    pub fn get_stack_height(&self, asm_data: &AsmData) -> MemoryLayout {
-        let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, asm_data.get_function_return_type().clone());
-
-        let current_scope_stack_used = asm_data.get_stack_height();
-
-        self.statements.iter()
-        .filter_map(|x| x.get_stack_height(asm_data))//get only the instructions that use a known amount of stack
-        .fold(current_scope_stack_used, |acc, next| MemoryLayout::biggest(&acc, &next))//calculate the biggest possible path
+        AssemblyMetadata { asm: result, subtree_stack_required: stack_required.get_stack_used() }
     }
 }

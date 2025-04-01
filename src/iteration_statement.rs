@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -103,13 +103,14 @@ impl IterationStatement {
         }
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &StackUsage) -> String {
         let mut result = String::new();
+        let mut stack_required = stack_data.clone_for_new_scope();
 
         match self {
             Self::FOR { initialisation, condition, increment, body, local_scope_data } => {
 
-                let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());
+                let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone(), &mut stack_required);
                 
                 let condition_type = condition.accept(&mut GetDataTypeVisitor {asm_data});
 
@@ -117,7 +118,7 @@ impl IterationStatement {
 
                 let generic_label = label_gen.generate_label();
 
-                asm_line!(result, "{}", initialisation.generate_assembly(label_gen, asm_data));//initialise the for loop anyways
+                asm_line!(result, "{}", initialisation.generate_assembly(label_gen, asm_data, &mut stack_required));//initialise the for loop anyways
 
                 asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
 
@@ -126,7 +127,7 @@ impl IterationStatement {
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
 
-                asm_line!(result, "{}", body.generate_assembly(label_gen, asm_data));//generate the loop body
+                asm_line!(result, "{}", body.generate_assembly(label_gen, asm_data, &mut stack_required));//generate the loop body
 
                 asm_line!(result, "{}_loop_increment:", generic_label);//add label to jump to incrementing the loop
 
@@ -153,7 +154,7 @@ impl IterationStatement {
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
 
-                asm_line!(result, "{}", body.generate_assembly(label_gen, asm_data));//generate the loop body
+                asm_line!(result, "{}", body.generate_assembly(label_gen, asm_data, &mut stack_required));//generate the loop body
 
                 asm_line!(result, "jmp {}_loop_start", generic_label);//after loop complete, go to top of loop
 
@@ -165,6 +166,7 @@ impl IterationStatement {
     }
 
     pub fn get_stack_height(&self, asm_data: &AsmData) -> MemoryLayout {
+        panic!("this should be packed with generate_assembly, returning AssemblyMetadata or similar");
         match self {
             IterationStatement::FOR { initialisation:_, condition:_, increment:_, local_scope_data, body:_ } => {
                 let asm_data = &asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone());

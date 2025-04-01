@@ -1,13 +1,13 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::recursive_data_type::RecursiveDataType, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData, statement::Statement};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, assembly_metadata::AssemblyMetadata, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, compound_statement::ScopeStatements, data_type::recursive_data_type::RecursiveDataType, function_call::align, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
  * This is a definition of a function
  */
 pub struct FunctionDefinition {
-    code: Statement,//statement could be a scope if it wants. should this just be a Scope????
+    code: ScopeStatements,//statement could be a scope if it wants. should this just be a Scope????
     decl: FunctionDeclaration,
     local_scope_data: ParseData//metadata to help with assembly generation
 }
@@ -42,9 +42,7 @@ impl FunctionDefinition {
 
         scope_data.add_declaration(func_decl.clone());//so that I can call recursively
 
-        //read the next statement (statement includes a scope)
-        //TODO can this _only_ be a scope?
-        let ASTMetadata{resultant_tree, remaining_slice} = Statement::try_consume(tokens_queue, &after_decl_slice, accessible_funcs, &mut scope_data)?;
+        let ASTMetadata{resultant_tree, remaining_slice} = ScopeStatements::try_consume(tokens_queue, &after_decl_slice, accessible_funcs, &mut scope_data)?;
         
         return Some(ASTMetadata{
             resultant_tree: FunctionDefinition {
@@ -55,14 +53,14 @@ impl FunctionDefinition {
             remaining_slice});
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, mut stack_data: StackUsage) -> String {
         //this uses a custom calling convention
         //all params passed on the stack, right to left (caller cleans these up)
         //return value in RAX
         let mut result = String::new();
 
         //clone myself, but add all my local variables, and add my return type
-        let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, self.get_return_type());
+        let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, self.get_return_type(), &mut stack_data);
 
         //set label as same as function name
         asm_line!(result, "{}:", self.decl.function_name);
@@ -94,18 +92,24 @@ impl FunctionDefinition {
 
         }
 
-        let stack_used_for_body = self.code.get_stack_height(asm_data).unwrap();
+        let AssemblyMetadata { asm: code_for_body, subtree_stack_required: stack_used_for_body } = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);
 
         let total_stack_used = stack_used_for_body + param_stack_used;
 
-        let stack_needed_until_aligned =  MemoryLayout::from_bytes(
+        let stack_needed_until_aligned = align(total_stack_used, MemoryLayout::from_bytes(16));
+
+        //<test> remove this soon
+        let stack_needed_until_aligned_test =  MemoryLayout::from_bytes(
             (16 - total_stack_used.size_bytes() % 16) % 16//finds the number of extra bytes needed to round to a 16 byte boundary
         );
+
+        assert!(stack_needed_until_aligned.size_bytes() == stack_needed_until_aligned_test.size_bytes());
+        //</test>
 
         let stack_add = stack_used_for_body + stack_needed_until_aligned;
         asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", stack_add.size_bytes());
 
-        asm_line!(result, "{}", self.code.generate_assembly(label_gen, asm_data));
+        asm_line!(result, "{}", code_for_body);
 
         //destroy stack frame and return
 

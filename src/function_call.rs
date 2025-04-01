@@ -177,7 +177,7 @@ impl AllocatedArgs {
 /**
  * calculates how much extra memory is needed to make current_offset a multiple of alignment
  */
-fn align(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLayout {
+pub fn align(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLayout {
     let bytes_past_last_boundary = current_offset.size_bytes() % alignment.size_bytes();
 
     MemoryLayout::from_bytes (

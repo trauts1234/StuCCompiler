@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -65,7 +65,7 @@ impl SelectionStatement {
         }
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut StackUsage) -> String {
         let mut result = String::new();
 
         match self {
@@ -85,13 +85,13 @@ impl SelectionStatement {
                 asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}", cond_false_label);//if the result is 0, jump to the else block or the end of the if statement
 
-                asm_line!(result, "{}", if_body.generate_assembly(label_gen, asm_data));//generate the body of the if statement
+                asm_line!(result, "{}", if_body.generate_assembly(label_gen, asm_data, stack_data));//generate the body of the if statement
                 asm_line!(result, "jmp {}", if_end_label);//jump to the end of the if/else block
 
                 if let Some(else_body) = else_body {
                     //there is code in the else block
                     asm_line!(result, "{}:", else_label);//start of the else block
-                    asm_line!(result, "{}", else_body.generate_assembly(label_gen, asm_data));//generate the body of the else statement
+                    asm_line!(result, "{}", else_body.generate_assembly(label_gen, asm_data, stack_data));//generate the body of the else statement
                 }
 
                 asm_line!(result, "{}:", if_end_label);//after if/else are complete, jump here
@@ -103,6 +103,7 @@ impl SelectionStatement {
     }
 
     pub fn get_stack_height(&self, asm_data: &AsmData) -> Option<MemoryLayout> {
+        panic!("this should be packed with generate_assembly using AssemblyGeneration or similar. should not be option, since the body/else should always have a stack usage, just it could be 0");
         match self {
             SelectionStatement::IF { condition: _, if_body, else_body } =>  {
                 let possible_else_size = else_body.as_ref().and_then(|x| x.get_stack_height(asm_data));

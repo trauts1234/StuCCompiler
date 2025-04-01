@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, assembly_metadata::AssemblyMetadata, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, selection_statement::SelectionStatement};
 use std::fmt::Write;
 
 pub enum Statement {
@@ -40,34 +40,33 @@ impl Statement {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
-        let mut result = String::new();
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut StackUsage) -> AssemblyMetadata {
 
+        //match on variant and call recursively
         match self {
             Self::COMPOUND(scope) => {
-                asm_line!(result, "{}", scope.generate_assembly(label_gen, asm_data));
+                scope.generate_assembly(label_gen, asm_data, stack_data)
             }
             Self::CONTROLFLOW(command) => {
-                asm_line!(result, "{}", command.generate_assembly(asm_data));
+                command.generate_assembly(asm_data)
             }
             Self::EXPRESSION(expr) => {
-                asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor {asm_data}));
+                expr.accept(&mut ScalarInAccVisitor {asm_data})
             }
             Self::SELECTION(selection) => {
-                asm_line!(result, "{}", selection.generate_assembly(label_gen, asm_data));
+                selection.generate_assembly(label_gen, asm_data, stack_data)
             },
             Self::ITERATION(it) => {
-                asm_line!(result, "{}", it.generate_assembly(label_gen, asm_data));
+                it.generate_assembly(label_gen, asm_data, &stack_data)
             }
         }
-
-        return result;
     }
 
-    pub fn get_stack_height(&self, asm_data: &AsmData) -> Option<MemoryLayout> {
+    pub fn get_stack_height(&self, asm_data: &AsmData, stack_data: StackUsage) -> Option<MemoryLayout> {
+        panic!("this is already done in generate_assembly!");
         match self {
             Statement::EXPRESSION(_) => None,//calculations take no stack long-term
-            Statement::COMPOUND(scope_statements) => Some(scope_statements.get_stack_height(asm_data)),//scope contains useful metadata
+            Statement::COMPOUND(scope_statements) => Some(scope_statements.get_stack_height(asm_data, stack_data)),//scope contains useful metadata
             Statement::SELECTION(selection_statement) => selection_statement.get_stack_height(asm_data),//finds whichever uses the most stack: if or else
             Statement::ITERATION(iteration_statement) => Some(iteration_statement.get_stack_height(asm_data)),//takes into account iterator variables
             Statement::CONTROLFLOW(_) => None,//return statements take no stack long-term
