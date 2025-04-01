@@ -335,8 +335,7 @@ impl TokenQueue {
             if bracket_depth == 0 {assert!(self.tokens[i] == Token::PUNCTUATOR(close_bracket));return i;}
         }
 
-        println!("{:?}", &self.tokens[open_idx..]);
-        panic!("matching )/] not found");
+        panic!("{:?}\nmatching )/] not found", &self.tokens[open_idx..]);
     }
 }
 

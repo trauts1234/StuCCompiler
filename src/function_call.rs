@@ -14,7 +14,7 @@ impl FunctionCall {
         visitor.visit_func_call(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData) -> String {
         //system V ABI
         let mut result = String::new();
 
@@ -50,16 +50,13 @@ impl FunctionCall {
 
             match arg_location {
                 ArgType::INTEGER if acc.integer_regs_used < 6 => {
-                    println!("integer");
                     acc.add_integer_arg(allocated_arg, false)
                 },
                 ArgType::STRUCT {..} if acc.integer_regs_used <= 4 => {
                     //if there are less than 5 memory args, there is enough room for both the first and second eightbyte
-                    println!("struct");
                     acc.add_integer_arg(allocated_arg, true);
                 }
                 _ => {
-                    println!("memory");
                     acc.memory_args.push(allocated_arg);
                 },//add if memory or if there are too many integer args, written backwards so that they are pushed forwards
             }
@@ -177,6 +174,9 @@ impl AllocatedArgs {
     }
 }
 
+/**
+ * calculates how much extra memory is needed to make current_offset a multiple of alignment
+ */
 fn align(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLayout {
     let bytes_past_last_boundary = current_offset.size_bytes() % alignment.size_bytes();
 

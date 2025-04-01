@@ -88,7 +88,6 @@ impl FunctionDefinition {
                 param_stack_used += param.get_type().memory_size(asm_data);
             } else {
                 let param_reg = asm_generation::generate_param_reg(param_idx);
-                println!("{:?} {}", param.get_type(), param.get_type().memory_size(asm_data).size_bytes());
                 asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(asm_data), &param_reg));//truncate param reg to desired size, then push to stack
                 param_stack_used += param.get_type().memory_size(asm_data);
             }

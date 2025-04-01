@@ -77,6 +77,13 @@ pub fn generate_param_reg(param_num: usize) -> PhysicalRegister {
         6.. => panic!("this param should be on the stack. do it yourself")
     }
 }
+pub fn generate_return_value_reg(return_eightbyte_num: usize) -> PhysicalRegister {
+    match return_eightbyte_num {
+        0 => PhysicalRegister::_AX,
+        1 => PhysicalRegister::_DX,
+        2.. => panic!("this return value should be passed as a hidden pointer")
+    }
+}
 
 impl RegisterName for LogicalRegister {
     fn generate_reg_name(&self, data_size: &MemoryLayout) -> String {

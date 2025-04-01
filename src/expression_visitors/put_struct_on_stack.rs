@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName, PTR_SIZE}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_boilerplate::mov_reg, asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, PhysicalRegister, RegisterName, PTR_SIZE}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
@@ -37,8 +37,16 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
     }
 
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        todo!("ABI compliant struct returning")
-        //remember to set RAX to point to the struct (probably RSP)
+        let mut result = String::new();
+
+        if let RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}) {
+            let struct_type = self.asm_data.get_struct(&struct_name);
+            todo!("detect whether the struct is MEMORY or other, then allocate a hidden param or read from registers after function has been called. remember to align the stack")
+        } else {
+            panic!("Expected a struct type in function call");
+        }
+
+        result
     }
 
     /**

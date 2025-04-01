@@ -57,8 +57,6 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
 pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<Expression> {
     let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
 
-    println!("{:?}", tokens_queue.get_slice(previous_queue_idx));
-
     if tokens_queue.slice_is_parenthesis(&curr_queue_idx) {
         //we are an expression surrounded by brackets
         //remove the outer brackets and continue
@@ -206,27 +204,6 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
     let promoted_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
 
-    if let (RecursiveDataType::ARRAY {..}, RecursiveDataType::ARRAY {..}) = (&promoted_type, rhs.accept(&mut GetDataTypeVisitor {asm_data})){
-        //promoted type and rhs are arrays
-        //initialising an array? char[12] x = "hello world";//for example
-        let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data});
-        let rhs_asm = rhs.accept(&mut ReferenceVisitor {asm_data});
-        asm_line!(result, "{}", lhs_asm);//get dest address
-        asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
-        asm_line!(result, "{}", rhs_asm);//get src address
-        asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));//push to stack
-
-        asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_SI));//pop source to RSI
-        asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &PhysicalRegister::_DI));//pop destination to RDI
-
-        asm_line!(result, "mov rcx, {}", promoted_type.memory_size(asm_data).size_bytes());//put number of bytes to copy in RCX
-
-        asm_line!(result, "cld");//reset copy direction flag
-        asm_line!(result, "rep movsb");//copy the data
-
-        return result;//all done here
-    }
-
     match &promoted_type {
         RecursiveDataType::ARRAY {..} => {
             unwrap_let!(RecursiveDataType::ARRAY {..} = rhs.accept(&mut GetDataTypeVisitor{asm_data}));//rhs must be an array?
@@ -360,7 +337,6 @@ fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSli
     if let Token::IDENTIFIER(member_name) = last_token {//TODO what if a member name is the same as an enum variant
         //last token is a struct's member name
         //the first part must return a struct
-        println!("struct tree: {:?}\nend of struct tree", tokens_queue.get_slice(&curr_queue_idx));
         let struct_tree = try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data)?;
 
         return Some(StructMemberAccess::new(struct_tree, member_name));
