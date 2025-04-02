@@ -1,4 +1,4 @@
-use std::{iter::Sum, ops::{Add, AddAssign, Sub, SubAssign}};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct MemoryLayout {

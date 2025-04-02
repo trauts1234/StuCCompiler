@@ -1,7 +1,8 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::recursive_data_type::RecursiveDataType, function_call::align, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::recursive_data_type::RecursiveDataType, function_call::align, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use std::fmt::Write;
+use unwrap_let::unwrap_let;
 
 /**
  * This is a definition of a function
@@ -71,26 +72,24 @@ impl FunctionDefinition {
 
         asm_comment!(result, "popping args");
 
-        let mut param_bp_offset = MemoryLayout::new();//temporarily stores rbp offset for params
+        //args on stack are pushed r->l, so work backwards pushing the register values to the stack
         for param_idx in (0..self.decl.params.len()).rev() {
-            let param = &self.decl.params[param_idx];
-            let param_size = param.get_type().memory_size(asm_data);
-            //args on stack are pushed r->l, so work backwards pushing the register values to the stack
-
-            param_bp_offset += param.get_type().memory_size(asm_data);//allocate for the param
+            let param = &self.decl.params[param_idx];//get metadata about param
+            let param_size = param.get_type().memory_size(asm_data);//get size of param 
+            unwrap_let!(VariableAddress::STACKOFFSET(param_offset) = &asm_data.get_variable(param.get_name()).location);//get the location of where the param should *end up* since it gets moved from registers to memory
             
             if param_idx >= 6 {
                 let below_bp_offset = MemoryLayout::from_bytes(8);//8 bytes for return addr, as rbp points to the start of the stack frame
                 let arg_offset = MemoryLayout::from_bytes(8 + (param_idx - 6) * 8);//first 6 are in registers, each is 8 bytes, +8 as first arg is still +8 extra from bp
                 let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
-                asm_line!(result, "mov {}, [rbp+{}]", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(8)), arg_bp_offset.size_bytes());//grab as 64 bit
-                asm_line!(result, "mov [rbp-{}], {}", param_bp_offset.size_bytes(), &LogicalRegister::ACC.generate_reg_name(&param_size));//push how many bits I actually need
+                asm_line!(result, "mov {}, [rbp+{}]", LogicalRegister::ACC.generate_reg_name(&param_size), arg_bp_offset.size_bytes());//grab data
+                asm_line!(result, "mov [rbp-{}], {}", param_offset.size_bytes(), &LogicalRegister::ACC.generate_reg_name(&param_size));//store on allocated space
             } else {
                 let param_reg = asm_generation::generate_param_reg(param_idx);
                 //truncate param reg to desired size
                 //then write to its allocated address on the stack
-                asm_line!(result, "mov [rbp-{}], {}", param_bp_offset.size_bytes(), &param_reg.generate_reg_name(&param_size));
+                asm_line!(result, "mov [rbp-{}], {}", param_offset.size_bytes(), &param_reg.generate_reg_name(&param_size));
             }
 
         }
