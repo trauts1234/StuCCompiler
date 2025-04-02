@@ -86,8 +86,8 @@ pub fn generate_return_value_reg(return_eightbyte_num: usize) -> PhysicalRegiste
 }
 
 impl AssemblyOperand for MemoryLayout {
-    fn generate_name(&self, data_size: MemoryLayout) -> String {
-        format!("[rbp+{}]", data_size.size_bytes())
+    fn generate_name(&self, _: MemoryLayout) -> String {
+        format!("[rbp-{}]", self.size_bytes())
     }
 }
 
