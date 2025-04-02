@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, assembly_metadata::AssemblyMetadata, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, assembly_metadata::AssemblyMetadata, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, selection_statement::SelectionStatement};
 use std::fmt::Write;
 
 pub enum Statement {
@@ -40,7 +40,7 @@ impl Statement {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut StackUsage) -> AssemblyMetadata {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
 
         //match on variant and call recursively
         match self {
@@ -57,19 +57,8 @@ impl Statement {
                 selection.generate_assembly(label_gen, asm_data, stack_data)
             },
             Self::ITERATION(it) => {
-                it.generate_assembly(label_gen, asm_data, &stack_data)
+                it.generate_assembly(label_gen, asm_data, stack_data)
             }
-        }
-    }
-
-    pub fn get_stack_height(&self, asm_data: &AsmData, stack_data: StackUsage) -> Option<MemoryLayout> {
-        panic!("this is already done in generate_assembly!");
-        match self {
-            Statement::EXPRESSION(_) => None,//calculations take no stack long-term
-            Statement::COMPOUND(scope_statements) => Some(scope_statements.get_stack_height(asm_data, stack_data)),//scope contains useful metadata
-            Statement::SELECTION(selection_statement) => selection_statement.get_stack_height(asm_data),//finds whichever uses the most stack: if or else
-            Statement::ITERATION(iteration_statement) => Some(iteration_statement.get_stack_height(asm_data)),//takes into account iterator variables
-            Statement::CONTROLFLOW(_) => None,//return statements take no stack long-term
         }
     }
 }

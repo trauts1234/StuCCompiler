@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, assembly_metadata::AssemblyMetadata, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 
 
 /**
@@ -31,7 +31,7 @@ impl StatementOrDeclaration {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut StackUsage) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
         match self {
             Self::STATEMENT(statement) => statement.generate_assembly(label_gen, asm_data, stack_data),
             Self::DECLARATION(decl) => {
@@ -39,16 +39,6 @@ impl StatementOrDeclaration {
                 //no intermediate newline as generate_assembly puts in a trailing newline
                 decl.iter().map(|x| x.generate_assembly(asm_data)).collect::<Vec<String>>().join("")
             },
-        }
-    }
-
-    /**
-     * if this is a declaration, I return None as I can't calculate the stack usage
-     */
-    pub fn get_stack_height(&self, asm_data: &AsmData, stack_data: StackUsage) -> Option<MemoryLayout> {
-        match self {
-            StatementOrDeclaration::STATEMENT(statement) => statement.get_stack_height(asm_data, stack_data),
-            StatementOrDeclaration::DECLARATION(_) => None,
         }
     }
 }

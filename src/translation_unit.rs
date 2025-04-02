@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
 use std::{fs::File, io::Write};
 
 pub struct TranslationUnit {
@@ -87,7 +87,7 @@ impl TranslationUnit {
             .collect::<String>();
 
         let instructions = self.functions.func_definitions_as_slice().iter()
-            .map(|x| x.generate_assembly(&mut label_generator, &asm_data, StackUsage::new()))
+            .map(|x| x.generate_assembly(&mut label_generator, &asm_data))
             .collect::<String>();
 
         let assembly_code = format!(

@@ -1,4 +1,4 @@
-use crate::{compilation_state::stack_used::StackUsage, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
 use indexmap::IndexMap;
 
 /**
@@ -46,7 +46,7 @@ impl AsmData {
 
         result
     }
-    pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: RecursiveDataType, stack_data: &mut StackUsage) -> AsmData {
+    pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: RecursiveDataType, stack_data: &mut MemoryLayout) -> AsmData {
         let mut result = self.clone();
 
         //add functions
@@ -67,9 +67,10 @@ impl AsmData {
         for (name, var_type) in local_variables {
             let var_size = var_type.memory_size(&result);
 
-            let var_address_offset = stack_data.allocate_variable_stack(var_size);//increase stack pointer to store extra variable
+            *stack_data += var_size;
+            let var_address_offset = stack_data.clone();//increase stack pointer to store extra variable
 
-            let decl = AddressedDeclaration { data_type: var_type.clone(), location: VariableAddress::STACKOFFSET(var_address_offset) };//then generate address, as to not overwrite the stack frame
+            let decl = AddressedDeclaration { data_type: var_type.clone(), location: VariableAddress::STACKOFFSET(var_address_offset.clone()) };//then generate address, as to not overwrite the stack frame
 
             result.variables.shift_remove(&name);//ensure the new variable is put on the front of the indexmap
             result.variables.insert(name, decl);

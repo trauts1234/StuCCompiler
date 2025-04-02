@@ -89,8 +89,13 @@ impl SubAssign for MemoryLayout {
     }
 }
 
-impl Sum for MemoryLayout {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(MemoryLayout::new(), |acc, x| acc + x)
+impl MemoryLayout {
+    /**
+     * Sets self to the biggest of self and rhs
+     */
+    pub fn set_to_biggest(&mut self, rhs: MemoryLayout) {
+        if rhs.size_bits() > self.size_bits() {
+            self.size_bits = rhs.size_bits();
+        }
     }
 }

@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, assembly_metadata::AssemblyMetadata, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator, stack_used::StackUsage}, compound_statement::ScopeStatements, data_type::recursive_data_type::RecursiveDataType, function_call::align, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::recursive_data_type::RecursiveDataType, function_call::align, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -53,11 +53,12 @@ impl FunctionDefinition {
             remaining_slice});
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, mut stack_data: StackUsage) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
         //this uses a custom calling convention
         //all params passed on the stack, right to left (caller cleans these up)
         //return value in RAX
         let mut result = String::new();
+        let mut stack_data = MemoryLayout::new();//stack starts as empty in a function
 
         //clone myself, but add all my local variables, and add my return type
         let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, self.get_return_type(), &mut stack_data);
@@ -69,44 +70,37 @@ impl FunctionDefinition {
         asm_line!(result, "mov rbp, rsp ;''");
 
         asm_comment!(result, "popping args");
-        let mut param_stack_used = MemoryLayout::new();
 
+        let mut param_bp_offset = MemoryLayout::new();//temporarily stores rbp offset for params
         for param_idx in (0..self.decl.params.len()).rev() {
             let param = &self.decl.params[param_idx];
+            let param_size = param.get_type().memory_size(asm_data);
             //args on stack are pushed r->l, so work backwards pushing the register values to the stack
-            //calculate smaller register size as data is not 64 bits
+
+            param_bp_offset += param.get_type().memory_size(asm_data);//allocate for the param
             
             if param_idx >= 6 {
                 let below_bp_offset = MemoryLayout::from_bytes(8);//8 bytes for return addr, as rbp points to the start of the stack frame
                 let arg_offset = MemoryLayout::from_bytes(8 + (param_idx - 6) * 8);//first 6 are in registers, each is 8 bytes, +8 as first arg is still +8 extra from bp
                 let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
+                panic!("todo, write to allocated memory, not push the register");
                 asm_line!(result, "mov {}, [rbp+{}]", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(8)), arg_bp_offset.size_bytes());//grab as 64 bit
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(asm_data), &LogicalRegister::ACC));//push how many bits I actually need
-                param_stack_used += param.get_type().memory_size(asm_data);
+                asm_line!(result, "{}", asm_boilerplate::push_reg(&param_size, &LogicalRegister::ACC));//push how many bits I actually need
             } else {
                 let param_reg = asm_generation::generate_param_reg(param_idx);
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&param.get_type().memory_size(asm_data), &param_reg));//truncate param reg to desired size, then push to stack
-                param_stack_used += param.get_type().memory_size(asm_data);
+                //truncate param reg to desired size
+                //then write to its allocated address on the stack
+                asm_line!(result, "mov [rbp-{}], {}", param_bp_offset.size_bytes(), &param_reg.generate_reg_name(&param_size));
             }
 
         }
 
-        let AssemblyMetadata { asm: code_for_body, subtree_stack_required: stack_used_for_body } = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);
+        let code_for_body = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);//calculate stack needed for function, while generating asm
 
-        let total_stack_used = stack_used_for_body + param_stack_used;
+        let stack_needed_until_aligned = align(stack_data, MemoryLayout::from_bytes(16));
 
-        let stack_needed_until_aligned = align(total_stack_used, MemoryLayout::from_bytes(16));
-
-        //<test> remove this soon
-        let stack_needed_until_aligned_test =  MemoryLayout::from_bytes(
-            (16 - total_stack_used.size_bytes() % 16) % 16//finds the number of extra bytes needed to round to a 16 byte boundary
-        );
-
-        assert!(stack_needed_until_aligned.size_bytes() == stack_needed_until_aligned_test.size_bytes());
-        //</test>
-
-        let stack_add = stack_used_for_body + stack_needed_until_aligned;
+        let stack_add = stack_data + stack_needed_until_aligned;
         asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", stack_add.size_bytes());
 
         asm_line!(result, "{}", code_for_body);
