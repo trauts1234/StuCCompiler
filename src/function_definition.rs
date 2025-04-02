@@ -84,9 +84,8 @@ impl FunctionDefinition {
                 let arg_offset = MemoryLayout::from_bytes(8 + (param_idx - 6) * 8);//first 6 are in registers, each is 8 bytes, +8 as first arg is still +8 extra from bp
                 let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
-                panic!("todo, write to allocated memory, not push the register");
                 asm_line!(result, "mov {}, [rbp+{}]", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(8)), arg_bp_offset.size_bytes());//grab as 64 bit
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&param_size, &LogicalRegister::ACC));//push how many bits I actually need
+                asm_line!(result, "mov [rbp-{}], {}", param_bp_offset.size_bytes(), &LogicalRegister::ACC.generate_reg_name(&param_size));//push how many bits I actually need
             } else {
                 let param_reg = asm_generation::generate_param_reg(param_idx);
                 //truncate param reg to desired size
