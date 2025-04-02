@@ -37,7 +37,7 @@ impl StatementOrDeclaration {
             Self::DECLARATION(decl) => {
                 //declare each variable individually
                 //no intermediate newline as generate_assembly puts in a trailing newline
-                decl.iter().map(|x| x.generate_assembly(asm_data)).collect::<Vec<String>>().join("")
+                decl.iter().map(|x| x.generate_assembly(asm_data, stack_data)).collect::<Vec<String>>().join("")
             },
         }
     }

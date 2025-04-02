@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName, PTR_SIZE}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, AssemblyOperand, PTR_SIZE}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 
@@ -83,16 +83,16 @@ impl StructMemberAccess {
         member_decl.get_type().clone()
     }
 
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData) -> String {
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
         let mut result = String::new();
 
         asm_comment!(result, "getting address of struct's member {}", self.member_name);
         //put tree's address in acc
         //add the member offset
 
-        let ptr_reg = LogicalRegister::ACC.generate_reg_name(&PTR_SIZE);
+        let ptr_reg = LogicalRegister::ACC.generate_name(PTR_SIZE);
 
-        let struct_get_addr = self.struct_tree.accept(&mut ReferenceVisitor {asm_data});//assembly to get address of struct
+        let struct_get_addr = self.struct_tree.accept(&mut ReferenceVisitor {asm_data, stack_data});//assembly to get address of struct
 
         let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 

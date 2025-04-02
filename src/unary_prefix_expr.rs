@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, RegisterName, PTR_SIZE}, data_type::{recursive_data_type::{calculate_unary_type_arithmetic, RecursiveDataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_boilerplate::{self, mov_asm}, asm_gen_data::AsmData, asm_generation::{AssemblyOperand, LogicalRegister, PTR_SIZE}, data_type::{recursive_data_type::{calculate_unary_type_arithmetic, RecursiveDataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -13,20 +13,20 @@ impl UnaryPrefixExpression {
         visitor.visit_unary_prefix(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
         let mut result = String::new();
 
         match self.operator {
             Punctuator::AMPERSAND => {
                 asm_comment!(result, "getting address of something");
                 //put address of the right hand side in acc
-                let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor {asm_data});
+                let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
                 asm_line!(result, "{}", operand_ref_asm);
             },
             Punctuator::ASTERISK => {
                 asm_comment!(result, "dereferencing pointer");
                 // put the address pointed to in rax
-                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data}));
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));
                 if let RecursiveDataType::ARRAY {..} = self.get_data_type(asm_data) {
                     //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
                 } else {
@@ -39,10 +39,10 @@ impl UnaryPrefixExpression {
                 let promoted_type = self.get_data_type(asm_data);
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
-                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data}));
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&original_type, &promoted_type, asm_data));//cast to the correct type
 
-                asm_line!(result, "neg {}", LogicalRegister::ACC.generate_reg_name(&promoted_type.memory_size(asm_data)));//negate the promoted value
+                asm_line!(result, "neg {}", LogicalRegister::ACC.generate_name(promoted_type.memory_size(asm_data)));//negate the promoted value
             },
             Punctuator::PLUSPLUS => {
 
@@ -50,23 +50,26 @@ impl UnaryPrefixExpression {
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
                 //push &self.operand
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data});
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
                 asm_line!(result, "{}", operand_asm);
-                asm_line!(result, "{}", asm_boilerplate::push_reg(&PTR_SIZE, &LogicalRegister::ACC));
+
+                *stack_data += PTR_SIZE;//allocate temporary lhs storage
+                let lhs_temporary_address = stack_data.clone();
+                asm_line!(result, "{}", asm_boilerplate::mov_asm(PTR_SIZE, &lhs_temporary_address, &LogicalRegister::ACC));
 
                 //put self.operand in acc
-                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data}));
+                asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));
 
-                let rhs_reg = LogicalRegister::ACC.generate_reg_name(&original_type.memory_size(asm_data));
+                let rhs_reg = LogicalRegister::ACC.generate_name(original_type.memory_size(asm_data));
 
                 //increment self.operand (in acc)
                 asm_line!(result, "inc {}", rhs_reg);
 
                 //pop &self.operand to RCX
-                asm_line!(result, "{}", asm_boilerplate::pop_reg(&PTR_SIZE, &LogicalRegister::SECONDARY));
+                asm_line!(result, "{}", mov_asm(PTR_SIZE, &LogicalRegister::SECONDARY, &lhs_temporary_address));
 
                 //save the new value of self.operand
-                asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_reg_name(&PTR_SIZE), LogicalRegister::ACC.generate_reg_name(&original_type.memory_size(asm_data)));
+                asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_name(PTR_SIZE), LogicalRegister::ACC.generate_name(original_type.memory_size(asm_data)));
 
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&original_type, &promoted_type, asm_data));//cast to the correct type
             }

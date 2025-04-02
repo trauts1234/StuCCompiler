@@ -1,5 +1,5 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
-use crate::asm_generation::RegisterName;
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::asm_generation::AssemblyOperand;
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 
@@ -7,7 +7,8 @@ use unwrap_let::unwrap_let;
  * puts the address of the visited Expression in RAX
  */
 pub struct ReferenceVisitor<'a>{
-    pub(crate) asm_data: &'a AsmData
+    pub(crate) asm_data: &'a AsmData,
+    pub(crate) stack_data: &'a mut MemoryLayout
 }
 
 impl<'a> ExprVisitor for ReferenceVisitor<'a> {
@@ -18,7 +19,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
     }
 
     fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable) -> Self::Output {
-        let ptr_reg = LogicalRegister::ACC.generate_reg_name(&asm_generation::PTR_SIZE);
+        let ptr_reg = LogicalRegister::ACC.generate_name(asm_generation::PTR_SIZE);
         
         match &self.asm_data.get_variable(&var.name).location {
             VariableAddress::CONSTANTADDRESS => 
@@ -40,7 +41,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         //&*x == x
         assert!(*expr.get_operator() == Punctuator::ASTERISK);//must be address of a dereference
 
-        let operand_asm = expr.get_operand().accept(&mut ScalarInAccVisitor{asm_data: self.asm_data});
+        let operand_asm = expr.get_operand().accept(&mut ScalarInAccVisitor{asm_data: self.asm_data, stack_data: self.stack_data});
 
         format!("{}; getting address of a dereference", operand_asm)
     }
@@ -57,7 +58,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
-        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data: self.asm_data}));//get address of the base struct
+        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data: self.asm_data, stack_data: self.stack_data}));//get address of the base struct
 
         asm_comment!(result, "increasing pointer to get address of member {}", member_data.0.get_name());
 

@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 use std::fmt::Write;
 
 /**
@@ -36,13 +36,13 @@ impl ControlFlowChange {
         }
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
         let mut result = String::new();
 
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor {asm_data}));
+                    asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));
 
                     match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
                         crate::data_type::recursive_data_type::RecursiveDataType::ARRAY {..} => panic!("tried to return array from function!"),

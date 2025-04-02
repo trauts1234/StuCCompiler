@@ -47,10 +47,10 @@ impl Statement {
                 scope.generate_assembly(label_gen, asm_data, stack_data)
             }
             Self::CONTROLFLOW(command) => {
-                command.generate_assembly(asm_data)
+                command.generate_assembly(asm_data, stack_data)
             }
             Self::EXPRESSION(expr) => {
-                expr.accept(&mut ScalarInAccVisitor {asm_data})
+                expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data})
             }
             Self::SELECTION(selection) => {
                 selection.generate_assembly(label_gen, asm_data, stack_data)

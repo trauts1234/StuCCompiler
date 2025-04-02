@@ -10,5 +10,9 @@
     {
         "foldername": "call_structs",
         "return_code": 0
+    },
+    {
+        "foldername": "call_alignment",
+        "return_code": 0
     }
 ]

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, RegisterName}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, AssemblyOperand}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, memory_size::MemoryLayout};
 use std::fmt::Write;
 
 
@@ -6,25 +6,9 @@ pub fn global_var_label(var_name: &str) -> String {
     format!("GLOBVAR_{}", var_name)
 }
 
-pub fn pop_reg<T: RegisterName>(reg_size: &MemoryLayout, reg_type: &T) -> String {
-    let reg_name = reg_type.generate_reg_name(reg_size);
-
-    format!(
-        ";pop {}\nmov {}, [rsp]\nadd rsp, {}",reg_name, reg_name, reg_size.size_bytes()
-    )
-}
-
-pub fn push_reg<T: RegisterName>(reg_size: &MemoryLayout, reg_type: &T) -> String {
-    let reg_name = reg_type.generate_reg_name(reg_size);
-
-    format!(
-        ";push {}\nsub rsp, {}\nmov [rsp], {}", reg_name, reg_size.size_bytes(), reg_name
-    )
-}
-
-pub fn mov_reg<T: RegisterName, U: RegisterName>(reg_size: &MemoryLayout, to: &T, from: &U) -> String {
-    let to_name = to.generate_reg_name(reg_size);
-    let from_name = from.generate_reg_name(reg_size);
+pub fn mov_asm<T: AssemblyOperand, U: AssemblyOperand>(reg_size: MemoryLayout, to: &T, from: &U) -> String {
+    let to_name = to.generate_name(reg_size);
+    let from_name = from.generate_name(reg_size);
 
     format!(
         "mov {}, {}", to_name, from_name
@@ -43,9 +27,9 @@ pub fn cast_from_acc(original: &RecursiveDataType, new_type: &RecursiveDataType,
             let mut result = String::new();
             if to_raw == &BaseType::_BOOL {
                 //boolean, so I need to cmp 0
-                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(&from_raw.memory_size(asm_data)));
+                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_name(from_raw.memory_size(asm_data)));
                 //set to 1 or 0 based on whether that value was 0
-                asm_line!(result, "setne {}", LogicalRegister::ACC.generate_reg_name(&MemoryLayout::from_bytes(1)));
+                asm_line!(result, "setne {}", LogicalRegister::ACC.generate_name(MemoryLayout::from_bytes(1)));
     
                 return result;
             }

@@ -37,8 +37,8 @@ pub(crate) use asm_comment;
 /**
  * trait to allow logical or physical registers to generate a register name
  */
-pub trait RegisterName {
-    fn generate_reg_name(&self, data_size: &MemoryLayout) -> String;
+pub trait AssemblyOperand {
+    fn generate_name(&self, data_size: MemoryLayout) -> String;
 }
 
 /**
@@ -85,21 +85,27 @@ pub fn generate_return_value_reg(return_eightbyte_num: usize) -> PhysicalRegiste
     }
 }
 
-impl RegisterName for LogicalRegister {
-    fn generate_reg_name(&self, data_size: &MemoryLayout) -> String {
+impl AssemblyOperand for MemoryLayout {
+    fn generate_name(&self, data_size: MemoryLayout) -> String {
+        format!("[rbp+{}]", data_size.size_bytes())
+    }
+}
+
+impl AssemblyOperand for LogicalRegister {
+    fn generate_name(&self, data_size: MemoryLayout) -> String {
         let reg_as_physical = match self {
             LogicalRegister::ACC => PhysicalRegister::_AX,
             LogicalRegister::SECONDARY => PhysicalRegister::_CX,
             LogicalRegister::THIRD => PhysicalRegister::_DX,
         };
 
-        return reg_as_physical.generate_reg_name(data_size);
+        return reg_as_physical.generate_name(data_size);
 
 
     }
 }
-impl RegisterName for PhysicalRegister {
-    fn generate_reg_name(&self, data_size: &MemoryLayout) -> String {
+impl AssemblyOperand for PhysicalRegister {
+    fn generate_name(&self, data_size: MemoryLayout) -> String {
         match (self, data_size.size_bytes()) {
             (PhysicalRegister::_AX, 8) => "rax",
             (PhysicalRegister::_BX, 8) => "rbx",

@@ -1,7 +1,7 @@
 
 use unwrap_let::unwrap_let;
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, RegisterName}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, RecursiveDataType}}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, AssemblyOperand}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, RecursiveDataType}}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -17,11 +17,11 @@ impl BinaryExpression {
         visitor.visit_binary_expression(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
         let mut result = String::new();
 
         if self.operator == Punctuator::EQUALS {
-            return generate_assembly_for_assignment(&self.lhs, &self.rhs, asm_data);
+            return generate_assembly_for_assignment(&self.lhs, &self.rhs, asm_data, stack_data);
         }
 
         let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
@@ -32,14 +32,14 @@ impl BinaryExpression {
             x if x.as_boolean_instr().is_some() => RecursiveDataType::RAW(BaseType::_BOOL),//is a boolean operator, operands are booleans
             _ => calculate_promoted_type_arithmetic(&lhs_type, &rhs_type)//else find a common meeting ground
         };
-        let promoted_size = &promoted_type.memory_size(asm_data);
+        let promoted_size = promoted_type.memory_size(asm_data);
 
         match &self.operator {
             Punctuator::PLUS => {
                 asm_comment!(result, "adding {}-bit numbers", promoted_size.size_bits());
 
 
-                asm_line!(result, "{}", self.lhs.accept(&mut ScalarInAccVisitor {asm_data}));//put lhs in acc
+                asm_line!(result, "{}", self.lhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));//put lhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&lhs_type, &promoted_type, asm_data));//cast to the correct type
 
                 if let RecursiveDataType::POINTER(_) = self.rhs.accept(&mut GetDataTypeVisitor {asm_data}).decay() {//adding array or pointer to int
@@ -59,9 +59,11 @@ impl BinaryExpression {
                 }
 
                 //save lhs to stack, as preprocessing for it is done
-                asm_line!(result, "{}", asm_boilerplate::push_reg(promoted_size, &LogicalRegister::ACC));
+                *stack_data += promoted_size;//allocate temporary lhs storage
+                let lhs_temporary_address = stack_data.clone();
+                asm_line!(result, "{}", asm_boilerplate::mov_asm(promoted_size, &lhs_temporary_address, &LogicalRegister::ACC));
 
-                asm_line!(result, "{}", self.rhs.accept(&mut ScalarInAccVisitor {asm_data}));//put rhs in acc
+                asm_line!(result, "{}", self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));//put rhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs_type, &promoted_type, asm_data));//cast to correct type
 
                 if let RecursiveDataType::POINTER(_) = self.lhs.accept(&mut GetDataTypeVisitor {asm_data}).decay() {
@@ -80,12 +82,12 @@ impl BinaryExpression {
                     //rhs now in AX
                 }
 
-                //pop lhs to secondary register, since rhs is already in acc
-                asm_line!(result, "{}", asm_boilerplate::pop_reg(&promoted_size, &LogicalRegister::SECONDARY));
+                //read lhs to secondary register, since rhs is already in acc
+                asm_line!(result, "{}", asm_boilerplate::mov_asm(promoted_size, &LogicalRegister::SECONDARY, &lhs_temporary_address));
 
                 asm_line!(result, "add {}, {}",
-                    LogicalRegister::ACC.generate_reg_name(promoted_size),
-                    LogicalRegister::SECONDARY.generate_reg_name(promoted_size)
+                    LogicalRegister::ACC.generate_name(promoted_size),
+                    LogicalRegister::SECONDARY.generate_name(promoted_size)
                 );
 
                 //result is now in AX
@@ -93,30 +95,30 @@ impl BinaryExpression {
             },
             Punctuator::DASH => {
                 asm_comment!(result, "subtracting numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 asm_line!(result, "sub {}, {}",
-                LogicalRegister::ACC.generate_reg_name(promoted_size),
-                LogicalRegister::SECONDARY.generate_reg_name(promoted_size)
+                LogicalRegister::ACC.generate_name(promoted_size),
+                LogicalRegister::SECONDARY.generate_name(promoted_size)
                 );
 
             }
             Punctuator::ASTERISK => {
                 asm_comment!(result, "multiplying numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 unwrap_let!(RecursiveDataType::RAW(promoted_underlying) = promoted_type);
                 assert!(promoted_underlying.is_integer() && promoted_underlying.is_signed());//unsigned multiply?? floating point multiply??
 
                 asm_line!(result, "imul {}, {}",
-                    LogicalRegister::ACC.generate_reg_name(promoted_size),
-                    LogicalRegister::SECONDARY.generate_reg_name(promoted_size)
+                    LogicalRegister::ACC.generate_name(promoted_size),
+                    LogicalRegister::SECONDARY.generate_name(promoted_size)
                 );
 
             },
             Punctuator::FORWARDSLASH => {
                 asm_comment!(result, "dividing numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 unwrap_let!(RecursiveDataType::RAW(promoted_underlying) = promoted_type);
                 assert!(promoted_underlying.is_integer());//floating point division??
@@ -134,7 +136,7 @@ impl BinaryExpression {
 
             Punctuator::PERCENT => {
                 asm_comment!(result, "calculating modulus");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 unwrap_let!(RecursiveDataType::RAW(promoted_underlying) = promoted_type);
                 assert!(promoted_underlying.is_integer());//floating point division??
@@ -151,22 +153,22 @@ impl BinaryExpression {
                 }
 
                 //mod is returned in RDX
-                asm_line!(result, "{}", asm_boilerplate::mov_reg(&promoted_size, &LogicalRegister::ACC,  &PhysicalRegister::_DX));
+                asm_line!(result, "{}", asm_boilerplate::mov_asm(promoted_size, &LogicalRegister::ACC,  &PhysicalRegister::_DX));
             }
 
             comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
                 asm_comment!(result, "comparing numbers");
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
-                let lhs_reg = LogicalRegister::ACC.generate_reg_name(promoted_size);
-                let rhs_reg = LogicalRegister::SECONDARY.generate_reg_name(promoted_size);
+                let lhs_reg = LogicalRegister::ACC.generate_name(promoted_size);
+                let rhs_reg = LogicalRegister::SECONDARY.generate_name(promoted_size);
 
                 let result_size = MemoryLayout::from_bytes(1);
                 let result_reg = LogicalRegister::ACC;
 
                 asm_line!(result, "cmp {}, {}", lhs_reg, rhs_reg);//compare the two
 
-                asm_line!(result, "{} {}", comparison.as_comparator_instr().unwrap(), result_reg.generate_reg_name(&result_size));//create the correct set instruction
+                asm_line!(result, "{} {}", comparison.as_comparator_instr().unwrap(), result_reg.generate_name(result_size));//create the correct set instruction
 
             },
 
@@ -176,7 +178,7 @@ impl BinaryExpression {
                 //warning: what if either side is not a boolean
                 asm_comment!(result, "applying boolean operator");
 
-                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data));
+                asm_line!(result, "{}", put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 unwrap_let!(RecursiveDataType::RAW(promoted_underlying) = promoted_type);
                 assert!(promoted_underlying.is_integer());//floating point division??
@@ -184,8 +186,8 @@ impl BinaryExpression {
                 assert!(promoted_underlying.memory_size(asm_data).size_bytes() == 1);//must be boolean
                 assert!(promoted_underlying == BaseType::_BOOL);
 
-                let lhs_reg = LogicalRegister::ACC.generate_reg_name(promoted_size);
-                let rhs_reg = LogicalRegister::SECONDARY.generate_reg_name(promoted_size);
+                let lhs_reg = LogicalRegister::ACC.generate_name(promoted_size);
+                let rhs_reg = LogicalRegister::SECONDARY.generate_name(promoted_size);
 
                 let boolean_instruction = operator.as_boolean_instr().unwrap();
                 

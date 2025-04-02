@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, RegisterName}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, AssemblyOperand}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 use std::fmt::Write;
 
 /**
@@ -76,13 +76,13 @@ impl SelectionStatement {
 
                 let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};
 
-                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor {asm_data}));//generate the condition to acc
+                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));//generate the condition to acc
                 
                 let condition_type = condition.accept(&mut GetDataTypeVisitor {asm_data});
 
-                let condition_size = &condition_type.memory_size(asm_data);
+                let condition_size = condition_type.memory_size(asm_data);
   
-                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_reg_name(condition_size));//compare the result to 0
+                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_name(condition_size));//compare the result to 0
                 asm_line!(result, "je {}", cond_false_label);//if the result is 0, jump to the else block or the end of the if statement
 
                 let mut if_body_stack_usage = stack_data.clone();

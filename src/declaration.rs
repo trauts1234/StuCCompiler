@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::RecursiveDataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::RecursiveDataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
 use std::fmt::Write;
 
 /**
@@ -67,11 +67,11 @@ impl InitialisedDeclaration {
         })
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
         let mut result = String::new();
 
         if let Some(init) = &self.init_code {
-            let init_asm = init.accept(&mut ScalarInAccVisitor {asm_data});
+            let init_asm = init.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
             asm_line!(result, "{}", init_asm);//init is an expression that assigns to the variable, so no more work for me
         }
 
