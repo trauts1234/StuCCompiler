@@ -75,10 +75,12 @@ impl FunctionCall {
         let stack_required_for_integer_args: MemoryLayout = sorted_args.integer_args.iter()
             .map(|x| aligned_size(x.param_type.memory_size(asm_data), alignment_size))
             .sum();
+        let aligned_memory_args_size = aligned_size(stack_required_for_memory_args, MemoryLayout::from_bytes(16));
+        let integer_args_extra_alignment = align(stack_required_for_integer_args, MemoryLayout::from_bytes(16));
         
         //allocate stack for args passed by memory
         //TODO align to 16 bytes here
-        asm_line!(result, "sub rsp, {} ; allocate memory for memory args", stack_required_for_memory_args.size_bytes());
+        asm_line!(result, "sub rsp, {} ; allocate memory for memory args", aligned_memory_args_size.size_bytes());
 
         asm_line!(result, "{}", push_args_to_stack_backwards(
             &sorted_args.memory_args,//write memory args to stack
@@ -87,7 +89,7 @@ impl FunctionCall {
         ));
 
         //allocate stack for args to be popped to GP registers
-        asm_line!(result, "sub rsp, {}", stack_required_for_integer_args.size_bytes());
+        asm_line!(result, "sub rsp, {}", (stack_required_for_integer_args + integer_args_extra_alignment).size_bytes());
 
         asm_line!(result, "{}", push_args_to_stack_backwards(
             &sorted_args.integer_args,//write integer args to stack
@@ -98,12 +100,13 @@ impl FunctionCall {
         for i in 0..sorted_args.integer_regs_used {
             asm_line!(result, "pop {}", generate_param_reg(i).generate_name(alignment_size));//pop to register
         }
+        asm_line!(result, "add rsp, {} ; remove alignment from register params", integer_args_extra_alignment.size_bytes());
 
         asm_line!(result, "mov al, 0");//since there are no floating point args, this must be left as 0 to let varadic functions know
 
         asm_line!(result, "call {}", self.func_name);
 
-        asm_line!(result, "add rsp, {} ; deallocate memory args", stack_required_for_memory_args.size_bytes());
+        asm_line!(result, "add rsp, {} ; deallocate memory args", aligned_memory_args_size.size_bytes());
 
         result
     }

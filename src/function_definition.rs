@@ -70,7 +70,11 @@ impl FunctionDefinition {
         asm_line!(result, "push rbp ;create stack frame");
         asm_line!(result, "mov rbp, rsp ;''");
 
-        asm_comment!(result, "popping args");
+        let code_for_body = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);//calculate stack needed for function, while generating asm
+        let aligned_stack_usage = aligned_size(stack_data, MemoryLayout::from_bytes(16));
+        asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", aligned_stack_usage.size_bytes());
+
+        asm_comment!(result, "moving args to memory");
 
         //args on stack are pushed r->l, so work backwards pushing the register values to the stack
         for param_idx in (0..self.decl.params.len()).rev() {
@@ -93,12 +97,6 @@ impl FunctionDefinition {
             }
 
         }
-
-        let code_for_body = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);//calculate stack needed for function, while generating asm
-
-        let aligned_stack_usage = aligned_size(stack_data, MemoryLayout::from_bytes(16));
-
-        asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", aligned_stack_usage.size_bytes());
 
         asm_line!(result, "{}", code_for_body);
 
