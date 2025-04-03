@@ -98,7 +98,7 @@ fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &RAMLoc
     let acc_reg = LogicalRegister::ACC.generate_name(PTR_SIZE);
 
     //TODO use mov_asm! macro
-    asm_line!(result, "mov rdi, {}", resulatant_location.generate_name(struct_size));//put destination in RDI
+    asm_line!(result, "lea rdi, {}", resulatant_location.generate_name(struct_size));//put destination in RDI
     asm_line!(result, "mov rsi, {}", acc_reg);//put source in RSI
 
     asm_line!(result, "mov rcx, {}", struct_size.size_bytes());//put number of bytes to copy in RCX
@@ -106,7 +106,7 @@ fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &RAMLoc
     asm_line!(result, "cld");//reset copy direction flag
     asm_line!(result, "rep movsb");//copy the data
 
-    asm_line!(result, "mov {}, rsp", acc_reg);//point to the cloned struct
+    asm_line!(result, "lea {}, {}", acc_reg, resulatant_location.generate_name(struct_size));//point to the cloned struct
 
     result
 }

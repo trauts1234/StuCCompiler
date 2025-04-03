@@ -214,7 +214,7 @@ fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack
     let alignment_size = MemoryLayout::from_bytes(8);//I think everything is 8 byte aligned here?
     let mut current_sp_offset = MemoryLayout::new();//how far from rsp is the next param
 
-    for arg in args.iter().rev() {
+    for arg in args.iter() {
 
         //push arg to stack
         let arg_type = arg.arg_tree.accept(&mut GetDataTypeVisitor{asm_data});
