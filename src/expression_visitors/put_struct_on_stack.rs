@@ -1,13 +1,14 @@
-use crate::{asm_boilerplate::mov_asm, asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, AssemblyOperand, LogicalRegister, PhysicalRegister, PTR_SIZE}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, AssemblyOperand, LogicalRegister, RAMLocation, PTR_SIZE}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
 
 
 
-pub struct PutStructOnStack<'a>{
+pub struct CopyStructVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut MemoryLayout
+    pub(crate) stack_data: &'a mut MemoryLayout,
+    pub(crate) resultant_location: RAMLocation,
 }
 
 
@@ -15,7 +16,7 @@ pub struct PutStructOnStack<'a>{
  * sets RAX to valid pointer to struct
  * always clones the struct
  */
-impl<'a> ExprVisitor for PutStructOnStack<'a> {
+impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     type Output = String;
 
     fn visit_number_literal(&mut self, _number: &crate::number_literal::NumberLiteral) -> Self::Output {
@@ -29,7 +30,7 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
         asm_line!(result, "{}", var.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data}));//put pointer to variable on stack
 
         let variable_size = var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
-        asm_line!(result, "{}", clone_struct_to_stack(variable_size, self.stack_data));//memcpy it
+        asm_line!(result, "{}", clone_struct_to_stack(variable_size, &self.resultant_location));//memcpy it
 
         result
     }
@@ -61,7 +62,7 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
         asm_line!(result, "{}", expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data}));
 
         let dereferenced_size = expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
-        asm_line!(result, "{}", clone_struct_to_stack(dereferenced_size, self.stack_data));
+        asm_line!(result, "{}", clone_struct_to_stack(dereferenced_size, &self.resultant_location));
 
         result
     }
@@ -77,7 +78,7 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
         unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
-        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut PutStructOnStack{asm_data: self.asm_data, stack_data: self.stack_data}));//generate struct that I am getting member of
+        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: self.resultant_location.clone()}));//generate struct that I am getting member of
 
         asm_comment!(result, "increasing pointer to get index of member struct {}", member_data.0.get_name());
 
@@ -91,15 +92,13 @@ impl<'a> ExprVisitor for PutStructOnStack<'a> {
  * clones the struct pointed to by acc onto the stack
  * moves acc to point to the start of the cloned struct
  */
-fn clone_struct_to_stack(struct_size: MemoryLayout, stack_data: &mut MemoryLayout) -> String {
+fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &RAMLocation) -> String {
     let mut result = String::new();
 
     let acc_reg = LogicalRegister::ACC.generate_name(PTR_SIZE);
 
-    *stack_data += struct_size;//allocate on the stack
-
     //TODO use mov_asm! macro
-    asm_line!(result, "mov rdi, rsp");//put destination in RDI
+    asm_line!(result, "mov rdi, {}", resulatant_location.generate_name(struct_size));//put destination in RDI
     asm_line!(result, "mov rsi, {}", acc_reg);//put source in RSI
 
     asm_line!(result, "mov rcx, {}", struct_size.size_bytes());//put number of bytes to copy in RCX

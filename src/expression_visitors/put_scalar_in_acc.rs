@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, AssemblyOperand, LogicalRegister}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{pop_struct_from_stack::PopStructFromStack, put_struct_on_stack::PutStructOnStack, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
+use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, AssemblyOperand, LogicalRegister, RAMLocation}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{pop_struct_from_stack::PopStructFromStack, put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
@@ -78,17 +78,19 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         let member_name = member_access.get_member_name();
         unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
 
-        let (member_decl, member_offset) = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
-
+        let original_struct_definition = self.asm_data.get_struct(&original_struct_name);
+        let (member_decl, member_offset) = original_struct_definition.get_member_data(member_name);
         let result_reg = LogicalRegister::ACC.generate_name(member_decl.get_type().memory_size(self.asm_data));
 
-        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut PutStructOnStack{asm_data: self.asm_data, stack_data: self.stack_data}));//generate struct that I am getting member of
+        *self.stack_data += original_struct_definition.calculate_size().unwrap();//allocate struct on stack
+        let resultant_struct_location = RAMLocation::SubFromBP(*self.stack_data);
+
+        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: resultant_struct_location}));//generate struct that I am getting member of
 
         asm_comment!(result, "getting struct's member {}", member_name);
-
         asm_line!(result, "mov {}, [rax+{}]", result_reg, member_offset.size_bytes());//get member as an offset from the struct beginning
 
-        asm_line!(result, "{}", member_access.accept(&mut PopStructFromStack{asm_data: self.asm_data}));//pop the struct if needed
+        //asm_line!(result, "{}", member_access.accept(&mut PopStructFromStack{asm_data: self.asm_data}));//pop the struct if needed
 
         result
     }

@@ -66,6 +66,12 @@ pub enum PhysicalRegister {
 
 }
 
+#[derive(Clone, Copy)]
+pub enum RAMLocation {
+    SubFromBP(MemoryLayout),
+    AddToSP(MemoryLayout),
+}
+
 pub fn generate_param_reg(param_num: usize) -> PhysicalRegister {
     match param_num {
         0 => PhysicalRegister::_DI,
@@ -85,9 +91,12 @@ pub fn generate_return_value_reg(return_eightbyte_num: usize) -> PhysicalRegiste
     }
 }
 
-impl AssemblyOperand for MemoryLayout {
+impl AssemblyOperand for RAMLocation {
     fn generate_name(&self, _: MemoryLayout) -> String {
-        format!("[rbp-{}]", self.size_bytes())
+        match self {
+            RAMLocation::SubFromBP(memory_layout) => format!("[rbp-{}]", memory_layout.size_bytes()),
+            RAMLocation::AddToSP(memory_layout) => format!("[rsp+{}]", memory_layout.size_bytes()),
+        }
     }
 }
 

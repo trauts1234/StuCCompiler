@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate::mov_asm, asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, AssemblyOperand, LogicalRegister}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::recursive_data_type::RecursiveDataType, function_call::align, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_boilerplate::mov_asm, asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, AssemblyOperand, LogicalRegister, RAMLocation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::recursive_data_type::RecursiveDataType, function_call::{align, aligned_size}, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use std::fmt::Write;
 use unwrap_let::unwrap_let;
 
@@ -84,22 +84,21 @@ impl FunctionDefinition {
                 let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
                 asm_line!(result, "mov {}, [rbp+{}]", LogicalRegister::ACC.generate_name(param_size), arg_bp_offset.size_bytes());//grab data
-                asm_line!(result, "{}", mov_asm(param_size, param_offset, &LogicalRegister::ACC));//store in allocated space
+                asm_line!(result, "{}", mov_asm(param_size, &RAMLocation::SubFromBP(*param_offset), &LogicalRegister::ACC));//store in allocated space
             } else {
                 let param_reg = asm_generation::generate_param_reg(param_idx);
                 //truncate param reg to desired size
                 //then write to its allocated address on the stack
-                asm_line!(result, "{}", mov_asm(param_size, param_offset, &param_reg));
+                asm_line!(result, "{}", mov_asm(param_size, &RAMLocation::SubFromBP(*param_offset), &param_reg));
             }
 
         }
 
         let code_for_body = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);//calculate stack needed for function, while generating asm
 
-        let stack_needed_until_aligned = align(stack_data, MemoryLayout::from_bytes(16));
+        let aligned_stack_usage = aligned_size(stack_data, MemoryLayout::from_bytes(16));
 
-        let stack_add = stack_data + stack_needed_until_aligned;
-        asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", stack_add.size_bytes());
+        asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", aligned_stack_usage.size_bytes());
 
         asm_line!(result, "{}", code_for_body);
 

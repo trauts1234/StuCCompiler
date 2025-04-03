@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::{iter::Sum, ops::{Add, AddAssign, Sub, SubAssign}};
 
 #[derive(Debug, PartialEq, Clone, Copy)]//remove Copy?
 pub struct MemoryLayout {
@@ -86,6 +86,11 @@ impl Sub for MemoryLayout {
 impl SubAssign for MemoryLayout {
     fn sub_assign(&mut self, rhs: MemoryLayout) {
         self.size_bits -= rhs.size_bits;
+    }
+}
+impl Sum for MemoryLayout {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(MemoryLayout::new(), |acc, x| acc + x)
     }
 }
 

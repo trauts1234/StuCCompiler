@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::{self, mov_asm}, asm_gen_data::AsmData, asm_generation::{AssemblyOperand, LogicalRegister, PTR_SIZE}, data_type::{recursive_data_type::{calculate_unary_type_arithmetic, RecursiveDataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_boilerplate::{self, mov_asm}, asm_gen_data::AsmData, asm_generation::{AssemblyOperand, LogicalRegister, RAMLocation, PTR_SIZE}, data_type::{recursive_data_type::{calculate_unary_type_arithmetic, RecursiveDataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -55,7 +55,7 @@ impl UnaryPrefixExpression {
 
                 *stack_data += PTR_SIZE;//allocate temporary lhs storage
                 let lhs_temporary_address = stack_data.clone();
-                asm_line!(result, "{}", asm_boilerplate::mov_asm(PTR_SIZE, &lhs_temporary_address, &LogicalRegister::ACC));
+                asm_line!(result, "{}", asm_boilerplate::mov_asm(PTR_SIZE, &RAMLocation::SubFromBP(lhs_temporary_address), &LogicalRegister::ACC));
 
                 //put self.operand in acc
                 asm_line!(result, "{}", self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));
@@ -66,7 +66,7 @@ impl UnaryPrefixExpression {
                 asm_line!(result, "inc {}", rhs_reg);
 
                 //pop &self.operand to RCX
-                asm_line!(result, "{}", mov_asm(PTR_SIZE, &LogicalRegister::SECONDARY, &lhs_temporary_address));
+                asm_line!(result, "{}", mov_asm(PTR_SIZE, &LogicalRegister::SECONDARY, &RAMLocation::SubFromBP(lhs_temporary_address)));
 
                 //save the new value of self.operand
                 asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_name(PTR_SIZE), LogicalRegister::ACC.generate_name(original_type.memory_size(asm_data)));

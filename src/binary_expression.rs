@@ -1,7 +1,7 @@
 
 use unwrap_let::unwrap_let;
 
-use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{LogicalRegister, PhysicalRegister, AssemblyOperand}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, RecursiveDataType}}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
+use crate::{asm_boilerplate::{self}, asm_gen_data::AsmData, asm_generation::{AssemblyOperand, LogicalRegister, PhysicalRegister, RAMLocation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, RecursiveDataType}}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout, number_literal::NumberLiteral};
 use std::fmt::Write;
 use crate::asm_generation::{asm_line, asm_comment};
 
@@ -61,7 +61,7 @@ impl BinaryExpression {
                 //save lhs to stack, as preprocessing for it is done
                 *stack_data += promoted_size;//allocate temporary lhs storage
                 let lhs_temporary_address = stack_data.clone();
-                asm_line!(result, "{}", asm_boilerplate::mov_asm(promoted_size, &lhs_temporary_address, &LogicalRegister::ACC));
+                asm_line!(result, "{}", asm_boilerplate::mov_asm(promoted_size, &RAMLocation::SubFromBP(lhs_temporary_address), &LogicalRegister::ACC));
 
                 asm_line!(result, "{}", self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));//put rhs in acc
                 asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&rhs_type, &promoted_type, asm_data));//cast to correct type
@@ -83,7 +83,7 @@ impl BinaryExpression {
                 }
 
                 //read lhs to secondary register, since rhs is already in acc
-                asm_line!(result, "{}", asm_boilerplate::mov_asm(promoted_size, &LogicalRegister::SECONDARY, &lhs_temporary_address));
+                asm_line!(result, "{}", asm_boilerplate::mov_asm(promoted_size, &LogicalRegister::SECONDARY, &RAMLocation::SubFromBP(lhs_temporary_address)));
 
                 asm_line!(result, "add {}, {}",
                     LogicalRegister::ACC.generate_name(promoted_size),
