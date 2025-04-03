@@ -14,9 +14,10 @@ int main() {
     1 + check_stack_aligned();
     1 - check_stack_aligned();
     1 * check_stack_aligned();
-    1 / (check_stack_aligned() + 1);//prevent divide by 0 errors
+    1 / check_stack_aligned();
     1 % check_stack_aligned();
 
 
-    f(check_stack_aligned(), 2, check_stack_aligned());//check when params pushed, stack stays aligned for recursive function calls
+    f(check_stack_aligned(), 2, check_stack_aligned());//check when params pushed, stack stays aligned for nested function calls
+    
 }

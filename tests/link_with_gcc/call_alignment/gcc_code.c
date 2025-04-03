@@ -11,5 +11,5 @@ int check_stack_aligned(void) {
     );
     
     // If we get here, the stack was properly aligned
-    return 0;
+    return 1;
 }
