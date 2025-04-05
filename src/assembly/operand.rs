@@ -2,45 +2,6 @@ use crate::memory_size::MemoryLayout;
 
 pub const PTR_SIZE: MemoryLayout = MemoryLayout::from_bytes(8);
 
-
-/**
- * this funky macro runs like writeln!(result, "text {}", foo), but
- * requires no unwrap and
- * automatically manages newlines
- */
-macro_rules! asm_line {
-    ($dest:expr, $($arg:tt)*) => {{
-        let s = format!($($arg)*);
-        if s.trim().is_empty() {
-            // blank or whitespace - do not save anything
-        } else if s.ends_with('\n') {
-            write!($dest, "{}", s).unwrap()
-        } else {
-            writeln!($dest, "{}", s).unwrap()
-        }
-    }};
-}
-pub(crate) use asm_line;
-
-macro_rules! asm_comment {
-    ($dest:expr, $($arg:tt)*) => {{
-        let s = format!($($arg)*);
-        if s.ends_with('\n') {
-            write!($dest, ";{}", s).unwrap()
-        } else {
-            writeln!($dest, ";{}", s).unwrap()
-        }
-    }};
-}
-pub(crate) use asm_comment;
-
-/**
- * trait to allow logical or physical registers to generate a register name
- */
-pub trait AssemblyOperand {
-    fn generate_name(&self, data_size: MemoryLayout) -> String;
-}
-
 /**
  * stores register names based on what they are used for
  */
@@ -63,13 +24,27 @@ pub enum PhysicalRegister {
     _DI,
     R8,
     R9,
-
 }
 
-#[derive(Clone, Copy)]
-pub enum RAMLocation {
+#[derive(Clone)]
+pub enum Operand {
     SubFromBP(MemoryLayout),
     AddToSP(MemoryLayout),
+    Register(PhysicalRegister),
+    ImmediateValue(String),
+    DerefAddress(PhysicalRegister),
+}
+
+impl Operand {
+    pub fn generate_name(&self, data_size: MemoryLayout) -> String {
+        match self {
+            Operand::SubFromBP(memory_layout) => format!("[rbp-{}]", memory_layout.size_bytes()),
+            Operand::AddToSP(memory_layout) => format!("[rsp+{}]", memory_layout.size_bytes()),
+            Operand::ImmediateValue(val) => val.to_string(),
+            Operand::Register(physical_register) => physical_register.generate_name(data_size),
+            Operand::DerefAddress(physical_register) => format!("[{}]", physical_register.generate_name(PTR_SIZE)),//memory addresses are always 64 bit
+        }
+    }
 }
 
 pub fn generate_param_reg(param_num: usize) -> PhysicalRegister {
@@ -80,40 +55,23 @@ pub fn generate_param_reg(param_num: usize) -> PhysicalRegister {
         3 => PhysicalRegister::_CX,
         4 => PhysicalRegister::R8,
         5 => PhysicalRegister::R9,
-        6.. => panic!("this param should be on the stack. do it yourself")
-    }
-}
-pub fn generate_return_value_reg(return_eightbyte_num: usize) -> PhysicalRegister {
-    match return_eightbyte_num {
-        0 => PhysicalRegister::_AX,
-        1 => PhysicalRegister::_DX,
-        2.. => panic!("this return value should be passed as a hidden pointer")
+        6.. => panic!("this param should be on the stack.")
     }
 }
 
-impl AssemblyOperand for RAMLocation {
-    fn generate_name(&self, _: MemoryLayout) -> String {
+impl LogicalRegister {
+    /**
+     * casts to physical register
+     */
+    pub fn base_reg(&self) -> PhysicalRegister {
         match self {
-            RAMLocation::SubFromBP(memory_layout) => format!("[rbp-{}]", memory_layout.size_bytes()),
-            RAMLocation::AddToSP(memory_layout) => format!("[rsp+{}]", memory_layout.size_bytes()),
-        }
-    }
-}
-
-impl AssemblyOperand for LogicalRegister {
-    fn generate_name(&self, data_size: MemoryLayout) -> String {
-        let reg_as_physical = match self {
             LogicalRegister::ACC => PhysicalRegister::_AX,
             LogicalRegister::SECONDARY => PhysicalRegister::_CX,
             LogicalRegister::THIRD => PhysicalRegister::_DX,
-        };
-
-        return reg_as_physical.generate_name(data_size);
-
-
+        }
     }
 }
-impl AssemblyOperand for PhysicalRegister {
+impl PhysicalRegister {
     fn generate_name(&self, data_size: MemoryLayout) -> String {
         match (self, data_size.size_bytes()) {
             (PhysicalRegister::_AX, 8) => "rax",
@@ -143,7 +101,8 @@ impl AssemblyOperand for PhysicalRegister {
             (PhysicalRegister::R8,  1) => "r8b",
             (PhysicalRegister::R9,  1) => "r9b",
 
-            _ => panic!("new register used, and this can't handle it")
+            _ => panic!("invalid register-size combination for generating assembly")
+
         }.to_string()
     }
 }

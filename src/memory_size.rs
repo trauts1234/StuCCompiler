@@ -94,6 +94,12 @@ impl Sum for MemoryLayout {
     }
 }
 
+impl PartialOrd for MemoryLayout {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.size_bits.partial_cmp(&other.size_bits)
+    }
+}
+
 impl MemoryLayout {
     /**
      * Sets self to the biggest of self and rhs

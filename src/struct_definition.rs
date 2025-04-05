@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, LogicalRegister, AssemblyOperand, PTR_SIZE}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
-use std::fmt::Write;
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -83,25 +82,30 @@ impl StructMemberAccess {
         member_decl.get_type().clone()
     }
 
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
-        let mut result = String::new();
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+        let mut result = Assembly::make_empty();
 
-        asm_comment!(result, "getting address of struct's member {}", self.member_name);
+        result.add_comment(format!("getting address of struct's member {}", self.member_name));
         //put tree's address in acc
         //add the member offset
 
-        let ptr_reg = LogicalRegister::ACC.generate_name(PTR_SIZE);
+        let base_struct_address_asm = self.struct_tree.accept(&mut ReferenceVisitor {asm_data, stack_data});//assembly to get address of struct
 
-        let struct_get_addr = self.struct_tree.accept(&mut ReferenceVisitor {asm_data, stack_data});//assembly to get address of struct
+        let base_struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
-        let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
-
-        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = struct_tree_type);
+        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = base_struct_type);
 
         let (_, struct_member_offset) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get offset for the specific member
 
-        asm_line!(result, "{}", struct_get_addr);//get address of struct
-        asm_line!(result, "add {}, {}", ptr_reg, struct_member_offset.size_bytes());//go up by member offset
+        //get address of struct
+        result.merge(&base_struct_address_asm);
+
+        //go up by member offset
+        result.add_instruction(AsmOperation::ADD {
+            destination: Operand::Register(LogicalRegister::ACC.base_reg()),
+            increment: Operand::ImmediateValue(struct_member_offset.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64)//pointer addition is u64 add
+        });
 
         result
     }

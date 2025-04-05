@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, AssemblyOperand}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
-use std::fmt::Write;
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 
 /**
  * this handles if statements and other conditionals
@@ -65,8 +64,8 @@ impl SelectionStatement {
         }
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
-        let mut result = String::new();
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+        let mut result = Assembly::make_empty();
 
         match self {
             Self::IF { condition, if_body, else_body } => {
@@ -74,34 +73,55 @@ impl SelectionStatement {
                 let else_label = format!("{}_else", generic_label);//jump for the else branch
                 let if_end_label = format!("{}_end", generic_label);//rendevous point for the if and else branches
 
-                let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};
+                let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};//only jump to else branch if it exists
 
-                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));//generate the condition to acc
+                let condition_asm = condition.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                result.merge(&condition_asm);//generate the condition to acc
                 
                 let condition_type = condition.accept(&mut GetDataTypeVisitor {asm_data});
 
-                let condition_size = condition_type.memory_size(asm_data);
-  
-                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_name(condition_size));//compare the result to 0
-                asm_line!(result, "je {}", cond_false_label);//if the result is 0, jump to the else block or the end of the if statement
+                //compare the result to 0
+                result.add_instruction(AsmOperation::CMP {
+                    lhs: Operand::Register(LogicalRegister::ACC.base_reg()),
+                    rhs: Operand::ImmediateValue("0".to_string()),
+                    data_type: condition_type
+                });
+
+                //if the result is 0, jump to the else block or the end of the if statement
+                result.add_instruction(AsmOperation::JMPCC {
+                    label: cond_false_label.to_string(),
+                    comparison: AsmComparison::EQ
+                });
 
                 let mut if_body_stack_usage = stack_data.clone();
                 let mut else_body_stack_usage = stack_data.clone();
 
-                asm_line!(result, "{}", if_body.generate_assembly(label_gen, asm_data, &mut if_body_stack_usage));//generate the body of the if statement
-                asm_line!(result, "jmp {}", if_end_label);//jump to the end of the if/else block
+                //generate the body of the if statement
+                let if_body_asm = if_body.generate_assembly(label_gen, asm_data, &mut if_body_stack_usage);
+                result.merge(&if_body_asm);
+
+                //jump to the end of the if/else block
+                result.add_instruction(AsmOperation::JMPCC {
+                    label: if_end_label.to_string(),
+                    comparison: AsmComparison::ALWAYS//unconditional jump
+                });
 
                 if let Some(else_body) = else_body {
                     //there is code in the else block
-                    asm_line!(result, "{}:", else_label);//start of the else block
-                    asm_line!(result, "{}", else_body.generate_assembly(label_gen, asm_data, &mut else_body_stack_usage));//generate the body of the else statement
+
+                    let else_body_asm = else_body.generate_assembly(label_gen, asm_data, &mut else_body_stack_usage);
+
+                    //start of the else block
+                    result.add_instruction(AsmOperation::Label { name: else_label });//add label
+                    result.merge(&else_body_asm);//generate the body of the else statement
                 }
 
                 //stack required is the largest between the if and else branches
                 stack_data.set_to_biggest(if_body_stack_usage);
                 stack_data.set_to_biggest(else_body_stack_usage);
 
-                asm_line!(result, "{}:", if_end_label);//after if/else are complete, jump here
+                //after if/else are complete, jump here
+                result.add_instruction(AsmOperation::Label { name: if_end_label });
 
             }
         }

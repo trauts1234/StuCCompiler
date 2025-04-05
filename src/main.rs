@@ -16,7 +16,6 @@ pub mod declaration;
 mod ast_metadata;
 mod memory_size;
 mod selection_statement;
-pub mod asm_generation;
 pub mod preprocessor;
 mod function_call;
 mod compilation_state;
@@ -35,6 +34,7 @@ mod parse_data;
 mod asm_gen_data;
 mod expression_visitors;
 mod classify_param;
+pub mod assembly;
 
 struct CompilationOptions {
     c_file: String,

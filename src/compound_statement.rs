@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
-use std::fmt::Write;
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 /**
  * this represents all the code inside a scope (i.e function definition)
  */
@@ -43,14 +42,14 @@ impl ScopeStatements {
         })
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
-        let mut result = String::new();
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+        let mut result = Assembly::make_empty();
 
         let asm_data = asm_data.clone_for_new_scope(&self.local_scope_data, asm_data.get_function_return_type().clone(), stack_data);
 
         for statement in &self.statements {
             let line_asm = statement.generate_assembly(label_gen, &asm_data, stack_data);
-            asm_line!(result, "{}", line_asm);
+            result.merge(&line_asm);
         }
 
         result

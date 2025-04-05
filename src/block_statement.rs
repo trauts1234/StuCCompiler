@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 
 
 /**
@@ -31,13 +31,19 @@ impl StatementOrDeclaration {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
         match self {
             Self::STATEMENT(statement) => statement.generate_assembly(label_gen, asm_data, stack_data),
             Self::DECLARATION(decl) => {
                 //declare each variable individually
                 //no intermediate newline as generate_assembly puts in a trailing newline
-                decl.iter().map(|x| x.generate_assembly(asm_data, stack_data)).collect::<Vec<String>>().join("")
+                decl
+                .iter()
+                .map(|x| x.generate_assembly(asm_data, stack_data))//generate assembly
+                .fold(Assembly::make_empty(), |mut acc, x| {
+                    acc.merge(&x);
+                    acc
+                })
             },
         }
     }

@@ -1,6 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, LogicalRegister}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
-use crate::asm_generation::AssemblyOperand;
-use std::fmt::Write;
+use crate::{asm_gen_data::{AsmData, VariableAddress}, assembly::assembly::Assembly, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 
 /**
@@ -12,7 +10,7 @@ pub struct ReferenceVisitor<'a>{
 }
 
 impl<'a> ExprVisitor for ReferenceVisitor<'a> {
-    type Output = String;
+    type Output = Assembly;
 
     fn visit_number_literal(&mut self, _number: &crate::number_literal::NumberLiteral) -> Self::Output {
         panic!("tried to get address of number literal")

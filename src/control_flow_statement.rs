@@ -1,5 +1,4 @@
-use crate::{asm_boilerplate, asm_gen_data::AsmData, asm_generation::asm_line, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
-use std::fmt::Write;
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 
 /**
  * this handles break, continue and return statements
@@ -36,31 +35,31 @@ impl ControlFlowChange {
         }
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
-        let mut result = String::new();
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+        let mut result = Assembly::make_empty();
 
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    asm_line!(result, "{}", expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));
+                    let expr_asm = expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                    result.merge(&expr_asm);
 
                     match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
-                        crate::data_type::recursive_data_type::RecursiveDataType::ARRAY {..} => panic!("tried to return array from function!"),
+                        RecursiveDataType::ARRAY {..} => panic!("tried to return array from function!"),
                         expr_type => {
                             if let RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = expr_type {
-                                todo!("returning struct from function")
+                                todo!("returning struct {} from function", struct_name)
                             } else {
-                                asm_line!(result, "{}", asm_boilerplate::cast_from_acc(&expr_type, asm_data.get_function_return_type(), asm_data))
+                                let cast_asm = cast_from_acc(&expr_type, asm_data.get_function_return_type(), asm_data);
+                                result.merge(&cast_asm);
                             }
                         },
                     }
 
                 }
-                //warning: ensure result is in the correct register and correctly sized
                 //destroy stack frame and return
-                asm_line!(result, "mov rsp, rbp");
-                asm_line!(result, "pop rbp");
-                asm_line!(result, "ret");
+                result.add_instruction(AsmOperation::DestroyStackFrame);
+                result.add_instruction(AsmOperation::Return);
             },
         }
 

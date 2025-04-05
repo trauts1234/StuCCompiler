@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::{AsmData, VariableAddress}, asm_generation::{asm_comment, asm_line, AssemblyOperand, LogicalRegister, RAMLocation}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{pop_struct_from_stack::PopStructFromStack, put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
-use std::fmt::Write;
+use crate::{asm_gen_data::{AsmData, VariableAddress}, assembly::assembly::Assembly, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::reference_assembly_visitor::ReferenceVisitor, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
@@ -15,7 +14,7 @@ pub struct ScalarInAccVisitor<'a>{
 }
 
 impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
-    type Output = String;
+    type Output = Assembly;
 
     fn visit_number_literal(&mut self, number: &crate::number_literal::NumberLiteral) -> Self::Output {
         let mut result = String::new();

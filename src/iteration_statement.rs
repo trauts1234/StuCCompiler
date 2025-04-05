@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_line, LogicalRegister, AssemblyOperand}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
-use std::fmt::Write;
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 
 /**
  * this handles if statements and other conditionals
@@ -103,8 +102,8 @@ impl IterationStatement {
         }
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
-        let mut result = String::new();
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+        let mut result = Assembly::make_empty();
 
         match self {
             Self::FOR { initialisation, condition, increment, body, local_scope_data } => {
@@ -113,60 +112,93 @@ impl IterationStatement {
                 
                 let condition_type = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data});
 
-                let condition_size = condition_type.memory_size(&asm_data);
-
                 let generic_label = label_gen.generate_label();
+                let loop_start_label = format!("{}_loop_start", generic_label);
+                let loop_end_label = format!("{}_loop_end", generic_label);
+                let loop_increment_label = format!("{}_loop_increment", generic_label);
 
                 //overwrite stack data whilst generating assembly for initialising the loop body
                 let init_asm = initialisation.generate_assembly(label_gen, &asm_data, stack_data);
+                
+                //initialise the for loop anyways
+                result.merge(&init_asm);
 
+                result.add_instruction(AsmOperation::Label { name: loop_start_label.to_string()});//label for loop's start
 
-                asm_line!(result, "{}", init_asm);//initialise the for loop anyways
+                let condition_asm = condition.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data});
 
-                asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
+                result.merge(&condition_asm);//generate the condition
 
-                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data}));//generate the condition
+                //compare the result to 0
+                result.add_instruction(AsmOperation::CMP {
+                    lhs: Operand::Register(LogicalRegister::ACC.base_reg()),
+                    rhs: Operand::ImmediateValue("0".to_string()),
+                    data_type: condition_type
+                });
 
-                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_name(condition_size));//compare the result to 0
-                asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
+                //if the result is 0, jump to the end of the loop
+                result.add_instruction(AsmOperation::JMPCC {
+                    label: format!("{}_loop_end", generic_label),
+                    comparison: AsmComparison::EQ,
+                });
 
                 //overwrite stack data whilst generating assembly for the loop body
                 let body_asm = body.generate_assembly(label_gen, &asm_data, stack_data);
+                result.merge(&body_asm);//generate the loop body
 
-                asm_line!(result, "{}", body_asm);//generate the loop body
-
-                asm_line!(result, "{}_loop_increment:", generic_label);//add label to jump to incrementing the loop
+                result.add_instruction(AsmOperation::Label { name: loop_increment_label.to_string() });//add label to jump to incrementing the loop
 
                 if let Some(inc) = increment {//if there is an increment
-                    asm_line!(result, "{}", inc.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data}));//apply the increment
+                    let increment_asm = inc.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data});
+                    result.merge(&increment_asm);//apply the increment
                 }
-                asm_line!(result, "jmp {}_loop_start", generic_label);//after increment, go to top of loop
 
-                asm_line!(result, "{}_loop_end:", generic_label);
+                //after increment, go to top of loop
+                result.add_instruction(AsmOperation::JMPCC {
+                    label: loop_start_label.to_string(),
+                    comparison: AsmComparison::ALWAYS
+                });
+
+                result.add_instruction(AsmOperation::Label { name: loop_end_label });
             },
 
             Self::WHILE { condition, body } => {
 
-                let condition_type = condition.accept(&mut GetDataTypeVisitor {asm_data});
-
-                let condition_size = condition_type.memory_size(asm_data);
+                let condition_type = condition.accept(&mut GetDataTypeVisitor { asm_data });
 
                 let generic_label = label_gen.generate_label();
+                let loop_start_label = format!("{}_loop_start", generic_label);
+                let loop_end_label = format!("{}_loop_end", generic_label);
 
-                asm_line!(result, "{}_loop_start:", generic_label);//label for loop's start
+                result.add_instruction(AsmOperation::Label { name: loop_start_label.to_string() }); // label for loop's start
 
-                asm_line!(result, "{}", condition.accept(&mut ScalarInAccVisitor {asm_data, stack_data}));//generate the condition
+                let condition_asm = condition.accept(&mut ScalarInAccVisitor { asm_data, stack_data });
+                result.merge(&condition_asm); // generate the condition
 
-                asm_line!(result, "cmp {}, 0", LogicalRegister::ACC.generate_name(condition_size));//compare the result to 0
-                asm_line!(result, "je {}_loop_end", generic_label);//if the result is 0, jump to the end of the loop
+                // compare the result to 0
+                result.add_instruction(AsmOperation::CMP {
+                    lhs: Operand::Register(LogicalRegister::ACC.base_reg()),
+                    rhs: Operand::ImmediateValue("0".to_string()),
+                    data_type: condition_type,
+                });
 
+                // if the result is 0, jump to the end of the loop
+                result.add_instruction(AsmOperation::JMPCC {
+                    label: loop_end_label.to_string(),
+                    comparison: AsmComparison::EQ,
+                });
+
+                // generate the loop body
                 let body_asm = body.generate_assembly(label_gen, asm_data, stack_data);
+                result.merge(&body_asm);
 
-                asm_line!(result, "{}", body_asm);//generate the loop body
+                // after loop complete, go to top of loop
+                result.add_instruction(AsmOperation::JMPCC {
+                    label: loop_start_label.to_string(),
+                    comparison: AsmComparison::ALWAYS,
+                });
 
-                asm_line!(result, "jmp {}_loop_start", generic_label);//after loop complete, go to top of loop
-
-                asm_line!(result, "{}_loop_end:", generic_label);
+                result.add_instruction(AsmOperation::Label { name: loop_end_label });
             }
         }
         
