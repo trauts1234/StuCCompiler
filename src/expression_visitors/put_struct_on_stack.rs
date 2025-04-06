@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line, AssemblyOperand, LogicalRegister, RAMLocation, PTR_SIZE}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
-use std::fmt::Write;
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand, PhysicalRegister, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
 
@@ -8,7 +7,7 @@ use super::expr_visitor::ExprVisitor;
 pub struct CopyStructVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
     pub(crate) stack_data: &'a mut MemoryLayout,
-    pub(crate) resultant_location: RAMLocation,
+    pub(crate) resultant_location: Operand,
 }
 
 
@@ -17,20 +16,23 @@ pub struct CopyStructVisitor<'a>{
  * always clones the struct
  */
 impl<'a> ExprVisitor for CopyStructVisitor<'a> {
-    type Output = String;
+    type Output = Assembly;
 
     fn visit_number_literal(&mut self, _number: &crate::number_literal::NumberLiteral) -> Self::Output {
         panic!("tried to put struct on stack but found number literal")
     }
 
     fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable) -> Self::Output {
-        let mut result = String::new();
+        let mut result = Assembly::make_empty();
 
-        asm_comment!(result, "cloning struct {}", var.name);
-        asm_line!(result, "{}", var.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data}));//put pointer to variable on stack
+        result.add_comment(format!("cloning struct {}", var.name));
+        //put pointer to variable in RAX
+        let from_addr_asm = var.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data});
+        result.merge(&from_addr_asm);
 
         let variable_size = var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
-        asm_line!(result, "{}", clone_struct_to_stack(variable_size, &self.resultant_location));//memcpy it
+        let struct_copy_asm = clone_struct_to_stack(variable_size, &self.resultant_location);
+        result.merge(&struct_copy_asm);//memcpy the struct
 
         result
     }
@@ -40,7 +42,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     }
 
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        let mut result = String::new();
+        let mut result = Assembly::make_empty();
 
         if let RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}) {
             let struct_type = self.asm_data.get_struct(&struct_name);
@@ -56,13 +58,15 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
      * node: this does not allocate, since the pointer points to already-allocated memory
      */
     fn visit_unary_prefix(&mut self, expr: &crate::unary_prefix_expr::UnaryPrefixExpression) -> Self::Output {
-        let mut result = String::new();
+        let mut result = Assembly::make_empty();
         assert!(*expr.get_operator() == Punctuator::ASTERISK);// unary prefix can only return a struct when it is a dereference operation
         
-        asm_line!(result, "{}", expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data}));
+        let expr_addr_asm = expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data});
+        result.merge(&expr_addr_asm);
 
         let dereferenced_size = expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
-        asm_line!(result, "{}", clone_struct_to_stack(dereferenced_size, &self.resultant_location));
+        let struct_clone_asm = clone_struct_to_stack(dereferenced_size, &self.resultant_location);
+        result.merge(&struct_clone_asm);
 
         result
     }
@@ -72,17 +76,25 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     }
 
     fn visit_struct_member_access(&mut self, member_access: &crate::struct_definition::StructMemberAccess) -> Self::Output {
-        let mut result = String::new();
+        //this function handles getting struct members that are also structs themselves
+        let mut result = Assembly::make_empty();
 
         let member_name = member_access.get_member_name();
         unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
-        asm_line!(result, "{}", member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: self.resultant_location.clone()}));//generate struct that I am getting member of
+        //generate struct that I am getting a member of
+        let generate_struct_base = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: self.resultant_location.clone()});
+        result.merge(&generate_struct_base);
 
-        asm_comment!(result, "increasing pointer to get index of member struct {}", member_data.0.get_name());
+        result.add_comment(format!("increasing pointer to get index of member struct {}", member_data.0.get_name()));
 
-        asm_line!(result, "add rax, {}", member_data.1.size_bytes());//increase pointer to index of member
+        //increase pointer to index of member
+        result.add_instruction(AsmOperation::ADD {
+            destination: Operand::Register(LogicalRegister::ACC.base_reg()),
+            increment: Operand::ImmediateValue(member_data.1.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64),
+        });
 
         result
     }
@@ -92,21 +104,30 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
  * clones the struct pointed to by acc onto the stack
  * moves acc to point to the start of the cloned struct
  */
-fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &RAMLocation) -> String {
-    let mut result = String::new();
+fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &Operand) -> Assembly {
+    let mut result = Assembly::make_empty();
 
-    let acc_reg = LogicalRegister::ACC.generate_name(PTR_SIZE);
+    
+    //put destination in RDI
+    result.add_instruction(AsmOperation::LEA {
+        to: Operand::Register(PhysicalRegister::_DI),
+        from: resulatant_location.clone(),
+    });
+    //put source in RSI
+    result.add_instruction(AsmOperation::MOV {
+        to: Operand::Register(PhysicalRegister::_SI),
+        from: Operand::Register(LogicalRegister::ACC.base_reg()),
+        size: PTR_SIZE,
+    });
 
-    //TODO use mov_asm! macro
-    asm_line!(result, "lea rdi, {}", resulatant_location.generate_name(struct_size));//put destination in RDI
-    asm_line!(result, "mov rsi, {}", acc_reg);//put source in RSI
+    //clone struct
+    result.add_instruction(AsmOperation::MEMCPY { size: struct_size });
 
-    asm_line!(result, "mov rcx, {}", struct_size.size_bytes());//put number of bytes to copy in RCX
-
-    asm_line!(result, "cld");//reset copy direction flag
-    asm_line!(result, "rep movsb");//copy the data
-
-    asm_line!(result, "lea {}, {}", acc_reg, resulatant_location.generate_name(struct_size));//point to the cloned struct
+    //point to the cloned struct
+    result.add_instruction(AsmOperation::LEA {
+        to: Operand::Register(LogicalRegister::ACC.base_reg()),
+        from: resulatant_location.clone(),
+    });
 
     result
 }

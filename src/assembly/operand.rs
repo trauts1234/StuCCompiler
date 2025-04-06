@@ -24,6 +24,9 @@ pub enum PhysicalRegister {
     _DI,
     R8,
     R9,
+
+    _SP,
+    _BP,
 }
 
 #[derive(Clone)]
@@ -74,6 +77,9 @@ impl LogicalRegister {
 impl PhysicalRegister {
     fn generate_name(&self, data_size: MemoryLayout) -> String {
         match (self, data_size.size_bytes()) {
+            (PhysicalRegister::_SP, 8) => "rsp",
+            (PhysicalRegister::_BP, 8) => "rbp",
+            
             (PhysicalRegister::_AX, 8) => "rax",
             (PhysicalRegister::_BX, 8) => "rbx",
             (PhysicalRegister::_CX, 8) => "rcx",

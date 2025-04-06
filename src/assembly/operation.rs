@@ -5,23 +5,39 @@ use super::operand::{Operand, PTR_SIZE};
 
 #[derive(Clone)]
 pub enum AsmOperation {
-    MOV {to: Operand, from: Operand, size: MemoryLayout},//moves size bytes from -> to
+    ///moves size bytes from -> to
+    MOV {to: Operand, from: Operand, size: MemoryLayout},
+    ///references from, puts address in to
+    LEA {to: Operand, from: Operand},
 
-    CMP {lhs: Operand, rhs: Operand, data_type: RecursiveDataType},//compares lhs and rhs, based on their data type
-    SETCC {destination: Operand, comparison: AsmComparison},// based on the comparison, sets destination to 1 or 0
-    JMPCC {label: String, comparison: AsmComparison},//based on the comparison, conditionally jump to the label
+    ///compares lhs and rhs, based on their data type
+    CMP {lhs: Operand, rhs: Operand, data_type: RecursiveDataType},
+    /// based on the comparison, sets destination to 1 or 0
+    SETCC {destination: Operand, comparison: AsmComparison},
+    ///based on the comparison, conditionally jump to the label
+    JMPCC {label: String, comparison: AsmComparison},
 
-    SignExtendACC {old_size: MemoryLayout},//sign extends the accumulator to i64 from the old size
-    ZeroExtendACC {old_size: MemoryLayout},//zero extends the accumulator to u64 from the old size
+    ///sign extends the accumulator to i64 from the old size
+    SignExtendACC {old_size: MemoryLayout},
+    ///zero extends the accumulator to u64 from the old size
+    ZeroExtendACC {old_size: MemoryLayout},
 
-    ADD {destination: Operand, increment: Operand, data_type: RecursiveDataType},//adds increment to destination
+    ///adds increment to destination
+    ADD {destination: Operand, increment: Operand, data_type: RecursiveDataType},
+    ///subtracts decrement from destination
+    SUB {destination: Operand, decrement: Operand, data_type: RecursiveDataType},
 
-    NEG {item: Operand, data_type: RecursiveDataType},//negates the item, taking into account its data type
+    ///negates the item, taking into account its data type
+    NEG {item: Operand, data_type: RecursiveDataType},
 
     Label {name: String},
+    CreateStackFrame,
     DestroyStackFrame,
     Return,
-    BLANK,//not even a nop, just a blank line of assembly
+    ///copies size bytes from the pointer RDI to RSI
+    MEMCPY {size: MemoryLayout},
+    ///not even a nop, just a blank line of assembly
+    BLANK,
 }
 
 #[derive(Clone)]
@@ -38,16 +54,20 @@ impl AsmOperation {
     pub fn to_text(&self) -> String {
         match self {
             AsmOperation::MOV { to, from, size } => format!("mov {}, {}", to.generate_name(*size), from.generate_name(*size)),
+            AsmOperation::LEA { to, from } => format!("lea {}, {}", to.generate_name(PTR_SIZE), from.generate_name(PTR_SIZE)),
             AsmOperation::CMP { lhs, rhs, data_type } => instruction_cmp(lhs, rhs, data_type),
             AsmOperation::SETCC { destination, comparison } => instruction_setcc(destination, comparison),
             AsmOperation::JMPCC { label, comparison } => instruction_jmpcc(label, comparison),
             AsmOperation::SignExtendACC { old_size } => instruction_sign_extend(old_size),
             AsmOperation::ZeroExtendACC { old_size } => instruction_zero_extend(old_size),
             AsmOperation::ADD { destination, increment, data_type } => instruction_add(destination, increment, data_type),
+            AsmOperation::SUB { destination, decrement, data_type } => instruction_sub(destination, decrement, data_type),
             AsmOperation::NEG { item, data_type } => instruction_neg(item, data_type),
+            AsmOperation::CreateStackFrame => "push rbp\nmov rbp, rsp".to_string(),
             AsmOperation::DestroyStackFrame => "mov rsp, rbp\npop rbp".to_string(),
             AsmOperation::Return => "ret".to_string(),
-            AsmOperation::Label { name } => name.clone(),
+            AsmOperation::Label { name } => format!("{}:", name),
+            AsmOperation::MEMCPY { size } => format!("mov rcx, {}\ncld\nrep movsb", size.size_bytes()),
             AsmOperation::BLANK => String::new(),
         }
     }
@@ -107,6 +127,14 @@ fn instruction_add(destination: &Operand, increment: &Operand, data_type: &Recur
         //addition is same for signed and unsigned
         RecursiveDataType::RAW(base) if base.is_integer() => format!("add {}, {}", destination.generate_name(base.get_non_struct_memory_size()), increment.generate_name(base.get_non_struct_memory_size())),
         _ => panic!("currently cannot add this data type")
+    }
+}
+fn instruction_sub(destination: &Operand, decrement: &Operand, data_type: &RecursiveDataType) -> String {
+    match data_type {
+        RecursiveDataType::POINTER(_) => format!("sub {}, {}", destination.generate_name(PTR_SIZE), decrement.generate_name(PTR_SIZE)),
+        //subtraction is same for signed and unsigned
+        RecursiveDataType::RAW(base) if base.is_integer() => format!("sub {}, {}", destination.generate_name(base.get_non_struct_memory_size()), decrement.generate_name(base.get_non_struct_memory_size())),
+        _ => panic!("currently cannot sub this data type")
     }
 }
 

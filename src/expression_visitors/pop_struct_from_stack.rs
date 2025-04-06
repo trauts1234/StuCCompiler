@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::AsmData, asm_generation::{asm_comment, asm_line}, expression_visitors::data_type_visitor::GetDataTypeVisitor};
-use std::fmt::Write;
+use crate::{asm_gen_data::AsmData, expression_visitors::data_type_visitor::GetDataTypeVisitor};
 use super::expr_visitor::ExprVisitor;
 
 

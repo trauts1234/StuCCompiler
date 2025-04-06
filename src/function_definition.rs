@@ -1,7 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_boilerplate::mov_asm, asm_gen_data::{AsmData, VariableAddress}, asm_generation::{self, asm_comment, asm_line, AssemblyOperand, LogicalRegister, RAMLocation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::recursive_data_type::RecursiveDataType, function_call::{align, aligned_size}, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
-use std::fmt::Write;
+use crate::{asm_gen_data::{AsmData, VariableAddress}, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand, PhysicalRegister}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -54,27 +53,27 @@ impl FunctionDefinition {
             remaining_slice});
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> String {
-        //this uses a custom calling convention
-        //all params passed on the stack, right to left (caller cleans these up)
-        //return value in RAX
-        let mut result = String::new();
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> Assembly {
+        let mut result = Assembly::make_empty();
         let mut stack_data = MemoryLayout::new();//stack starts as empty in a function
 
         //clone myself, but add all my local variables, and add my return type
         let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, self.get_return_type(), &mut stack_data);
 
         //set label as same as function name
-        asm_line!(result, "{}:", self.decl.function_name);
+        result.add_instruction(AsmOperation::Label { name: self.decl.function_name.clone() });
         //create stack frame
-        asm_line!(result, "push rbp ;create stack frame");
-        asm_line!(result, "mov rbp, rsp ;''");
+        result.add_commented_instruction(AsmOperation::CreateStackFrame, "create stack frame");
 
         let code_for_body = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);//calculate stack needed for function, while generating asm
         let aligned_stack_usage = aligned_size(stack_data, MemoryLayout::from_bytes(16));
-        asm_line!(result, "sub rsp, {} ;allocate stack for local variables and alignment", aligned_stack_usage.size_bytes());
+        result.add_commented_instruction(AsmOperation::SUB {
+            destination: Operand::Register(PhysicalRegister::_SP),
+            decrement: Operand::ImmediateValue(aligned_stack_usage.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64),
+        }, "allocate stack for local variables and alignment");
 
-        asm_comment!(result, "moving args to memory");
+        result.add_comment("moving args to memory");
 
         //args on stack are pushed r->l, so work backwards pushing the register values to the stack
         for param_idx in (0..self.decl.params.len()).rev() {
@@ -98,17 +97,22 @@ impl FunctionDefinition {
 
         }
 
-        asm_line!(result, "{}", code_for_body);
+        result.merge(&code_for_body);
 
         //destroy stack frame and return
 
         if self.get_name() == "main" {
             //main auto returns 0
-            asm_line!(result, "mov rax, 0");
+            result.add_instruction(AsmOperation::MOV {
+                to: Operand::Register(LogicalRegister::ACC.base_reg()),
+                from: Operand::ImmediateValue("0".to_string()),
+                size: MemoryLayout::from_bytes(8)
+            });
         }
-        asm_line!(result, "mov rsp, rbp");
-        asm_line!(result, "pop rbp");
-        asm_line!(result, "ret");
+        
+        //destroy stack frame and return
+        result.add_instruction(AsmOperation::DestroyStackFrame);
+        result.add_instruction(AsmOperation::Return);
 
         return result;
     }

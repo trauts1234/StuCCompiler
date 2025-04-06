@@ -72,7 +72,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     }
 
     fn visit_struct_member_access(&mut self, member_access: &crate::struct_definition::StructMemberAccess) -> Self::Output {
-        let mut result = String::new();
+        let mut result = Assembly::make_empty();
 
         let member_name = member_access.get_member_name();
         unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
