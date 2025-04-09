@@ -27,4 +27,8 @@ impl Assembly {
     pub fn add_instruction(&mut self, operation: AsmOperation) {
         self.lines.push(AsmInstruction::generate(operation));
     }
+
+    pub fn get_lines(&self) -> &[AsmInstruction] {
+        &self.lines
+    }
 }

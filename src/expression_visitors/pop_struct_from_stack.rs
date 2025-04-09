@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, expression_visitors::data_type_visitor::GetDataTypeVisitor};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, PhysicalRegister}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::data_type_visitor::GetDataTypeVisitor, lexer::punctuator::Punctuator};
 use super::expr_visitor::ExprVisitor;
 
 
@@ -11,18 +11,24 @@ pub struct PopStructFromStack<'a>{
 }
 
 impl<'a> ExprVisitor for PopStructFromStack<'a> {
-    type Output = String;
+    type Output = Assembly;
 
     fn visit_number_literal(&mut self, _number: &crate::number_literal::NumberLiteral) -> Self::Output {
         panic!()
     }
 
     fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable) -> Self::Output {
-        let mut result = String::new();
+        let mut result = Assembly::make_empty();
 
-        asm_comment!(result, "popping struct {}", var.name);
+        result.add_comment(format!("popping struct {}", var.name));
 
-        asm_line!(result, "add rsp, {}", var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data).size_bytes());
+        let struct_size = var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
+
+        result.add_instruction(AsmOperation::ADD {
+            destination: Operand::Register(PhysicalRegister::_SP),
+            increment: Operand::ImmediateValue(struct_size.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64),
+        });
 
         result
     }
@@ -32,21 +38,34 @@ impl<'a> ExprVisitor for PopStructFromStack<'a> {
     }
 
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        let mut result = String::new();
+        let mut result = Assembly::make_empty();
 
         let return_value = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
+        let return_size = return_value.memory_size(self.asm_data);
 
         let callee_name = &func_call.get_callee_decl().function_name;
 
-        asm_line!(result, "add rsp, {} ; deallocate a struct returned from a function call to {}", return_value.memory_size(self.asm_data).size_bytes(), callee_name);
+        result.add_commented_instruction(AsmOperation::ADD {
+            destination: Operand::Register(PhysicalRegister::_SP),
+            increment: Operand::ImmediateValue(return_size.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64),
+        }, format!("deallocate a struct returned from a function call to {}", callee_name));
 
         result
     }
 
     fn visit_unary_prefix(&mut self, expr: &crate::unary_prefix_expr::UnaryPrefixExpression) -> Self::Output {
-        let mut result = String::new();
-        
-        asm_line!(result, "add rsp, {}", expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data).size_bytes());
+        let mut result = Assembly::make_empty();
+
+        assert!(*expr.get_operator() == Punctuator::ASTERISK);//must be dereference
+
+        let underlying_size = expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
+
+        result.add_instruction(AsmOperation::ADD {
+            destination: Operand::Register(PhysicalRegister::_SP),
+            increment: Operand::ImmediateValue(underlying_size.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64),
+        });
 
         result
     }

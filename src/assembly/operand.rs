@@ -14,7 +14,7 @@ pub enum LogicalRegister{
 /**
  * name of an actual register
  */
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum PhysicalRegister {
     _AX,
     _BX,
@@ -29,13 +29,16 @@ pub enum PhysicalRegister {
     _BP,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Operand {
     SubFromBP(MemoryLayout),
     AddToSP(MemoryLayout),
+    ///memory layout stores how much to add to RBP to get the address of the value (remember 8 bytes for stack frame and 8 bytes for the return address)
+    PreviousStackFrame(MemoryLayout),//not used much
     Register(PhysicalRegister),
     ImmediateValue(String),
     DerefAddress(PhysicalRegister),
+    LabelAccess(String)
 }
 
 impl Operand {
@@ -43,9 +46,11 @@ impl Operand {
         match self {
             Operand::SubFromBP(memory_layout) => format!("[rbp-{}]", memory_layout.size_bytes()),
             Operand::AddToSP(memory_layout) => format!("[rsp+{}]", memory_layout.size_bytes()),
+            Operand::PreviousStackFrame(offset) => format!("[rbp+{}]", offset.size_bytes()),
             Operand::ImmediateValue(val) => val.to_string(),
             Operand::Register(physical_register) => physical_register.generate_name(data_size),
-            Operand::DerefAddress(physical_register) => format!("[{}]", physical_register.generate_name(PTR_SIZE)),//memory addresses are always 64 bit
+            Operand::DerefAddress(physical_register) => format!("[{}]", physical_register.generate_name(PTR_SIZE)),
+            Operand::LabelAccess(label) => format!("[rel {}]", label),//[global_variable] gets the value
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::RecursiveDataType, memory_size::MemoryLayout};
+use crate::{data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, memory_size::MemoryLayout};
 
 use super::operand::{Operand, PTR_SIZE};
 
@@ -26,9 +26,16 @@ pub enum AsmOperation {
     ADD {destination: Operand, increment: Operand, data_type: RecursiveDataType},
     ///subtracts decrement from destination
     SUB {destination: Operand, decrement: Operand, data_type: RecursiveDataType},
+    ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
+    MUL {multiplier: Operand, data_type: RecursiveDataType},
+    ///divides _AX by the divisor. depending on data type, injects div or idiv commands
+    DIV {divisor: Operand, data_type: RecursiveDataType},
 
     ///negates the item, taking into account its data type
     NEG {item: Operand, data_type: RecursiveDataType},
+
+    /// applies operation to destination and secondary, saving results to destination
+    BooleanOp {destination: Operand, secondary: Operand, operation: AsmBooleanOperation},
 
     Label {name: String},
     CreateStackFrame,
@@ -36,8 +43,12 @@ pub enum AsmOperation {
     Return,
     ///copies size bytes from the pointer RDI to RSI
     MEMCPY {size: MemoryLayout},
+    ///calls a subroutine
+    CALL {label: String},
     ///not even a nop, just a blank line of assembly
     BLANK,
+
+    Pop64 {destination: Operand},//not used much
 }
 
 #[derive(Clone)]
@@ -45,6 +56,20 @@ pub enum AsmComparison {
     ALWAYS,//always jump or set to true
     NE,//not equal
     EQ,//equal
+    ///less than or equal to
+    LE,
+    ///greater than or equal to
+    GE,
+    ///less than
+    L,
+    ///greater than
+    G,
+}
+
+#[derive(Clone)]
+pub enum AsmBooleanOperation {
+    AND,
+    OR,
 }
 
 impl AsmOperation {
@@ -69,6 +94,11 @@ impl AsmOperation {
             AsmOperation::Label { name } => format!("{}:", name),
             AsmOperation::MEMCPY { size } => format!("mov rcx, {}\ncld\nrep movsb", size.size_bytes()),
             AsmOperation::BLANK => String::new(),
+            AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type),
+            AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type),
+            AsmOperation::BooleanOp { destination, secondary, operation } => instruction_boolean(destination, secondary, operation),
+            AsmOperation::Pop64 { destination } => format!("pop {}", destination.generate_name(PTR_SIZE)),
+            AsmOperation::CALL { label } => format!("call {}", label),
         }
     }
 }
@@ -88,6 +118,10 @@ fn instruction_setcc(destination: &Operand, comparison: &AsmComparison) -> Strin
         AsmComparison::NE => "setne",
         AsmComparison::EQ => "seteq",
         AsmComparison::ALWAYS => todo!("unconditional set register to 1"),
+        AsmComparison::LE => "setle",
+        AsmComparison::GE => "setge",
+        AsmComparison::L => "setl",
+        AsmComparison::G => "setg",
     };
 
     format!("{} {}", comparison_instr, reg_name)
@@ -98,6 +132,10 @@ fn instruction_jmpcc(label: &str, comparison: &AsmComparison) -> String {
         AsmComparison::NE => "jne",
         AsmComparison::EQ => "je",
         AsmComparison::ALWAYS => "jmp",
+        AsmComparison::LE => "jle",
+        AsmComparison::GE => "jge",
+        AsmComparison::L => "jl",
+        AsmComparison::G => "jg",
     };
 
     format!("{} {}", comparison_instr, label)
@@ -144,4 +182,32 @@ fn instruction_neg(destination: &Operand, data_type: &RecursiveDataType) -> Stri
         RecursiveDataType::RAW(base) if base.is_unsigned() => panic!("cannot negate unsigned value"),
         _ => panic!("currently cannot negate this data type")
     }
+}
+
+fn instruction_div(divisor: &Operand, data_type: &RecursiveDataType) -> String {
+    match data_type {
+        RecursiveDataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(32))),
+        RecursiveDataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(64))),
+        _ => panic!("cannot divide by this type")
+    }
+}
+
+fn instruction_mul(multiplier: &Operand, data_type: &RecursiveDataType) -> String {
+    match data_type {
+        RecursiveDataType::RAW(base) if base.is_signed() => format!("imul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
+        RecursiveDataType::ARRAY {..} => panic!("cannot multiply an array"),
+        RecursiveDataType::POINTER(_) => panic!("cannot multiply pointer"),
+        _ => panic!("unsupported data type")
+    }
+}
+
+fn instruction_boolean(destination: &Operand, secondary: &Operand, operation: &AsmBooleanOperation) -> String {
+    let op_asm = match operation {
+        AsmBooleanOperation::AND => "and".to_string(),
+        AsmBooleanOperation::OR => "or".to_string(),
+    };
+
+    let bool_size = MemoryLayout::from_bytes(1);
+
+    format!("{} {}, {}", op_asm, destination.generate_name(bool_size), secondary.generate_name(bool_size))
 }

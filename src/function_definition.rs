@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_gen_data::{AsmData, VariableAddress}, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand, PhysicalRegister}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, LogicalRegister, Operand, PhysicalRegister}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -79,20 +79,35 @@ impl FunctionDefinition {
         for param_idx in (0..self.decl.params.len()).rev() {
             let param = &self.decl.params[param_idx];//get metadata about param
             let param_size = param.get_type().memory_size(asm_data);//get size of param 
-            unwrap_let!(VariableAddress::STACKOFFSET(param_offset) = &asm_data.get_variable(param.get_name()).location);//get the location of where the param should *end up* since it gets moved from registers to memory
+            unwrap_let!(Operand::SubFromBP(param_offset) = &asm_data.get_variable(param.get_name()).location);//get the location of where the param should *end up* since it gets moved from registers to memory
             
             if param_idx >= 6 {
                 let below_bp_offset = MemoryLayout::from_bytes(8);//8 bytes for return addr, as rbp points to the start of the stack frame
                 let arg_offset = MemoryLayout::from_bytes(8 + (param_idx - 6) * 8);//first 6 are in registers, each is 8 bytes, +8 as first arg is still +8 extra from bp
                 let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
-                asm_line!(result, "mov {}, [rbp+{}]", LogicalRegister::ACC.generate_name(param_size), arg_bp_offset.size_bytes());//grab data
-                asm_line!(result, "{}", mov_asm(param_size, &RAMLocation::SubFromBP(*param_offset), &LogicalRegister::ACC));//store in allocated space
+                let arg_address_operand = Operand::PreviousStackFrame(arg_bp_offset);
+
+                result.add_instruction(AsmOperation::MOV {
+                    to: Operand::Register(LogicalRegister::ACC.base_reg()),
+                    from: arg_address_operand,
+                    size: param_size
+                });//grab data
+
+                result.add_instruction(AsmOperation::MOV {
+                    to: Operand::SubFromBP(*param_offset),
+                    from: Operand::Register(LogicalRegister::ACC.base_reg()),
+                    size: param_size
+                });//store in allocated space
             } else {
-                let param_reg = asm_generation::generate_param_reg(param_idx);
+                let param_reg = generate_param_reg(param_idx);
                 //truncate param reg to desired size
                 //then write to its allocated address on the stack
-                asm_line!(result, "{}", mov_asm(param_size, &RAMLocation::SubFromBP(*param_offset), &param_reg));
+                result.add_instruction(AsmOperation::MOV {
+                    to: Operand::SubFromBP(*param_offset),
+                    from: Operand::Register(param_reg),
+                    size: param_size
+                });
             }
 
         }

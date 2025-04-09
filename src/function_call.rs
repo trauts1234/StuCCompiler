@@ -1,5 +1,4 @@
-use crate::{asm_boilerplate::{self, mov_asm}, asm_gen_data::AsmData, asm_generation::{self, asm_comment, asm_line, generate_param_reg, AssemblyOperand, LogicalRegister, RAMLocation}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
-use std::fmt::Write;
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, LogicalRegister, Operand, PhysicalRegister}, operation::AsmOperation}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 
 #[derive(Clone)]
 pub struct FunctionCall {
@@ -14,13 +13,13 @@ impl FunctionCall {
         visitor.visit_func_call(self)
     }
     
-    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String {
+    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
         //system V ABI
-        let mut result = String::new();
+        let mut result = Assembly::make_empty();
 
         let alignment_size = MemoryLayout::from_bytes(8);//I think everything is 8 byte aligned here?
 
-        asm_comment!(result, "calling function: {}", self.func_name);
+        result.add_comment(format!("calling function: {}", self.func_name));
 
         //attach type to each of the args
         //should this be reversed?
@@ -76,37 +75,54 @@ impl FunctionCall {
             .map(|x| aligned_size(x.param_type.memory_size(asm_data), alignment_size))
             .sum();
         let aligned_memory_args_size = aligned_size(stack_required_for_memory_args, MemoryLayout::from_bytes(16));
-        let integer_args_extra_alignment = align(stack_required_for_integer_args, MemoryLayout::from_bytes(16));
+        let integer_args_extra_alignment = align(stack_required_for_integer_args, MemoryLayout::from_bytes(16));//todo copy what the line above did
         
         //allocate stack for args passed by memory
-        //TODO align to 16 bytes here
-        asm_line!(result, "sub rsp, {} ; allocate memory for memory args", aligned_memory_args_size.size_bytes());
+        result.add_commented_instruction(AsmOperation::SUB {
+            destination: Operand::Register(PhysicalRegister::_SP),
+            decrement: Operand::ImmediateValue(aligned_memory_args_size.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64),
+        }, "allocate memory for memory args");
 
-        asm_line!(result, "{}", push_args_to_stack_backwards(
+        result.merge(&push_args_to_stack_backwards(
             &sorted_args.memory_args,//write memory args to stack
             asm_data,
             stack_data,//writes to [rsp+0] .. [rsp+stack_required_for_memory_args]
         ));
 
         //allocate stack for args to be popped to GP registers
-        asm_line!(result, "sub rsp, {}", (stack_required_for_integer_args + integer_args_extra_alignment).size_bytes());
+        result.add_instruction(AsmOperation::SUB {
+            destination: Operand::Register(PhysicalRegister::_SP),
+            decrement: Operand::ImmediateValue((stack_required_for_integer_args + integer_args_extra_alignment).size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64),
+        });
 
-        asm_line!(result, "{}", push_args_to_stack_backwards(
+        result.merge(&push_args_to_stack_backwards(
             &sorted_args.integer_args,//write integer args to stack
             asm_data,
             stack_data,//writes to [rsp+0] .. [rsp+stack_required_for_integer_args]
         ));
         //pop the register args to registers
         for i in 0..sorted_args.integer_regs_used {
-            asm_line!(result, "pop {}", generate_param_reg(i).generate_name(alignment_size));//pop to register
+            result.add_instruction(AsmOperation::Pop64 { destination: Operand::Register(generate_param_reg(i)) });//pop to register
         }
-        asm_line!(result, "add rsp, {} ; remove alignment from register params", integer_args_extra_alignment.size_bytes());
 
-        asm_line!(result, "mov al, 0");//since there are no floating point args, this must be left as 0 to let varadic functions know
+        result.add_commented_instruction(AsmOperation::ADD {
+            destination: Operand::Register(PhysicalRegister::_SP),
+            increment: Operand::ImmediateValue(integer_args_extra_alignment.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64),
+        }, "remove alignment from register params");
 
-        asm_line!(result, "call {}", self.func_name);
+        //since there are no floating point args, this must be left as 0 to let varadic functions know
+        result.add_instruction(AsmOperation::MOV { to: Operand::Register(PhysicalRegister::_AX), from: Operand::ImmediateValue("0".to_string()), size: MemoryLayout::from_bytes(8) });
 
-        asm_line!(result, "add rsp, {} ; deallocate memory args", aligned_memory_args_size.size_bytes());
+        result.add_instruction(AsmOperation::CALL { label: self.func_name.clone() });
+
+        result.add_commented_instruction(AsmOperation::ADD {
+            destination: Operand::Register(PhysicalRegister::_SP),
+            increment: Operand::ImmediateValue(aligned_memory_args_size.size_bytes().to_string()),
+            data_type: RecursiveDataType::RAW(BaseType::U64)
+        }, "deallocate memory args");
 
         result
     }
@@ -212,8 +228,8 @@ pub fn aligned_size(current_offset: MemoryLayout, alignment: MemoryLayout) -> Me
  * stack_data is used for scratch space only
  * extra_stack_for_params: is the total size of extra data that will be left on the stack - this is used as a positive RSP offset to write params to
  */
-fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack_data: &mut MemoryLayout) -> String{
-    let mut result = String::new();
+fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+    let mut result = Assembly::make_empty();
     let alignment_size = MemoryLayout::from_bytes(8);//I think everything is 8 byte aligned here?
     let mut current_sp_offset = MemoryLayout::new();//how far from rsp is the next param
 
@@ -225,28 +241,32 @@ fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack
         //this code is messy:
         match (&arg_type.decay(), &arg.param_type) {
             (RecursiveDataType::RAW(BaseType::STRUCT(_)), _) => {
-                asm_comment!(result, "putting struct arg on stack");
+                result.add_comment("putting struct arg on stack");
 
                 let struct_stack_required = aligned_size(arg.param_type.memory_size(asm_data), alignment_size);
 
                 //push struct on stack, without allocating since other variables may end up on top of stack_data
-                //asm_line!(result, "sub rsp, {} ; allocate for struct param", struct_stack_required.size_bytes());
-                asm_line!(result, "{}", arg.arg_tree.accept(&mut CopyStructVisitor{asm_data,stack_data, resultant_location: RAMLocation::AddToSP(current_sp_offset) }));
+                let struct_clone_asm = arg.arg_tree.accept(&mut CopyStructVisitor{asm_data,stack_data, resultant_location: Operand::AddToSP(current_sp_offset) });
+                result.merge(&struct_clone_asm);
 
                 current_sp_offset += struct_stack_required;//go towards sp for next param
 
             },
             (original_type, casted_type) => {
-                asm_comment!(result, "putting arg on stack");
+                result.add_comment("putting arg on stack");
                 assert!(original_type.memory_size(asm_data).size_bits() <= 64);
 
-                asm_line!(result, "{}", arg.arg_tree.accept(&mut ScalarInAccVisitor{asm_data, stack_data}));//put value in acc, using standard stack to calculate it
+                let arg_expr_asm = arg.arg_tree.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
+                result.merge(&arg_expr_asm);//put value in acc, using standard stack to calculate it
 
-                if casted_type != &RecursiveDataType::RAW(BaseType::VaArg) {
-                    asm_line!(result, "{}", asm_boilerplate::cast_from_acc(original_type, casted_type, asm_data));//cast value if not varadic
-                }
+                let arg_cast_asm = cast_from_acc(original_type, casted_type, asm_data);
+                result.merge(&arg_cast_asm);
 
-                asm_line!(result, "{}", mov_asm(alignment_size, &RAMLocation::AddToSP(current_sp_offset), &LogicalRegister::ACC));
+                result.add_instruction(AsmOperation::MOV {
+                    to: Operand::AddToSP(current_sp_offset),
+                    from: Operand::Register(LogicalRegister::ACC.base_reg()),
+                    size: alignment_size
+                });
 
                 current_sp_offset += alignment_size;//go towards sp for next param
             }

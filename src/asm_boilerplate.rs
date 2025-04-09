@@ -56,15 +56,3 @@ pub fn cast_from_acc(original: &RecursiveDataType, new_type: &RecursiveDataType,
     }
 }
 
-/**
- * extend eax to edx:eax (64 bit register pair)
- * divide edx:eax by ecx
- */
-pub const I32_DIVIDE_AX_BY_CX: &str =
-"cdq
-idiv ecx";
-
-pub const I64_DIVIDE_AX_BY_CX: &str =
-"cqo
-idiv rcx";
-

@@ -286,7 +286,11 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             });
 
             //save to memory
-            asm_line!(result, "mov [{}], {}", LogicalRegister::SECONDARY.generate_name(PTR_SIZE), LogicalRegister::ACC.generate_name(promoted_type.memory_size(asm_data)));
+            result.add_instruction(AsmOperation::MOV {
+                to: Operand::DerefAddress(LogicalRegister::SECONDARY.base_reg()),
+                from: Operand::Register(LogicalRegister::ACC.base_reg()), 
+                size: promoted_type.memory_size(asm_data)
+            });
         },
     }
 

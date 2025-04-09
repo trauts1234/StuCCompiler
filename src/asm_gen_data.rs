@@ -1,21 +1,11 @@
-use crate::{data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{assembly::operand::Operand, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
 use indexmap::IndexMap;
 
-/**
- * represents an addressing mode for variables
- * offset from stack or
- * constant memory location(global variable)
- */
-#[derive(Debug, Clone)]
-pub enum VariableAddress{
-    STACKOFFSET(MemoryLayout),//number of bytes below RBP
-    CONSTANTADDRESS
-}
 
 #[derive(Debug, Clone)]
 pub struct AddressedDeclaration {
     pub(crate) data_type: RecursiveDataType,
-    pub(crate) location: VariableAddress
+    pub(crate) location: Operand
 }
 
 #[derive(Clone, Debug)]
@@ -70,7 +60,7 @@ impl AsmData {
             *stack_data += var_size;
             let var_address_offset = stack_data.clone();//increase stack pointer to store extra variable
 
-            let decl = AddressedDeclaration { data_type: var_type.clone(), location: VariableAddress::STACKOFFSET(var_address_offset.clone()) };//then generate address, as to not overwrite the stack frame
+            let decl = AddressedDeclaration { data_type: var_type.clone(), location: Operand::SubFromBP(var_address_offset.clone()) };//then generate address, as to not overwrite the stack frame
 
             result.variables.shift_remove(&name);//ensure the new variable is put on the front of the indexmap
             result.variables.insert(name, decl);
@@ -101,5 +91,5 @@ impl AsmData {
  */
 fn generate_global_variable_decl(data: (&String, &RecursiveDataType)) -> (String, AddressedDeclaration) {
     let (var_name, var_type) = data;
-    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: VariableAddress::CONSTANTADDRESS })
+    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: Operand::LabelAccess(var_name.to_string()) })
 }

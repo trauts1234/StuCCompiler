@@ -67,11 +67,11 @@ impl InitialisedDeclaration {
     }
 
     pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
-        let mut result = String::new();
+        let mut result = Assembly::make_empty();
 
         if let Some(init) = &self.init_code {
             let init_asm = init.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
-            asm_line!(result, "{}", init_asm);//init is an expression that assigns to the variable, so no more work for me
+            result.merge(&init_asm);//init is an expression that assigns to the variable, so no more work for me
         }
 
         result

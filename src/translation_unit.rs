@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
+use crate::{asm_gen_data::AsmData, assembly::assembly_file::AssemblyFile, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
 use std::{fs::File, io::Write};
 
 pub struct TranslationUnit {
@@ -63,43 +63,38 @@ impl TranslationUnit {
     pub fn generate_assembly(&self, output_filename: &str) {
         let mut output_file = File::create(output_filename).unwrap();
 
-        let global_funcs = self.global_scope_data.func_declarations_as_vec().iter()
-            .filter(|func| func.external_linkage())//only functions with external linkage
-            .map(|func| {
-                let is_defined = self.functions.get_function_definition(&func.function_name).is_some();
-                if is_defined {
-                    format!("global {}\n", func.function_name)//global exports my function
-                } else {
-                    format!("extern {}\n", func.function_name)//extern imports my function
-                }
-            })
-            .collect::<String>();
+        let (global_funcs, extern_funcs): (Vec<_>, Vec<_>) = self
+        .global_scope_data
+        .func_declarations_as_vec()
+        .iter()
+        .filter(|func| func.external_linkage())//only functions with external linkage
+        .map(|func| func.function_name.clone())//get function name
+        .partition(|func_name| self.functions.get_function_definition(&func_name).is_some());//separate global and extern function declarations
 
         let string_literals = self.string_literals.iter()
             .map(|x| format!("{} db {}\n", x.get_label(), x.get_comma_separated_bytes()))
-            .collect::<String>();
+            .collect::<Vec<_>>();
 
         let mut label_generator = LabelGenerator::new();
         let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);//no return type for a global scope
 
         let global_vars = self.global_variables.iter()
             .map(|x| x.generate_assembly(&asm_data))
-            .collect::<String>();
+            .collect::<Vec<_>>();
 
         let instructions = self.functions.func_definitions_as_slice().iter()
             .map(|x| x.generate_assembly(&mut label_generator, &asm_data))
-            .collect::<String>();
+            .collect();
 
-        let assembly_code = format!(
-"
-{}
-SECTION .rodata
-{}
-SECTION .data
-{}
-SECTION .note.GNU-stack ;disable executing the stack
-SECTION .text
-{}",global_funcs, string_literals, global_vars, instructions);
+        let assembly_file = AssemblyFile::builder()
+        .global_func_lines(global_funcs)
+        .extern_func_lines(extern_funcs)
+        .string_literal_lines(string_literals)
+        .global_variable_lines(global_vars)
+        .functions(instructions)
+        .build();
+
+        let assembly_code = assembly_file.to_nasm_file();
 
         let banned_registers = ["rbx", "r12", "r13", "r14", "r15"];//these ones are callee saved and could cause problems
         assert!(!banned_registers.iter()

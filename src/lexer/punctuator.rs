@@ -1,3 +1,5 @@
+use crate::assembly::operation::{AsmBooleanOperation, AsmComparison};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Punctuator {
     PLUS,
@@ -80,24 +82,24 @@ impl Punctuator {
      * if this punctuator is a comparison operator, what instruction would
      * returns the correct setcc instruction
      */
-    pub fn as_comparator_instr(&self) -> Option<String> {
+    pub fn as_comparator_instr(&self) -> Option<AsmComparison> {
         match self {
-            Self::ANGLELEFT => Some("setl"),
-            Self::ANGLERIGHT => Some("setg"),
-            Self::DOUBLEEQUALS => Some("sete"),
-            Self::EXCLAMATIONEQUALS => Some("setne"),
-            Self::LESSEQUAL => Some("setle"),
-            Self::GREATEREQUAL => Some("setge"),
+            Self::ANGLELEFT => Some(AsmComparison::L),
+            Self::ANGLERIGHT => Some(AsmComparison::G),
+            Self::DOUBLEEQUALS => Some(AsmComparison::EQ),
+            Self::EXCLAMATIONEQUALS => Some(AsmComparison::NE),
+            Self::LESSEQUAL => Some(AsmComparison::LE),
+            Self::GREATEREQUAL => Some(AsmComparison::GE),
             _ => None,
-        }.map(|x| x.to_string())
+        }
     }
 
-    pub fn as_boolean_instr(&self) -> Option<String> {
+    pub fn as_boolean_instr(&self) -> Option<AsmBooleanOperation> {
         match self {
-            Self::PIPEPIPE => Some("or"),
-            Self::ANDAND => Some("and"),
+            Self::PIPEPIPE => Some(AsmBooleanOperation::OR),
+            Self::ANDAND => Some(AsmBooleanOperation::AND),
             _ => None
-        }.map(|x| x.to_string())
+        }
     }
 
      /**
