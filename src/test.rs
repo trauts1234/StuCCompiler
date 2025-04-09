@@ -133,15 +133,4 @@ pub mod test {
             }
         }
     }
-
-    #[derive(Serialize, Deserialize, Debug)]
-    struct MultiFileTest {
-        filename: String,
-        return_code: i32,
-    }
-
-    /*#[test]
-    fn test_multifile() {
-        todo!()
-    }*/
 }

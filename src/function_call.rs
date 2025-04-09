@@ -75,7 +75,7 @@ impl FunctionCall {
             .map(|x| aligned_size(x.param_type.memory_size(asm_data), alignment_size))
             .sum();
         let aligned_memory_args_size = aligned_size(stack_required_for_memory_args, MemoryLayout::from_bytes(16));
-        let integer_args_extra_alignment = align(stack_required_for_integer_args, MemoryLayout::from_bytes(16));//todo copy what the line above did
+        let aligned_integer_args_size = aligned_size(stack_required_for_integer_args, MemoryLayout::from_bytes(16));
         
         //allocate stack for args passed by memory
         result.add_commented_instruction(AsmOperation::SUB {
@@ -93,7 +93,7 @@ impl FunctionCall {
         //allocate stack for args to be popped to GP registers
         result.add_instruction(AsmOperation::SUB {
             destination: RegOrMem::Reg(Register::_SP),
-            decrement: Operand::Imm((stack_required_for_integer_args + integer_args_extra_alignment).as_imm()),
+            decrement: Operand::Imm(aligned_integer_args_size.as_imm()),
             data_type: DataType::RAW(BaseType::U64),
         });
 
@@ -104,14 +104,21 @@ impl FunctionCall {
         ));
         //pop the register args to registers
         for i in 0..sorted_args.integer_regs_used {
-            result.add_instruction(AsmOperation::Pop64 { destination: Operand::Reg(generate_param_reg(i)) });//pop to register
+            let sp_offset = MemoryLayout::from_bytes(8*i);//each register arg on the stack is 64 bit, so this gets each one's address in turn
+
+            //read arg to correct register
+            result.add_instruction(AsmOperation::MOV {
+                to: RegOrMem::Reg(generate_param_reg(i)),
+                from: Operand::Mem(MemoryOperand::AddToSP(sp_offset)),
+                size: MemoryLayout::from_bits(64),
+            });
         }
 
-        result.add_commented_instruction(AsmOperation::ADD {
+        result.add_instruction(AsmOperation::ADD {
             destination: RegOrMem::Reg(Register::_SP),
-            increment: Operand::Imm(integer_args_extra_alignment.as_imm()),
+            increment: Operand::Imm(aligned_integer_args_size.as_imm()),
             data_type: DataType::RAW(BaseType::U64),
-        }, "remove alignment from register params");
+        });
 
         //since there are no floating point args, this must be left as 0 to let varadic functions know
         result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::_AX), from: Operand::Imm(ImmediateValue("0".to_string())), size: MemoryLayout::from_bytes(8) });

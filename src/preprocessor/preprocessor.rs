@@ -271,6 +271,7 @@ fn manage_include_directive(include_limit: i32, ctx: &mut PreprocessContext, lin
  * detects whether an expression in a #if preprocessor statement is true or not
  * note: needs spaces removed from expr first
  */
+//TODO should this be deprecated in favour of constexpr_parsing.rs? how would that handle #if defined(x) and similar
 fn evaluate_const_expr(expr: &str, ctx: &PreprocessContext) -> i64 {//or should it be i32??
     assert!(!ctx.inside_char && !ctx.inside_string);//#if commands are not in strings?
     assert!(!expr.contains(" ") && !expr.contains("\t") && !expr.contains("\n"));//whitespace not permitted. remove it first

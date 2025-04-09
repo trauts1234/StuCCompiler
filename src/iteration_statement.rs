@@ -1,11 +1,11 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, statement::Statement};
 
 /**
  * this handles if statements and other conditionals
  */
 pub enum IterationStatement{
     FOR{
-        initialisation: Box<StatementOrDeclaration>,//can't be anything fancy like a scope or if statement, but expressions and declarations are OK
+        initialisation: Option<Box<StatementOrDeclaration>>,//can't be anything fancy like a scope or if statement, but expressions and declarations are OK
         condition: Expression,
         increment: Option<Expression>,
 
@@ -52,8 +52,12 @@ impl IterationStatement {
 
                 //TODO let for loops have blank slices: for(;true;) IS VALID
 
-                let ASTMetadata {resultant_tree:init, .. } = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, accessible_funcs, &mut in_loop_data).unwrap();
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data).unwrap();
+                //get initialisation command, or None
+                let initialisation = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, accessible_funcs, &mut in_loop_data).and_then(|ast_data| Some(Box::new(ast_data.resultant_tree)));
+                //get loop condition or if none, a constant "true" value
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data)
+                    .unwrap_or(Expression::NUMBERLITERAL(NumberLiteral::new("1")));
+                //get increment or None
                 let increment = expression::try_consume_whole_expr(tokens_queue, &increment_slice, accessible_funcs, &mut in_loop_data);
 
                 //consume the "for (;;)" part
@@ -67,7 +71,7 @@ impl IterationStatement {
                 curr_queue_idx = remaining_slice;
 
                 Some(ASTMetadata{
-                    resultant_tree: Self::FOR { initialisation: Box::new(init), condition: condition, increment: increment, body: Box::new(loop_body), local_scope_data: in_loop_data }, 
+                    resultant_tree: Self::FOR { initialisation, condition, increment, body: Box::new(loop_body), local_scope_data: in_loop_data }, 
                     remaining_slice: curr_queue_idx
                 })
             },
@@ -117,8 +121,11 @@ impl IterationStatement {
                 let loop_end_label = format!("{}_loop_end", generic_label);
                 let loop_increment_label = format!("{}_loop_increment", generic_label);
 
-                //overwrite stack data whilst generating assembly for initialising the loop body
-                let init_asm = initialisation.generate_assembly(label_gen, &asm_data, stack_data);
+                //write to stack data whilst generating assembly for initialising the loop body
+                let init_asm = match initialisation {
+                    Some(x) => x.generate_assembly(label_gen, &asm_data, stack_data),
+                    None => Assembly::make_empty(),//no initialisation => blank assembly
+                };
                 
                 //initialise the for loop anyways
                 result.merge(&init_asm);

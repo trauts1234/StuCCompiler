@@ -55,6 +55,15 @@ impl Register {
             (Register::R8,  4) => "r8d",
             (Register::R9,  4) => "r9d",
 
+            (Register::_AX, 2) => "ax",
+            (Register::_BX, 2) => "bx",
+            (Register::_CX, 2) => "cx",
+            (Register::_DX, 2) => "dx",
+            (Register::_SI, 2) => "si",
+            (Register::_DI, 2) => "di",
+            (Register::R8,  2) => "r8w",
+            (Register::R9,  2) => "r9w",
+
             (Register::_AX, 1) => "al",
             (Register::_BX, 1) => "bl",
             (Register::_CX, 1) => "cl",

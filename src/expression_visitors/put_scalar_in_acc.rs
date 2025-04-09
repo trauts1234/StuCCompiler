@@ -10,7 +10,7 @@ use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
  */
 pub struct ScalarInAccVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut MemoryLayout//TODO is this right? 
+    pub(crate) stack_data: &'a mut MemoryLayout
 }
 
 impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {

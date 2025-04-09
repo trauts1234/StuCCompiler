@@ -379,7 +379,7 @@ fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSli
 
     curr_queue_idx.max_index -= 1;//skip the fullstop
 
-    if let Token::IDENTIFIER(member_name) = last_token {//TODO what if a member name is the same as an enum variant
+    if let Token::IDENTIFIER(member_name) = last_token {
         //last token is a struct's member name
         //the first part must return a struct
         let struct_tree = try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data)?;

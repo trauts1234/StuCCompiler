@@ -42,8 +42,6 @@ struct CompilationOptions {
     out_file: String
 }
 
-//TODO maybe use objdump -M intel --dwarf to find debug symbols???
-
 fn main() {
     let mut options = CompilationOptions{c_file: "test.c".to_string(), out_file: "a.out".to_string(), link_with: Vec::new()};
 
