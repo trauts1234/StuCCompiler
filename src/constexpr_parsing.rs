@@ -93,7 +93,7 @@ impl ConstexprValue {
 }
 
 fn try_parse_constexpr_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ConstexprValue> {
-    let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+    let mut curr_queue_idx = previous_queue_idx.clone();
     
     let punctuator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)?.as_punctuator()?;//get punctuator
 

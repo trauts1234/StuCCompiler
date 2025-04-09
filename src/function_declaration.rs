@@ -19,7 +19,7 @@ impl FunctionDeclaration {
      * consumes a function declaration only, and will return None if the function has a definition attached
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
-        let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+        let mut curr_queue_idx = previous_queue_idx.clone();
 
         let ASTMetadata { remaining_slice, resultant_tree: decl, .. } = consume_decl_only(tokens_queue, &curr_queue_idx, scope_data)?;
 
@@ -110,7 +110,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
 }
 
 fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<Declaration> {
-    let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(arg_segment);
+    let mut curr_queue_idx = arg_segment.clone();
 
     if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
         tokens_queue.consume(&mut curr_queue_idx, &scope_data);

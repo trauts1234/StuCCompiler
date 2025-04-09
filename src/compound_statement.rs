@@ -13,7 +13,7 @@ impl ScopeStatements {
      * returns a ScopeStatements and the remaining tokens as a queue location, else none
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &ParseData) -> Option<ASTMetadata<ScopeStatements>> {
-        let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+        let mut curr_queue_idx = previous_queue_idx.clone();
 
         let mut statements = Vec::new();
         //important! clone here so that variables and enums created in this scope do not leak out!

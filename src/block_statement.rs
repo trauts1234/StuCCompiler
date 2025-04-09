@@ -18,7 +18,7 @@ impl StatementOrDeclaration {
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<StatementOrDeclaration>> {
         if previous_queue_idx.get_slice_size() == 0 {return None;}
-        let curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+        let curr_queue_idx = previous_queue_idx.clone();
 
         if let Some(ASTMetadata {remaining_slice, resultant_tree}) = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
             return Some(ASTMetadata{remaining_slice, resultant_tree: Self::STATEMENT(resultant_tree)});

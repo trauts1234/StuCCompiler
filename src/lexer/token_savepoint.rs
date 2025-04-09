@@ -22,14 +22,6 @@ impl TokenQueueSlice {
         }
     }
 
-    //TODO could delete this?
-    pub fn from_previous_savestate(previous_location: &TokenQueueSlice) -> TokenQueueSlice {
-        TokenQueueSlice{
-            index: previous_location.index,
-            max_index: previous_location.max_index
-        }
-    }
-
     /**
      * returns the length of this slice
      */

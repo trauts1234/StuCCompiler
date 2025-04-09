@@ -9,7 +9,7 @@ pub enum ControlFlowChange {
 
 impl ControlFlowChange {
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<ASTMetadata<ControlFlowChange>> {
-        let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+        let mut curr_queue_idx = previous_queue_idx.clone();
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, &scope_data) {x} else {return None;};
         

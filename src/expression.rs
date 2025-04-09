@@ -53,7 +53,7 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
  * returns an expression(entirely consumed), else none
  */
 pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<Expression> {
-    let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+    let mut curr_queue_idx = previous_queue_idx.clone();
 
     if tokens_queue.slice_is_parenthesis(&curr_queue_idx) {
         //we are an expression surrounded by brackets
@@ -303,7 +303,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
  * else, you get None
  */
 fn try_parse_unary_prefix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<UnaryPrefixExpression> {
-    let mut curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+    let mut curr_queue_idx = previous_queue_idx.clone();
     
     let punctuator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)?.as_punctuator()?;//get punctuator
 

@@ -14,7 +14,7 @@ impl Statement {
      * returns a statement and the remaining tokens as a queue location, else none
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<ASTMetadata<Statement>> {
-        let curr_queue_idx = TokenQueueSlice::from_previous_savestate(previous_queue_idx);
+        let curr_queue_idx = previous_queue_idx.clone();
 
         if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &scope_data){
             return Some(ASTMetadata{resultant_tree: Self::COMPOUND(resultant_tree), remaining_slice});
