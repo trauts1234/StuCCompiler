@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, memory_operand::MemoryOperand, register::Register, Operand, PTR_SIZE}, operation::AsmOperation}, data_type::{recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 
 #[derive(Clone)]
 pub struct UnaryPrefixExpression {
@@ -31,7 +31,7 @@ impl UnaryPrefixExpression {
                     //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
                 } else {
                     result.add_instruction(AsmOperation::MOV {
-                        to: Operand::Reg(Register::acc()),
+                        to: RegOrMem::Reg(Register::acc()),
                         from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::acc() }),
                         size: PTR_SIZE
                     });//dereference pointer
@@ -48,7 +48,7 @@ impl UnaryPrefixExpression {
                 result.merge(&operand_asm);
                 result.merge(&cast_asm);//cast to the correct type
 
-                result.add_instruction(AsmOperation::NEG { item: Operand::Reg(Register::acc()), data_type: promoted_type });//negate the promoted value
+                result.add_instruction(AsmOperation::NEG { item: RegOrMem::Reg(Register::acc()), data_type: promoted_type });//negate the promoted value
             },
             Punctuator::PLUSPLUS => {
 
@@ -61,7 +61,7 @@ impl UnaryPrefixExpression {
                 *stack_data += PTR_SIZE;//allocate temporary lhs storage
                 let operand_address_storage = stack_data.clone();
                 result.add_instruction(AsmOperation::MOV {
-                    to: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
+                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
                     from: Operand::Reg(Register::acc()),
                     size: PTR_SIZE
                 });
@@ -70,20 +70,20 @@ impl UnaryPrefixExpression {
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
 
-                let rhs_reg = Operand::Reg(Register::acc());
+                let rhs_reg = RegOrMem::Reg(Register::acc());
                 //increment self.operand (in acc) as original type, so that it can be stored correctly afterwards
                 result.add_instruction(AsmOperation::ADD { destination: rhs_reg, increment: Operand::Imm(ImmediateValue("1".to_string())), data_type: original_type.clone() });
 
                 //pop &self.operand to RCX
                 result.add_instruction(AsmOperation::MOV {
-                    to: Operand::Reg(Register::secondary()),
+                    to: RegOrMem::Reg(Register::secondary()),
                     from: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
                     size: PTR_SIZE
                 });
 
                 //save the new value of self.operand
                 result.add_instruction(AsmOperation::MOV {
-                    to: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
                     from: Operand::Reg(Register::acc()),
                     size: original_type.memory_size(asm_data)
                 });

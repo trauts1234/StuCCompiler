@@ -1,12 +1,12 @@
 use crate::{data_type::{base_type::BaseType, recursive_data_type::DataType}, memory_size::MemoryLayout};
 
-use super::operand::{Operand, PTR_SIZE};
+use super::operand::{Operand, RegOrMem, PTR_SIZE};
 
 
 #[derive(Clone)]
 pub enum AsmOperation {
     ///moves size bytes from -> to
-    MOV {to: Operand, from: Operand, size: MemoryLayout},
+    MOV {to: RegOrMem, from: Operand, size: MemoryLayout},
     ///references from, puts address in to
     LEA {to: Operand, from: Operand},
 
@@ -23,19 +23,19 @@ pub enum AsmOperation {
     ZeroExtendACC {old_size: MemoryLayout},
 
     ///adds increment to destination
-    ADD {destination: Operand, increment: Operand, data_type: DataType},
+    ADD {destination: RegOrMem, increment: Operand, data_type: DataType},
     ///subtracts decrement from destination
-    SUB {destination: Operand, decrement: Operand, data_type: DataType},
+    SUB {destination: RegOrMem, decrement: Operand, data_type: DataType},
     ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
-    MUL {multiplier: Operand, data_type: DataType},
+    MUL {multiplier: RegOrMem, data_type: DataType},
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
-    DIV {divisor: Operand, data_type: DataType},
+    DIV {divisor: RegOrMem, data_type: DataType},
 
     ///negates the item, taking into account its data type
-    NEG {item: Operand, data_type: DataType},
+    NEG {item: RegOrMem, data_type: DataType},
 
     /// applies operation to destination and secondary, saving results to destination
-    BooleanOp {destination: Operand, secondary: Operand, operation: AsmBooleanOperation},
+    BooleanOp {destination: RegOrMem, secondary: Operand, operation: AsmBooleanOperation},
 
     Label {name: String},
     CreateStackFrame,
@@ -159,7 +159,7 @@ fn instruction_zero_extend(original: &MemoryLayout) -> String {
     }
 }
 
-fn instruction_add(destination: &Operand, increment: &Operand, data_type: &DataType) -> String {
+fn instruction_add(destination: &RegOrMem, increment: &Operand, data_type: &DataType) -> String {
     match data_type {
         DataType::POINTER(_) => format!("add {}, {}", destination.generate_name(PTR_SIZE), increment.generate_name(PTR_SIZE)),
         //addition is same for signed and unsigned
@@ -167,7 +167,7 @@ fn instruction_add(destination: &Operand, increment: &Operand, data_type: &DataT
         _ => panic!("currently cannot add this data type")
     }
 }
-fn instruction_sub(destination: &Operand, decrement: &Operand, data_type: &DataType) -> String {
+fn instruction_sub(destination: &RegOrMem, decrement: &Operand, data_type: &DataType) -> String {
     match data_type {
         DataType::POINTER(_) => format!("sub {}, {}", destination.generate_name(PTR_SIZE), decrement.generate_name(PTR_SIZE)),
         //subtraction is same for signed and unsigned
@@ -176,14 +176,14 @@ fn instruction_sub(destination: &Operand, decrement: &Operand, data_type: &DataT
     }
 }
 
-fn instruction_neg(destination: &Operand, data_type: &DataType) -> String {
+fn instruction_neg(destination: &RegOrMem, data_type: &DataType) -> String {
     match data_type {
         DataType::RAW(base) if base.is_integer() => format!("neg {}", destination.generate_name(base.get_non_struct_memory_size())),
         _ => panic!("currently cannot negate this data type")
     }
 }
 
-fn instruction_div(divisor: &Operand, data_type: &DataType) -> String {
+fn instruction_div(divisor: &RegOrMem, data_type: &DataType) -> String {
     match data_type {
         DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(32))),
         DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(64))),
@@ -191,7 +191,7 @@ fn instruction_div(divisor: &Operand, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_mul(multiplier: &Operand, data_type: &DataType) -> String {
+fn instruction_mul(multiplier: &RegOrMem, data_type: &DataType) -> String {
     match data_type {
         DataType::RAW(base) if base.is_signed() => format!("imul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
         DataType::RAW(base) if base.is_unsigned() => format!("mul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
@@ -201,7 +201,7 @@ fn instruction_mul(multiplier: &Operand, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_boolean(destination: &Operand, secondary: &Operand, operation: &AsmBooleanOperation) -> String {
+fn instruction_boolean(destination: &RegOrMem, secondary: &Operand, operation: &AsmBooleanOperation) -> String {
     let op_asm = match operation {
         AsmBooleanOperation::AND => "and".to_string(),
         AsmBooleanOperation::OR => "or".to_string(),

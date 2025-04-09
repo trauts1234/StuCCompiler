@@ -20,6 +20,7 @@ pub enum Operand {
     Imm(ImmediateValue),
 }
 
+#[derive(Clone)]
 pub enum RegOrMem {
     Reg(Register),
     Mem(MemoryOperand),
@@ -43,6 +44,15 @@ impl Operand {
             Operand::Reg(register) => register.generate_name(data_size),
             Operand::Mem(memory_operand) => memory_operand.generate_name(),
             Operand::Imm(immediate_value) => immediate_value.generate_name(),
+        }
+    }
+}
+
+impl RegOrMem {
+    pub fn generate_name(&self, data_size: MemoryLayout) -> String {
+        match self {
+            RegOrMem::Reg(register) => register.generate_name(data_size),
+            RegOrMem::Mem(memory_operand) => memory_operand.generate_name(),
         }
     }
 }
