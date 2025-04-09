@@ -1,4 +1,4 @@
-use crate::{data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, memory_size::MemoryLayout};
+use crate::{data_type::{base_type::BaseType, recursive_data_type::DataType}, memory_size::MemoryLayout};
 
 use super::operand::{Operand, PTR_SIZE};
 
@@ -11,7 +11,7 @@ pub enum AsmOperation {
     LEA {to: Operand, from: Operand},
 
     ///compares lhs and rhs, based on their data type
-    CMP {lhs: Operand, rhs: Operand, data_type: RecursiveDataType},
+    CMP {lhs: Operand, rhs: Operand, data_type: DataType},
     /// based on the comparison, sets destination to 1 or 0
     SETCC {destination: Operand, comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
@@ -23,16 +23,16 @@ pub enum AsmOperation {
     ZeroExtendACC {old_size: MemoryLayout},
 
     ///adds increment to destination
-    ADD {destination: Operand, increment: Operand, data_type: RecursiveDataType},
+    ADD {destination: Operand, increment: Operand, data_type: DataType},
     ///subtracts decrement from destination
-    SUB {destination: Operand, decrement: Operand, data_type: RecursiveDataType},
+    SUB {destination: Operand, decrement: Operand, data_type: DataType},
     ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
-    MUL {multiplier: Operand, data_type: RecursiveDataType},
+    MUL {multiplier: Operand, data_type: DataType},
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
-    DIV {divisor: Operand, data_type: RecursiveDataType},
+    DIV {divisor: Operand, data_type: DataType},
 
     ///negates the item, taking into account its data type
-    NEG {item: Operand, data_type: RecursiveDataType},
+    NEG {item: Operand, data_type: DataType},
 
     /// applies operation to destination and secondary, saving results to destination
     BooleanOp {destination: Operand, secondary: Operand, operation: AsmBooleanOperation},
@@ -103,10 +103,10 @@ impl AsmOperation {
     }
 }
 
-fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &RecursiveDataType) -> String {
+fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &DataType) -> String {
     match data_type {
-        RecursiveDataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
-        RecursiveDataType::RAW(base) if base.is_integer() => format!("cmp {}, {}", lhs.generate_name(base.get_non_struct_memory_size()), rhs.generate_name(base.get_non_struct_memory_size())),//comparing integers
+        DataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
+        DataType::RAW(base) if base.is_integer() => format!("cmp {}, {}", lhs.generate_name(base.get_non_struct_memory_size()), rhs.generate_name(base.get_non_struct_memory_size())),//comparing integers
         _ => panic!("currently cannot compare this data type")
     }
 }
@@ -159,44 +159,44 @@ fn instruction_zero_extend(original: &MemoryLayout) -> String {
     }
 }
 
-fn instruction_add(destination: &Operand, increment: &Operand, data_type: &RecursiveDataType) -> String {
+fn instruction_add(destination: &Operand, increment: &Operand, data_type: &DataType) -> String {
     match data_type {
-        RecursiveDataType::POINTER(_) => format!("add {}, {}", destination.generate_name(PTR_SIZE), increment.generate_name(PTR_SIZE)),
+        DataType::POINTER(_) => format!("add {}, {}", destination.generate_name(PTR_SIZE), increment.generate_name(PTR_SIZE)),
         //addition is same for signed and unsigned
-        RecursiveDataType::RAW(base) if base.is_integer() => format!("add {}, {}", destination.generate_name(base.get_non_struct_memory_size()), increment.generate_name(base.get_non_struct_memory_size())),
+        DataType::RAW(base) if base.is_integer() => format!("add {}, {}", destination.generate_name(base.get_non_struct_memory_size()), increment.generate_name(base.get_non_struct_memory_size())),
         _ => panic!("currently cannot add this data type")
     }
 }
-fn instruction_sub(destination: &Operand, decrement: &Operand, data_type: &RecursiveDataType) -> String {
+fn instruction_sub(destination: &Operand, decrement: &Operand, data_type: &DataType) -> String {
     match data_type {
-        RecursiveDataType::POINTER(_) => format!("sub {}, {}", destination.generate_name(PTR_SIZE), decrement.generate_name(PTR_SIZE)),
+        DataType::POINTER(_) => format!("sub {}, {}", destination.generate_name(PTR_SIZE), decrement.generate_name(PTR_SIZE)),
         //subtraction is same for signed and unsigned
-        RecursiveDataType::RAW(base) if base.is_integer() => format!("sub {}, {}", destination.generate_name(base.get_non_struct_memory_size()), decrement.generate_name(base.get_non_struct_memory_size())),
+        DataType::RAW(base) if base.is_integer() => format!("sub {}, {}", destination.generate_name(base.get_non_struct_memory_size()), decrement.generate_name(base.get_non_struct_memory_size())),
         _ => panic!("currently cannot sub this data type")
     }
 }
 
-fn instruction_neg(destination: &Operand, data_type: &RecursiveDataType) -> String {
+fn instruction_neg(destination: &Operand, data_type: &DataType) -> String {
     match data_type {
-        RecursiveDataType::RAW(base) if base.is_integer() => format!("neg {}", destination.generate_name(base.get_non_struct_memory_size())),
+        DataType::RAW(base) if base.is_integer() => format!("neg {}", destination.generate_name(base.get_non_struct_memory_size())),
         _ => panic!("currently cannot negate this data type")
     }
 }
 
-fn instruction_div(divisor: &Operand, data_type: &RecursiveDataType) -> String {
+fn instruction_div(divisor: &Operand, data_type: &DataType) -> String {
     match data_type {
-        RecursiveDataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(32))),
-        RecursiveDataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(64))),
+        DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(32))),
+        DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(64))),
         _ => panic!("cannot divide by this type")
     }
 }
 
-fn instruction_mul(multiplier: &Operand, data_type: &RecursiveDataType) -> String {
+fn instruction_mul(multiplier: &Operand, data_type: &DataType) -> String {
     match data_type {
-        RecursiveDataType::RAW(base) if base.is_signed() => format!("imul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
-        RecursiveDataType::RAW(base) if base.is_unsigned() => format!("mul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
-        RecursiveDataType::ARRAY {..} => panic!("cannot multiply an array"),
-        RecursiveDataType::POINTER(_) => instruction_mul(multiplier, &RecursiveDataType::RAW(BaseType::U64)),//multiply by pointer is same as u64 multiply
+        DataType::RAW(base) if base.is_signed() => format!("imul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
+        DataType::RAW(base) if base.is_unsigned() => format!("mul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
+        DataType::ARRAY {..} => panic!("cannot multiply an array"),
+        DataType::POINTER(_) => instruction_mul(multiplier, &DataType::RAW(BaseType::U64)),//multiply by pointer is same as u64 multiply
         _ => panic!("unsupported data type {:?}", data_type)
     }
 }

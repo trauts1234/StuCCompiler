@@ -1,10 +1,10 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
     pub(crate) function_name: String,
     pub(crate) params: Vec<Declaration>,//should this be a data type?
-    pub(crate) return_type: RecursiveDataType,
+    pub(crate) return_type: DataType,
 }
 
 impl FunctionDeclaration {
@@ -104,7 +104,7 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
         FunctionDeclaration {
             function_name: func_name,
             params: args,
-            return_type: RecursiveDataType::new_from_slice(return_data_type, &return_modifiers),
+            return_type: DataType::new_from_slice(return_data_type, &return_modifiers),
         },
         remaining_slice: curr_queue_idx});
 }
@@ -115,7 +115,7 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
     if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
         tokens_queue.consume(&mut curr_queue_idx, &scope_data);
         return Some(Declaration { data_type: 
-            RecursiveDataType::new(BaseType::VaArg),
+            DataType::new(BaseType::VaArg),
              name: String::new()//va arg has no name 
         })
     }

@@ -1,10 +1,10 @@
-use crate::{assembly::operand::Operand, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{assembly::operand::Operand, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
 use indexmap::IndexMap;
 
 
 #[derive(Debug, Clone)]
 pub struct AddressedDeclaration {
-    pub(crate) data_type: RecursiveDataType,
+    pub(crate) data_type: DataType,
     pub(crate) location: Operand
 }
 
@@ -12,7 +12,7 @@ pub struct AddressedDeclaration {
 pub struct AsmData {
     variables: IndexMap<String, AddressedDeclaration>,//hashmap, but keeps order to keep the stack sorted correctly
     function_decls: Vec<FunctionDeclaration>,
-    current_function_return_type: RecursiveDataType,
+    current_function_return_type: DataType,
     struct_list: IndexMap<String, StructDefinition>,//needs to be ordered since some structs need previously declared structs as members
 }
 
@@ -26,7 +26,7 @@ impl AsmData {
         let mut result = AsmData {
             variables: global_variables,//store global variables
             function_decls: parse_data.func_declarations_as_vec(),//store possible functions to call
-            current_function_return_type: RecursiveDataType::RAW(BaseType::VOID),//global namespace has no return type
+            current_function_return_type: DataType::RAW(BaseType::VOID),//global namespace has no return type
             struct_list:IndexMap::new()//will get filled soon
         };
 
@@ -36,7 +36,7 @@ impl AsmData {
 
         result
     }
-    pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: RecursiveDataType, stack_data: &mut MemoryLayout) -> AsmData {
+    pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: DataType, stack_data: &mut MemoryLayout) -> AsmData {
         let mut result = self.clone();
 
         //add functions
@@ -77,7 +77,7 @@ impl AsmData {
     pub fn get_variable(&self, name: &str) -> &AddressedDeclaration {
         self.variables.get(name).unwrap()
     }
-    pub fn get_function_return_type(&self) -> &RecursiveDataType {
+    pub fn get_function_return_type(&self) -> &DataType {
         &self.current_function_return_type
     }
     pub fn get_struct(&self, name: &str) -> &StructDefinition {
@@ -89,7 +89,7 @@ impl AsmData {
 /**
  * note this takes a tuple, so that it can be run in an iterator map()
  */
-fn generate_global_variable_decl(data: (&String, &RecursiveDataType)) -> (String, AddressedDeclaration) {
+fn generate_global_variable_decl(data: (&String, &DataType)) -> (String, AddressedDeclaration) {
     let (var_name, var_type) = data;
     (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: Operand::LabelAccess(var_name.to_string()) })
 }

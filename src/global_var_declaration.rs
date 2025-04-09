@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -12,7 +12,7 @@ impl GlobalVariable {
     pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
         match &self.default_value {
             ConstexprValue::NUMBER(number_literal) => {
-                unwrap_let!(RecursiveDataType::RAW(decl_underlying_type) = &self.decl.data_type);
+                unwrap_let!(DataType::RAW(decl_underlying_type) = &self.decl.data_type);
 
                 format!("{} db {}\n", 
                     self.decl.get_name(), 

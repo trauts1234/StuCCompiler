@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, AsmRegister}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
@@ -23,7 +23,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         result.add_comment(format!("reading number literal: {}", number.nasm_format()));
 
         result.add_instruction(AsmOperation::MOV {
-            to: Operand::Register(LogicalRegister::ACC.base_reg()),
+            to: Operand::Register(AsmRegister::acc()),
             from: Operand::ImmediateValue(number.nasm_format()),
             size: reg_size,
         });
@@ -36,7 +36,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         let my_type = var.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data});
 
-        if let RecursiveDataType::ARRAY {..} = my_type {//is array
+        if let DataType::ARRAY {..} = my_type {//is array
             //getting an array, decays to a pointer
             result.add_comment(format!("decaying array {} to pointer", var.name));
             let addr_asm = var.accept(&mut ReferenceVisitor{asm_data: self.asm_data, stack_data: self.stack_data});
@@ -47,7 +47,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             result.add_comment(format!("reading variable: {}", var.name));
 
             result.add_instruction(AsmOperation::MOV {
-                to: Operand::Register(LogicalRegister::ACC.base_reg()),
+                to: Operand::Register(AsmRegister::acc()),
                 from: self.asm_data.get_variable(&var.name).location.clone(),
                 size: reg_size,
             });
@@ -59,7 +59,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     fn visit_string_literal(&mut self, string: &crate::string_literal::StringLiteral) -> Self::Output {
         let mut result = Assembly::make_empty();
         result.add_instruction(AsmOperation::LEA {
-            to: Operand::Register(LogicalRegister::ACC.base_reg()),
+            to: Operand::Register(AsmRegister::acc()),
             from: Operand::LabelAccess(string.get_label().to_string())
         });//warning: duplicated code from get address
 
@@ -82,7 +82,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         let member_name = member_access.get_member_name();
-        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        unwrap_let!(DataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
 
         let original_struct_definition = self.asm_data.get_struct(&original_struct_name);
         let (member_decl, member_offset) = original_struct_definition.get_member_data(member_name);
@@ -97,15 +97,15 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         //offset the start pointer to the address of the member
         result.add_instruction(AsmOperation::ADD {
-            destination: Operand::Register(LogicalRegister::ACC.base_reg()),
+            destination: Operand::Register(AsmRegister::acc()),
             increment: Operand::ImmediateValue(member_offset.size_bytes().to_string()),
-            data_type: RecursiveDataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::U64),
         });
 
         //dereference pointer
         result.add_instruction(AsmOperation::MOV {
-            to: Operand::Register(LogicalRegister::ACC.base_reg()),
-            from: Operand::DerefAddress(LogicalRegister::ACC.base_reg()),
+            to: Operand::Register(AsmRegister::acc()),
+            from: Operand::DerefAddress(AsmRegister::acc()),
             size: member_decl.get_type().memory_size(self.asm_data),
         });
 

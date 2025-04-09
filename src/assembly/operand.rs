@@ -3,19 +3,10 @@ use crate::memory_size::MemoryLayout;
 pub const PTR_SIZE: MemoryLayout = MemoryLayout::from_bytes(8);
 
 /**
- * stores register names based on what they are used for
- */
-pub enum LogicalRegister{
-    ACC,
-    SECONDARY,
-    THIRD,
-}
-
-/**
  * name of an actual register
  */
 #[derive(Clone, Copy, Debug)]
-pub enum PhysicalRegister {
+pub enum AsmRegister {
     _AX,
     _BX,
     _CX,
@@ -35,9 +26,9 @@ pub enum Operand {
     AddToSP(MemoryLayout),
     ///memory layout stores how much to add to RBP to get the address of the value (remember 8 bytes for stack frame and 8 bytes for the return address)
     PreviousStackFrame(MemoryLayout),//not used much
-    Register(PhysicalRegister),
+    Register(AsmRegister),
     ImmediateValue(String),
-    DerefAddress(PhysicalRegister),
+    DerefAddress(AsmRegister),
     LabelAccess(String)
 }
 
@@ -55,62 +46,62 @@ impl Operand {
     }
 }
 
-pub fn generate_param_reg(param_num: usize) -> PhysicalRegister {
+pub fn generate_param_reg(param_num: usize) -> AsmRegister {
     match param_num {
-        0 => PhysicalRegister::_DI,
-        1 => PhysicalRegister::_SI,
-        2 => PhysicalRegister::_DX,
-        3 => PhysicalRegister::_CX,
-        4 => PhysicalRegister::R8,
-        5 => PhysicalRegister::R9,
+        0 => AsmRegister::_DI,
+        1 => AsmRegister::_SI,
+        2 => AsmRegister::_DX,
+        3 => AsmRegister::_CX,
+        4 => AsmRegister::R8,
+        5 => AsmRegister::R9,
         6.. => panic!("this param should be on the stack.")
     }
 }
 
-impl LogicalRegister {
+impl AsmRegister {
     /**
-     * casts to physical register
+     * generates the register for the accumulator
      */
-    pub fn base_reg(&self) -> PhysicalRegister {
-        match self {
-            LogicalRegister::ACC => PhysicalRegister::_AX,
-            LogicalRegister::SECONDARY => PhysicalRegister::_CX,
-            LogicalRegister::THIRD => PhysicalRegister::_DX,
-        }
+    pub fn acc() -> Self {
+        AsmRegister::_AX
     }
-}
-impl PhysicalRegister {
+    /**
+     * generates a register suitable for secondary storage of arithmetic
+     */
+    pub fn secondary() -> Self {
+        AsmRegister::_CX
+    }
     fn generate_name(&self, data_size: MemoryLayout) -> String {
         match (self, data_size.size_bytes()) {
-            (PhysicalRegister::_SP, 8) => "rsp",
-            (PhysicalRegister::_BP, 8) => "rbp",
+            (AsmRegister::_SP, 8) => "rsp",
+            (AsmRegister::_BP, 8) => "rbp",
             
-            (PhysicalRegister::_AX, 8) => "rax",
-            (PhysicalRegister::_BX, 8) => "rbx",
-            (PhysicalRegister::_CX, 8) => "rcx",
-            (PhysicalRegister::_DX, 8) => "rdx",
-            (PhysicalRegister::_SI, 8) => "rsi",
-            (PhysicalRegister::_DI, 8) => "rdi",
-            (PhysicalRegister::R8,  8) => "r8",
-            (PhysicalRegister::R9,  8) => "r9",
+            (AsmRegister::_AX, 8) => "rax",
+            (AsmRegister::_BX, 8) => "rbx",
+            (AsmRegister::_CX, 8) => "rcx",
+            (AsmRegister::_DX, 8) => "rdx",
+            (AsmRegister::_SI, 8) => "rsi",
+            (AsmRegister::_DI, 8) => "rdi",
+            (AsmRegister::R8,  8) => "r8",
+            (AsmRegister::R9,  8) => "r9",
 
-            (PhysicalRegister::_AX, 4) => "eax",
-            (PhysicalRegister::_BX, 4) => "ebx",
-            (PhysicalRegister::_CX, 4) => "ecx",
-            (PhysicalRegister::_DX, 4) => "edx",
-            (PhysicalRegister::_SI, 4) => "esi",
-            (PhysicalRegister::_DI, 4) => "edi",
-            (PhysicalRegister::R8,  4) => "r8d",
-            (PhysicalRegister::R9,  4) => "r9d",
+            (AsmRegister::_AX, 4) => "eax",
+            (AsmRegister::_BX, 4) => "ebx",
+            (AsmRegister::_CX, 4) => "ecx",
+            (AsmRegister::_DX, 4) => "edx",
+            (AsmRegister::_SI, 4) => "esi",
+            (AsmRegister::_DI, 4) => "edi",
+            (AsmRegister::R8,  4) => "r8d",
+            (AsmRegister::R9,  4) => "r9d",
 
-            (PhysicalRegister::_AX, 1) => "al",
-            (PhysicalRegister::_BX, 1) => "bl",
-            (PhysicalRegister::_CX, 1) => "cl",
-            (PhysicalRegister::_DX, 1) => "dl",
-            (PhysicalRegister::_SI, 1) => "sil",
-            (PhysicalRegister::_DI, 1) => "dil",
-            (PhysicalRegister::R8,  1) => "r8b",
-            (PhysicalRegister::R9,  1) => "r9b",
+            (AsmRegister::_AX, 1) => "al",
+            (AsmRegister::_BX, 1) => "bl",
+            (AsmRegister::_CX, 1) => "cl",
+            (AsmRegister::_DX, 1) => "dl",
+            (AsmRegister::_SI, 1) => "sil",
+            (AsmRegister::_DI, 1) => "dil",
+            (AsmRegister::R8,  1) => "r8b",
+            (AsmRegister::R9,  1) => "r9b",
 
             _ => panic!("invalid register-size combination for generating assembly")
 

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::AsmData, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
@@ -14,8 +14,8 @@ pub struct NumberLiteral {
 
 impl NumberLiteral {
 
-    pub fn get_data_type(&self) -> RecursiveDataType {
-        RecursiveDataType::new(self.data_type.clone())
+    pub fn get_data_type(&self) -> DataType {
+        DataType::new(self.data_type.clone())
     }
 
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {

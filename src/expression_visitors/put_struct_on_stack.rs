@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand, PhysicalRegister, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, AsmRegister, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
 
@@ -44,7 +44,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
         let mut result = Assembly::make_empty();
 
-        if let RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}) {
+        if let DataType::RAW(BaseType::STRUCT(struct_name)) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}) {
             let struct_type = self.asm_data.get_struct(&struct_name);
             todo!("detect whether the struct is MEMORY or other, then allocate a hidden param or read from registers after function has been called. remember to align the stack")
         } else {
@@ -80,7 +80,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         let member_name = member_access.get_member_name();
-        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        unwrap_let!(DataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
         //generate struct that I am getting a member of
@@ -91,9 +91,9 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
 
         //increase pointer to index of member
         result.add_instruction(AsmOperation::ADD {
-            destination: Operand::Register(LogicalRegister::ACC.base_reg()),
+            destination: Operand::Register(AsmRegister::acc()),
             increment: Operand::ImmediateValue(member_data.1.size_bytes().to_string()),
-            data_type: RecursiveDataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::U64),
         });
 
         result
@@ -110,13 +110,13 @@ fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &Operan
     
     //put destination in RDI
     result.add_instruction(AsmOperation::LEA {
-        to: Operand::Register(PhysicalRegister::_DI),
+        to: Operand::Register(AsmRegister::_DI),
         from: resulatant_location.clone(),
     });
     //put source in RSI
     result.add_instruction(AsmOperation::MOV {
-        to: Operand::Register(PhysicalRegister::_SI),
-        from: Operand::Register(LogicalRegister::ACC.base_reg()),
+        to: Operand::Register(AsmRegister::_SI),
+        from: Operand::Register(AsmRegister::acc()),
         size: PTR_SIZE,
     });
 
@@ -125,7 +125,7 @@ fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &Operan
 
     //point to the cloned struct
     result.add_instruction(AsmOperation::LEA {
-        to: Operand::Register(LogicalRegister::ACC.base_reg()),
+        to: Operand::Register(AsmRegister::acc()),
         from: resulatant_location.clone(),
     });
 

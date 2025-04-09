@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use indexmap::IndexMap;
 
-use crate::{data_type::recursive_data_type::RecursiveDataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::UnpaddedStructDefinition};
+use crate::{data_type::recursive_data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::UnpaddedStructDefinition};
 
 #[derive(Debug)]
 pub struct ParseData {
@@ -11,7 +11,7 @@ pub struct ParseData {
     function_decls: Vec<FunctionDeclaration>,
     structs: IndexMap<String, UnpaddedStructDefinition>,//defined and declared structs
 
-    local_symbol_table: IndexMap<String, RecursiveDataType>,//this is filled slowly, so do not read from it
+    local_symbol_table: IndexMap<String, DataType>,//this is filled slowly, so do not read from it
 }
 
 impl ParseData {
@@ -50,7 +50,7 @@ impl ParseData {
         .find(|func| func.function_name == func_name)
     }
 
-    pub fn add_variable(&mut self, name: &str, data_type: RecursiveDataType) {
+    pub fn add_variable(&mut self, name: &str, data_type: DataType) {
         self.variables.insert(name.to_string());
 
         if self.local_symbol_table.iter().any(|(x,_)| x == name) {
@@ -63,7 +63,7 @@ impl ParseData {
         self.variables.contains(name)
     }
 
-    pub fn get_symbol_table(&self) -> &IndexMap<String, RecursiveDataType> {
+    pub fn get_symbol_table(&self) -> &IndexMap<String, DataType> {
         &self.local_symbol_table
     }
 

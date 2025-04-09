@@ -4,31 +4,31 @@ use super::{base_type::BaseType, type_modifier::DeclModifier};
 
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum RecursiveDataType {
-    ARRAY{size: usize, element: Box<RecursiveDataType>},
-    POINTER(Box<RecursiveDataType>),
+pub enum DataType {
+    ARRAY{size: usize, element: Box<DataType>},
+    POINTER(Box<DataType>),
     RAW(BaseType)
 }
 
-impl RecursiveDataType
+impl DataType
 {
     pub fn new(base: BaseType) -> Self {
-        RecursiveDataType::RAW(base)
+        DataType::RAW(base)
     }
     pub fn new_from_slice(base: BaseType, items: &[DeclModifier]) -> Self {
         match items {
             //no modifiers left, just raw type
-            [] => RecursiveDataType::RAW(base),
+            [] => DataType::RAW(base),
             //array of count, and "remaining" tokens => array of count, process(remaining)
-            [DeclModifier::ARRAY(count), remaining @ ..] => RecursiveDataType::ARRAY { size: *count, element: Box::new(Self::new_from_slice(base, remaining)) },
+            [DeclModifier::ARRAY(count), remaining @ ..] => DataType::ARRAY { size: *count, element: Box::new(Self::new_from_slice(base, remaining)) },
             //pointer to "remaining" tokens => pointer to process(remaining)
-            [DeclModifier::POINTER, remaining @ ..] => RecursiveDataType::POINTER(Box::new(Self::new_from_slice(base, remaining)))
+            [DeclModifier::POINTER, remaining @ ..] => DataType::POINTER(Box::new(Self::new_from_slice(base, remaining)))
         }
     }
     
     pub fn decay(&self) -> Self {
         match self {
-            Self::ARRAY { size:_, element } => RecursiveDataType::POINTER(element.clone()),
+            Self::ARRAY { size:_, element } => DataType::POINTER(element.clone()),
             _ => self.clone()
         }
     }
@@ -36,8 +36,8 @@ impl RecursiveDataType
     /**
      * if I am a varadic arg, replace myself with to_replace
      */
-    pub fn replace_va_arg(&self, to_replace: RecursiveDataType) -> RecursiveDataType {
-        if RecursiveDataType::RAW(BaseType::VaArg) == *self {
+    pub fn replace_va_arg(&self, to_replace: DataType) -> DataType {
+        if DataType::RAW(BaseType::VaArg) == *self {
             to_replace
         } else {
             self.clone()
@@ -59,17 +59,17 @@ impl RecursiveDataType
     }
     pub fn add_inner_modifier(&self, modifier: DeclModifier) -> Self {
         match self {
-            RecursiveDataType::ARRAY { size, element } => RecursiveDataType::ARRAY { size: *size, element: Box::new(element.add_inner_modifier(modifier)) },
-            RecursiveDataType::POINTER(recursive_data_type) => RecursiveDataType::POINTER(Box::new(recursive_data_type.add_inner_modifier(modifier))),
-            RecursiveDataType::RAW(base_type) => Self::new_from_slice(base_type.clone(), &[modifier]),//add the modifier to the innermost
+            DataType::ARRAY { size, element } => DataType::ARRAY { size: *size, element: Box::new(element.add_inner_modifier(modifier)) },
+            DataType::POINTER(recursive_data_type) => DataType::POINTER(Box::new(recursive_data_type.add_inner_modifier(modifier))),
+            DataType::RAW(base_type) => Self::new_from_slice(base_type.clone(), &[modifier]),//add the modifier to the innermost
         }
     }
 
     pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
         match self {
-            RecursiveDataType::ARRAY { size, element } => MemoryLayout::from_bits(size * &element.memory_size(asm_data).size_bits()),
-            RecursiveDataType::POINTER(_) => MemoryLayout::from_bytes(8),
-            RecursiveDataType::RAW(base) => base.memory_size(asm_data),
+            DataType::ARRAY { size, element } => MemoryLayout::from_bits(size * &element.memory_size(asm_data).size_bits()),
+            DataType::POINTER(_) => MemoryLayout::from_bytes(8),
+            DataType::RAW(base) => base.memory_size(asm_data),
         }
     }
 }
@@ -80,17 +80,17 @@ impl RecursiveDataType
  * can be used for the operators add, subtract, multiply, divide
  * also works for pointers
  */
-pub fn calculate_promoted_type_arithmetic(lhs: &RecursiveDataType, rhs: &RecursiveDataType) -> RecursiveDataType {
+pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> DataType {
 
     match (lhs, rhs) {
-        (RecursiveDataType::ARRAY { size:_, element:_ }, _) => lhs.decay(),//lhs is array, so promoted type is pointer
-        (RecursiveDataType::POINTER(_), _) => lhs.clone(),//lhs is pointer, so every possible rhs is cast to pointer
+        (DataType::ARRAY { size:_, element:_ }, _) => lhs.decay(),//lhs is array, so promoted type is pointer
+        (DataType::POINTER(_), _) => lhs.clone(),//lhs is pointer, so every possible rhs is cast to pointer
 
-        (_, RecursiveDataType::ARRAY { size:_, element:_ }) => rhs.decay(),
-        (_, RecursiveDataType::POINTER(_)) => rhs.clone(),
+        (_, DataType::ARRAY { size:_, element:_ }) => rhs.decay(),
+        (_, DataType::POINTER(_)) => rhs.clone(),
 
-        (RecursiveDataType::RAW(lhs_base), RecursiveDataType::RAW(rhs_base)) => {
-            RecursiveDataType::RAW(calculate_integer_promoted_type(lhs_base, rhs_base))
+        (DataType::RAW(lhs_base), DataType::RAW(rhs_base)) => {
+            DataType::RAW(calculate_integer_promoted_type(lhs_base, rhs_base))
         }
     }
 
@@ -121,25 +121,25 @@ pub fn calculate_integer_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseTy
     }
 }
 
-pub fn calculate_unary_type_arithmetic(lhs: &RecursiveDataType, asm_data: &AsmData) -> RecursiveDataType {
+pub fn calculate_unary_type_arithmetic(lhs: &DataType, asm_data: &AsmData) -> DataType {
     match lhs {
-        RecursiveDataType::ARRAY { size:_, element:_ } => lhs.decay(),
-        RecursiveDataType::POINTER(_) => lhs.clone(),
-        RecursiveDataType::RAW(lhs_base) => {
+        DataType::ARRAY { size:_, element:_ } => lhs.decay(),
+        DataType::POINTER(_) => lhs.clone(),
+        DataType::RAW(lhs_base) => {
             assert!(lhs_base.is_integer());
 
             match (lhs_base.memory_size(asm_data).size_bits(), lhs_base.is_unsigned()) {
                 (0..=31, _) |// small enough to be cast to int easily
                 (32, false)//signed, and both int sized
-                    => RecursiveDataType::new(BaseType::I32),
+                    => DataType::new(BaseType::I32),
     
-                (32, true) => RecursiveDataType::new(BaseType::U32),
+                (32, true) => DataType::new(BaseType::U32),
     
                 (33..=63, _) |// small enough to be cast to long long easily
                 (64, false)//signed, and long long sized
-                    => RecursiveDataType::new(BaseType::I64),
+                    => DataType::new(BaseType::I64),
     
-                (64, true) =>  RecursiveDataType::new(BaseType::U64),
+                (64, true) =>  DataType::new(BaseType::U64),
     
                 (65.., _) => panic!("integer size too large!")
     

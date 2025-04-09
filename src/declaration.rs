@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::RecursiveDataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, type_modifier::DeclModifier}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
 
 /**
  * stores a variable and assembly to construct it
@@ -25,7 +25,7 @@ impl MinimalDataVariable {
  */
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
-    pub(crate) data_type: RecursiveDataType,
+    pub(crate) data_type: DataType,
     pub(crate) name: String,
 }
 
@@ -79,7 +79,7 @@ impl InitialisedDeclaration {
 }
 
 impl Declaration {
-    pub fn get_type(&self) -> &RecursiveDataType {
+    pub fn get_type(&self) -> &DataType {
         //maybe unused
         &self.data_type
     }
@@ -157,7 +157,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume token
             //identifier name in the middle, grab it
             Declaration {
-                data_type: RecursiveDataType::RAW(base_type.clone()),
+                data_type: DataType::RAW(base_type.clone()),
                 name: ident.to_string(),
             }
         }

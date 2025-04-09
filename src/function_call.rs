@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, LogicalRegister, Operand, PhysicalRegister}, operation::AsmOperation}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, Operand, AsmRegister}, operation::AsmOperation}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 
 #[derive(Clone)]
 pub struct FunctionCall {
@@ -26,7 +26,7 @@ impl FunctionCall {
         let type_matched_args: Vec<_> = self.args.iter().enumerate().map(|(i, x)|{
             
             let param_type = if i >= self.decl.params.len() {
-                assert!(*self.decl.params.last().unwrap().get_type() == RecursiveDataType::new(BaseType::VaArg));//more args than params, so must be varadic
+                assert!(*self.decl.params.last().unwrap().get_type() == DataType::new(BaseType::VaArg));//more args than params, so must be varadic
                 x.accept(&mut GetDataTypeVisitor{asm_data}).decay()//type is that of the arg, remembering to decay
             } else {
                 self.decl.params[i].get_type().clone()//arg gets cast to param type
@@ -79,9 +79,9 @@ impl FunctionCall {
         
         //allocate stack for args passed by memory
         result.add_commented_instruction(AsmOperation::SUB {
-            destination: Operand::Register(PhysicalRegister::_SP),
+            destination: Operand::Register(AsmRegister::_SP),
             decrement: Operand::ImmediateValue(aligned_memory_args_size.size_bytes().to_string()),
-            data_type: RecursiveDataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::U64),
         }, "allocate memory for memory args");
 
         result.merge(&push_args_to_stack_backwards(
@@ -92,9 +92,9 @@ impl FunctionCall {
 
         //allocate stack for args to be popped to GP registers
         result.add_instruction(AsmOperation::SUB {
-            destination: Operand::Register(PhysicalRegister::_SP),
+            destination: Operand::Register(AsmRegister::_SP),
             decrement: Operand::ImmediateValue((stack_required_for_integer_args + integer_args_extra_alignment).size_bytes().to_string()),
-            data_type: RecursiveDataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::U64),
         });
 
         result.merge(&push_args_to_stack_backwards(
@@ -108,20 +108,20 @@ impl FunctionCall {
         }
 
         result.add_commented_instruction(AsmOperation::ADD {
-            destination: Operand::Register(PhysicalRegister::_SP),
+            destination: Operand::Register(AsmRegister::_SP),
             increment: Operand::ImmediateValue(integer_args_extra_alignment.size_bytes().to_string()),
-            data_type: RecursiveDataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::U64),
         }, "remove alignment from register params");
 
         //since there are no floating point args, this must be left as 0 to let varadic functions know
-        result.add_instruction(AsmOperation::MOV { to: Operand::Register(PhysicalRegister::_AX), from: Operand::ImmediateValue("0".to_string()), size: MemoryLayout::from_bytes(8) });
+        result.add_instruction(AsmOperation::MOV { to: Operand::Register(AsmRegister::_AX), from: Operand::ImmediateValue("0".to_string()), size: MemoryLayout::from_bytes(8) });
 
         result.add_instruction(AsmOperation::CALL { label: self.func_name.clone() });
 
         result.add_commented_instruction(AsmOperation::ADD {
-            destination: Operand::Register(PhysicalRegister::_SP),
+            destination: Operand::Register(AsmRegister::_SP),
             increment: Operand::ImmediateValue(aligned_memory_args_size.size_bytes().to_string()),
-            data_type: RecursiveDataType::RAW(BaseType::U64)
+            data_type: DataType::RAW(BaseType::U64)
         }, "deallocate memory args");
 
         result
@@ -176,7 +176,7 @@ impl FunctionCall {
 
 #[derive(Clone)]
 pub struct AllocatedArg {
-    pub(crate) param_type: RecursiveDataType,//what type the arg should be cast into
+    pub(crate) param_type: DataType,//what type the arg should be cast into
     pub(crate) arg_tree: Expression
 }
 
@@ -240,7 +240,7 @@ fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack
 
         //this code is messy:
         match (&arg_type.decay(), &arg.param_type) {
-            (RecursiveDataType::RAW(BaseType::STRUCT(_)), _) => {
+            (DataType::RAW(BaseType::STRUCT(_)), _) => {
                 result.add_comment("putting struct arg on stack");
 
                 let struct_stack_required = aligned_size(arg.param_type.memory_size(asm_data), alignment_size);
@@ -264,7 +264,7 @@ fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack
 
                 result.add_instruction(AsmOperation::MOV {
                     to: Operand::AddToSP(current_sp_offset),
-                    from: Operand::Register(LogicalRegister::ACC.base_reg()),
+                    from: Operand::Register(AsmRegister::acc()),
                     size: alignment_size
                 });
 

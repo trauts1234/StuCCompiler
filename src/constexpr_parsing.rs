@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{data_type::recursive_data_type::{calculate_integer_promoted_type, RecursiveDataType}, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
+use crate::{data_type::recursive_data_type::{calculate_integer_promoted_type, DataType}, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -123,8 +123,8 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
     match (parsed_left, parsed_right) {
         (ConstexprValue::NUMBER(x), ConstexprValue::NUMBER(y)) => {
 
-            unwrap_let!(RecursiveDataType::RAW(x_base) = x.get_data_type());
-            unwrap_let!(RecursiveDataType::RAW(y_base) = y.get_data_type());
+            unwrap_let!(DataType::RAW(x_base) = x.get_data_type());
+            unwrap_let!(DataType::RAW(y_base) = y.get_data_type());
 
             let promoted_type = calculate_integer_promoted_type(&x_base, &y_base);
 

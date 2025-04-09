@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{LogicalRegister, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, AsmRegister}, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -72,10 +72,10 @@ impl StructMemberAccess {
         &self.member_name
     }
 
-    pub fn get_data_type(&self, asm_data: &AsmData) -> RecursiveDataType {
+    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
-        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = struct_tree_type);
+        unwrap_let!(DataType::RAW(BaseType::STRUCT(struct_name)) = struct_tree_type);
 
         let (member_decl, _) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get the type of the member
 
@@ -93,7 +93,7 @@ impl StructMemberAccess {
 
         let base_struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
-        unwrap_let!(RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = base_struct_type);
+        unwrap_let!(DataType::RAW(BaseType::STRUCT(struct_name)) = base_struct_type);
 
         let (_, struct_member_offset) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get offset for the specific member
 
@@ -102,9 +102,9 @@ impl StructMemberAccess {
 
         //go up by member offset
         result.add_instruction(AsmOperation::ADD {
-            destination: Operand::Register(LogicalRegister::ACC.base_reg()),
+            destination: Operand::Register(AsmRegister::acc()),
             increment: Operand::ImmediateValue(struct_member_offset.size_bytes().to_string()),
-            data_type: RecursiveDataType::RAW(BaseType::U64)//pointer addition is u64 add
+            data_type: DataType::RAW(BaseType::U64)//pointer addition is u64 add
         });
 
         result
@@ -192,8 +192,8 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
     Some(decl)
 }
 
-fn calculate_alignment(data_type: &RecursiveDataType, asm_data: &AsmData) -> MemoryLayout {
-    if let RecursiveDataType::ARRAY {..} = data_type {
+fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemoryLayout {
+    if let DataType::ARRAY {..} = data_type {
         calculate_alignment(&data_type.remove_outer_modifier(), asm_data) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
     } else {
         data_type.memory_size(asm_data)

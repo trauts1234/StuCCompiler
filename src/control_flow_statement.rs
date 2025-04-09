@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::RecursiveDataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 
 /**
  * this handles break, continue and return statements
@@ -45,9 +45,9 @@ impl ControlFlowChange {
                     result.merge(&expr_asm);
 
                     match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
-                        RecursiveDataType::ARRAY {..} => panic!("tried to return array from function!"),
+                        DataType::ARRAY {..} => panic!("tried to return array from function!"),
                         expr_type => {
-                            if let RecursiveDataType::RAW(BaseType::STRUCT(struct_name)) = expr_type {
+                            if let DataType::RAW(BaseType::STRUCT(struct_name)) = expr_type {
                                 todo!("returning struct {} from function", struct_name)
                             } else {
                                 let cast_asm = cast_from_acc(&expr_type, asm_data.get_function_return_type(), asm_data);
