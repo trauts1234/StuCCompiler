@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, AsmRegister}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::data_type_visitor::GetDataTypeVisitor, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, Register}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::data_type_visitor::GetDataTypeVisitor, lexer::punctuator::Punctuator};
 use super::expr_visitor::ExprVisitor;
 
 
@@ -25,7 +25,7 @@ impl<'a> ExprVisitor for PopStructFromStack<'a> {
         let struct_size = var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
 
         result.add_instruction(AsmOperation::ADD {
-            destination: Operand::Register(AsmRegister::_SP),
+            destination: Operand::Register(Register::_SP),
             increment: Operand::ImmediateValue(struct_size.size_bytes().to_string()),
             data_type: DataType::RAW(BaseType::U64),
         });
@@ -46,7 +46,7 @@ impl<'a> ExprVisitor for PopStructFromStack<'a> {
         let callee_name = &func_call.get_callee_decl().function_name;
 
         result.add_commented_instruction(AsmOperation::ADD {
-            destination: Operand::Register(AsmRegister::_SP),
+            destination: Operand::Register(Register::_SP),
             increment: Operand::ImmediateValue(return_size.size_bytes().to_string()),
             data_type: DataType::RAW(BaseType::U64),
         }, format!("deallocate a struct returned from a function call to {}", callee_name));
@@ -62,7 +62,7 @@ impl<'a> ExprVisitor for PopStructFromStack<'a> {
         let underlying_size = expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
 
         result.add_instruction(AsmOperation::ADD {
-            destination: Operand::Register(AsmRegister::_SP),
+            destination: Operand::Register(Register::_SP),
             increment: Operand::ImmediateValue(underlying_size.size_bytes().to_string()),
             data_type: DataType::RAW(BaseType::U64),
         });

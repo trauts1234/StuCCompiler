@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{ asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, AsmRegister, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{ asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, Register, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 //none of these must reserve any stack space
 #[derive(Clone)]
@@ -187,7 +187,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     let lhs_temporary_address = stack_data.clone();
     result.add_instruction(AsmOperation::MOV {
         to: Operand::SubFromBP(lhs_temporary_address),
-        from: Operand::Register(AsmRegister::acc()),
+        from: Operand::Register(Register::acc()),
         size: promoted_size,
     });
 
@@ -200,14 +200,14 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
 
     //mov acc to secondary
     result.add_instruction(AsmOperation::MOV {
-        to: Operand::Register(AsmRegister::secondary()),
-        from: Operand::Register(AsmRegister::acc()),
+        to: Operand::Register(Register::secondary()),
+        from: Operand::Register(Register::acc()),
         size: promoted_size,
     });
 
     //read lhs to ACC
     result.add_instruction(AsmOperation::MOV {
-        to: Operand::Register(AsmRegister::acc()),
+        to: Operand::Register(Register::acc()),
         from: Operand::SubFromBP(lhs_temporary_address),
         size: promoted_size,
     });
@@ -235,19 +235,19 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             //store the destination address in a temporary stack variable
             result.add_instruction(AsmOperation::MOV {
                 to: Operand::SubFromBP(*destination_temporary_storage),
-                from: Operand::Register(AsmRegister::acc()),
+                from: Operand::Register(Register::acc()),
                 size: PTR_SIZE,
             });
 
             result.merge(&rhs_asm);//get src address
 
             result.add_instruction(AsmOperation::MOV {
-                to: Operand::Register(AsmRegister::_SI),
-                from: Operand::Register(AsmRegister::acc()),
+                to: Operand::Register(Register::_SI),
+                from: Operand::Register(Register::acc()),
                 size: PTR_SIZE,
             });
             result.add_instruction(AsmOperation::MOV {
-                to: Operand::Register(AsmRegister::_DI),
+                to: Operand::Register(Register::_DI),
                 from: Operand::SubFromBP(*destination_temporary_storage),
                 size: PTR_SIZE,
             });
@@ -266,7 +266,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             let lhs_temporary_address = stack_data.clone();
             result.add_instruction(AsmOperation::MOV {
                 to: Operand::SubFromBP(lhs_temporary_address),
-                from: Operand::Register(AsmRegister::acc()),
+                from: Operand::Register(Register::acc()),
                 size: PTR_SIZE,
             });
             
@@ -280,15 +280,15 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
             //read lhs as address to assign to
             result.add_instruction(AsmOperation::MOV {
-                to: Operand::Register(AsmRegister::secondary()),
+                to: Operand::Register(Register::secondary()),
                 from: Operand::SubFromBP(lhs_temporary_address),
                 size: PTR_SIZE,
             });
 
             //save to memory
             result.add_instruction(AsmOperation::MOV {
-                to: Operand::DerefAddress(AsmRegister::secondary()),
-                from: Operand::Register(AsmRegister::acc()), 
+                to: Operand::DerefAddress(Register::secondary()),
+                from: Operand::Register(Register::acc()), 
                 size: promoted_type.memory_size(asm_data)
             });
         },

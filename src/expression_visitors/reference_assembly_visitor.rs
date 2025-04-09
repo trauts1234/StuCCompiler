@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, AsmRegister}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, Register}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 
 /**
@@ -21,7 +21,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         result.add_instruction(AsmOperation::LEA {
-            to: Operand::Register(AsmRegister::acc()),
+            to: Operand::Register(Register::acc()),
             from: self.asm_data.get_variable(&var.name).location.clone(),
         });
 
@@ -32,7 +32,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         result.add_instruction(AsmOperation::LEA {
-            to: Operand::Register(AsmRegister::acc()),
+            to: Operand::Register(Register::acc()),
             from: Operand::LabelAccess(string.get_label().to_string()),
         });
 
@@ -76,7 +76,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
 
         //increase pointer to index of member
         result.add_instruction(AsmOperation::ADD {
-            destination: Operand::Register(AsmRegister::acc()),
+            destination: Operand::Register(Register::acc()),
             increment: Operand::ImmediateValue(member_data.1.size_bytes().to_string()),
             data_type: DataType::RAW(BaseType::U64),
         });

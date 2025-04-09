@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, AsmRegister}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, Register}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
@@ -23,7 +23,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         result.add_comment(format!("reading number literal: {}", number.nasm_format()));
 
         result.add_instruction(AsmOperation::MOV {
-            to: Operand::Register(AsmRegister::acc()),
+            to: Operand::Register(Register::acc()),
             from: Operand::ImmediateValue(number.nasm_format()),
             size: reg_size,
         });
@@ -47,7 +47,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             result.add_comment(format!("reading variable: {}", var.name));
 
             result.add_instruction(AsmOperation::MOV {
-                to: Operand::Register(AsmRegister::acc()),
+                to: Operand::Register(Register::acc()),
                 from: self.asm_data.get_variable(&var.name).location.clone(),
                 size: reg_size,
             });
@@ -59,7 +59,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     fn visit_string_literal(&mut self, string: &crate::string_literal::StringLiteral) -> Self::Output {
         let mut result = Assembly::make_empty();
         result.add_instruction(AsmOperation::LEA {
-            to: Operand::Register(AsmRegister::acc()),
+            to: Operand::Register(Register::acc()),
             from: Operand::LabelAccess(string.get_label().to_string())
         });//warning: duplicated code from get address
 
@@ -97,15 +97,15 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         //offset the start pointer to the address of the member
         result.add_instruction(AsmOperation::ADD {
-            destination: Operand::Register(AsmRegister::acc()),
+            destination: Operand::Register(Register::acc()),
             increment: Operand::ImmediateValue(member_offset.size_bytes().to_string()),
             data_type: DataType::RAW(BaseType::U64),
         });
 
         //dereference pointer
         result.add_instruction(AsmOperation::MOV {
-            to: Operand::Register(AsmRegister::acc()),
-            from: Operand::DerefAddress(AsmRegister::acc()),
+            to: Operand::Register(Register::acc()),
+            from: Operand::DerefAddress(Register::acc()),
             size: member_decl.get_type().memory_size(self.asm_data),
         });
 
