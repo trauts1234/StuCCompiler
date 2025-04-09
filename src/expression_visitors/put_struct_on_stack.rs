@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, Register, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{register::Register, Operand, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 use super::expr_visitor::ExprVisitor;
 
@@ -91,8 +91,8 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
 
         //increase pointer to index of member
         result.add_instruction(AsmOperation::ADD {
-            destination: Operand::Register(Register::acc()),
-            increment: Operand::ImmediateValue(member_data.1.size_bytes().to_string()),
+            destination: Operand::Reg(Register::acc()),
+            increment: Operand::Imm(member_data.1.as_imm()),
             data_type: DataType::RAW(BaseType::U64),
         });
 
@@ -110,13 +110,13 @@ fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &Operan
     
     //put destination in RDI
     result.add_instruction(AsmOperation::LEA {
-        to: Operand::Register(Register::_DI),
+        to: Operand::Reg(Register::_DI),
         from: resulatant_location.clone(),
     });
     //put source in RSI
     result.add_instruction(AsmOperation::MOV {
-        to: Operand::Register(Register::_SI),
-        from: Operand::Register(Register::acc()),
+        to: Operand::Reg(Register::_SI),
+        from: Operand::Reg(Register::acc()),
         size: PTR_SIZE,
     });
 
@@ -125,7 +125,7 @@ fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &Operan
 
     //point to the cloned struct
     result.add_instruction(AsmOperation::LEA {
-        to: Operand::Register(Register::acc()),
+        to: Operand::Reg(Register::acc()),
         from: resulatant_location.clone(),
     });
 

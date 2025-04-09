@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, Register}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::DataType}, memory_size::MemoryLayout};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::DataType}, memory_size::MemoryLayout};
 
 pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmData) -> Assembly {
     match (original, new_type) {
@@ -13,13 +13,13 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmDat
             if to_raw == &BaseType::_BOOL {
                 //boolean, so I need to cmp 0
                 result.add_instruction(AsmOperation::CMP { 
-                    lhs: Operand::Register(Register::acc()),
-                    rhs: Operand::ImmediateValue("0".to_string()),
+                    lhs: Operand::Reg(Register::acc()),
+                    rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: DataType::RAW(from_raw.clone())
                 });
                 //set to 1 or 0 based on whether that value was 0
                 result.add_instruction(AsmOperation::SETCC {
-                    destination: Operand::Register(Register::acc()),
+                    destination: Operand::Reg(Register::acc()),
                     comparison: AsmComparison::NE,
                 });
     

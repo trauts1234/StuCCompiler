@@ -1,14 +1,14 @@
-use crate::{assembly::operand::Operand, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{assembly::operand::{memory_operand::MemoryOperand, Operand}, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, memory_size::MemoryLayout, parse_data::ParseData, struct_definition::StructDefinition};
 use indexmap::IndexMap;
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AddressedDeclaration {
     pub(crate) data_type: DataType,
     pub(crate) location: Operand
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct AsmData {
     variables: IndexMap<String, AddressedDeclaration>,//hashmap, but keeps order to keep the stack sorted correctly
     function_decls: Vec<FunctionDeclaration>,
@@ -60,7 +60,7 @@ impl AsmData {
             *stack_data += var_size;
             let var_address_offset = stack_data.clone();//increase stack pointer to store extra variable
 
-            let decl = AddressedDeclaration { data_type: var_type.clone(), location: Operand::SubFromBP(var_address_offset.clone()) };//then generate address, as to not overwrite the stack frame
+            let decl = AddressedDeclaration { data_type: var_type.clone(), location: Operand::Mem(MemoryOperand::SubFromBP(var_address_offset.clone())) };//then generate address, as to not overwrite the stack frame
 
             result.variables.shift_remove(&name);//ensure the new variable is put on the front of the indexmap
             result.variables.insert(name, decl);
@@ -91,5 +91,5 @@ impl AsmData {
  */
 fn generate_global_variable_decl(data: (&String, &DataType)) -> (String, AddressedDeclaration) {
     let (var_name, var_type) = data;
-    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: Operand::LabelAccess(var_name.to_string()) })
+    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: Operand::Mem(MemoryOperand::LabelAccess(var_name.to_string())) })
 }

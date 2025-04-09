@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::AsmData, assembly::operand::immediate::ImmediateValue, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
@@ -93,11 +93,11 @@ impl NumberLiteral {
     /**
      * format this number in a way that it can be pasted into a nasm file
      */
-    pub fn nasm_format(&self) -> String {
-        match self.value {
+    pub fn nasm_format(&self) -> ImmediateValue {
+        ImmediateValue(match self.value {
             LiteralValue::SIGNED(x) => x.to_string(),
             LiteralValue::UNSIGNED(x) => x.to_string(),
-        }
+        })
     }
 
     pub fn get_comma_separated_bytes(&self, asm_data: &AsmData) -> String {

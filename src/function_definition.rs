@@ -1,6 +1,6 @@
 use memory_size::MemoryLayout;
 
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, Operand, Register}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::ImmediateValue, memory_operand::MemoryOperand, register::Register, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -68,8 +68,8 @@ impl FunctionDefinition {
         let code_for_body = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);//calculate stack needed for function, while generating asm
         let aligned_stack_usage = aligned_size(stack_data, MemoryLayout::from_bytes(16));
         result.add_commented_instruction(AsmOperation::SUB {
-            destination: Operand::Register(Register::_SP),
-            decrement: Operand::ImmediateValue(aligned_stack_usage.size_bytes().to_string()),
+            destination: Operand::Reg(Register::_SP),
+            decrement: Operand::Imm(aligned_stack_usage.as_imm()),
             data_type: DataType::RAW(BaseType::U64),
         }, "allocate stack for local variables and alignment");
 
@@ -79,24 +79,24 @@ impl FunctionDefinition {
         for param_idx in (0..self.decl.params.len()).rev() {
             let param = &self.decl.params[param_idx];//get metadata about param
             let param_size = param.get_type().memory_size(asm_data);//get size of param 
-            unwrap_let!(Operand::SubFromBP(param_offset) = &asm_data.get_variable(param.get_name()).location);//get the location of where the param should *end up* since it gets moved from registers to memory
+            unwrap_let!(Operand::Mem(MemoryOperand::SubFromBP(param_offset)) = &asm_data.get_variable(param.get_name()).location);//get the location of where the param should *end up* since it gets moved from registers to memory
             
             if param_idx >= 6 {
                 let below_bp_offset = MemoryLayout::from_bytes(8);//8 bytes for return addr, as rbp points to the start of the stack frame
                 let arg_offset = MemoryLayout::from_bytes(8 + (param_idx - 6) * 8);//first 6 are in registers, each is 8 bytes, +8 as first arg is still +8 extra from bp
                 let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
-                let arg_address_operand = Operand::PreviousStackFrame(arg_bp_offset);
+                let arg_address_operand = Operand::Mem(MemoryOperand::PreviousStackFrame { add_to_rbp: arg_bp_offset });
 
                 result.add_instruction(AsmOperation::MOV {
-                    to: Operand::Register(Register::acc()),
+                    to: Operand::Reg(Register::acc()),
                     from: arg_address_operand,
                     size: param_size
                 });//grab data
 
                 result.add_instruction(AsmOperation::MOV {
-                    to: Operand::SubFromBP(*param_offset),
-                    from: Operand::Register(Register::acc()),
+                    to: Operand::Mem(MemoryOperand::SubFromBP(*param_offset)),
+                    from: Operand::Reg(Register::acc()),
                     size: param_size
                 });//store in allocated space
             } else {
@@ -104,8 +104,8 @@ impl FunctionDefinition {
                 //truncate param reg to desired size
                 //then write to its allocated address on the stack
                 result.add_instruction(AsmOperation::MOV {
-                    to: Operand::SubFromBP(*param_offset),
-                    from: Operand::Register(param_reg),
+                    to: Operand::Mem(MemoryOperand::SubFromBP(*param_offset)),
+                    from: Operand::Reg(param_reg),
                     size: param_size
                 });
             }
@@ -119,8 +119,8 @@ impl FunctionDefinition {
         if self.get_name() == "main" {
             //main auto returns 0
             result.add_instruction(AsmOperation::MOV {
-                to: Operand::Register(Register::acc()),
-                from: Operand::ImmediateValue("0".to_string()),
+                to: Operand::Reg(Register::acc()),
+                from: Operand::Imm(ImmediateValue("0".to_string())),
                 size: MemoryLayout::from_bytes(8)
             });
         }

@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, Operand, Register}, operation::AsmOperation}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::ImmediateValue, memory_operand::MemoryOperand, register::Register, Operand}, operation::AsmOperation}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData};
 
 #[derive(Clone)]
 pub struct FunctionCall {
@@ -79,8 +79,8 @@ impl FunctionCall {
         
         //allocate stack for args passed by memory
         result.add_commented_instruction(AsmOperation::SUB {
-            destination: Operand::Register(Register::_SP),
-            decrement: Operand::ImmediateValue(aligned_memory_args_size.size_bytes().to_string()),
+            destination: Operand::Reg(Register::_SP),
+            decrement: Operand::Imm(aligned_memory_args_size.as_imm()),
             data_type: DataType::RAW(BaseType::U64),
         }, "allocate memory for memory args");
 
@@ -92,8 +92,8 @@ impl FunctionCall {
 
         //allocate stack for args to be popped to GP registers
         result.add_instruction(AsmOperation::SUB {
-            destination: Operand::Register(Register::_SP),
-            decrement: Operand::ImmediateValue((stack_required_for_integer_args + integer_args_extra_alignment).size_bytes().to_string()),
+            destination: Operand::Reg(Register::_SP),
+            decrement: Operand::Imm((stack_required_for_integer_args + integer_args_extra_alignment).as_imm()),
             data_type: DataType::RAW(BaseType::U64),
         });
 
@@ -104,23 +104,23 @@ impl FunctionCall {
         ));
         //pop the register args to registers
         for i in 0..sorted_args.integer_regs_used {
-            result.add_instruction(AsmOperation::Pop64 { destination: Operand::Register(generate_param_reg(i)) });//pop to register
+            result.add_instruction(AsmOperation::Pop64 { destination: Operand::Reg(generate_param_reg(i)) });//pop to register
         }
 
         result.add_commented_instruction(AsmOperation::ADD {
-            destination: Operand::Register(Register::_SP),
-            increment: Operand::ImmediateValue(integer_args_extra_alignment.size_bytes().to_string()),
+            destination: Operand::Reg(Register::_SP),
+            increment: Operand::Imm(integer_args_extra_alignment.as_imm()),
             data_type: DataType::RAW(BaseType::U64),
         }, "remove alignment from register params");
 
         //since there are no floating point args, this must be left as 0 to let varadic functions know
-        result.add_instruction(AsmOperation::MOV { to: Operand::Register(Register::_AX), from: Operand::ImmediateValue("0".to_string()), size: MemoryLayout::from_bytes(8) });
+        result.add_instruction(AsmOperation::MOV { to: Operand::Reg(Register::_AX), from: Operand::Imm(ImmediateValue("0".to_string())), size: MemoryLayout::from_bytes(8) });
 
         result.add_instruction(AsmOperation::CALL { label: self.func_name.clone() });
 
         result.add_commented_instruction(AsmOperation::ADD {
-            destination: Operand::Register(Register::_SP),
-            increment: Operand::ImmediateValue(aligned_memory_args_size.size_bytes().to_string()),
+            destination: Operand::Reg(Register::_SP),
+            increment: Operand::Imm(aligned_memory_args_size.as_imm()),
             data_type: DataType::RAW(BaseType::U64)
         }, "deallocate memory args");
 
@@ -246,7 +246,7 @@ fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack
                 let struct_stack_required = aligned_size(arg.param_type.memory_size(asm_data), alignment_size);
 
                 //push struct on stack, without allocating since other variables may end up on top of stack_data
-                let struct_clone_asm = arg.arg_tree.accept(&mut CopyStructVisitor{asm_data,stack_data, resultant_location: Operand::AddToSP(current_sp_offset) });
+                let struct_clone_asm = arg.arg_tree.accept(&mut CopyStructVisitor{asm_data,stack_data, resultant_location: Operand::Mem(MemoryOperand::AddToSP(current_sp_offset)) });
                 result.merge(&struct_clone_asm);
 
                 current_sp_offset += struct_stack_required;//go towards sp for next param
@@ -263,8 +263,8 @@ fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack
                 result.merge(&arg_cast_asm);
 
                 result.add_instruction(AsmOperation::MOV {
-                    to: Operand::AddToSP(current_sp_offset),
-                    from: Operand::Register(Register::acc()),
+                    to: Operand::Mem(MemoryOperand::AddToSP(current_sp_offset)),
+                    from: Operand::Reg(Register::acc()),
                     size: alignment_size
                 });
 

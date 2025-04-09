@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{Operand, Register}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, statement::Statement};
 
 /**
  * this handles if statements and other conditionals
@@ -82,8 +82,8 @@ impl SelectionStatement {
 
                 //compare the result to 0
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Register(Register::acc()),
-                    rhs: Operand::ImmediateValue("0".to_string()),
+                    lhs: Operand::Reg(Register::acc()),
+                    rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: condition_type
                 });
 
