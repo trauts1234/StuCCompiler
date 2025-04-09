@@ -215,7 +215,6 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     result
 }
 
-//TODO do I need promoted_type
 pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
     let mut result = Assembly::make_empty();
 
