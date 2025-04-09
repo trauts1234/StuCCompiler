@@ -116,7 +116,7 @@ fn instruction_setcc(destination: &Operand, comparison: &AsmComparison) -> Strin
 
     let comparison_instr = match comparison {
         AsmComparison::NE => "setne",
-        AsmComparison::EQ => "seteq",
+        AsmComparison::EQ => "sete",
         AsmComparison::ALWAYS => todo!("unconditional set register to 1"),
         AsmComparison::LE => "setle",
         AsmComparison::GE => "setge",
@@ -178,8 +178,7 @@ fn instruction_sub(destination: &Operand, decrement: &Operand, data_type: &Recur
 
 fn instruction_neg(destination: &Operand, data_type: &RecursiveDataType) -> String {
     match data_type {
-        RecursiveDataType::RAW(base) if base.is_integer() && base.is_signed() => format!("neg {}", destination.generate_name(base.get_non_struct_memory_size())),
-        RecursiveDataType::RAW(base) if base.is_unsigned() => panic!("cannot negate unsigned value"),
+        RecursiveDataType::RAW(base) if base.is_integer() => format!("neg {}", destination.generate_name(base.get_non_struct_memory_size())),
         _ => panic!("currently cannot negate this data type")
     }
 }
@@ -195,9 +194,10 @@ fn instruction_div(divisor: &Operand, data_type: &RecursiveDataType) -> String {
 fn instruction_mul(multiplier: &Operand, data_type: &RecursiveDataType) -> String {
     match data_type {
         RecursiveDataType::RAW(base) if base.is_signed() => format!("imul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
+        RecursiveDataType::RAW(base) if base.is_unsigned() => format!("mul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
         RecursiveDataType::ARRAY {..} => panic!("cannot multiply an array"),
-        RecursiveDataType::POINTER(_) => panic!("cannot multiply pointer"),
-        _ => panic!("unsupported data type")
+        RecursiveDataType::POINTER(_) => instruction_mul(multiplier, &RecursiveDataType::RAW(BaseType::U64)),//multiply by pointer is same as u64 multiply
+        _ => panic!("unsupported data type {:?}", data_type)
     }
 }
 

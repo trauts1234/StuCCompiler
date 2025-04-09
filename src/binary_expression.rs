@@ -197,8 +197,11 @@ impl BinaryExpression {
                     //rhs now in AX
                 }
 
-                //read lhs to secondary register, since rhs is already in acc
-                result.add_instruction(AsmOperation::MOV { to: Operand::Register(LogicalRegister::SECONDARY.base_reg()), from: Operand::SubFromBP(lhs_temporary_address), size: promoted_size });
+                //put RHS in CX 
+                result.add_instruction(AsmOperation::MOV { to: Operand::Register(LogicalRegister::SECONDARY.base_reg()), from: Operand::Register(LogicalRegister::ACC.base_reg()), size: MemoryLayout::from_bytes(8)});
+
+                //read lhs to acc
+                result.add_instruction(AsmOperation::MOV { to: Operand::Register(LogicalRegister::ACC.base_reg()), from: Operand::SubFromBP(lhs_temporary_address), size: promoted_size });
 
                 result.add_instruction(AsmOperation::SUB {
                     destination: Operand::Register(LogicalRegister::ACC.base_reg()),
