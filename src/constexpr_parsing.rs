@@ -133,20 +133,50 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
 
             let new_value = match &operator {
                 Punctuator::PLUS => {
+                                match (lhs_val, rhs_val) {
+                                    (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l+r),
+                                    (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l+r),
+                                    _ => panic!("tried to add mixed signed-unsigned numbers in const expr")
+                                }
+                            },
+                Punctuator::DASH => {
+                                match (lhs_val, rhs_val) {
+                                    (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l-r),
+                                    (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l-r),
+                                    _ => panic!("tried to subtract mixed signed-unsigned numbers in const expr")
+                                }
+                            }
+                Punctuator::ASTERISK => {
                     match (lhs_val, rhs_val) {
-                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l+r),
-                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l+r),
-                        _ => panic!("tried to add mixed signed-unsigned numbers in const expr")
+                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l*r),
+                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l*r),
+                        _ => panic!("tried to multiply mixed signed-unsigned numbers in const expr")
                     }
                 },
-                Punctuator::DASH => {
+                Punctuator::FORWARDSLASH => {
                     match (lhs_val, rhs_val) {
-                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l-r),
-                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l-r),
-                        _ => panic!("tried to subtract mixed signed-unsigned numbers in const expr")
+                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l/r),
+                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l/r),
+                        _ => panic!("tried to mix signed-unsigned numbers in const expr")
                     }
-                }
-                _ => todo!()
+                },
+                Punctuator::PIPEPIPE => todo!(),
+                Punctuator::ANDAND => todo!(),
+                Punctuator::AMPERSAND => todo!(),
+                Punctuator::PERCENT => {
+                    match (lhs_val, rhs_val) {
+                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l%r),
+                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l%r),
+                        _ => panic!("tried to mix signed-unsigned numbers in const expr")
+                    }
+                },
+                Punctuator::ANGLERIGHT => todo!(),
+                Punctuator::ANGLELEFT => todo!(),
+                Punctuator::LESSEQUAL => todo!(),
+                Punctuator::GREATEREQUAL => todo!(),
+                Punctuator::DOUBLEEQUALS => todo!(),
+                Punctuator::EXCLAMATIONEQUALS => todo!(),
+                _ => panic!("invalid operator to binary expression")
             };
 
             //construct a number from the promoted type and the calculated value

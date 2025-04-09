@@ -463,5 +463,13 @@
     {
         "filename":"functioneightparams.c",
         "return_code":0
+    }, 
+    {
+        "filename":"structandenum.c",
+        "return_code":0
+    },
+    {
+        "filename":"globalvariables.c",
+        "return_code":0
     }
 ]
