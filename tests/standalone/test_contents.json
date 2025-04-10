@@ -504,5 +504,9 @@
     {
         "filename":"bitwiseand.c",
         "return_code":0
+    },
+    {
+        "filename":"bitwisexor.c",
+        "return_code":0
     }
 ]

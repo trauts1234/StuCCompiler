@@ -72,6 +72,7 @@ pub enum AsmComparison {
 pub enum LogicalOperation {
     AND,
     OR,
+    XOR,
 }
 
 impl AsmOperation {
@@ -208,6 +209,7 @@ fn instruction_bitwise(destination: &RegOrMem, secondary: &Operand, operation: &
     let op_asm = match operation {
         LogicalOperation::AND => "and".to_string(),
         LogicalOperation::OR => "or".to_string(),
+        LogicalOperation::XOR => "xor".to_string()
     };
 
     format!("{} {}, {}", op_asm, destination.generate_name(size), secondary.generate_name(size))

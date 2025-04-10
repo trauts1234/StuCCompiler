@@ -202,6 +202,7 @@ impl BinaryExpression {
         match self.operator {
             Punctuator::Pipe |
             Punctuator::AMPERSAND |
+            Punctuator::Hat |
             Punctuator::PLUS |
             Punctuator::DASH |
             Punctuator::ASTERISK | 

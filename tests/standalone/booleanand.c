@@ -27,10 +27,14 @@ int main() {
         return 6;
     }
 
-    a = 1;
+    if(2 && 4) {
+        a = 1;
 
-    if(a && b) {
-        return 0;
+        if(a && b) {
+            return 0;
+        }
+    } else {
+        return 8;
     }
 
     return 7;

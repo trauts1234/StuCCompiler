@@ -17,6 +17,7 @@ pub enum Punctuator {
     PIPEPIPE,
     ANDAND,
 
+    Hat,
     AMPERSAND,
     PERCENT,
 
@@ -55,11 +56,12 @@ impl Punctuator {
             "=" => Some(Self::EQUALS),
             ";" => Some(Self::SEMICOLON),
 
-            "&" => Some(Self::AMPERSAND),
             "%" => Some(Self::PERCENT),
+            "^" => Some(Self::Hat),
 
             "|" => Some(Self::Pipe),
             "||" => Some(Self::PIPEPIPE),
+            "&" => Some(Self::AMPERSAND),
             "&&" => Some(Self::ANDAND),
 
             ">" => Some(Self::Greater),
@@ -114,6 +116,7 @@ impl Punctuator {
         match self {
             Self::Pipe => Some(LogicalOperation::OR),
             Self::AMPERSAND => Some(LogicalOperation::AND),
+            Self::Hat => Some(LogicalOperation::XOR),
             _ => None
         }
     }
@@ -132,6 +135,8 @@ impl Punctuator {
             Self::LessLess | Self::GreaterGreater => Some(5),//bitwise shifts
 
             Self::AMPERSAND => Some(8),//bitwise and
+
+            Self::Hat => Some(9),
 
             Self::Pipe => Some(10),
 
