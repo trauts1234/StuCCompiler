@@ -13,6 +13,9 @@ impl ConstexprValue {
      * folds a constant expression to a number
      */
     pub fn try_consume_whole_constexpr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ConstexprValue> {
+        if previous_queue_idx.get_slice_size() == 0 {
+            return None;
+        }
         if previous_queue_idx.get_slice_size() == 1 {
             return match tokens_queue.peek(previous_queue_idx, scope_data).unwrap() {
                 Token::NUMBER(number) => Some(ConstexprValue::NUMBER(number)),

@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 int main() {
     // Basic OR operations
     if ((0 | 0) != 0) return 1;

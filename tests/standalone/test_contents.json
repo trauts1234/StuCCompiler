@@ -500,5 +500,9 @@
     {
         "filename":"bitwiseor.c",
         "return_code":0
+    }, 
+    {
+        "filename":"bitwiseand.c",
+        "return_code":0
     }
 ]

@@ -201,6 +201,7 @@ impl BinaryExpression {
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         match self.operator {
             Punctuator::Pipe |
+            Punctuator::AMPERSAND |
             Punctuator::PLUS |
             Punctuator::DASH |
             Punctuator::ASTERISK | 

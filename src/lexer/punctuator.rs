@@ -113,7 +113,7 @@ impl Punctuator {
     pub fn as_bitwise_instr(&self) -> Option<LogicalOperation> {
         match self {
             Self::Pipe => Some(LogicalOperation::OR),
-
+            Self::AMPERSAND => Some(LogicalOperation::AND),
             _ => None
         }
     }
@@ -131,7 +131,9 @@ impl Punctuator {
 
             Self::LessLess | Self::GreaterGreater => Some(5),//bitwise shifts
 
-            Self::Pipe => Some(10),//bitwise or
+            Self::AMPERSAND => Some(8),//bitwise and
+
+            Self::Pipe => Some(10),
 
             Self::ANDAND => Some(11),
             Self::PIPEPIPE => Some(12),
