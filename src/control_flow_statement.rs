@@ -35,7 +35,7 @@ impl ControlFlowChange {
             Keyword::BREAK => {
                 assert!(tokens_queue.consume(&mut curr_queue_idx, scope_data) == Some(Token::PUNCTUATOR(Punctuator::SEMICOLON)));
 
-                Some(ASTMetadata { remaining_slice: curr_queue_idx, resultant_tree: Self::BREAK})//TODO how do I find the label name of the for/while loop end?
+                Some(ASTMetadata { remaining_slice: curr_queue_idx, resultant_tree: Self::BREAK})
             }
             _ => None
         }

@@ -180,7 +180,7 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
             };
 
             //construct a number from the promoted type and the calculated value
-            Some(ConstexprValue::NUMBER(NumberLiteral::new_from_literal_value(new_value).cast(&promoted_type)))//TODO proper base types!
+            Some(ConstexprValue::NUMBER(NumberLiteral::new_from_literal_value(new_value).cast(&promoted_type)))
         }
         _ => todo!()
     }

@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, declaration::{consume_base_type, try_consume_declaration_modifiers, Declaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, declaration::Declaration, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {

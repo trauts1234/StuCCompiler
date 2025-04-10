@@ -35,6 +35,7 @@ mod asm_gen_data;
 mod expression_visitors;
 mod classify_param;
 pub mod assembly;
+pub mod initialised_declaration;
 
 struct CompilationOptions {
     c_file: String,

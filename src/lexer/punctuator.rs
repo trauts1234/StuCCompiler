@@ -6,6 +6,7 @@ pub enum Punctuator {
     PLUSPLUS,
 
     DASH,
+    DASHDASH,
     
     ASTERISK,
     FORWARDSLASH,
@@ -44,6 +45,7 @@ impl Punctuator {
             "++" => Some(Self::PLUSPLUS),
             
             "-" => Some(Self::DASH),
+            "--" => Some(Self::DASHDASH),
 
             "*" => Some(Self::ASTERISK),
             "/" => Some(Self::FORWARDSLASH),

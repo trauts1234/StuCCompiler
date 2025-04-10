@@ -97,7 +97,9 @@ impl UnaryPrefixExpression {
                 let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to the correct type
                 result.merge(&cast_asm);
 
-            }
+            }, 
+
+            Punctuator::DASHDASH => todo!(),
             _ => panic!("operator to unary prefix is invalid")
         }
 

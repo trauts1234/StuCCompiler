@@ -117,7 +117,7 @@ fn instruction_setcc(destination: &Operand, comparison: &AsmComparison) -> Strin
     let comparison_instr = match comparison {
         AsmComparison::NE => "setne",
         AsmComparison::EQ => "sete",
-        AsmComparison::ALWAYS => todo!("unconditional set register to 1"),
+        AsmComparison::ALWAYS => return format!("mov {}, 1 ; unconditional set", reg_name),//for set always, there is no command, so quickly return a mov command
         AsmComparison::LE => "setle",
         AsmComparison::GE => "setge",
         AsmComparison::L => "setl",
