@@ -135,7 +135,7 @@ impl Punctuator {
             Self::ASTERISK => Some(2),//dereference
             Self::AMPERSAND => Some(2),//reference
 
-            Self::PLUSPLUS => Some(2),
+            Self::PLUSPLUS | Self::DASHDASH => Some(2),//prefix increment/decrement
 
             Self::DASH => Some(2),//unary negate
             _ => None

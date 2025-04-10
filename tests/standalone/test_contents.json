@@ -480,5 +480,17 @@
     {
         "filename":"pluspluspointer.c",
         "return_code":0
+    },
+    {
+        "filename":"dashdashpointer.c",
+        "return_code":0
+    },
+    {
+        "filename":"prefixdecrement.c",
+        "return_code":0
+    },
+    {
+        "filename":"prefixdecrementunderflow.c",
+        "stdout":"255\n"
     }
 ]

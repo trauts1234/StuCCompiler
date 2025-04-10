@@ -99,7 +99,55 @@ impl UnaryPrefixExpression {
 
             }, 
 
-            Punctuator::DASHDASH => todo!(),
+            Punctuator::DASHDASH => {
+                //TODO this code is duplicated from PLUSPLUS
+
+                let promoted_type = self.get_data_type(asm_data);
+                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+
+                let increment_amount = match &original_type {
+                    DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+                    DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//decrement by number of bytes
+                    DataType::RAW(_) => ImmediateValue("1".to_string())
+                };
+
+                //push &self.operand
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                result.merge(&operand_asm);
+                *stack_data += PTR_SIZE;//allocate temporary lhs storage
+                let operand_address_storage = stack_data.clone();
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
+                    from: Operand::Reg(Register::acc()),
+                    size: PTR_SIZE
+                });
+
+                //put self.operand in acc
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                result.merge(&operand_asm);
+
+                let rhs_reg = RegOrMem::Reg(Register::acc());
+                //decrement self.operand (in acc) as original type, so that it can be stored correctly afterwards
+                result.add_instruction(AsmOperation::SUB { destination: rhs_reg, decrement: Operand::Imm(increment_amount), data_type: original_type.clone() });
+
+                //pop &self.operand to RCX
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Reg(Register::secondary()),
+                    from: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
+                    size: PTR_SIZE
+                });
+
+                //save the new value of self.operand
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
+                    from: Operand::Reg(Register::acc()),
+                    size: original_type.memory_size(asm_data)
+                });
+
+                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to the correct type
+                result.merge(&cast_asm);
+
+            },
             _ => panic!("operator to unary prefix is invalid")
         }
 
@@ -111,7 +159,7 @@ impl UnaryPrefixExpression {
         match self.operator {
             Punctuator::AMPERSAND => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
             Punctuator::ASTERISK => operand_type.remove_outer_modifier(),
-            Punctuator::DASH | Punctuator::PLUSPLUS => calculate_unary_type_arithmetic(&operand_type, asm_data),//-x may promote x to a bigger type
+            Punctuator::DASH | Punctuator::PLUSPLUS | Punctuator::DASHDASH => calculate_unary_type_arithmetic(&operand_type, asm_data),//-x may promote x to a bigger type
             _ => panic!("tried getting data type of a not-implemented prefix")
         }
     }
