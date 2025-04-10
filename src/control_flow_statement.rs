@@ -1,14 +1,15 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, memory_size::MemoryLayout, parse_data::ParseData};
 
 /**
  * this handles break, continue and return statements
  */
 pub enum ControlFlowChange {
-    RETURN(Option<Expression>)
+    RETURN(Option<Expression>),
+    BREAK,
 }
 
 impl ControlFlowChange {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<ASTMetadata<ControlFlowChange>> {
+    pub fn try_consume(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<ASTMetadata<ControlFlowChange>> {
         let mut curr_queue_idx = previous_queue_idx.clone();
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, &scope_data) {x} else {return None;};
@@ -30,6 +31,11 @@ impl ControlFlowChange {
                 };
 
                 Some(ASTMetadata { resultant_tree: Self::RETURN(return_value), remaining_slice: semicolon_idx.next_clone() })
+            }
+            Keyword::BREAK => {
+                assert!(tokens_queue.consume(&mut curr_queue_idx, scope_data) == Some(Token::PUNCTUATOR(Punctuator::SEMICOLON)));
+
+                Some(ASTMetadata { remaining_slice: curr_queue_idx, resultant_tree: Self::BREAK})//TODO how do I find the label name of the for/while loop end?
             }
             _ => None
         }
@@ -60,6 +66,11 @@ impl ControlFlowChange {
                 //destroy stack frame and return
                 result.add_instruction(AsmOperation::DestroyStackFrame);
                 result.add_instruction(AsmOperation::Return);
+            },
+            ControlFlowChange::BREAK => {
+                let label = asm_data.get_break_label().expect("break statement outside of a loop");
+                //unconditionally jump to the label
+                result.add_instruction(AsmOperation::JMPCC { label: label.clone(), comparison: AsmComparison::ALWAYS });
             },
         }
 

@@ -8,6 +8,7 @@ pub enum Keyword {
     FOR,
     WHILE,
     RETURN,
+    BREAK,
 }
 
 impl Keyword {
@@ -20,6 +21,7 @@ impl Keyword {
             "for" => Some(Self::FOR),
             "while" => Some(Self::WHILE),
             "return" => Some(Self::RETURN),
+            "break" => Some(Self::BREAK),
             _ => None,
         }
     }

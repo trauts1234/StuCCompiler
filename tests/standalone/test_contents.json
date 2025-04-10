@@ -471,5 +471,14 @@
     {
         "filename":"globalvariables.c",
         "return_code":0
+    },
+    {
+        "filename":"forloopfunky.c",
+        "stdout":"A1234B",
+        "return_code":0
+    },
+    {
+        "filename":"pluspluspointer.c",
+        "return_code":0
     }
 ]

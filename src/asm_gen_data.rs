@@ -14,6 +14,7 @@ pub struct AsmData {
     function_decls: Vec<FunctionDeclaration>,
     current_function_return_type: DataType,
     struct_list: IndexMap<String, StructDefinition>,//needs to be ordered since some structs need previously declared structs as members
+    break_label: Option<String>,//which label to jump to on a "break;" statement
 }
 
 impl AsmData {
@@ -27,7 +28,8 @@ impl AsmData {
             variables: global_variables,//store global variables
             function_decls: parse_data.func_declarations_as_vec(),//store possible functions to call
             current_function_return_type: DataType::RAW(BaseType::VOID),//global namespace has no return type
-            struct_list:IndexMap::new()//will get filled soon
+            struct_list:IndexMap::new(),//will get filled soon
+            break_label: None,//break cannot be called here
         };
 
         for (name, unpadded) in parse_data.get_all_structs().iter() {
@@ -69,6 +71,13 @@ impl AsmData {
         result
     }
 
+    pub fn clone_for_new_loop(&self, break_jump_label: String) -> AsmData {
+        let mut result = self.clone();
+        result.break_label = Some(break_jump_label);
+
+        result
+    }
+
     pub fn get_function_declaration(&self, func_name: &str) -> Option<&FunctionDeclaration> {
         self.function_decls.iter()
         .find(|func| func.function_name == func_name)
@@ -82,6 +91,10 @@ impl AsmData {
     }
     pub fn get_struct(&self, name: &str) -> &StructDefinition {
         self.struct_list.get(name).unwrap()
+    }
+
+    pub fn get_break_label(&self) -> Option<&String> {
+        self.break_label.as_ref()
     }
 }
 

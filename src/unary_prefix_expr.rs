@@ -55,6 +55,12 @@ impl UnaryPrefixExpression {
                 let promoted_type = self.get_data_type(asm_data);
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
+                let increment_amount = match &original_type {
+                    DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+                    DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
+                    DataType::RAW(_) => ImmediateValue("1".to_string())
+                };
+
                 //push &self.operand
                 let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
@@ -72,7 +78,7 @@ impl UnaryPrefixExpression {
 
                 let rhs_reg = RegOrMem::Reg(Register::acc());
                 //increment self.operand (in acc) as original type, so that it can be stored correctly afterwards
-                result.add_instruction(AsmOperation::ADD { destination: rhs_reg, increment: Operand::Imm(ImmediateValue("1".to_string())), data_type: original_type.clone() });
+                result.add_instruction(AsmOperation::ADD { destination: rhs_reg, increment: Operand::Imm(increment_amount), data_type: original_type.clone() });
 
                 //pop &self.operand to RCX
                 result.add_instruction(AsmOperation::MOV {

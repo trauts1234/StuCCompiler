@@ -109,17 +109,21 @@ impl IterationStatement {
     pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
         let mut result = Assembly::make_empty();
 
+        let generic_label = label_gen.generate_label();
+        let loop_start_label = format!("{}_loop_start", generic_label);
+        let loop_end_label = format!("{}_loop_end", generic_label);
+
+        //overwrite asm_data, substituting the label to go to if "break;" is called
+        let asm_data = &asm_data.clone_for_new_loop(loop_end_label.clone());
+
         match self {
             Self::FOR { initialisation, condition, increment, body, local_scope_data } => {
-
+                //overwrite asm_data by creating new scope
                 let asm_data = asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone(), stack_data);
                 
                 let condition_type = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data});
 
-                let generic_label = label_gen.generate_label();
-                let loop_start_label = format!("{}_loop_start", generic_label);
-                let loop_end_label = format!("{}_loop_end", generic_label);
-                let loop_increment_label = format!("{}_loop_increment", generic_label);
+                let loop_increment_label = format!("{}_loop_increment", generic_label);//extra label required for for loops
 
                 //write to stack data whilst generating assembly for initialising the loop body
                 let init_asm = match initialisation {
@@ -172,10 +176,6 @@ impl IterationStatement {
             Self::WHILE { condition, body } => {
 
                 let condition_type = condition.accept(&mut GetDataTypeVisitor { asm_data });
-
-                let generic_label = label_gen.generate_label();
-                let loop_start_label = format!("{}_loop_start", generic_label);
-                let loop_end_label = format!("{}_loop_end", generic_label);
 
                 result.add_instruction(AsmOperation::Label { name: loop_start_label.to_string() }); // label for loop's start
 
