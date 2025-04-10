@@ -19,8 +19,10 @@ pub enum Punctuator {
     AMPERSAND,
     PERCENT,
 
-    ANGLERIGHT,
-    ANGLELEFT,
+    Greater,
+    GreaterGreater,
+    Less,
+    LessLess,
     LESSEQUAL,
     GREATEREQUAL,
     DOUBLEEQUALS,
@@ -58,8 +60,10 @@ impl Punctuator {
             "||" => Some(Self::PIPEPIPE),
             "&&" => Some(Self::ANDAND),
 
-            ">" => Some(Self::ANGLERIGHT),
-            "<" => Some(Self::ANGLELEFT),
+            ">" => Some(Self::Greater),
+            ">>" => Some(Self::GreaterGreater),
+            "<" => Some(Self::Less),
+            "<<" => Some(Self::LessLess),
             ">=" => Some(Self::GREATEREQUAL),
             "<=" => Some(Self::LESSEQUAL),
             "==" => Some(Self::DOUBLEEQUALS),
@@ -86,8 +90,8 @@ impl Punctuator {
      */
     pub fn as_comparator_instr(&self) -> Option<AsmComparison> {
         match self {
-            Self::ANGLELEFT => Some(AsmComparison::L),
-            Self::ANGLERIGHT => Some(AsmComparison::G),
+            Self::Less => Some(AsmComparison::L),
+            Self::Greater => Some(AsmComparison::G),
             Self::DOUBLEEQUALS => Some(AsmComparison::EQ),
             Self::EXCLAMATIONEQUALS => Some(AsmComparison::NE),
             Self::LESSEQUAL => Some(AsmComparison::LE),
@@ -115,12 +119,14 @@ impl Punctuator {
             Self::PLUS | Self::DASH => Some(4),
             Self::ASTERISK | Self::FORWARDSLASH | Self::PERCENT => Some(3),//binary operator as in multiply
 
+            Self::LessLess | Self::GreaterGreater => Some(5),//bitwise shifts
+
             Self::ANDAND => Some(11),
             Self::PIPEPIPE => Some(12),
 
             Self::EQUALS => Some(14),
 
-            Self::ANGLELEFT | Self::ANGLERIGHT | Self::GREATEREQUAL | Self::LESSEQUAL => Some(6),
+            Self::Less | Self::Greater | Self::GREATEREQUAL | Self::LESSEQUAL => Some(6),
             Self::DOUBLEEQUALS | Self::EXCLAMATIONEQUALS => Some(7),
             _ => None
         }

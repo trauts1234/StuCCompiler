@@ -166,50 +166,42 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
 }
 
 /**
- * puts lhs in AX
- * puts rhs in CX
+ * puts lhs in AX, casted to lhs_new_type
+ * puts rhs in CX, casted to rhs_new_type
  * used in binary expressions, where you need both sides in registers
  * does NOT work for assignment expressions
  */
-pub fn put_lhs_ax_rhs_cx(lhs: &Expression, rhs: &Expression, promoted_type: &DataType, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expression, rhs_new_type: &DataType, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
     let mut result = Assembly::make_empty();
 
-    let promoted_size = promoted_type.memory_size(asm_data);
+    //put rhs in on the stack
+    let rhs_new_size = rhs_new_type.memory_size(asm_data);
+    let rhs_asm = rhs.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
+    let rhs_type = rhs.accept(&mut GetDataTypeVisitor{asm_data});
+    let rhs_cast_asm = cast_from_acc(&rhs_type, &rhs_new_type, asm_data);
+    result.merge(&rhs_asm);
+    result.merge(&rhs_cast_asm);
+    
+    *stack_data += rhs_new_size;//allocate temporary storage
+    let rhs_temporary_address = stack_data.clone();
+    result.add_instruction(AsmOperation::MOV {
+        to: RegOrMem::Mem(MemoryOperand::SubFromBP(rhs_temporary_address)),
+        from: Operand::Reg(Register::acc()),
+        size: rhs_new_size,
+    });
 
-    //put lhs on stack
+    //put lhs in ACC
     let lhs_asm = lhs.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
     let lhs_type = lhs.accept(&mut GetDataTypeVisitor{asm_data});
-    let lhs_cast_asm = cast_from_acc(&lhs_type, &promoted_type, asm_data);
+    let lhs_cast_asm = cast_from_acc(&lhs_type, lhs_new_type, asm_data);
     result.merge(&lhs_asm);
     result.merge(&lhs_cast_asm);
 
-    *stack_data += promoted_size;//allocate temporary lhs storage
-    let lhs_temporary_address = stack_data.clone();
-    result.add_instruction(AsmOperation::MOV {
-        to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)),
-        from: Operand::Reg(Register::acc()),
-        size: promoted_size,
-    });
-
-    //put rhs in secondary
-    let rhs_asm = rhs.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
-    let rhs_type = rhs.accept(&mut GetDataTypeVisitor{asm_data});
-    let rhs_cast_asm = cast_from_acc(&rhs_type, &promoted_type, asm_data);
-    result.merge(&rhs_asm);
-    result.merge(&rhs_cast_asm);
-
-    //mov acc to secondary
+    //read rhs to secondary
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::Reg(Register::secondary()),
-        from: Operand::Reg(Register::acc()),
-        size: promoted_size,
-    });
-
-    //read lhs to ACC
-    result.add_instruction(AsmOperation::MOV {
-        to: RegOrMem::Reg(Register::acc()),
-        from: Operand::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)),
-        size: promoted_size,
+        from: Operand::Mem(MemoryOperand::SubFromBP(rhs_temporary_address)),
+        size: rhs_new_size,
     });
 
     result

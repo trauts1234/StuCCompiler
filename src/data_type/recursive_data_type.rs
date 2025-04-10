@@ -121,6 +121,9 @@ pub fn calculate_integer_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseTy
     }
 }
 
+/**
+ * calculate the type of this type when promoted
+ */
 pub fn calculate_unary_type_arithmetic(lhs: &DataType, asm_data: &AsmData) -> DataType {
     match lhs {
         DataType::ARRAY { size:_, element:_ } => lhs.decay(),

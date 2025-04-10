@@ -170,8 +170,8 @@ fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &To
                         _ => panic!("tried to mix signed-unsigned numbers in const expr")
                     }
                 },
-                Punctuator::ANGLERIGHT => todo!(),
-                Punctuator::ANGLELEFT => todo!(),
+                Punctuator::Greater => todo!(),
+                Punctuator::Less => todo!(),
                 Punctuator::LESSEQUAL => todo!(),
                 Punctuator::GREATEREQUAL => todo!(),
                 Punctuator::DOUBLEEQUALS => todo!(),

@@ -1,6 +1,6 @@
 use crate::memory_size::MemoryLayout;
 
-use super::register::Register;
+use super::{register::Register, PTR_SIZE};
 
 #[derive(Clone, Debug)]
 pub enum MemoryOperand {
@@ -19,7 +19,7 @@ impl MemoryOperand {
             MemoryOperand::AddToSP(memory_layout) => format!("[rsp+{}]", memory_layout.size_bytes()),
             MemoryOperand::PreviousStackFrame { add_to_rbp } => format!("[rbp+{}]", add_to_rbp.size_bytes()),
             MemoryOperand::LabelAccess(label) => format!("[rel {}]", label),
-            MemoryOperand::MemoryAddress { pointer_reg } => format!("[{}]", pointer_reg.generate_name(MemoryLayout::from_bytes(8))),
+            MemoryOperand::MemoryAddress { pointer_reg } => format!("[{}]", pointer_reg.generate_name(PTR_SIZE)),
         }
     }
 }

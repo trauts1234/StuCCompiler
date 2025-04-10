@@ -30,6 +30,10 @@ pub enum AsmOperation {
     MUL {multiplier: RegOrMem, data_type: DataType},
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
     DIV {divisor: RegOrMem, data_type: DataType},
+    ///shifts logically left
+    SHL {destination: RegOrMem, amount: Operand, base_type: BaseType},
+    ///shifts right, (arithmetic or logical based on the signedness of base_type)
+    SHR {destination: RegOrMem, amount: Operand, base_type: BaseType},
 
     ///negates the item, taking into account its data type
     NEG {item: RegOrMem, data_type: DataType},
@@ -47,8 +51,6 @@ pub enum AsmOperation {
     CALL {label: String},
     ///not even a nop, just a blank line of assembly
     BLANK,
-
-    Pop64 {destination: Operand},//not used much
 }
 
 #[derive(Clone)]
@@ -97,8 +99,9 @@ impl AsmOperation {
             AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type),
             AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type),
             AsmOperation::BooleanOp { destination, secondary, operation } => instruction_boolean(destination, secondary, operation),
-            AsmOperation::Pop64 { destination } => format!("pop {}", destination.generate_name(PTR_SIZE)),
             AsmOperation::CALL { label } => format!("call {}", label),
+            AsmOperation::SHL { destination, amount, base_type } => instruction_shiftleft(destination, amount, base_type),
+            AsmOperation::SHR { destination, amount, base_type } => instruction_shiftright(destination, amount, base_type),
         }
     }
 }
@@ -210,4 +213,20 @@ fn instruction_boolean(destination: &RegOrMem, secondary: &Operand, operation: &
     let bool_size = MemoryLayout::from_bytes(1);
 
     format!("{} {}, {}", op_asm, destination.generate_name(bool_size), secondary.generate_name(bool_size))
+}
+
+fn instruction_shiftleft(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
+    let size = base_type.get_non_struct_memory_size();
+    format!("shl {}, {}", destination.generate_name(size), amount.generate_name(MemoryLayout::from_bytes(1)))
+}
+
+fn instruction_shiftright(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
+    let size = base_type.get_non_struct_memory_size();
+    match base_type {
+        //signed shift needs algebraic shift right
+        base if base.is_signed() => format!("sar {}, {}", destination.generate_name(size), amount.generate_name(MemoryLayout::from_bytes(1))),
+        //unsigned uses logical shift
+        base if base.is_unsigned() => format!("shr {}, {}", destination.generate_name(size), amount.generate_name(MemoryLayout::from_bytes(1))),
+        _ => panic!("cannot shift this type")
+    }
 }

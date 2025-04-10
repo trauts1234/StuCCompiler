@@ -1,7 +1,7 @@
 
 use unwrap_let::unwrap_let;
 
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, DataType}}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 
 #[derive(Clone)]
 pub struct BinaryExpression {
@@ -64,7 +64,7 @@ impl BinaryExpression {
             Punctuator::ASTERISK => {
                 result.add_comment("mulitplying numbers");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 unwrap_let!(DataType::RAW(promoted_underlying) = &promoted_type);
                 assert!(promoted_underlying.is_integer() && promoted_underlying.is_signed());//unsigned multiply?? floating point multiply??
@@ -78,7 +78,7 @@ impl BinaryExpression {
             Punctuator::FORWARDSLASH => {
                 result.add_comment("dividing numbers");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 unwrap_let!(DataType::RAW(_) = promoted_type);
 
@@ -91,7 +91,7 @@ impl BinaryExpression {
             Punctuator::PERCENT => {
                 result.add_comment("calculating modulus");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 unwrap_let!(DataType::RAW(_) = promoted_type);
 
@@ -106,7 +106,7 @@ impl BinaryExpression {
 
             comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
                 result.add_comment("comparing numbers");
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 result.add_instruction(AsmOperation::CMP {
                     lhs: Operand::Reg(Register::acc()),
@@ -122,18 +122,10 @@ impl BinaryExpression {
             },
 
             operator if operator.as_boolean_instr().is_some() => {
-
-                //perhaps this will work for binary operators too?
                 //warning: what if either side is not a boolean
                 result.add_comment("applying boolean operator");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));//also casts too boolean
-
-                unwrap_let!(DataType::RAW(promoted_underlying) = promoted_type);
-                assert!(promoted_underlying.is_integer());//floating point division??
-
-                assert!(promoted_underlying.memory_size(asm_data).size_bytes() == 1);//must be boolean
-                assert!(promoted_underlying == BaseType::_BOOL);
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &DataType::RAW(BaseType::_BOOL), &self.rhs, &DataType::RAW(BaseType::_BOOL), asm_data, stack_data));//casts too boolean
 
                 let boolean_instruction = operator.as_boolean_instr().unwrap();
 
@@ -141,6 +133,46 @@ impl BinaryExpression {
                     destination: RegOrMem::Reg(Register::acc()),
                     secondary: Operand::Reg(Register::secondary()),
                     operation: boolean_instruction
+                });
+            },
+            //bit shifts left or right
+
+            Punctuator::GreaterGreater => {
+                result.add_comment("bitwise shift right");
+                //lhs and rhs types are calculated individually as they do not influence each other
+                let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type, asm_data);
+                let rhs_required_type = DataType::RAW(BaseType::U8);//can only shift by u8 in assembly
+
+                result.merge(&put_lhs_ax_rhs_cx(
+                    &self.lhs, &lhs_required_type,
+                    &self.rhs, &rhs_required_type,
+                    asm_data, stack_data
+                ));
+                
+                unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
+                result.add_instruction(AsmOperation::SHR {
+                    destination: RegOrMem::Reg(Register::acc()),
+                    amount: Operand::Reg(Register::secondary()),
+                    base_type: lhs_base
+                });
+            }
+            Punctuator::LessLess => {
+                result.add_comment("bitwise shift left");
+                //lhs and rhs types are calculated individually as they do not influence each other
+                let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type, asm_data);
+                let rhs_required_type = DataType::RAW(BaseType::U8);//can only shift by u8 in assembly
+
+                result.merge(&put_lhs_ax_rhs_cx(
+                    &self.lhs, &lhs_required_type,
+                    &self.rhs, &rhs_required_type,
+                    asm_data, stack_data
+                ));
+                
+                unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
+                result.add_instruction(AsmOperation::SHL {
+                    destination: RegOrMem::Reg(Register::acc()),
+                    amount: Operand::Reg(Register::secondary()),
+                    base_type: lhs_base
                 });
             }
 
@@ -165,8 +197,12 @@ impl BinaryExpression {
 
             Punctuator::EQUALS => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
 
-            Punctuator::ANGLELEFT |
-            Punctuator::ANGLERIGHT |
+            //bit shifts have lhs promoted, then resultant type is the same as promoted lhs
+            Punctuator::LessLess |
+            Punctuator::GreaterGreater => calculate_unary_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data}), asm_data),
+
+            Punctuator::Less |
+            Punctuator::Greater |
             Punctuator::GREATEREQUAL |
             Punctuator::LESSEQUAL |
             Punctuator::DOUBLEEQUALS |
