@@ -39,7 +39,7 @@ pub enum AsmOperation {
     NEG {item: RegOrMem, data_type: DataType},
 
     /// applies operation to destination and secondary, saving results to destination
-    BooleanOp {destination: RegOrMem, secondary: Operand, operation: AsmBooleanOperation},
+    BitwiseOp {destination: RegOrMem, secondary: Operand, operation: LogicalOperation, size: MemoryLayout},
 
     Label {name: String},
     CreateStackFrame,
@@ -69,7 +69,7 @@ pub enum AsmComparison {
 }
 
 #[derive(Clone)]
-pub enum AsmBooleanOperation {
+pub enum LogicalOperation {
     AND,
     OR,
 }
@@ -98,7 +98,7 @@ impl AsmOperation {
             AsmOperation::BLANK => String::new(),
             AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type),
             AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type),
-            AsmOperation::BooleanOp { destination, secondary, operation } => instruction_boolean(destination, secondary, operation),
+            AsmOperation::BitwiseOp { destination, secondary, operation, size } => instruction_bitwise(destination, secondary, operation, *size),
             AsmOperation::CALL { label } => format!("call {}", label),
             AsmOperation::SHL { destination, amount, base_type } => instruction_shiftleft(destination, amount, base_type),
             AsmOperation::SHR { destination, amount, base_type } => instruction_shiftright(destination, amount, base_type),
@@ -204,15 +204,13 @@ fn instruction_mul(multiplier: &RegOrMem, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_boolean(destination: &RegOrMem, secondary: &Operand, operation: &AsmBooleanOperation) -> String {
+fn instruction_bitwise(destination: &RegOrMem, secondary: &Operand, operation: &LogicalOperation, size: MemoryLayout) -> String {
     let op_asm = match operation {
-        AsmBooleanOperation::AND => "and".to_string(),
-        AsmBooleanOperation::OR => "or".to_string(),
+        LogicalOperation::AND => "and".to_string(),
+        LogicalOperation::OR => "or".to_string(),
     };
 
-    let bool_size = MemoryLayout::from_bytes(1);
-
-    format!("{} {}, {}", op_asm, destination.generate_name(bool_size), secondary.generate_name(bool_size))
+    format!("{} {}, {}", op_asm, destination.generate_name(size), secondary.generate_name(size))
 }
 
 fn instruction_shiftleft(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
@@ -230,3 +228,4 @@ fn instruction_shiftright(destination: &RegOrMem, amount: &Operand, base_type: &
         _ => panic!("cannot shift this type")
     }
 }
+

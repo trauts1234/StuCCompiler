@@ -127,16 +127,32 @@ impl BinaryExpression {
 
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &DataType::RAW(BaseType::_BOOL), &self.rhs, &DataType::RAW(BaseType::_BOOL), asm_data, stack_data));//casts too boolean
 
-                let boolean_instruction = operator.as_boolean_instr().unwrap();
+                let instruction = operator.as_boolean_instr().unwrap();
 
-                result.add_instruction(AsmOperation::BooleanOp {
+                result.add_instruction(AsmOperation::BitwiseOp {
                     destination: RegOrMem::Reg(Register::acc()),
                     secondary: Operand::Reg(Register::secondary()),
-                    operation: boolean_instruction
+                    operation: instruction,
+                    size: MemoryLayout::from_bytes(1)//1 byte boolean
                 });
             },
-            //bit shifts left or right
 
+            operator if operator.as_bitwise_instr().is_some() => {
+                result.add_comment("applying bitwise operator");
+
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
+
+                let instruction = operator.as_bitwise_instr().unwrap();
+
+                result.add_instruction(AsmOperation::BitwiseOp {
+                    destination: RegOrMem::Reg(Register::acc()),
+                    secondary: Operand::Reg(Register::secondary()),
+                    operation: instruction,
+                    size: promoted_size
+                });
+            },
+
+            //bit shifts left or right
             Punctuator::GreaterGreater => {
                 result.add_comment("bitwise shift right");
                 //lhs and rhs types are calculated individually as they do not influence each other
@@ -184,6 +200,7 @@ impl BinaryExpression {
 
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         match self.operator {
+            Punctuator::Pipe |
             Punctuator::PLUS |
             Punctuator::DASH |
             Punctuator::ASTERISK | 

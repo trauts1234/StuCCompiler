@@ -1,4 +1,4 @@
-use crate::assembly::operation::{AsmBooleanOperation, AsmComparison};
+use crate::assembly::operation::{LogicalOperation, AsmComparison};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Punctuator {
@@ -13,6 +13,7 @@ pub enum Punctuator {
     EQUALS,
     SEMICOLON,
 
+    Pipe,
     PIPEPIPE,
     ANDAND,
 
@@ -57,6 +58,7 @@ impl Punctuator {
             "&" => Some(Self::AMPERSAND),
             "%" => Some(Self::PERCENT),
 
+            "|" => Some(Self::Pipe),
             "||" => Some(Self::PIPEPIPE),
             "&&" => Some(Self::ANDAND),
 
@@ -100,10 +102,18 @@ impl Punctuator {
         }
     }
 
-    pub fn as_boolean_instr(&self) -> Option<AsmBooleanOperation> {
+    pub fn as_boolean_instr(&self) -> Option<LogicalOperation> {
         match self {
-            Self::PIPEPIPE => Some(AsmBooleanOperation::OR),
-            Self::ANDAND => Some(AsmBooleanOperation::AND),
+            Self::PIPEPIPE => Some(LogicalOperation::OR),
+            Self::ANDAND => Some(LogicalOperation::AND),
+            _ => None
+        }
+    }
+
+    pub fn as_bitwise_instr(&self) -> Option<LogicalOperation> {
+        match self {
+            Self::Pipe => Some(LogicalOperation::OR),
+
             _ => None
         }
     }
@@ -120,6 +130,8 @@ impl Punctuator {
             Self::ASTERISK | Self::FORWARDSLASH | Self::PERCENT => Some(3),//binary operator as in multiply
 
             Self::LessLess | Self::GreaterGreater => Some(5),//bitwise shifts
+
+            Self::Pipe => Some(10),//bitwise or
 
             Self::ANDAND => Some(11),
             Self::PIPEPIPE => Some(12),

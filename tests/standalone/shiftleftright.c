@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 int main() {
     // Test basic left shifts
     if ((1 << 0) != 1) return 1;
@@ -48,7 +46,6 @@ int main() {
     char z = 64;
 
     if(z << 3 != 512) {
-        printf("%d", z << 2);
         return 25;
     }
 

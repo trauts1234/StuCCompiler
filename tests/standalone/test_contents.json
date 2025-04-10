@@ -496,5 +496,9 @@
     {
         "filename":"shiftleftright.c",
         "return_code":0
+    },
+    {
+        "filename":"bitwiseor.c",
+        "return_code":0
     }
 ]
