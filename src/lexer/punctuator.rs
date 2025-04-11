@@ -12,6 +12,7 @@ pub enum Punctuator {
     FORWARDSLASH,
     EQUALS,
     SEMICOLON,
+    Tilde,
 
     Pipe,
     PIPEPIPE,
@@ -60,6 +61,7 @@ impl Punctuator {
             "%" => Some(Self::PERCENT),
             "^" => Some(Self::Hat),
             "!" => Some(Self::Exclamation),
+            "~" => Some(Self::Tilde),
 
             "|" => Some(Self::Pipe),
             "||" => Some(Self::PIPEPIPE),
@@ -155,12 +157,12 @@ impl Punctuator {
      */
     pub fn as_unary_prefix_precedence(&self) -> Option<i32> {
         match self {
-            Self::ASTERISK => Some(2),//dereference
-            Self::AMPERSAND => Some(2),//reference
-            Self::Exclamation => Some(2),//boolean not
-
-            Self::PLUSPLUS | Self::DASHDASH => Some(2),//prefix increment/decrement
-
+            Self::ASTERISK |//dereference
+            Self::AMPERSAND |//reference
+            Self::Exclamation |//boolean not
+            Self::Tilde |
+            Self::PLUSPLUS |
+            Self::DASHDASH |//prefix increment/decrement
             Self::DASH => Some(2),//unary negate
             _ => None
         }

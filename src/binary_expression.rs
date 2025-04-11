@@ -67,7 +67,7 @@ impl BinaryExpression {
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 unwrap_let!(DataType::RAW(promoted_underlying) = &promoted_type);
-                assert!(promoted_underlying.is_integer() && promoted_underlying.is_signed());//unsigned multiply?? floating point multiply??
+                assert!(promoted_underlying.is_integer());//floating point multiply??
 
                 result.add_instruction(AsmOperation::MUL {
                     multiplier: RegOrMem::Reg(Register::secondary()),

@@ -172,6 +172,24 @@ impl UnaryPrefixExpression {
                     comparison: AsmComparison::EQ,//set to 1 if it was previously equal to 0
                 });
             },
+
+            Punctuator::Tilde => {
+                result.add_comment("boolean not");
+                let promoted_type = self.get_data_type(asm_data);
+
+                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to boolean
+                result.merge(&operand_asm);
+                result.merge(&cast_asm);//cast to the correct type
+
+                //set 1 if equal to 0 or vice-versa
+                result.add_instruction(AsmOperation::BitwiseNot {
+                    item: RegOrMem::Reg(Register::acc()),
+                    size: promoted_type.memory_size(asm_data)
+                });
+            }
             _ => panic!("operator to unary prefix is invalid")
         }
 
@@ -183,7 +201,7 @@ impl UnaryPrefixExpression {
         match self.operator {
             Punctuator::AMPERSAND => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
             Punctuator::ASTERISK => operand_type.remove_outer_modifier(),
-            Punctuator::DASH | Punctuator::PLUSPLUS | Punctuator::DASHDASH => calculate_unary_type_arithmetic(&operand_type, asm_data),//-x may promote x to a bigger type
+            Punctuator::DASH | Punctuator::PLUSPLUS | Punctuator::DASHDASH | Punctuator::Tilde => calculate_unary_type_arithmetic(&operand_type, asm_data),//-x may promote x to a bigger type
             Punctuator::Exclamation => DataType::RAW(BaseType::_BOOL),
             _ => panic!("tried getting data type of a not-implemented prefix")
         }

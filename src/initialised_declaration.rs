@@ -217,7 +217,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
  */
 fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, var_name: &str, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<BinaryExpression> {
     
-    if tokens_queue.peek(&curr_queue_idx, &scope_data)? !=Token::PUNCTUATOR(Punctuator::EQUALS){
+    if tokens_queue.peek(&curr_queue_idx, &scope_data)? != Token::PUNCTUATOR(Punctuator::EQUALS){
         return None;
     }
 
@@ -228,6 +228,7 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     //consume the right hand side of the initialisation
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer
+    println!("\n\n{:?}", tokens_queue.get_slice(curr_queue_idx));
     Some(BinaryExpression::new(
         Expression::VARIABLE(MinimalDataVariable{name: var_name.to_string()}),
         Punctuator::EQUALS,

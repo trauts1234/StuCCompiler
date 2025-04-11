@@ -512,5 +512,9 @@
     {
         "filename":"booleannot.c",
         "return_code":0
+    },
+    {
+        "filename":"bitwisenot.c",
+        "return_code":0
     }
 ]
