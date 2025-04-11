@@ -13,7 +13,7 @@ pub enum AsmOperation {
     ///compares lhs and rhs, based on their data type
     CMP {lhs: Operand, rhs: Operand, data_type: DataType},
     /// based on the comparison, sets destination to 1 or 0
-    SETCC {destination: Operand, comparison: AsmComparison},
+    SETCC {destination: RegOrMem, comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
     JMPCC {label: String, comparison: AsmComparison},
 
@@ -37,6 +37,8 @@ pub enum AsmOperation {
 
     ///negates the item, taking into account its data type
     NEG {item: RegOrMem, data_type: DataType},
+    ///performs bitwise not to the item
+    BitwiseNot {item: RegOrMem, size: MemoryLayout},
 
     /// applies operation to destination and secondary, saving results to destination
     BitwiseOp {destination: RegOrMem, secondary: Operand, operation: LogicalOperation, size: MemoryLayout},
@@ -103,6 +105,7 @@ impl AsmOperation {
             AsmOperation::CALL { label } => format!("call {}", label),
             AsmOperation::SHL { destination, amount, base_type } => instruction_shiftleft(destination, amount, base_type),
             AsmOperation::SHR { destination, amount, base_type } => instruction_shiftright(destination, amount, base_type),
+            AsmOperation::BitwiseNot { item, size } => format!("not {}", item.generate_name(*size)),
         }
     }
 }
@@ -115,7 +118,7 @@ fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &DataType) -> String
     }
 }
 
-fn instruction_setcc(destination: &Operand, comparison: &AsmComparison) -> String {
+fn instruction_setcc(destination: &RegOrMem, comparison: &AsmComparison) -> String {
     let reg_name = destination.generate_name(MemoryLayout::from_bytes(1));//setting 1 byte boolean
 
     let comparison_instr = match comparison {

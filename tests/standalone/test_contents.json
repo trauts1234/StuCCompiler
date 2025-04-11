@@ -508,5 +508,9 @@
     {
         "filename":"bitwisexor.c",
         "return_code":0
+    },
+    {
+        "filename":"booleannot.c",
+        "return_code":0
     }
 ]

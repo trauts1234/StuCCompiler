@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator, memory_size::MemoryLayout};
 
 #[derive(Clone)]
 pub struct UnaryPrefixExpression {
@@ -148,6 +148,30 @@ impl UnaryPrefixExpression {
                 result.merge(&cast_asm);
 
             },
+
+            Punctuator::Exclamation => {
+                result.add_comment("boolean not");
+
+                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let cast_asm = cast_from_acc(&original_type, &DataType::RAW(BaseType::_BOOL), asm_data);//cast to boolean
+                result.merge(&operand_asm);
+                result.merge(&cast_asm);//cast to the correct type
+
+                //compare the boolean to zero
+                result.add_instruction(AsmOperation::CMP {
+                    lhs: Operand::Reg(Register::acc()),
+                    rhs: Operand::Imm(ImmediateValue("0".to_string())),
+                    data_type: DataType::RAW(BaseType::_BOOL),
+                });
+
+                //set 1 if equal to 0 or vice-versa
+                result.add_instruction(AsmOperation::SETCC {
+                    destination: RegOrMem::Reg(Register::acc()),
+                    comparison: AsmComparison::EQ,//set to 1 if it was previously equal to 0
+                });
+            },
             _ => panic!("operator to unary prefix is invalid")
         }
 
@@ -160,6 +184,7 @@ impl UnaryPrefixExpression {
             Punctuator::AMPERSAND => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
             Punctuator::ASTERISK => operand_type.remove_outer_modifier(),
             Punctuator::DASH | Punctuator::PLUSPLUS | Punctuator::DASHDASH => calculate_unary_type_arithmetic(&operand_type, asm_data),//-x may promote x to a bigger type
+            Punctuator::Exclamation => DataType::RAW(BaseType::_BOOL),
             _ => panic!("tried getting data type of a not-implemented prefix")
         }
     }

@@ -20,6 +20,7 @@ pub enum Punctuator {
     Hat,
     AMPERSAND,
     PERCENT,
+    Exclamation,
 
     Greater,
     GreaterGreater,
@@ -58,6 +59,7 @@ impl Punctuator {
 
             "%" => Some(Self::PERCENT),
             "^" => Some(Self::Hat),
+            "!" => Some(Self::Exclamation),
 
             "|" => Some(Self::Pipe),
             "||" => Some(Self::PIPEPIPE),
@@ -112,7 +114,7 @@ impl Punctuator {
         }
     }
 
-    pub fn as_bitwise_instr(&self) -> Option<LogicalOperation> {
+    pub fn as_bitwise_binary_instr(&self) -> Option<LogicalOperation> {
         match self {
             Self::Pipe => Some(LogicalOperation::OR),
             Self::AMPERSAND => Some(LogicalOperation::AND),
@@ -129,24 +131,20 @@ impl Punctuator {
     pub fn as_binary_operator_precedence(&self) -> Option<i32> {
 
         match self {
-            Self::PLUS | Self::DASH => Some(4),
+
+
             Self::ASTERISK | Self::FORWARDSLASH | Self::PERCENT => Some(3),//binary operator as in multiply
-
+            Self::PLUS | Self::DASH => Some(4),
             Self::LessLess | Self::GreaterGreater => Some(5),//bitwise shifts
-
+            Self::Less | Self::Greater | Self::GREATEREQUAL | Self::LESSEQUAL => Some(6),
+            Self::DOUBLEEQUALS | Self::EXCLAMATIONEQUALS => Some(7),
             Self::AMPERSAND => Some(8),//bitwise and
-
             Self::Hat => Some(9),
-
             Self::Pipe => Some(10),
-
             Self::ANDAND => Some(11),
             Self::PIPEPIPE => Some(12),
 
             Self::EQUALS => Some(14),
-
-            Self::Less | Self::Greater | Self::GREATEREQUAL | Self::LESSEQUAL => Some(6),
-            Self::DOUBLEEQUALS | Self::EXCLAMATIONEQUALS => Some(7),
             _ => None
         }
     }
@@ -159,6 +157,7 @@ impl Punctuator {
         match self {
             Self::ASTERISK => Some(2),//dereference
             Self::AMPERSAND => Some(2),//reference
+            Self::Exclamation => Some(2),//boolean not
 
             Self::PLUSPLUS | Self::DASHDASH => Some(2),//prefix increment/decrement
 

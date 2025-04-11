@@ -38,6 +38,7 @@ impl StringLiteral {
 
     pub fn use_escape_sequences(text: &str) -> Vec<i8> {
         text
+        .replace("\\0", "\0")//replace end of string
         .replace("\\a", "\u{07}")//replace bell
         .replace("\\b", "\u{08}")//replace backspace
         .replace("\\f", "\u{0C}")//replace end page (form feed)

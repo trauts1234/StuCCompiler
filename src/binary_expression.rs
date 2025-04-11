@@ -117,7 +117,7 @@ impl BinaryExpression {
                 let asm_comparison = comparison.as_comparator_instr().unwrap();
 
                 //create the correct setcc instruction
-                result.add_instruction(AsmOperation::SETCC { destination: Operand::Reg(Register::acc()), comparison: asm_comparison });
+                result.add_instruction(AsmOperation::SETCC { destination: RegOrMem::Reg(Register::acc()), comparison: asm_comparison });
 
             },
 
@@ -137,12 +137,12 @@ impl BinaryExpression {
                 });
             },
 
-            operator if operator.as_bitwise_instr().is_some() => {
+            operator if operator.as_bitwise_binary_instr().is_some() => {
                 result.add_comment("applying bitwise operator");
 
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
-                let instruction = operator.as_bitwise_instr().unwrap();
+                let instruction = operator.as_bitwise_binary_instr().unwrap();
 
                 result.add_instruction(AsmOperation::BitwiseOp {
                     destination: RegOrMem::Reg(Register::acc()),
