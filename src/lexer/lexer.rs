@@ -123,19 +123,12 @@ impl Lexer {
     fn consume_number(&mut self) -> Token {
         let mut letters = String::new();
 
-        while let Some(c) = self.peek() {
-            if !("0123456789.ulUL".contains(c)) {
+        while let Some(c) = self.peek().and_then(|x| Some(x.to_ascii_lowercase())) {
+            if !("0123456789.ulxabcdef".contains(c)) {
                 break;
             }
             letters.push(c);
             self.consume();
-        }
-
-        if Some('f') == self.peek() {
-            panic!("float suffix not implemented");
-        }
-        if Some('e') == self.peek() {
-            panic!("standard form is not implemented");
         }
 
         assert!(letters.len() > 0);

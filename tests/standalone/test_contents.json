@@ -516,5 +516,9 @@
     {
         "filename":"bitwisenot.c",
         "return_code":0
+    },
+    {
+        "filename":"hexoctintegers.c",
+        "return_code":0
     }
 ]

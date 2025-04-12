@@ -24,54 +24,101 @@ impl NumberLiteral {
 }
 
 impl NumberLiteral {
-    pub fn new(to_token: &str) -> NumberLiteral {
+    pub fn new(input: &str) -> NumberLiteral {
 
-        if to_token.starts_with("0") && to_token.len() > 1 {
-            panic!("octal numbers are not supported");
-        }
-        if to_token.starts_with("-0") && to_token.len() > 2 {
-            panic!("negative octal numbers are not supported")
-        }
+        let input = input.to_ascii_lowercase();
 
-        if to_token.contains("-") {
-            panic!("negative number literals are not allowed. use unary negation on a positive number if possible")
-        }
+        let chars: Vec<char> = input.chars().collect();
+        let (base, remaining) = match chars.as_slice() {
+            ['0', 'x', remaining @ ..] => (16, remaining),
+            ['0', 'b', remaining @ ..] => (2, remaining),
+            ['0', remaining @ ..] => (8, remaining),
+            remaining => (10, remaining)
+        };
+        let is_integer = !remaining.contains(&'.');
 
-        if to_token.contains(".") {
-            //handle float or double
-            let _is_float = to_token.ends_with("f");
+        let (forced_type, remaining): (Option<BaseType>, _) = match remaining {
+            //float types
 
-            panic!("floating point number literals not supported");
-        }
+            [x @.., 'f'] if !is_integer => (todo!("float"), x),
+            [x @.., 'l'] if !is_integer => (todo!("double"), x),
+            x if !is_integer => (todo!("double"), x),
 
-        //integer type
+            //integer types
 
-        let without_modifiers = to_token.to_lowercase().trim_end_matches(|c| c == 'u' || c == 'l').to_string();
-        let as_large_unsigned: u64 = without_modifiers.parse().unwrap();
+            [x @.., 'u','l','l'] | //ull
+            [x @.., 'l', 'l', 'u'] |//llu
+            [x @.., 'u','l'] |//ul
+            [x @.., 'l', 'u'] //lu
+                if is_integer => (Some(BaseType::U64), x),//all are u64
 
-        let predicted_type = match as_large_unsigned {
-            0..=2_147_483_647 => BaseType::I32,
-            2_147_483_648..=9_223_372_036_854_775_807 => BaseType::I64,
-            9_223_372_036_854_775_808..=18446744073709551615 => BaseType::U64,
+            [x @.., 'u'] if is_integer => (Some(BaseType::U32), x),//u
+
+            [x @.., 'l', 'l' ] | //ll
+            [x @.., 'l'] //l
+                if is_integer => (Some(BaseType::I64), x),//are i64
+            
+            x if is_integer => (None, x),//no suffix, predict type based on data size
+
+            _ => panic!("invalid literal")
         };
 
-        let is_unsigned = to_token.to_lowercase().contains("u");
-        let is_long = to_token.to_lowercase().contains("l");//in linux long is 64 bit as well as ll
+        let (remaining, literal_exponent) = match base {
+            16 => {
+                if let Some(pos) = remaining.iter().position(|&c| c == 'p') {
+                    let lhs = &remaining[..pos];
+                    let power = &remaining[pos+1..];
 
-        let forced_type: Option<_> = match (is_unsigned, is_long) {
-            (true, true) => Some(BaseType::U64),
-            (false, true) => Some(BaseType::I64),
-            (true, false) => Some(BaseType::U32),
-            (false, false) => None//no type annotations, must predict
+                    assert!(lhs.len() > 0 && power.len() > 0);
+
+                    (lhs, calculate_positive_integer(base, power))// 0x1.5p3 = 0x1.5 * 2^3
+                    
+                } else {
+                    assert!(is_integer);//hex floats need exponent
+                    (remaining, 0)//no power letter
+                }
+            }
+
+            10 => {
+                if let Some(pos) = remaining.iter().position(|&c| c == 'e') {
+                    let lhs = &remaining[..pos];
+                    let power = &remaining[pos+1..];
+
+                    assert!(lhs.len() > 0 && power.len() > 0);
+
+                    (lhs, calculate_positive_integer(base, power))// 1.5e3 = 1.5 * 10^3
+                    
+                } else {
+                    (remaining, 0)//no power letter
+                }
+            },
+
+            8 | 2 => (remaining, 0),//no possible exponent for octal or binary numbers
+
+            _ => panic!("invalid base for number literal")
         };
 
-        let data_type = forced_type.unwrap_or(predicted_type);
-        assert!(data_type.is_integer());
+        if is_integer {
+            assert!(literal_exponent == 0);//no power on integers
+            let as_large_unsigned = calculate_positive_integer(base, remaining);
 
-        NumberLiteral {
-            value:LiteralValue::UNSIGNED(as_large_unsigned),//integer literals from text are always positive
-            data_type: BaseType::U64,//start as large type, and cast from there
-        }.cast(&data_type)//cast to the correct type
+            let predicted_type = match as_large_unsigned {
+                0..=2_147_483_647 => BaseType::I32,
+                2_147_483_648..=9_223_372_036_854_775_807 => BaseType::I64,
+                9_223_372_036_854_775_808..=18446744073709551615 => BaseType::U64,
+            };
+    
+            let data_type = forced_type.unwrap_or(predicted_type);
+            assert!(data_type.is_integer());
+    
+            NumberLiteral {
+                value:LiteralValue::UNSIGNED(as_large_unsigned),//integer literals from text are always positive
+                data_type: BaseType::U64,//start as large type, and cast from there
+            }.cast(&data_type)//cast to the correct type
+        } else {
+            todo!("float literals")
+        }
+
     }
 
     pub fn new_from_literal_value(value: LiteralValue) -> NumberLiteral {
@@ -162,4 +209,19 @@ impl LiteralValue {
             Self::UNSIGNED(x) => *x,
         }
     }
+}
+
+fn calculate_positive_integer(base: u64, digits: &[char]) -> u64 {
+    assert!(!digits.contains(&'.'));
+
+    digits.iter()
+    .map(|c| c.to_digit(base.try_into().unwrap()).unwrap() as u64)//get each digit as a number
+    .rev()//go from lowest place value digit first
+    .enumerate()
+    .map(|(i, digit)| digit * base.pow(i.try_into().unwrap()))//take into account place value of each digit
+    .sum()//sum each place value
+}
+fn calculate_float(base: i32, digits: &[char]) -> f64 {
+    assert!(digits.contains(&'.'));
+    todo!();
 }
