@@ -23,7 +23,7 @@ impl IterationStatement {
     /**
      * outer_scope_data should never be modified, just 
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &ParseData) -> Option<ASTMetadata<IterationStatement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &mut ParseData) -> Option<ASTMetadata<IterationStatement>> {
         let mut curr_queue_idx = previous_queue_idx.clone();
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, outer_scope_data) {x} else {return None;};

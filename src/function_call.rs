@@ -138,7 +138,7 @@ impl FunctionCall {
         &self.decl
     }
     
-    pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<FunctionCall> {
+    pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<FunctionCall> {
         //look for unary postfixes as association is left to right
         let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
     

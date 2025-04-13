@@ -13,7 +13,7 @@ impl Statement {
      * tries to parse the tokens queue starting at previous_queue_idx, to find a statement
      * returns a statement and the remaining tokens as a queue location, else none
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &ParseData) -> Option<ASTMetadata<Statement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Statement>> {
         let curr_queue_idx = previous_queue_idx.clone();
 
         if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &scope_data){

@@ -35,4 +35,8 @@ impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
     fn visit_struct_member_access(&mut self, expr: &StructMemberAccess) -> Self::Output {
         expr.get_data_type(self.asm_data)
     }
+    
+    fn visit_cast_expr(&mut self, expr: &crate::cast_expr::CastExpression) -> Self::Output {
+        expr.get_new_type().clone()
+    }
 }

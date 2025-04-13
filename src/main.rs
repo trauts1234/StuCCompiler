@@ -36,6 +36,7 @@ mod expression_visitors;
 mod classify_param;
 pub mod assembly;
 pub mod initialised_declaration;
+mod cast_expr;
 
 struct CompilationOptions {
     c_file: String,

@@ -18,7 +18,7 @@ impl FunctionDeclaration {
     /**
      * consumes a function declaration only, and will return None if the function has a definition attached
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
+    pub fn try_consume(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
         let mut curr_queue_idx = previous_queue_idx.clone();
 
         let ASTMetadata { remaining_slice, resultant_tree: decl, .. } = consume_decl_only(tokens_queue, &curr_queue_idx, scope_data)?;
@@ -44,22 +44,14 @@ impl FunctionDeclaration {
  *  int f(int x);
  *  int f(int x) {return 1;}
  */
-pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
+pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
 
-    let mut return_modifiers = Vec::new();
-
-    let ASTMetadata { remaining_slice, resultant_tree:return_data_type } = consume_base_type(tokens_queue, previous_queue_idx, scope_data)?;
-
-    let mut curr_queue_idx = remaining_slice.clone();
-
-    while Token::PUNCTUATOR(Punctuator::ASTERISK) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
-        return_modifiers.push(DeclModifier::POINTER);
-        tokens_queue.consume(&mut curr_queue_idx, &scope_data);
-    }
+    //try and consume int* or similar as return type, get curr_queue_idx and the function return type
+    let ASTMetadata { remaining_slice: mut curr_queue_idx, resultant_tree: return_type } = consume_fully_qualified_type(tokens_queue, previous_queue_idx, scope_data)?;
 
     //try to match an identifier, to find out the function name
 
-    let func_name = 
+    let function_name = 
     if let Token::IDENTIFIER(ident) = tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
         ident.to_string()
     }
@@ -83,10 +75,10 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
     let args_segments = tokens_queue.split_outside_parentheses(&args_location, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA));
 
     //grab all the args
-    let mut args = Vec::new();
+    let mut params = Vec::new();
     if args_location.get_slice_size() >= 1{//ensure there is text between the brackets
         for arg_segment in args_segments {
-            args.push(consume_fn_param(tokens_queue, &arg_segment, scope_data)?);
+            params.push(consume_fn_param(tokens_queue, &arg_segment, scope_data)?);
         }
     }
 
@@ -102,14 +94,14 @@ pub fn consume_decl_only(tokens_queue: &mut TokenQueue, previous_queue_idx: &Tok
     return Some(ASTMetadata{
         resultant_tree: 
         FunctionDeclaration {
-            function_name: func_name,
-            params: args,
-            return_type: DataType::new_from_slice(return_data_type, &return_modifiers),
+            function_name,
+            params,
+            return_type
         },
         remaining_slice: curr_queue_idx});
 }
 
-fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<Declaration> {
+fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<Declaration> {
     let mut curr_queue_idx = arg_segment.clone();
 
     if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
@@ -132,5 +124,23 @@ fn consume_fn_param(tokens_queue: &mut TokenQueue, arg_segment: &TokenQueueSlice
     Some(Declaration {
         data_type: full_data_type.decay(),//.decay since arrays ALWAYS decay to pointers, even when sizeof is involved
         name: var_name
+    })
+}
+
+pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<DataType>> {
+    let mut return_modifiers = Vec::new();
+
+    let ASTMetadata { remaining_slice, resultant_tree:return_data_type } = consume_base_type(tokens_queue, previous_queue_idx, scope_data)?;
+
+    let mut curr_queue_idx = remaining_slice.clone();
+
+    while Token::PUNCTUATOR(Punctuator::ASTERISK) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
+        return_modifiers.push(DeclModifier::POINTER);
+        tokens_queue.consume(&mut curr_queue_idx, &scope_data);
+    }
+
+    Some(ASTMetadata {
+        remaining_slice: curr_queue_idx,
+        resultant_tree: DataType::new_from_slice(return_data_type, &return_modifiers),
     })
 }

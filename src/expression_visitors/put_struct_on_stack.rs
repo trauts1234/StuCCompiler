@@ -98,6 +98,10 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
 
         result
     }
+    
+    fn visit_cast_expr(&mut self, _: &crate::cast_expr::CastExpression) -> Self::Output {
+        panic!("cannot cast to struct")
+    }
 }
 
 /**

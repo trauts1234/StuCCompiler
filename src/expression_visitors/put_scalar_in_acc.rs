@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, memory_size::MemoryLayout};
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
@@ -110,6 +110,18 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         });
 
         //asm_line!(result, "{}", member_access.accept(&mut PopStructFromStack{asm_data: self.asm_data}));//pop the struct if needed
+
+        result
+    }
+    
+    fn visit_cast_expr(&mut self, expr: &crate::cast_expr::CastExpression) -> Self::Output {
+        let mut result = Assembly::make_empty();
+        let uncasted_asm = expr.get_uncasted_expr().accept(self);
+        let uncasted_type = expr.get_uncasted_expr().accept(&mut GetDataTypeVisitor{asm_data:self.asm_data});
+        //generate uncasted data
+        result.merge(&uncasted_asm);
+        //cast to required type
+        result.merge(&cast_from_acc(&uncasted_type, expr.get_new_type(), self.asm_data));
 
         result
     }
