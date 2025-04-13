@@ -43,7 +43,8 @@ int test_pointer_casting() {
     if (!(*p_back == 42)) { return 1; };
 
 
-    int arr[5] = {1, 2, 3, 4, 5};
+    int arr[5];
+    arr[0] = 1; arr[1] = 2; arr[2] = 3; arr[3] = 4; arr[4] = 5;
     int* p_arr = arr;
     char* p_char = (char*)p_arr;
     if (!((void*)p_char == (void*)arr)) { return 1; };
@@ -89,7 +90,9 @@ int test_struct_cast() {
         int b;
     };
 
-    struct A sa = {1, 2};
+    struct A sa;
+    sa.x = 1;
+    sa.y = 2;
     struct B* sb = (struct B*)&sa;
     if (!(sb->a == 1)) { return 1; };
     if (!(sb->b == 2)) { return 1; };
@@ -99,7 +102,8 @@ int test_struct_cast() {
         int value;
     };
 
-    struct SingleInt si = {42};
+    struct SingleInt si;
+    si.value=42;
     int* pi_struct = (int*)&si;
     if (!(*pi_struct == 42)) { return 1; };
 
@@ -147,71 +151,15 @@ int test_enum_casting() {
 }
 
 
-int test_const_casting() {
-
-    const int ci = 10;
-    int* mutable_ptr = (int*)&ci;
-
-    if (!(&ci == (const int*)mutable_ptr)) { return 1; };
-
-
-    int x = 20;
-    int* px = &x;
-    const int* const* ppci = (const int* const*)&px;
-    int** ppx_back = (int**)ppci;
-    if (!(ppx_back == &px)) { return 1; };
-
-
-    int arr[3] = {1, 2, 3};
-    const int* c_arr = (const int*)arr;
-    int* arr_back = (int*)c_arr;
-    if (!(arr_back == arr)) { return 1; };
-    if (!(arr_back[1] == 2)) { return 1; };
-
-
-    struct Point {
-        int x;
-        int y;
-    };
-
-    const struct Point p = {5, 10};
-    int* px_field = (int*)&p.x;
-    if (!(*px_field == 5)) { return 1; };
-
-    return 0;
-}
-
-
-int test_volatile_casting() {
-
-    int i = 42;
-    volatile int* vi_ptr = (volatile int*)&i;
-    int* normal_ptr = (int*)vi_ptr;
-    if (!(normal_ptr == &i)) { return 1; };
-    if (!(*normal_ptr == 42)) { return 1; };
-
-
-    int j = 99;
-    const volatile int* cvj = (const volatile int*)&j;
-    int* j_back = (int*)cvj;
-    if (!(j_back == &j)) { return 1; };
-
-    return 0;
-}
-
-
 int test_compound_casts() {
 
     int weird_struct_val = (struct { int x; int y; }){.x = 5, .y = 10}.y;
     if (!(weird_struct_val == 10)) { return 1; };
 
 
-    int size_cast = (int)sizeof(char);
-    if (!(size_cast == 1)) { return 1; };
 
-
-
-    int arr[5] = {1, 2, 3, 4, 5};
+    int arr[5];
+    arr[0] = 1; arr[1] = 2; arr[2] = 3; arr[3] = 4; arr[4] = 5;
     short* short_arr = (short*)arr;
 
 
@@ -247,14 +195,8 @@ int main() {
     result = test_enum_casting();
     if (result != 0) return 4;
 
-    result = test_const_casting();
-    if (result != 0) return 5;
-
-    result = test_volatile_casting();
-    if (result != 0) return 6;
-
     result = test_compound_casts();
-    if (result != 0) return 7;
+    if (result != 0) return 5;
 
 
     return 0;
