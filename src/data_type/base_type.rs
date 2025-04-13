@@ -104,11 +104,7 @@ impl BaseType {
     }
 }
 
-pub fn new_from_type_list(type_info: &[TypeInfo]) -> Option<BaseType> {
-
-    if type_info.len() == 0 {
-        return None;
-    }
+pub fn new_from_type_list(type_info: &[TypeInfo]) -> BaseType {
 
     if type_info.contains(&TypeInfo::EXTERN) {
         println!("extern modifiers not counted. if this function doesn't have a definition it will be automatically marked extern");
@@ -116,16 +112,16 @@ pub fn new_from_type_list(type_info: &[TypeInfo]) -> Option<BaseType> {
 
     //void type
     if type_info.contains(&TypeInfo::VOID){
-        return Some(BaseType::VOID);
+        return BaseType::VOID;
     }
     //varadic arg
     if type_info.contains(&TypeInfo::VaArg) {
-        return Some(BaseType::VaArg);
+        return BaseType::VaArg;
     }
     //boolean
     if type_info.contains(&TypeInfo::_BOOL) {
         assert!(type_info.len() == 1);
-        return Some(BaseType::_BOOL);
+        return BaseType::_BOOL;
     }
 
     //int assumed from now on
@@ -156,5 +152,5 @@ pub fn new_from_type_list(type_info: &[TypeInfo]) -> Option<BaseType> {
         (_, _) => panic!("unsupported size"),
     };
 
-    Some(base_type)
+    base_type
 }

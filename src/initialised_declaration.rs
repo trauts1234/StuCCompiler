@@ -192,7 +192,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
             let mut data_type_info = Vec::new();
             //try and consume as many type specifiers as possible
             loop {
-                if let Token::TYPESPECIFIER(ts) = tokens_queue.peek(&curr_queue_idx, &scope_data)? {
+                if let Some(Token::TYPESPECIFIER(ts)) = tokens_queue.peek(&curr_queue_idx, &scope_data) {
                     data_type_info.push(ts.clone());
                     tokens_queue.consume(&mut curr_queue_idx, &scope_data);
                 } else {
@@ -200,10 +200,14 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
                 }
             }
 
+            if data_type_info.len() == 0 {
+                return None;
+            }
+
             Some(ASTMetadata {
                 remaining_slice: curr_queue_idx,
                 //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-                resultant_tree: base_type::new_from_type_list(&data_type_info)?
+                resultant_tree: base_type::new_from_type_list(&data_type_info)
             })
         }
     }

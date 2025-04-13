@@ -520,5 +520,9 @@
     {
         "filename":"hexoctintegers.c",
         "return_code":0
+    },
+    {
+        "filename":"casting.c",
+        "return_code":0
     }
 ]

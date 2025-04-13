@@ -134,7 +134,7 @@ pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_id
 
     let mut curr_queue_idx = remaining_slice.clone();
 
-    while Token::PUNCTUATOR(Punctuator::ASTERISK) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
+    while Some(Token::PUNCTUATOR(Punctuator::ASTERISK)) == tokens_queue.peek(&curr_queue_idx, &scope_data) {
         return_modifiers.push(DeclModifier::POINTER);
         tokens_queue.consume(&mut curr_queue_idx, &scope_data);
     }

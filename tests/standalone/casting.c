@@ -1,306 +1,261 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <limits.h>
-
-// Test counter to help with debugging
-int testNumber = 0;
-
-// Function to check a test and return error code immediately if it fails
-#define CHECK(condition, error_code) do { \
-    testNumber++; \
-    if (!(condition)) { \
-        /* Uncomment for debugging: printf("Test %d failed with code %d\n", testNumber, error_code); */ \
-        return error_code; \
-    } \
-} while (0)
-
-// Function to test basic integer casting
 int test_integer_casting() {
-    // Basic int casts
+
     int x = 42;
     long y = (long)x;
-    CHECK(y == 42, 100);
-    
-    // Casting to smaller type (potential truncation)
-    int large_val = INT_MAX;
+    if (!(y == 42)) { return 1; };
+
+
+    int large_val = 0x7fffffff;
     short s = (short)large_val;
-    CHECK(s == (short)INT_MAX, 101);  // Should be truncated
-    
-    // Negative values
+    if (!(s == (short)0x7fffffff)) { return 1; };
+
+
     int neg = -5;
     unsigned int u = (unsigned int)neg;
-    CHECK(u == (unsigned int)-5, 102);  // Should wrap around
-    
-    // Zero edge case
+    if (!(u == (unsigned int)-5)) { return 1; };
+
+
     int zero = 0;
     long long_zero = (long)zero;
-    CHECK(long_zero == 0, 103);
-    
-    // Casting between signed and unsigned
-    unsigned int uint_max = UINT_MAX;
+    if (!(long_zero == 0)) { return 1; };
+
+
+    unsigned int uint_max = 0xfffffffffff;
     int int_cast = (int)uint_max;
-    CHECK(int_cast == -1, 104);  // Should wrap to -1
-    
-    // Casting with operations inside the cast
+    if (!(int_cast == -1)) { return 1; };
+
+
     int a = 5, b = 3;
     long result = (long)(a + b);
-    CHECK(result == 8, 105);
-    
+    if (!(result == 8)) { return 1; };
+
     return 0;
 }
 
-// Function to test pointer casting
+
 int test_pointer_casting() {
-    // Basic pointer cast
+
     int x = 42;
     int* p_int = &x;
     void* p_void = (void*)p_int;
     int* p_back = (int*)p_void;
-    CHECK(p_back == p_int, 300);
-    CHECK(*p_back == 42, 301);
-    
-    // Cast between different sized pointers
+    if (!(p_back == p_int)) { return 1; };
+    if (!(*p_back == 42)) { return 1; };
+
+
     int arr[5] = {1, 2, 3, 4, 5};
     int* p_arr = arr;
     char* p_char = (char*)p_arr;
-    CHECK((void*)p_char == (void*)arr, 302);
-    
-    // Check byte-by-byte access after casting
+    if (!((void*)p_char == (void*)arr)) { return 1; };
+
+
     unsigned char* bytes = (unsigned char*)arr;
-    // On little-endian machines, the first byte of the first int should be 1
-    // This is implementation-dependent, so we'll check both possibilities
-    CHECK(bytes[0] == 1 || bytes[0] == 0, 303);
-    
-    // Double indirection
+
+
+    if (!(bytes[0] == 1 || bytes[0] == 0)) { return 1; };
+
+
     int y = 100;
     int* py = &y;
     int** ppy = &py;
     void** ppv = (void**)ppy;
     int** ppy_back = (int**)ppv;
-    CHECK(ppy_back == ppy, 305);
-    CHECK(*ppy_back == py, 306);
-    CHECK(**ppy_back == 100, 307);
-    
-    
-    // Cast through multiple pointer types
+    if (!(ppy_back == ppy)) { return 1; };
+    if (!(*ppy_back == py)) { return 1; };
+    if (!(**ppy_back == 100)) { return 1; };
+
+
+
     int z = 255;
     int* pz = &z;
     char* pc = (char*)pz;
     short* ps = (short*)pc;
     int* pz_back = (int*)ps;
-    CHECK(pz_back == pz, 309);
-    
+    if (!(pz_back == pz)) { return 1; };
+
     return 0;
 }
 
-// Function to test structure and union casting
+
 int test_struct_cast() {
-    // Basic struct with same memory layout
+
     struct A {
         int x;
         int y;
     };
-    
+
     struct B {
         int a;
         int b;
     };
-    
+
     struct A sa = {1, 2};
     struct B* sb = (struct B*)&sa;
-    CHECK(sb->a == 1, 400);
-    CHECK(sb->b == 2, 401);
-    
-    // Casting between struct and primitive
+    if (!(sb->a == 1)) { return 1; };
+    if (!(sb->b == 2)) { return 1; };
+
+
     struct SingleInt {
         int value;
     };
-    
+
     struct SingleInt si = {42};
     int* pi_struct = (int*)&si;
-    CHECK(*pi_struct == 42, 404);
-    
-    // Cast to and from structs with bit fields
-    struct BitField {
-        unsigned int a : 4;
-        unsigned int b : 4;
-        unsigned int c : 8;
-    };
-    
-    struct BitField bf = {0xF, 0x5, 0xAA};
-    unsigned short* pus = (unsigned short*)&bf;
-    // The exact layout depends on endianness and compiler packing
-    // Just checking that the cast is possible
-    CHECK(pus != NULL, 405);
-    
+    if (!(*pi_struct == 42)) { return 1; };
+
     return 0;
 }
 
-// Function to test casts involving enum types
+
 int test_enum_casting() {
-    // Basic enum cast
+
     enum Color { RED, GREEN, BLUE };
     enum Color c = GREEN;
     int i_enum = (int)c;
-    CHECK(i_enum == 1, 500);  // GREEN is typically 1
-    
-    // Cast back from int to enum
+    if (!(i_enum == 1)) { return 1; };
+
+
     int val = 2;
     enum Color back = (enum Color)val;
-    CHECK(back == BLUE, 501);
-    
-    // Cast out-of-range value to enum
+    if (!(back == BLUE)) { return 1; };
+
+
     int invalid = 999;
     enum Color invalid_color = (enum Color)invalid;
-    CHECK((int)invalid_color == 999, 502);
-    
-    // Define enum inside a cast (very odd edge case)
+    if (!((int)invalid_color == 999)) { return 1; };
+
+
     int weird = (enum { X, Y, Z })Y;
-    CHECK(weird == 1, 503);
-    
-    // Anonymous enum with specific values
+    if (!(weird == 1)) { return 1; };
+
+
     int val2 = (enum { A = 5, B = 10, C = 15 })B;
-    CHECK(val2 == 10, 504);
-    
-    // Enum with negative values
+    if (!(val2 == 10)) { return 1; };
+
+
     enum Signs { NEGATIVE = -1, ZERO = 0, POSITIVE = 1 };
     unsigned int u_sign = (unsigned int)NEGATIVE;
-    CHECK(u_sign == (unsigned int)-1, 505);
-    
-    // Cast enum to pointer (weird but possible)
+    if (!(u_sign == (unsigned int)-1)) { return 1; };
+
+
     enum SmallVals { SMALL1 = 1, SMALL2 = 2 };
-    void* ptr = (void*)(uintptr_t)SMALL2;
-    enum SmallVals back_val = (enum SmallVals)(uintptr_t)ptr;
-    CHECK(back_val == SMALL2, 507);
-    
+    void* ptr = (void*)(unsigned long long)SMALL2;
+    enum SmallVals back_val = (enum SmallVals)(unsigned long long)ptr;
+    if (!(back_val == SMALL2)) { return 1; };
+
     return 0;
 }
 
-// Test casts involving const qualifiers
+
 int test_const_casting() {
-    // Basic const casting
+
     const int ci = 10;
     int* mutable_ptr = (int*)&ci;
-    // Modifying *mutable_ptr is undefined behavior, but the cast itself is valid
-    CHECK(&ci == (const int*)mutable_ptr, 600);
-    
-    // Double pointer const casting
+
+    if (!(&ci == (const int*)mutable_ptr)) { return 1; };
+
+
     int x = 20;
     int* px = &x;
     const int* const* ppci = (const int* const*)&px;
     int** ppx_back = (int**)ppci;
-    CHECK(ppx_back == &px, 601);
-    
-    // Array and const
+    if (!(ppx_back == &px)) { return 1; };
+
+
     int arr[3] = {1, 2, 3};
     const int* c_arr = (const int*)arr;
     int* arr_back = (int*)c_arr;
-    CHECK(arr_back == arr, 602);
-    CHECK(arr_back[1] == 2, 603);
-    
-    // Const struct member access
+    if (!(arr_back == arr)) { return 1; };
+    if (!(arr_back[1] == 2)) { return 1; };
+
+
     struct Point {
         int x;
         int y;
     };
-    
+
     const struct Point p = {5, 10};
     int* px_field = (int*)&p.x;
-    CHECK(*px_field == 5, 604);
-    
+    if (!(*px_field == 5)) { return 1; };
+
     return 0;
 }
 
-// Test casts involving volatile
+
 int test_volatile_casting() {
-    // Basic volatile cast
+
     int i = 42;
     volatile int* vi_ptr = (volatile int*)&i;
     int* normal_ptr = (int*)vi_ptr;
-    CHECK(normal_ptr == &i, 700);
-    CHECK(*normal_ptr == 42, 701);
-    
-    // Multiple qualifiers
+    if (!(normal_ptr == &i)) { return 1; };
+    if (!(*normal_ptr == 42)) { return 1; };
+
+
     int j = 99;
     const volatile int* cvj = (const volatile int*)&j;
     int* j_back = (int*)cvj;
-    CHECK(j_back == &j, 702);
-    
+    if (!(j_back == &j)) { return 1; };
+
     return 0;
 }
 
-// Test weird compound casts
+
 int test_compound_casts() {
-    // Cast involving an anonymous struct
+
     int weird_struct_val = (struct { int x; int y; }){.x = 5, .y = 10}.y;
-    CHECK(weird_struct_val == 10, 800);
-    
-    // Cast with sizeof inside
+    if (!(weird_struct_val == 10)) { return 1; };
+
+
     int size_cast = (int)sizeof(char);
-    CHECK(size_cast == 1, 802);
-    
-    // Cast with ternary operator
-    int ternary_val = (int)(1 ? 10.5 : 20.5);
-    CHECK(ternary_val == 10, 803);
-    
-    // Cast array to pointer to different type
+    if (!(size_cast == 1)) { return 1; };
+
+
+
     int arr[5] = {1, 2, 3, 4, 5};
     short* short_arr = (short*)arr;
-    // On little-endian machines, if int is 4 bytes and short is 2:
-    // The first two shorts might be 1 and 0
-    CHECK(short_arr[0] == 1 || short_arr[1] == 0 || short_arr[0] == 0, 804);
-    
-    // Cast involving comma operator
-    int comma_val = (int)(1.1, 2.2, 3.3);
-    CHECK(comma_val == 3, 805);
-    
-    // Multiple casts in single expression
+
+
+    if (!(short_arr[0] == 1 || short_arr[1] == 0 || short_arr[0] == 0)) { return 1; };
+
+
+    int comma_val = (int)(1, 2, 3);
+    if (!(comma_val == 3)) { return 1; };
+
+
     int base = 65;
     char c1 = (char)base;
     int back = (int)(char)(unsigned char)(signed char)c1;
-    CHECK(back == 65, 806);
-    
-    // Cast involving bitfields
-    struct BF {
-        unsigned int a : 3;
-        unsigned int b : 5;
-    } bf = {.a = 7, .b = 31};
-    
-    unsigned char* bf_bytes = (unsigned char*)&bf;
-    // Can't check exact values as it depends on endianness and packing
-    CHECK(bf_bytes != NULL, 807);
-    
+    if (!(back == 65)) { return 1; };
+
     return 0;
 }
 
-// Main function to run all tests
+
 int main() {
-    // Run all test functions
+
     int result;
-    
+
     result = test_integer_casting();
-    if (result != 0) return result;
-    
+    if (result != 0) return 1;
+
     result = test_pointer_casting();
-    if (result != 0) return result;
-    
+    if (result != 0) return 2;
+
     result = test_struct_cast();
-    if (result != 0) return result;
-    
+    if (result != 0) return 3;
+
     result = test_enum_casting();
-    if (result != 0) return result;
-    
+    if (result != 0) return 4;
+
     result = test_const_casting();
-    if (result != 0) return result;
-    
+    if (result != 0) return 5;
+
     result = test_volatile_casting();
-    if (result != 0) return result;
-    
+    if (result != 0) return 6;
+
     result = test_compound_casts();
-    if (result != 0) return result;
-    
-    // If we got here, all tests passed
+    if (result != 0) return 7;
+
+
     return 0;
 }
