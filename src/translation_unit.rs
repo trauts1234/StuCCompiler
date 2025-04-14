@@ -1,5 +1,5 @@
 use crate::{asm_gen_data::AsmData, assembly::assembly_file::AssemblyFile, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
-use std::{fs::File, io::Write};
+use std::{fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
     functions: FunctionList,
@@ -9,7 +9,7 @@ pub struct TranslationUnit {
 }
 
 impl TranslationUnit {
-    pub fn new(filename: &str) -> Result<TranslationUnit, CompilationError> {
+    pub fn new(filename: &Path) -> Result<TranslationUnit, CompilationError> {
 
         let data = preprocess_c_file(filename);
 
@@ -60,7 +60,7 @@ impl TranslationUnit {
         })
     }
 
-    pub fn generate_assembly(&self, output_filename: &str) {
+    pub fn generate_assembly(&self, output_filename: &Path) {
         let mut output_file = File::create(output_filename).unwrap();
 
         let (global_funcs, extern_funcs): (Vec<_>, Vec<_>) = self

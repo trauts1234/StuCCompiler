@@ -8,3 +8,4 @@ test.c
 testout.txt
 /.vscode
 main
+tests/c_testsuite

@@ -8,7 +8,7 @@ use super::{preprocess_context::PreprocessContext, string_apply::Apply};
 
 const INCLUDE_FOLDERS: &[&str] = &["c_lib"];//local custom version of glibc 
 
-pub fn preprocess_c_file(filename: &str) -> String {
+pub fn preprocess_c_file(filename: &Path) -> String {
     let file_text = fs::read_to_string(filename).expect("failed to open c file");
     preprocess(10, &mut PreprocessContext::new(), file_text)
 }

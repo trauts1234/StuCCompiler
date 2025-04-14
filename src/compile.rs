@@ -1,18 +1,16 @@
-use std::process::Command;
+use std::{path::Path, process::Command};
 
 use crate::{compilation_error::CompilationError, translation_unit::TranslationUnit};
 
 
-pub fn compile(input_path: &str, output_name: &str, link_with: &[&str]) -> Result<(),CompilationError> {
-    println!("compiling {}", input_path);
-    let assembly_filename = format!("{}.asm", output_name);
-    let object_filename = format!("{}.o", output_name);
+pub fn compile(input_path: &Path, output_name: &Path, link_with: &[&Path]) -> Result<(),CompilationError> {
+    println!("compiling {:?}", input_path.to_str());
+    let assembly_filename = output_name.with_extension("asm");
+    let object_filename = output_name.with_extension("o");
     let binary_filename = output_name;
 
 
     let tu = TranslationUnit::new(input_path)?;
-
-    //println!("{:#?}", tu);
 
     tu.generate_assembly(&assembly_filename);
 

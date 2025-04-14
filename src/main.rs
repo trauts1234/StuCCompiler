@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, path::{Path, PathBuf}, str::FromStr};
 
 mod compound_statement;
 mod statement;
@@ -39,13 +39,13 @@ pub mod initialised_declaration;
 mod cast_expr;
 
 struct CompilationOptions {
-    c_file: String,
-    link_with: Vec<String>,
-    out_file: String
+    c_file: PathBuf,
+    link_with: Vec<PathBuf>,
+    out_file: PathBuf
 }
 
 fn main() {
-    let mut options = CompilationOptions{c_file: "test.c".to_string(), out_file: "a.out".to_string(), link_with: Vec::new()};
+    let mut options = CompilationOptions{c_file: PathBuf::from_str("test.c").unwrap(), out_file: PathBuf::from_str("a.out").unwrap(), link_with: Vec::new()};
 
     let args_vec = env::args().collect::<Vec<String>>();
     let mut args = args_vec.iter().skip(1);
@@ -53,19 +53,20 @@ fn main() {
     while let Some(arg) = args.next() {
         if arg.starts_with("-o") {
             if arg == "-o" {
-                options.out_file = args.next().unwrap().to_string();
+                options.out_file = PathBuf::from_str(args.next().unwrap()).unwrap();
             } else {
-                options.out_file = arg[2..].to_string();
+                options.out_file = PathBuf::from_str(&arg[2..]).unwrap();
             }
         } else {
+            let file_path = PathBuf::from_str(arg).unwrap();
             match arg.split_once(".").unwrap().1 {
-                "c" => options.c_file = arg.to_string(),
-                "o" => options.link_with.push(arg.to_string()),
+                "c" => options.c_file = file_path,
+                "o" => options.link_with.push(file_path),
                 _ => panic!()
             }
         }
     }
 
-    let link_with: Vec<&str> = options.link_with.iter().map(|s| s.as_str()).collect();
+    let link_with: Vec<&Path> = options.link_with.iter().map(|p| p.as_path()).collect();
     compile::compile(&options.c_file, &options.out_file, &link_with).unwrap();
 }
