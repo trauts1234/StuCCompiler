@@ -27,7 +27,7 @@ fn preprocess(include_limit: i32, ctx: &mut PreprocessContext, file_text: String
     .apply(|x| remove_comments(x))//remove all comments
     .split("\n")//get each line
     .map(|x| parse_preprocessor(include_limit, ctx, x))//.scan(preprocessor_state, |state, ln| Some(parse_preprocessor(state, ln)))//apply the preprocessor to them
-    .fold(String::new(), |acc, x| acc + &x)//join each line back together
+    .collect::<Vec<_>>().join("\n")//join each line back together
 }
 
 /**
