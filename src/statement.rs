@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, memory_size::MemoryLayout, parse_data::ParseData, selection_statement::SelectionStatement};
 
 pub enum Statement {
     EXPRESSION(Expression),
@@ -6,6 +6,7 @@ pub enum Statement {
     SELECTION(SelectionStatement),
     ITERATION(IterationStatement),
     CONTROLFLOW(ControlFlowChange),
+    NOP,//for example, the line of code ";;;;;;;;"
 }
 
 impl Statement {
@@ -36,6 +37,11 @@ impl Statement {
             return Some(ASTMetadata{resultant_tree: Self::EXPRESSION(resultant_tree), remaining_slice});
         }
 
+        if tokens_queue.peek(&curr_queue_idx, scope_data) == Some(Token::PUNCTUATOR(Punctuator::SEMICOLON)) {
+            //just a ; so is a nop
+            return Some(ASTMetadata { remaining_slice: curr_queue_idx.next_clone(), resultant_tree: Self::NOP });
+        }
+
         None
     }
 
@@ -44,20 +50,22 @@ impl Statement {
         //match on variant and call recursively
         match self {
             Self::COMPOUND(scope) => {
-                scope.generate_assembly(label_gen, asm_data, stack_data)
-            }
+                        scope.generate_assembly(label_gen, asm_data, stack_data)
+                    }
             Self::CONTROLFLOW(command) => {
-                command.generate_assembly(asm_data, stack_data)
-            }
+                        command.generate_assembly(asm_data, stack_data)
+                    }
             Self::EXPRESSION(expr) => {
-                expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data})
-            }
+                        expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data})
+                    }
             Self::SELECTION(selection) => {
-                selection.generate_assembly(label_gen, asm_data, stack_data)
-            },
+                        selection.generate_assembly(label_gen, asm_data, stack_data)
+                    },
             Self::ITERATION(it) => {
-                it.generate_assembly(label_gen, asm_data, stack_data)
-            }
+                        it.generate_assembly(label_gen, asm_data, stack_data)
+                    }
+
+            Self::NOP => Assembly::make_empty(),
         }
     }
 }
