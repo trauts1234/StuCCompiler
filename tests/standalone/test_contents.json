@@ -524,5 +524,9 @@
     {
         "filename":"casting.c",
         "return_code":0
+    },
+    {
+        "filename":"anonymousenum.c",
+        "return_code":0
     }
 ]
