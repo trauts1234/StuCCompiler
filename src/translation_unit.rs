@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly_file::AssemblyFile, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral};
+use crate::{asm_gen_data::AsmData, assembly::assembly_file::AssemblyFile, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -46,6 +46,9 @@ impl TranslationUnit {
                 token_idx = remaining_slice;
             } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data) {
                 global_variables.append(&mut resultant_tree);
+                token_idx = remaining_slice;
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree: (name, new_def) }) = Typedef::try_consume(&token_queue, &token_idx, &mut scope_data) {
+                scope_data.add_typedef(name, new_def);
                 token_idx = remaining_slice;
             } else {
                 return Err(CompilationError::PARSE(format!("unknown remaining data in translation unit: tokens {} and onwards", token_idx.index)));

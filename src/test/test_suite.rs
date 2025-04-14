@@ -6,12 +6,6 @@ use std::{fs, path::{Path, PathBuf}, process::{Command, Stdio}, str::FromStr};
 
 use crate::compile;
 
-#[derive(Debug)]
-struct TestFile {
-    filename: String,
-    stdout: Option<String>,
-}
-
 #[test]
 fn test_all() {
     let test_folder = PathBuf::from_str("tests/c_testsuite").unwrap();

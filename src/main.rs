@@ -37,6 +37,7 @@ mod classify_param;
 pub mod assembly;
 pub mod initialised_declaration;
 mod cast_expr;
+mod typedef;
 
 struct CompilationOptions {
     c_file: PathBuf,

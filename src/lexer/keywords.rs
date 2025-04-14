@@ -9,6 +9,7 @@ pub enum Keyword {
     WHILE,
     RETURN,
     BREAK,
+    TYPEDEF,
 }
 
 impl Keyword {
@@ -22,6 +23,7 @@ impl Keyword {
             "while" => Some(Self::WHILE),
             "return" => Some(Self::RETURN),
             "break" => Some(Self::BREAK),
+            "typedef" => Some(Self::TYPEDEF),
             _ => None,
         }
     }

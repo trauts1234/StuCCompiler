@@ -58,7 +58,7 @@ impl InitialisedDeclaration {
 /**
  * claims to consume a declarator, but actaully takes in the data type too, and gives back a full declaration
  */
-pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<InitialisedDeclaration>> {
+pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<InitialisedDeclaration>> {
     if slice.get_slice_size() == 0 {
         return None;//obviously no declarations in ""
     }
@@ -89,7 +89,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
  * also used in function params
  * function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, base_type: &BaseType, scope_data: &mut ParseData) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &mut ParseData) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
@@ -122,7 +122,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume token
             //identifier name in the middle, grab it
             Declaration {
-                data_type: DataType::RAW(base_type.clone()),
+                data_type: base_type.clone(),
                 name: ident.to_string(),
             }
         }
@@ -168,7 +168,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
     })
 }
 
-pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<BaseType>> {
+pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<DataType>> {
 
     let mut curr_queue_idx = previous_slice.clone();
 
@@ -176,16 +176,21 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
         Token::KEYWORD(Keyword::ENUM) => {
             let ASTMetadata { remaining_slice, resultant_tree } = try_consume_enum_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
-            Some(ASTMetadata { remaining_slice, resultant_tree })
+            Some(ASTMetadata { remaining_slice, resultant_tree: DataType::RAW(resultant_tree) })
         }
         Token::KEYWORD(Keyword::STRUCT) => {
             let ASTMetadata { remaining_slice, resultant_tree: struct_type } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
             Some(ASTMetadata {
                 remaining_slice,
-                resultant_tree: BaseType::STRUCT(struct_type.name.clone().expect("not implemented: anonymous structs"))
+                resultant_tree: DataType::RAW(BaseType::STRUCT(struct_type.name.clone().expect("not implemented: anonymous structs")))
             })
         }
+        Token::IDENTIFIER(name) => {
+            scope_data.get_typedef(&name)//try to get typedef
+            .map(|result| ASTMetadata { remaining_slice: curr_queue_idx.next_clone(), resultant_tree: result.clone() })//wrap in AST metadata
+        },
+
         _ => {
             //fallback to default type system
 
@@ -207,7 +212,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
             Some(ASTMetadata {
                 remaining_slice: curr_queue_idx,
                 //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-                resultant_tree: base_type::new_from_type_list(&data_type_info)
+                resultant_tree: DataType::RAW(base_type::new_from_type_list(&data_type_info))
             })
         }
     }

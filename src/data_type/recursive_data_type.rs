@@ -15,10 +15,10 @@ impl DataType
     pub fn new(base: BaseType) -> Self {
         DataType::RAW(base)
     }
-    pub fn new_from_slice(base: BaseType, items: &[DeclModifier]) -> Self {
+    pub fn new_from_slice(base: DataType, items: &[DeclModifier]) -> Self {
         match items {
             //no modifiers left, just raw type
-            [] => DataType::RAW(base),
+            [] => base,
             //array of count, and "remaining" tokens => array of count, process(remaining)
             [DeclModifier::ARRAY(count), remaining @ ..] => DataType::ARRAY { size: *count, element: Box::new(Self::new_from_slice(base, remaining)) },
             //pointer to "remaining" tokens => pointer to process(remaining)
@@ -61,7 +61,7 @@ impl DataType
         match self {
             DataType::ARRAY { size, element } => DataType::ARRAY { size: *size, element: Box::new(element.add_inner_modifier(modifier)) },
             DataType::POINTER(recursive_data_type) => DataType::POINTER(Box::new(recursive_data_type.add_inner_modifier(modifier))),
-            DataType::RAW(base_type) => Self::new_from_slice(base_type.clone(), &[modifier]),//add the modifier to the innermost
+            DataType::RAW(base_type) => Self::new_from_slice(DataType::RAW(base_type.clone()), &[modifier]),//add the modifier to the innermost
         }
     }
 

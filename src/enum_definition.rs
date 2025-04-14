@@ -5,7 +5,7 @@ use crate::{ast_metadata::ASTMetadata, data_type::base_type::BaseType, lexer::{k
 /**
  * stores all the enums in a current scope
  */
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct EnumList {
     all_variants: HashMap<String, NumberLiteral>,//converts enum variant name to number literal
 

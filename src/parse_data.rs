@@ -1,13 +1,14 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexMap;
 
 use crate::{data_type::recursive_data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::UnpaddedStructDefinition};
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct ParseData {
     variables: HashSet<String>,
     pub(crate) enums: EnumList,
+    typedefs: HashMap<String, DataType>,
     function_decls: Vec<FunctionDeclaration>,
     structs: IndexMap<String, UnpaddedStructDefinition>,//defined and declared structs
 
@@ -16,21 +17,17 @@ pub struct ParseData {
 
 impl ParseData {
     pub fn make_empty() -> ParseData {
-        ParseData { variables: HashSet::new(), enums: EnumList::new(), function_decls: Vec::new(),  local_symbol_table: IndexMap::new(), structs: IndexMap::new()}
+        ParseData::default()
     }
 
     /**
      * clones myself in a way that the returned parsedata is suitable for being used in a nested scope
      */
     pub fn clone_for_new_scope(&self) -> ParseData {
-        ParseData { 
-            variables: self.variables.clone(),
-            enums: self.enums.clone(),
-            function_decls: self.function_decls.clone(),
-            structs: self.structs.clone(),
+        let mut result = self.clone();
+        result.local_symbol_table = IndexMap::new();//as in new scope, all symbols are in an outer scope
 
-            local_symbol_table: IndexMap::new(), //as in new scope, all symbols are in an outer scope
-        }
+        result
     }
 
     pub fn func_declarations_as_vec(&self) -> Vec<FunctionDeclaration> {
@@ -89,5 +86,14 @@ impl ParseData {
 
     pub fn get_all_structs(&self) -> &IndexMap<String, UnpaddedStructDefinition> {
         &self.structs
+    }
+
+    pub fn add_typedef(&mut self, name: String, new_type: DataType) {
+        //can be overwritten, insert new type
+        self.typedefs.insert(name, new_type);
+    }
+
+    pub fn get_typedef(&self, name: &str) -> Option<&DataType> {
+        self.typedefs.get(name)
     }
 }
