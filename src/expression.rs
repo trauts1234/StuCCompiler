@@ -1,13 +1,14 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 #[derive(Clone)]
 pub enum Expression {
     NUMBERLITERAL(NumberLiteral),
     VARIABLE(MinimalDataVariable),
     STRUCTMEMBERACCESS(StructMemberAccess),
-    STRINGLITERAL(StringLiteral),
+    STRINGLITERAL(StringLiteral),//TODO merge with array initialisation
+    ARRAYLITERAL(ArrayInitialisation),
     FUNCCALL(FunctionCall),
 
     UNARYPREFIX(UnaryPrefixExpression),
@@ -27,6 +28,7 @@ impl Expression {
             Expression::BINARYEXPRESSION(x) => x.accept(visitor),
             Expression::STRUCTMEMBERACCESS(x) => x.accept(visitor),
             Expression::CAST(cast_expression) => cast_expression.accept(visitor),
+            Expression::ARRAYLITERAL(array_initialisation) => todo!(),
         }
     }
 }
@@ -56,7 +58,7 @@ pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueu
 pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<Expression> {
     let mut curr_queue_idx = previous_queue_idx.clone();
 
-    if tokens_queue.slice_is_parenthesis(&curr_queue_idx) {
+    if tokens_queue.slice_is_brackets(&curr_queue_idx, Punctuator::OPENCURLY) {
         //we are an expression surrounded by brackets
         //remove the outer brackets and continue
         curr_queue_idx = TokenQueueSlice {
@@ -158,7 +160,7 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                     //try to find an operator
                     //note that the operator_idx is a slice of just the operator
 
-                    match try_parse_binary_expr(tokens_queue, &curr_queue_idx, &operator_idx, accessible_funcs, scope_data) {
+                    match try_parse_binary_expr(tokens_queue, &curr_queue_idx, operator_idx, accessible_funcs, scope_data) {
                         Some(x) => {return Some(Expression::BINARYEXPRESSION(x));}
                         None => {
                             continue;
@@ -314,19 +316,19 @@ fn try_parse_unary_prefix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQ
 }
 
 /**
- * tries to parse the left and right hand side of operator_idx.index, as a binary expression e.g 1 + 2 split by "+"
+ * tries to parse the left and right hand side of operator_idx, as a binary expression e.g 1 + 2 split by "+"
  * if this parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<BinaryExpression> {
+fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: usize, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<BinaryExpression> {
     //split to before and after the operator
-    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx.index, curr_queue_idx);
+    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx, curr_queue_idx);
 
     //try and parse the left and right hand sides, propogating errors
     let parsed_left = try_consume_whole_expr(tokens_queue, &left_part, accessible_funcs, scope_data)?;
     let parsed_right = try_consume_whole_expr(tokens_queue, &right_part, accessible_funcs, scope_data)?;
 
-    let operator = tokens_queue.peek(&operator_idx, &scope_data).expect("couldn't peek")
+    let operator = tokens_queue.peek(&TokenQueueSlice { index: operator_idx, max_index: operator_idx+1 }, &scope_data).expect("couldn't peek")
         .as_punctuator().expect("couldn't cast to punctuator");
 
     Some(BinaryExpression::new(parsed_left, operator, parsed_right))

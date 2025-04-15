@@ -82,7 +82,7 @@ impl ConstexprValue {
                 //try to find an operator
                 //note that the operator_idx is a slice of just the operator
 
-                match try_parse_binary_constexpr(tokens_queue, &curr_queue_idx, &operator_idx, scope_data) {
+                match try_parse_binary_constexpr(tokens_queue, &curr_queue_idx, operator_idx, scope_data) {
                     Some(x) => {return Some(x);}
                     None => {
                         continue;
@@ -112,15 +112,15 @@ fn try_parse_constexpr_unary_prefix(tokens_queue: &mut TokenQueue, previous_queu
     }
 }
 
-fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ConstexprValue> {
+fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: usize, scope_data: &mut ParseData) -> Option<ConstexprValue> {
     //split to before and after the operator
-    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx.index, curr_queue_idx);
+    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx, curr_queue_idx);
 
     //try and parse the left and right hand sides, propogating errors
     let parsed_left = ConstexprValue::try_consume_whole_constexpr(tokens_queue, &left_part, scope_data)?;
     let parsed_right = ConstexprValue::try_consume_whole_constexpr(tokens_queue, &right_part, scope_data)?;
 
-    let operator = tokens_queue.peek(&operator_idx, &scope_data).expect("couldn't peek")
+    let operator = tokens_queue.peek(&TokenQueueSlice { index: operator_idx, max_index: operator_idx+1 }, &scope_data).expect("couldn't peek")
         .as_punctuator().expect("couldn't cast to punctuator");
 
     match (parsed_left, parsed_right) {

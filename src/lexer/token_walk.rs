@@ -154,7 +154,7 @@ impl TokenQueue {
     /**
      * returns a list of zero size slices, that have an index of each token matching the predicate
      */
-    pub fn split_by_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Vec<TokenQueueSlice> 
+    pub fn split_by_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Vec<usize> 
     where Matcher: Fn(&Token) -> bool
     {
         let mut bracket_depth = 0;//how many sets of brackets I am in
@@ -190,7 +190,7 @@ impl TokenQueue {
                 }
 
                 tok if bracket_depth == 0 && predicate(&tok) => {//outside of brackets, matching the predicate, and bracket depth was not just changed
-                    found_matches.push(TokenQueueSlice {index: i, max_index: i+1});
+                    found_matches.push(i);
                 }
                 
                 _ => {}
@@ -282,9 +282,9 @@ impl TokenQueue {
     /**
      * detects if the slice passed is all the text: (anything) including brackets on both sides
      */
-    pub fn slice_is_parenthesis(&self, slice: &TokenQueueSlice) -> bool {
+    pub fn slice_is_brackets(&self, slice: &TokenQueueSlice, expected_open_bracket: Punctuator) -> bool {
         //ensure the start is an open bracket
-        if self.peek_raw(slice) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)){
+        if self.peek_raw(slice) != Some(Token::PUNCTUATOR(expected_open_bracket)){
             return false;
         }
 

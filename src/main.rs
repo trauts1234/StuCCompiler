@@ -37,6 +37,7 @@ pub mod assembly;
 pub mod initialised_declaration;
 mod cast_expr;
 mod typedef;
+pub mod array_initialisation;
 
 struct CompilationOptions {
     c_file: PathBuf,
