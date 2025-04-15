@@ -1,4 +1,4 @@
-use crate::memory_size::MemoryLayout;
+use memory_size::MemoryLayout;
 
 use super::{register::Register, PTR_SIZE};
 

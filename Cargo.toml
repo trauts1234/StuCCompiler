@@ -10,3 +10,4 @@ regex = "1"
 thiserror = "*"
 indexmap = "2"
 unwrap_let = "*"
+memory_size = { path = "../memory_size" }

@@ -1,5 +1,4 @@
-use crate::memory_size::MemoryLayout;
-
+use memory_size::MemoryLayout;
 
 //just a string member, in NASM-friendly format already
 #[derive(Clone, Debug)]
@@ -12,11 +11,15 @@ impl ImmediateValue {
 }
 
 //extend functionality of memory layout to add extra useful function
-impl MemoryLayout {
+pub trait MemoryLayoutExt {
     /**
      * converts this number as a number of bytes into an immediate value
      */
-    pub fn as_imm(&self) -> ImmediateValue {
+    fn as_imm(&self) -> ImmediateValue;
+}
+
+impl MemoryLayoutExt for MemoryLayout {
+    fn as_imm(&self) -> ImmediateValue {
         ImmediateValue(self.size_bytes().to_string())
     }
 }
