@@ -1,6 +1,6 @@
 use crate::{assembly::operand::{memory_operand::MemoryOperand, Operand}, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::StructDefinition};
 use indexmap::IndexMap;
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 #[derive(Clone)]
 pub struct AddressedDeclaration {
@@ -38,7 +38,7 @@ impl AsmData {
 
         result
     }
-    pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: DataType, stack_data: &mut MemoryLayout) -> AsmData {
+    pub fn clone_for_new_scope(&self, parse_data: &ParseData, current_function_return_type: DataType, stack_data: &mut MemorySize) -> AsmData {
         let mut result = self.clone();
 
         //add functions

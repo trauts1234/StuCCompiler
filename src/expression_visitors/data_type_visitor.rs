@@ -17,7 +17,7 @@ impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
 
     fn visit_string_literal(&mut self, string: &StringLiteral) -> Self::Output {
         DataType::new(BaseType::I8)//8 bit integer
-        .add_outer_modifier(DeclModifier::ARRAY(string.get_num_chars()))//but replace modifiers to change it to an array of integers
+        .add_outer_modifier(DeclModifier::ARRAY(string.get_num_chars() as u64))//but replace modifiers to change it to an array of integers
     }
 
     fn visit_func_call(&mut self, func_call: &FunctionCall) -> Self::Output {

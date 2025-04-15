@@ -1,4 +1,4 @@
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 use super::{register::Register, PTR_SIZE};
 
@@ -7,9 +7,9 @@ pub enum MemoryOperand {
     ///accessing a label, RIP-relative addressed
     LabelAccess(String),
     MemoryAddress {pointer_reg: Register},//TODO allow simple expressions, like in LEA instruction. maybe this would remove need for AddToSP/SubFromBP variants
-    PreviousStackFrame{add_to_rbp: MemoryLayout},//(remember to add 8 bytes for stack frame and 8 bytes for the return address when creating this enum)
-    SubFromBP(MemoryLayout),
-    AddToSP(MemoryLayout),
+    PreviousStackFrame{add_to_rbp: MemorySize},//(remember to add 8 bytes for stack frame and 8 bytes for the return address when creating this enum)
+    SubFromBP(MemorySize),
+    AddToSP(MemorySize),
 }
 
 impl MemoryOperand {

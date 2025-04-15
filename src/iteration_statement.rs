@@ -1,5 +1,5 @@
 use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, parse_data::ParseData, statement::Statement};
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 /**
  * this handles if statements and other conditionals
@@ -107,7 +107,7 @@ impl IterationStatement {
         }
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         let mut result = Assembly::make_empty();
 
         let generic_label = label_gen.generate_label();

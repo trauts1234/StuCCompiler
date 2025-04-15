@@ -1,6 +1,6 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemoryLayoutExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use unwrap_let::unwrap_let;
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
 
@@ -11,7 +11,7 @@ use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
  */
 pub struct ScalarInAccVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut MemoryLayout
+    pub(crate) stack_data: &'a mut MemorySize
 }
 
 impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {

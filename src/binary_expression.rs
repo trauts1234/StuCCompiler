@@ -1,7 +1,7 @@
 
 use unwrap_let::unwrap_let;
-use memory_size::MemoryLayout;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemoryLayoutExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
+use memory_size::MemorySize;
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
 
 #[derive(Clone)]
 pub struct BinaryExpression {
@@ -15,7 +15,7 @@ impl BinaryExpression {
         visitor.visit_binary_expression(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         let mut result = Assembly::make_empty();
 
         if self.operator == Punctuator::EQUALS {
@@ -133,7 +133,7 @@ impl BinaryExpression {
                     destination: RegOrMem::Reg(Register::acc()),
                     secondary: Operand::Reg(Register::secondary()),
                     operation: instruction,
-                    size: MemoryLayout::from_bytes(1)//1 byte boolean
+                    size: MemorySize::from_bytes(1)//1 byte boolean
                 });
             },
 
@@ -244,7 +244,7 @@ impl BinaryExpression {
     }
 }
 
-fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
     let mut result = Assembly::make_empty();
 
     let lhs_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
@@ -267,7 +267,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
         result.add_instruction(AsmOperation::MOV {
             to: RegOrMem::Reg(Register::_CX),
             from: Operand::Imm(rhs_deref_size.as_imm()),
-            size: MemoryLayout::from_bytes(8),
+            size: MemorySize::from_bytes(8),
         });
 
         //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
@@ -306,7 +306,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
         result.add_instruction(AsmOperation::MOV {
             to: RegOrMem::Reg(Register::_CX),
             from: Operand::Imm(lhs_deref_size.as_imm()),
-            size: MemoryLayout::from_bytes(8),
+            size: MemorySize::from_bytes(8),
         });
 
         //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
@@ -317,7 +317,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     }
 
     //put RHS in CX 
-    result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::secondary()), from: Operand::Reg(Register::acc()), size: MemoryLayout::from_bytes(8)});
+    result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::secondary()), from: Operand::Reg(Register::acc()), size: MemorySize::from_bytes(8)});
 
     //read lhs to acc
     result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::acc()), from: Operand::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)), size: promoted_size });

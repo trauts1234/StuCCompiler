@@ -1,5 +1,5 @@
 use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 /**
  * This represents either a statement or variable creation.
@@ -31,7 +31,7 @@ impl StatementOrDeclaration {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         match self {
             Self::STATEMENT(statement) => statement.generate_assembly(label_gen, asm_data, stack_data),
             Self::DECLARATION(decl) => {

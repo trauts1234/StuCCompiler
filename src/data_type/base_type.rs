@@ -1,5 +1,5 @@
 use crate::{asm_gen_data::AsmData, data_type::type_token::TypeInfo};
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BaseType {
@@ -60,7 +60,7 @@ impl BaseType {
         !self.is_unsigned()
     }
 
-    pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
+    pub fn memory_size(&self, asm_data: &AsmData) -> MemorySize {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
@@ -69,19 +69,19 @@ impl BaseType {
 
             BaseType::_BOOL |
             BaseType::I8 |
-            BaseType::U8 => MemoryLayout::from_bytes(1),
+            BaseType::U8 => MemorySize::from_bytes(1),
 
             BaseType::I16 |
-            BaseType::U16 => MemoryLayout::from_bytes(2),
+            BaseType::U16 => MemorySize::from_bytes(2),
 
             BaseType::I32 |
-            BaseType::U32 => MemoryLayout::from_bytes(4),
+            BaseType::U32 => MemorySize::from_bytes(4),
 
             BaseType::I64 |
-            BaseType::U64 => MemoryLayout::from_bytes(8),
+            BaseType::U64 => MemorySize::from_bytes(8),
         }
     }
-    pub fn get_non_struct_memory_size(&self) -> MemoryLayout {
+    pub fn get_non_struct_memory_size(&self) -> MemorySize {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
@@ -90,16 +90,16 @@ impl BaseType {
 
             BaseType::_BOOL |
             BaseType::I8 |
-            BaseType::U8 => MemoryLayout::from_bytes(1),
+            BaseType::U8 => MemorySize::from_bytes(1),
 
             BaseType::I16 |
-            BaseType::U16 => MemoryLayout::from_bytes(2),
+            BaseType::U16 => MemorySize::from_bytes(2),
 
             BaseType::I32 |
-            BaseType::U32 => MemoryLayout::from_bytes(4),
+            BaseType::U32 => MemorySize::from_bytes(4),
 
             BaseType::I64 |
-            BaseType::U64 => MemoryLayout::from_bytes(8),
+            BaseType::U64 => MemorySize::from_bytes(8),
         }
     }
 }

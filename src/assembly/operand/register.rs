@@ -1,4 +1,4 @@
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 /**
  * name of an actual register
@@ -32,7 +32,7 @@ impl Register {
         Register::_CX
     }
     
-    pub fn generate_name(&self, data_size: MemoryLayout) -> String {
+    pub fn generate_name(&self, data_size: MemorySize) -> String {
         match (self, data_size.size_bytes()) {
             (Register::_SP, 8) => "rsp",
             (Register::_BP, 8) => "rbp",

@@ -1,5 +1,5 @@
-use memory_size::MemoryLayout;
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemoryLayoutExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use memory_size::MemorySize;
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -54,7 +54,7 @@ impl FunctionDefinition {
 
     pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData) -> Assembly {
         let mut result = Assembly::make_empty();
-        let mut stack_data = MemoryLayout::new();//stack starts as empty in a function
+        let mut stack_data = MemorySize::new();//stack starts as empty in a function
 
         //clone myself, but add all my local variables, and add my return type
         let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, self.get_return_type(), &mut stack_data);
@@ -65,7 +65,7 @@ impl FunctionDefinition {
         result.add_commented_instruction(AsmOperation::CreateStackFrame, "create stack frame");
 
         let code_for_body = self.code.generate_assembly(label_gen, asm_data, &mut stack_data);//calculate stack needed for function, while generating asm
-        let aligned_stack_usage = aligned_size(stack_data, MemoryLayout::from_bytes(16));
+        let aligned_stack_usage = aligned_size(stack_data, MemorySize::from_bytes(16));
         result.add_commented_instruction(AsmOperation::SUB {
             destination: RegOrMem::Reg(Register::_SP),
             decrement: Operand::Imm(aligned_stack_usage.as_imm()),
@@ -81,8 +81,8 @@ impl FunctionDefinition {
             unwrap_let!(Operand::Mem(MemoryOperand::SubFromBP(param_offset)) = &asm_data.get_variable(param.get_name()).location);//get the location of where the param should *end up* since it gets moved from registers to memory
             
             if param_idx >= 6 {
-                let below_bp_offset = MemoryLayout::from_bytes(8);//8 bytes for return addr, as rbp points to the start of the stack frame
-                let arg_offset = MemoryLayout::from_bytes(8 + (param_idx - 6) * 8);//first 6 are in registers, each is 8 bytes, +8 as first arg is still +8 extra from bp
+                let below_bp_offset = MemorySize::from_bytes(8);//8 bytes for return addr, as rbp points to the start of the stack frame
+                let arg_offset = MemorySize::from_bytes(8 + (param_idx as u64 - 6) * 8);//first 6 are in registers, each is 8 bytes, +8 as first arg is still +8 extra from bp
                 let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
                 let arg_address_operand = Operand::Mem(MemoryOperand::PreviousStackFrame { add_to_rbp: arg_bp_offset });
@@ -99,7 +99,7 @@ impl FunctionDefinition {
                     size: param_size
                 });//store in allocated space
             } else {
-                let param_reg = generate_param_reg(param_idx);
+                let param_reg = generate_param_reg(param_idx as u64);
                 //truncate param reg to desired size
                 //then write to its allocated address on the stack
                 result.add_instruction(AsmOperation::MOV {
@@ -120,7 +120,7 @@ impl FunctionDefinition {
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Reg(Register::acc()),
                 from: Operand::Imm(ImmediateValue("0".to_string())),
-                size: MemoryLayout::from_bytes(8)
+                size: MemorySize::from_bytes(8)
             });
         }
         

@@ -1,4 +1,4 @@
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 //just a string member, in NASM-friendly format already
 #[derive(Clone, Debug)]
@@ -11,14 +11,14 @@ impl ImmediateValue {
 }
 
 //extend functionality of memory layout to add extra useful function
-pub trait MemoryLayoutExt {
+pub trait MemorySizeExt {
     /**
      * converts this number as a number of bytes into an immediate value
      */
     fn as_imm(&self) -> ImmediateValue;
 }
 
-impl MemoryLayoutExt for MemoryLayout {
+impl MemorySizeExt for MemorySize {
     fn as_imm(&self) -> ImmediateValue {
         ImmediateValue(self.size_bytes().to_string())
     }

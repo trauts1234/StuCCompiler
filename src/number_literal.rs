@@ -161,33 +161,25 @@ impl NumberLiteral {
             },
         };
         
-        number_bytes[..bytes_size].iter()
+        number_bytes[..bytes_size as usize].iter()
         .map(|x| x.to_string())
         .collect::<Vec<String>>()
         .join(",")
     }
 
-    pub fn as_usize(&self) -> usize {
-        match self.value {
-            LiteralValue::SIGNED(x) => {
-                assert!(x >= 0);
-                x as usize
-            }
-            LiteralValue::UNSIGNED(x) => x as usize
-        }
-    }
-
     pub fn cast(&self, new_type: &BaseType) -> NumberLiteral {
+        let i64_type: i64 = self.value.clone().into();
+        let u64_type: u64 = self.value.clone().into();
         let new_value = match new_type {
-            BaseType::I8 => LiteralValue::SIGNED(self.value.as_i64() as i8 as i64),
-            BaseType::I16 => LiteralValue::SIGNED(self.value.as_i64() as i16 as i64),
-            BaseType::I32 => LiteralValue::SIGNED(self.value.as_i64() as i32 as i64),
-            BaseType::I64 => LiteralValue::SIGNED(self.value.as_i64()),
+            BaseType::I8 => LiteralValue::SIGNED(i64_type as i8 as i64),
+            BaseType::I16 => LiteralValue::SIGNED(i64_type as i16 as i64),
+            BaseType::I32 => LiteralValue::SIGNED(i64_type as i32 as i64),
+            BaseType::I64 => LiteralValue::SIGNED(i64_type),
 
-            BaseType::U8 => LiteralValue::UNSIGNED(self.value.as_u64() as u8 as u64),
-            BaseType::U16 => LiteralValue::UNSIGNED(self.value.as_u64() as u16 as u64),
-            BaseType::U32 => LiteralValue::UNSIGNED(self.value.as_u64() as u32 as u64),
-            BaseType::U64 => LiteralValue::UNSIGNED(self.value.as_u64()),
+            BaseType::U8 => LiteralValue::UNSIGNED(u64_type as u8 as u64),
+            BaseType::U16 => LiteralValue::UNSIGNED(u64_type as u16 as u64),
+            BaseType::U32 => LiteralValue::UNSIGNED(u64_type as u32 as u64),
+            BaseType::U64 => LiteralValue::UNSIGNED(u64_type),
 
             _ => panic!("tried to cast number literal to unknown data type")
         };
@@ -196,17 +188,20 @@ impl NumberLiteral {
     }
 }
 
-impl LiteralValue {
-    fn as_i64(&self) -> i64 {
+impl Into<i64> for LiteralValue {
+    fn into(self) -> i64 {
         match self {
-            Self::SIGNED(x) => *x,
-            Self::UNSIGNED(x) => *x as i64,
+            Self::SIGNED(x) => x,
+            Self::UNSIGNED(x) => x as i64,
         }
     }
-    fn as_u64(&self) -> u64 {
+}
+
+impl Into<u64> for LiteralValue {
+    fn into(self) -> u64 {
         match self {
-            Self::SIGNED(x) => *x as u64,
-            Self::UNSIGNED(x) => *x,
+            Self::SIGNED(x) => x as u64,
+            Self::UNSIGNED(x) => x,
         }
     }
 }

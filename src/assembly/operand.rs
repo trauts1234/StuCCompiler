@@ -6,9 +6,9 @@ use immediate::ImmediateValue;
 use memory_operand::MemoryOperand;
 use register::Register;
 
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
-pub const PTR_SIZE: MemoryLayout = MemoryLayout::from_bytes(8);
+pub const PTR_SIZE: MemorySize = MemorySize::from_bytes(8);
 
 /**
  * enum storing any possible r/m or immediate operand
@@ -26,7 +26,7 @@ pub enum RegOrMem {
     Mem(MemoryOperand),
 }
 
-pub fn generate_param_reg(param_num: usize) -> Register {
+pub fn generate_param_reg(param_num: u64) -> Register {
     match param_num {
         0 => Register::_DI,
         1 => Register::_SI,
@@ -39,7 +39,7 @@ pub fn generate_param_reg(param_num: usize) -> Register {
 }
 
 impl Operand {
-    pub fn generate_name(&self, data_size: MemoryLayout) -> String {
+    pub fn generate_name(&self, data_size: MemorySize) -> String {
         match self {
             Operand::Reg(register) => register.generate_name(data_size),
             Operand::Mem(memory_operand) => memory_operand.generate_name(),
@@ -49,7 +49,7 @@ impl Operand {
 }
 
 impl RegOrMem {
-    pub fn generate_name(&self, data_size: MemoryLayout) -> String {
+    pub fn generate_name(&self, data_size: MemorySize) -> String {
         match self {
             RegOrMem::Reg(register) => register.generate_name(data_size),
             RegOrMem::Mem(memory_operand) => memory_operand.generate_name(),

@@ -1,13 +1,13 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemoryLayoutExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
 use unwrap_let::unwrap_let;
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 /**
  * puts the address of the visited Expression in RAX
  */
 pub struct ReferenceVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut MemoryLayout
+    pub(crate) stack_data: &'a mut MemorySize
 }
 
 impl<'a> ExprVisitor for ReferenceVisitor<'a> {

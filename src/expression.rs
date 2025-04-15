@@ -1,5 +1,5 @@
 use unwrap_let::unwrap_let;
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 use crate::{ asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 #[derive(Clone)]
@@ -179,7 +179,7 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
  * used in binary expressions, where you need both sides in registers
  * does NOT work for assignment expressions
  */
-pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expression, rhs_new_type: &DataType, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expression, rhs_new_type: &DataType, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
     let mut result = Assembly::make_empty();
 
     //put rhs in on the stack
@@ -215,7 +215,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expres
     result
 }
 
-pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
     let mut result = Assembly::make_empty();
 
     let promoted_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});

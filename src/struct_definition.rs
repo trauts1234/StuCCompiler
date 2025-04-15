@@ -1,6 +1,6 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemoryLayoutExt, register::Register, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::Declaration, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::Declaration, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 /**
  * before assembly generation, structs have not had padding calculated
@@ -16,7 +16,7 @@ impl UnpaddedStructDefinition {
      * returns padded members, and the overall size of the struct
      */
     pub fn pad_members(&self, asm_data: &AsmData) -> StructDefinition {
-        let mut current_offset = MemoryLayout::new();
+        let mut current_offset = MemorySize::new();
 
         let mut result = Vec::new();
 
@@ -25,7 +25,7 @@ impl UnpaddedStructDefinition {
 
             let bytes_past_last_boundary = current_offset.size_bytes() % alignment_bytes;
             let extra_padding = (alignment_bytes - bytes_past_last_boundary) % alignment_bytes;
-            current_offset += MemoryLayout::from_bytes(extra_padding);//increase offset in this struct to reach optimal alignment
+            current_offset += MemorySize::from_bytes(extra_padding);//increase offset in this struct to reach optimal alignment
 
             result.push((m.clone(), current_offset));
             current_offset += m.get_type().memory_size(asm_data);//increase offset in struct by the size of the member
@@ -34,11 +34,11 @@ impl UnpaddedStructDefinition {
         //lastly, align to largest member's alignment, so that if this struct is in an array, subsequent structs are aligned
         let largest_member_alignment = self.ordered_members.as_ref().unwrap().iter()
             .map(|x| calculate_alignment(x.get_type(), asm_data))
-            .fold(MemoryLayout::new(), |acc, x| acc.max(x))
+            .fold(MemorySize::new(), |acc, x| acc.max(x))
             .size_bytes();
         let bytes_past_last_boundary = current_offset.size_bytes() % largest_member_alignment;
         let extra_padding = (largest_member_alignment - bytes_past_last_boundary) % largest_member_alignment;
-        current_offset += MemoryLayout::from_bytes(extra_padding);
+        current_offset += MemorySize::from_bytes(extra_padding);
 
         StructDefinition { name: self.name.clone(), ordered_members: Some(result), size: Some(current_offset) }
     }
@@ -47,8 +47,8 @@ impl UnpaddedStructDefinition {
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructDefinition {
     name: Option<String>,
-    ordered_members: Option<Vec<(Declaration, MemoryLayout)>>,//decl and offset from start that this member is located
-    size: Option<MemoryLayout>
+    ordered_members: Option<Vec<(Declaration, MemorySize)>>,//decl and offset from start that this member is located
+    size: Option<MemorySize>
 }
 
 #[derive(Clone)]
@@ -83,7 +83,7 @@ impl StructMemberAccess {
         member_decl.get_type().clone()
     }
 
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         let mut result = Assembly::make_empty();
 
         result.add_comment(format!("getting address of struct's member {}", self.member_name));
@@ -117,18 +117,18 @@ impl StructDefinition {
         &self.name
     }
 
-    pub fn calculate_size(&self) -> Option<MemoryLayout> {
+    pub fn calculate_size(&self) -> Option<MemorySize> {
         self.size
     }
 
-    pub fn get_member_data(&self, member_name: &str) -> (Declaration, MemoryLayout) {
+    pub fn get_member_data(&self, member_name: &str) -> (Declaration, MemorySize) {
         self.ordered_members.as_ref().expect("looking for member in struct with no members")
         .iter()
         .find(|(decl, _)| decl.name == member_name)//find correctly named member
         .expect("couldn't find member in struct")
         .clone()
     }
-    pub fn get_all_members(&self) -> &Option<Vec<(Declaration, MemoryLayout)>> {
+    pub fn get_all_members(&self) -> &Option<Vec<(Declaration, MemorySize)>> {
         &self.ordered_members
     }
     
@@ -193,7 +193,7 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
     Some(decl)
 }
 
-fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemoryLayout {
+fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemorySize {
     if let DataType::ARRAY {..} = data_type {
         calculate_alignment(&data_type.remove_outer_modifier(), asm_data) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
     } else {

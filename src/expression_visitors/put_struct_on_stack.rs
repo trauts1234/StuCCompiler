@@ -1,13 +1,13 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemoryLayoutExt, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
 use unwrap_let::unwrap_let;
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 use super::expr_visitor::ExprVisitor;
 
 
 
 pub struct CopyStructVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut MemoryLayout,
+    pub(crate) stack_data: &'a mut MemorySize,
     pub(crate) resultant_location: Operand,
 }
 
@@ -109,7 +109,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
  * clones the struct pointed to by acc onto the stack
  * moves acc to point to the start of the cloned struct
  */
-fn clone_struct_to_stack(struct_size: MemoryLayout, resulatant_location: &Operand) -> Assembly {
+fn clone_struct_to_stack(struct_size: MemorySize, resulatant_location: &Operand) -> Assembly {
     let mut result = Assembly::make_empty();
 
     

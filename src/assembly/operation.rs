@@ -1,12 +1,12 @@
 use crate::data_type::{base_type::BaseType, recursive_data_type::DataType};
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 use super::operand::{Operand, RegOrMem, PTR_SIZE};
 
 
 #[derive(Clone)]
 pub enum AsmOperation {
     ///moves size bytes from -> to
-    MOV {to: RegOrMem, from: Operand, size: MemoryLayout},
+    MOV {to: RegOrMem, from: Operand, size: MemorySize},
     ///references from, puts address in to
     LEA {to: Operand, from: Operand},
 
@@ -18,9 +18,9 @@ pub enum AsmOperation {
     JMPCC {label: String, comparison: AsmComparison},
 
     ///sign extends the accumulator to i64 from the old size
-    SignExtendACC {old_size: MemoryLayout},
+    SignExtendACC {old_size: MemorySize},
     ///zero extends the accumulator to u64 from the old size
-    ZeroExtendACC {old_size: MemoryLayout},
+    ZeroExtendACC {old_size: MemorySize},
 
     ///adds increment to destination
     ADD {destination: RegOrMem, increment: Operand, data_type: DataType},
@@ -38,17 +38,17 @@ pub enum AsmOperation {
     ///negates the item, taking into account its data type
     NEG {item: RegOrMem, data_type: DataType},
     ///performs bitwise not to the item
-    BitwiseNot {item: RegOrMem, size: MemoryLayout},
+    BitwiseNot {item: RegOrMem, size: MemorySize},
 
     /// applies operation to destination and secondary, saving results to destination
-    BitwiseOp {destination: RegOrMem, secondary: Operand, operation: LogicalOperation, size: MemoryLayout},
+    BitwiseOp {destination: RegOrMem, secondary: Operand, operation: LogicalOperation, size: MemorySize},
 
     Label {name: String},
     CreateStackFrame,
     DestroyStackFrame,
     Return,
     ///copies size bytes from the pointer RDI to RSI
-    MEMCPY {size: MemoryLayout},
+    MEMCPY {size: MemorySize},
     ///calls a subroutine
     CALL {label: String},
     ///not even a nop, just a blank line of assembly
@@ -119,7 +119,7 @@ fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &DataType) -> String
 }
 
 fn instruction_setcc(destination: &RegOrMem, comparison: &AsmComparison) -> String {
-    let reg_name = destination.generate_name(MemoryLayout::from_bytes(1));//setting 1 byte boolean
+    let reg_name = destination.generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
 
     let comparison_instr = match comparison {
         AsmComparison::NE => "setne",
@@ -148,16 +148,16 @@ fn instruction_jmpcc(label: &str, comparison: &AsmComparison) -> String {
     format!("{} {}", comparison_instr, label)
 }
 
-fn instruction_sign_extend(original: &MemoryLayout) -> String {
+fn instruction_sign_extend(original: &MemorySize) -> String {
     match original.size_bytes() {
-        1 => format!("cbw\n{}", instruction_sign_extend(&MemoryLayout::from_bytes(2))),
-        2 => format!("cwde\n{}", instruction_sign_extend(&MemoryLayout::from_bytes(4))),
+        1 => format!("cbw\n{}", instruction_sign_extend(&MemorySize::from_bytes(2))),
+        2 => format!("cwde\n{}", instruction_sign_extend(&MemorySize::from_bytes(4))),
         4 => format!("cdqe\n"),
         _ => panic!("tried to sign extend unknown size")
     }
 }
 
-fn instruction_zero_extend(original: &MemoryLayout) -> String {
+fn instruction_zero_extend(original: &MemorySize) -> String {
     match original.size_bytes() {
         1 => String::from("movzx rax, al\n"),
         2 => String::from("movzx rax, ax\n"),
@@ -192,8 +192,8 @@ fn instruction_neg(destination: &RegOrMem, data_type: &DataType) -> String {
 
 fn instruction_div(divisor: &RegOrMem, data_type: &DataType) -> String {
     match data_type {
-        DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemoryLayout::from_bytes(4))),
-        DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemoryLayout::from_bytes(8))),
+        DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
+        DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
         _ => panic!("cannot divide by this type")
     }
 }
@@ -208,7 +208,7 @@ fn instruction_mul(multiplier: &RegOrMem, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_bitwise(destination: &RegOrMem, secondary: &Operand, operation: &LogicalOperation, size: MemoryLayout) -> String {
+fn instruction_bitwise(destination: &RegOrMem, secondary: &Operand, operation: &LogicalOperation, size: MemorySize) -> String {
     let op_asm = match operation {
         LogicalOperation::AND => "and".to_string(),
         LogicalOperation::OR => "or".to_string(),
@@ -220,16 +220,16 @@ fn instruction_bitwise(destination: &RegOrMem, secondary: &Operand, operation: &
 
 fn instruction_shiftleft(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
     let size = base_type.get_non_struct_memory_size();
-    format!("shl {}, {}", destination.generate_name(size), amount.generate_name(MemoryLayout::from_bytes(1)))
+    format!("shl {}, {}", destination.generate_name(size), amount.generate_name(MemorySize::from_bytes(1)))
 }
 
 fn instruction_shiftright(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
     let size = base_type.get_non_struct_memory_size();
     match base_type {
         //signed shift needs algebraic shift right
-        base if base.is_signed() => format!("sar {}, {}", destination.generate_name(size), amount.generate_name(MemoryLayout::from_bytes(1))),
+        base if base.is_signed() => format!("sar {}, {}", destination.generate_name(size), amount.generate_name(MemorySize::from_bytes(1))),
         //unsigned uses logical shift
-        base if base.is_unsigned() => format!("shr {}, {}", destination.generate_name(size), amount.generate_name(MemoryLayout::from_bytes(1))),
+        base if base.is_unsigned() => format!("shr {}, {}", destination.generate_name(size), amount.generate_name(MemorySize::from_bytes(1))),
         _ => panic!("cannot shift this type")
     }
 }

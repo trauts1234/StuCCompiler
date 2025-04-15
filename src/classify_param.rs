@@ -1,5 +1,5 @@
 use crate::{asm_gen_data::AsmData, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::Declaration};
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 #[derive(PartialEq, Clone)]
 pub enum ArgType {
@@ -29,7 +29,7 @@ impl ArgType {
                     ..=16 => {
                         let args_iter = struct_type.get_all_members().as_ref().expect("tried to pass a struct as a param but it had no members").iter();
                         
-                        let is_first_eightbyte_predicate = |(decl, offset): &&(Declaration, MemoryLayout)| {
+                        let is_first_eightbyte_predicate = |(decl, offset): &&(Declaration, MemorySize)| {
                             let last_byte_of_member_offset = decl.get_type().memory_size(asm_data) + *offset;
 
                             last_byte_of_member_offset.size_bytes() <= 8

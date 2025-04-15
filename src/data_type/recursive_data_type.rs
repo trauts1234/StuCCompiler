@@ -1,11 +1,11 @@
 use crate::asm_gen_data::AsmData;
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
 
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DataType {
-    ARRAY{size: usize, element: Box<DataType>},
+    ARRAY{size: u64, element: Box<DataType>},
     POINTER(Box<DataType>),
     RAW(BaseType)
 }
@@ -65,10 +65,10 @@ impl DataType
         }
     }
 
-    pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
+    pub fn memory_size(&self, asm_data: &AsmData) -> MemorySize {
         match self {
-            DataType::ARRAY { size, element } => MemoryLayout::from_bytes(size * &element.memory_size(asm_data).size_bytes()),
-            DataType::POINTER(_) => MemoryLayout::from_bytes(8),
+            DataType::ARRAY { size, element } => MemorySize::from_bytes(size * &element.memory_size(asm_data).size_bytes()),
+            DataType::POINTER(_) => MemorySize::from_bytes(8),
             DataType::RAW(base) => base.memory_size(asm_data),
         }
     }

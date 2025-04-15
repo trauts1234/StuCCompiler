@@ -1,5 +1,5 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemoryLayoutExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
-use memory_size::MemoryLayout;
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, classify_param::ArgType, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use memory_size::MemorySize;
 
 #[derive(Clone)]
 pub struct FunctionCall {
@@ -14,11 +14,11 @@ impl FunctionCall {
         visitor.visit_func_call(self)
     }
     
-    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         //system V ABI
         let mut result = Assembly::make_empty();
 
-        let alignment_size = MemoryLayout::from_bytes(8);//I think everything is 8 byte aligned here?
+        let alignment_size = MemorySize::from_bytes(8);//I think everything is 8 byte aligned here?
 
         result.add_comment(format!("calling function: {}", self.func_name));
 
@@ -69,14 +69,14 @@ impl FunctionCall {
         assert!(sorted_args.integer_args.iter().all(|x| x.param_type.decay() == x.param_type));//none can be array at this point
 
         //calculate stack required for the args
-        let stack_required_for_memory_args: MemoryLayout = sorted_args.memory_args.iter()
+        let stack_required_for_memory_args: MemorySize = sorted_args.memory_args.iter()
             .map(|x| aligned_size(x.param_type.memory_size(asm_data), alignment_size))
             .sum();
-        let stack_required_for_integer_args: MemoryLayout = sorted_args.integer_args.iter()
+        let stack_required_for_integer_args: MemorySize = sorted_args.integer_args.iter()
             .map(|x| aligned_size(x.param_type.memory_size(asm_data), alignment_size))
             .sum();
-        let aligned_memory_args_size = aligned_size(stack_required_for_memory_args, MemoryLayout::from_bytes(16));
-        let aligned_integer_args_size = aligned_size(stack_required_for_integer_args, MemoryLayout::from_bytes(16));
+        let aligned_memory_args_size = aligned_size(stack_required_for_memory_args, MemorySize::from_bytes(16));
+        let aligned_integer_args_size = aligned_size(stack_required_for_integer_args, MemorySize::from_bytes(16));
         
         //allocate stack for args passed by memory
         result.add_commented_instruction(AsmOperation::SUB {
@@ -105,13 +105,13 @@ impl FunctionCall {
         ));
         //pop the register args to registers
         for i in 0..sorted_args.integer_regs_used {
-            let sp_offset = MemoryLayout::from_bytes(8*i);//each register arg on the stack is 64 bit, so this gets each one's address in turn
+            let sp_offset = MemorySize::from_bytes(8*i);//each register arg on the stack is 64 bit, so this gets each one's address in turn
 
             //read arg to correct register
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Reg(generate_param_reg(i)),
                 from: Operand::Mem(MemoryOperand::AddToSP(sp_offset)),
-                size: MemoryLayout::from_bytes(8),
+                size: MemorySize::from_bytes(8),
             });
         }
 
@@ -122,7 +122,7 @@ impl FunctionCall {
         });
 
         //since there are no floating point args, this must be left as 0 to let varadic functions know
-        result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::_AX), from: Operand::Imm(ImmediateValue("0".to_string())), size: MemoryLayout::from_bytes(8) });
+        result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::_AX), from: Operand::Imm(ImmediateValue("0".to_string())), size: MemorySize::from_bytes(8) });
 
         result.add_instruction(AsmOperation::CALL { label: self.func_name.clone() });
 
@@ -190,7 +190,7 @@ pub struct AllocatedArg {
 
 struct AllocatedArgs {
     integer_args: Vec<AllocatedArg>,
-    integer_regs_used: usize,
+    integer_regs_used: u64,
     memory_args: Vec<AllocatedArg>,
 }
 impl AllocatedArgs {
@@ -214,10 +214,10 @@ impl AllocatedArgs {
 /**
  * calculates how much extra memory is needed to make current_offset a multiple of alignment
  */
-pub fn align(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLayout {
+pub fn align(current_offset: MemorySize, alignment: MemorySize) -> MemorySize {
     let bytes_past_last_boundary = current_offset.size_bytes() % alignment.size_bytes();
 
-    MemoryLayout::from_bytes (
+    MemorySize::from_bytes (
         (alignment.size_bytes() - bytes_past_last_boundary) % alignment.size_bytes()
     )
 }
@@ -226,7 +226,7 @@ pub fn align(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLay
  * calculates the size of current_offset when rounded up to the alignment boundary
  * return value >= current_offset
  */
-pub fn aligned_size(current_offset: MemoryLayout, alignment: MemoryLayout) -> MemoryLayout {
+pub fn aligned_size(current_offset: MemorySize, alignment: MemorySize) -> MemorySize {
     current_offset + align(current_offset, alignment)
 }
 
@@ -236,10 +236,10 @@ pub fn aligned_size(current_offset: MemoryLayout, alignment: MemoryLayout) -> Me
  * stack_data is used for scratch space only
  * extra_stack_for_params: is the total size of extra data that will be left on the stack - this is used as a positive RSP offset to write params to
  */
-fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
     let mut result = Assembly::make_empty();
-    let alignment_size = MemoryLayout::from_bytes(8);//I think everything is 8 byte aligned here?
-    let mut current_sp_offset = MemoryLayout::new();//how far from rsp is the next param
+    let alignment_size = MemorySize::from_bytes(8);//I think everything is 8 byte aligned here?
+    let mut current_sp_offset = MemorySize::new();//how far from rsp is the next param
 
     for arg in args.iter() {
 

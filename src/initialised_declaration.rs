@@ -1,5 +1,5 @@
 use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, type_modifier::DeclModifier}, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
-use memory_size::MemoryLayout;
+use memory_size::MemorySize;
 
 /**
  * stores a variable and assembly to construct it
@@ -44,7 +44,7 @@ impl InitialisedDeclaration {
         })
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         let mut result = Assembly::make_empty();
 
         if let Some(init) = &self.init_code {
@@ -136,7 +136,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
 
                 tokens_queue.consume(&mut curr_queue_idx, &scope_data)?;//consume the open bracket
                 if let Token::NUMBER(arraysize) = tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
-                    array_modifiers.push(DeclModifier::ARRAY(arraysize.as_usize()));
+                    array_modifiers.push(DeclModifier::ARRAY(arraysize.get_value().clone().into()));
                 } else {
                     panic!("array size inference not supported!")//I can't predict the size of arrays yet, so char[] x = "hello world";does not work
                 }

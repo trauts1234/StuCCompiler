@@ -1,5 +1,5 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemoryLayoutExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
-use memory_size::MemoryLayout;
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use memory_size::MemorySize;
 
 #[derive(Clone)]
 pub struct UnaryPrefixExpression {
@@ -12,7 +12,7 @@ impl UnaryPrefixExpression {
         visitor.visit_unary_prefix(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemoryLayout) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         let mut result = Assembly::make_empty();
 
         match self.operator {
