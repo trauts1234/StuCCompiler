@@ -22,6 +22,29 @@ impl TokenSearchType {
     pub fn skip_nothing() -> TokenSearchType {
         TokenSearchType { skip_in_curly_brackets: false, skip_in_square_brackets: false, skip_in_squiggly_brackets: false }
     }
+    pub fn skip_all() -> TokenSearchType {
+        TokenSearchType { skip_in_curly_brackets: true, skip_in_square_brackets: true, skip_in_squiggly_brackets: true }
+    }
+
+    /// returns true if the bracket is the start of a portion that needs to be skipped according to the search type
+    pub fn is_skippable_open_bracket(&self, punctuator: &Punctuator) -> bool {
+        match punctuator {
+            Punctuator::OPENCURLY if self.skip_in_curly_brackets => true,
+            Punctuator::OPENSQUARE if self.skip_in_square_brackets => true,
+            Punctuator::OPENSQUIGGLY if self.skip_in_squiggly_brackets => true,
+            _ => false
+        }
+    }
+
+    ///returns true if the bracket is a close bracket ending a portion that needed to be skipped
+    pub fn is_skippable_close_bracket(&self, punctuator: &Punctuator) -> bool {
+        match punctuator {
+            Punctuator::CLOSECURLY if self.skip_in_curly_brackets => true,
+            Punctuator::CLOSESQUARE if self.skip_in_square_brackets => true,
+            Punctuator::CLOSESQUIGGLY if self.skip_in_squiggly_brackets => true,
+            _ => false
+        }
+    }
 }
 
 impl TokenQueue {
@@ -168,26 +191,8 @@ impl TokenQueue {
 
         for i in range {
             match &self.tokens[i] {
-                Token::PUNCTUATOR(Punctuator::OPENCURLY) if exclusions.skip_in_curly_brackets => {
-                    bracket_depth += 1;//I should avoid being in brackets if that flag is set
-                }
-                Token::PUNCTUATOR(Punctuator::CLOSECURLY) if exclusions.skip_in_curly_brackets => {
-                    bracket_depth -= 1;
-                }
-
-                Token::PUNCTUATOR(Punctuator::OPENSQUARE) if exclusions.skip_in_square_brackets => {
-                    bracket_depth += 1;
-                }
-                Token::PUNCTUATOR(Punctuator::CLOSESQUARE) if exclusions.skip_in_square_brackets => {
-                    bracket_depth -= 1;
-                }
-
-                Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
-                    bracket_depth += 1;
-                }
-                Token::PUNCTUATOR(Punctuator::CLOSESQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
-                    bracket_depth -= 1;
-                }
+                Token::PUNCTUATOR(x) if exclusions.is_skippable_open_bracket(x) => bracket_depth += 1,
+                Token::PUNCTUATOR(x) if exclusions.is_skippable_close_bracket(x) => bracket_depth -= 1,
 
                 tok if bracket_depth == 0 && predicate(&tok) => {//outside of brackets, matching the predicate, and bracket depth was not just changed
                     found_matches.push(i);
@@ -215,7 +220,9 @@ impl TokenQueue {
         )
     }
 
-    pub fn split_outside_parentheses<Matcher>(&self, bounds: &TokenQueueSlice, predicate: Matcher) -> Vec<TokenQueueSlice> 
+    /// - returns a list of slices, representing all slices split by predicate, with the item matching the predicate removed, just like string.split()
+    /// - if no matches are found, ```vec![bounds.clone()]``` is returned
+    pub fn split_outside_parentheses<Matcher>(&self, bounds: &TokenQueueSlice, predicate: Matcher, exclusions: &TokenSearchType) -> Vec<TokenQueueSlice> 
     where Matcher: Fn(&Token) -> bool
     {
         let mut inside_parentheses = 0;
@@ -224,12 +231,8 @@ impl TokenQueue {
 
         for i in bounds.index..bounds.max_index {
             match &self.tokens[i] {
-                Token::PUNCTUATOR(x) if *x == Punctuator::OPENCURLY => {
-                    inside_parentheses += 1;
-                },
-                Token::PUNCTUATOR(x) if *x == Punctuator::CLOSECURLY => {
-                    inside_parentheses -= 1;
-                },
+                Token::PUNCTUATOR(x) if exclusions.is_skippable_open_bracket(x) => inside_parentheses += 1,
+                Token::PUNCTUATOR(x) if exclusions.is_skippable_close_bracket(x) => inside_parentheses -= 1,
                 
                 tok if predicate(tok) && inside_parentheses == 0 => {//match predicate and not inside parentheses
                     slices.push(TokenQueueSlice{index: prev_slice_end, max_index: i});
@@ -238,6 +241,7 @@ impl TokenQueue {
 
                 _ => {}
             }
+            assert!(inside_parentheses >= 0);
         }
 
         slices.push(TokenQueueSlice{index: prev_slice_end, max_index: bounds.max_index});//add remaining characters

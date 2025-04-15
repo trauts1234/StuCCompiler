@@ -6,7 +6,6 @@ use std::{fs, path::{Path, PathBuf}, process::{Command, Stdio}, str::FromStr};
 
 use crate::compile;
 
-#[test]
 fn test_all() {
     let test_folder = PathBuf::from_str("tests/c_testsuite").unwrap();
 

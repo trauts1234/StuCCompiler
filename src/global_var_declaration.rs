@@ -38,7 +38,7 @@ impl GlobalVariable {
         //find where all the declarators are (the x=2,y part in int x=2,y;)
         let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
         //split each declarator
-        let declarator_segments = tokens_queue.split_outside_parentheses(&all_declarators_segment, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA));
+        let declarator_segments = tokens_queue.split_outside_parentheses(&all_declarators_segment, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator

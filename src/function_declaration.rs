@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, declaration::Declaration, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, declaration::Declaration, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
@@ -72,7 +72,7 @@ pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQu
 
     tokens_queue.consume(&mut curr_queue_idx, &scope_data).unwrap();//consume the open bracket
 
-    let args_segments = tokens_queue.split_outside_parentheses(&args_location, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA));
+    let args_segments = tokens_queue.split_outside_parentheses(&args_location, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
 
     //grab all the args
     let mut params = Vec::new();
