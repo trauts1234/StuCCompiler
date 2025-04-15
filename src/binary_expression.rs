@@ -34,7 +34,7 @@ impl BinaryExpression {
 
         match &self.operator {
             Punctuator::PLUS => {
-                result.add_comment(format!("adding {}-bit numbers", promoted_size.size_bits()));
+                result.add_comment(format!("adding {} numbers", promoted_size));
 
                 result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
@@ -48,7 +48,7 @@ impl BinaryExpression {
                 
             },
             Punctuator::DASH => {
-                result.add_comment(format!("subtracting {}-bit numbers", promoted_size.size_bits()));
+                result.add_comment(format!("subtracting {} numbers", promoted_size));
 
                 result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 

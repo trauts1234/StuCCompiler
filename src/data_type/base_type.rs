@@ -69,16 +69,16 @@ impl BaseType {
 
             BaseType::_BOOL |
             BaseType::I8 |
-            BaseType::U8 => MemoryLayout::from_bits(8),
+            BaseType::U8 => MemoryLayout::from_bytes(1),
 
             BaseType::I16 |
-            BaseType::U16 => MemoryLayout::from_bits(16),
+            BaseType::U16 => MemoryLayout::from_bytes(2),
 
             BaseType::I32 |
-            BaseType::U32 => MemoryLayout::from_bits(32),
+            BaseType::U32 => MemoryLayout::from_bytes(4),
 
             BaseType::I64 |
-            BaseType::U64 => MemoryLayout::from_bits(64),
+            BaseType::U64 => MemoryLayout::from_bytes(8),
         }
     }
     pub fn get_non_struct_memory_size(&self) -> MemoryLayout {
@@ -90,16 +90,16 @@ impl BaseType {
 
             BaseType::_BOOL |
             BaseType::I8 |
-            BaseType::U8 => MemoryLayout::from_bits(8),
+            BaseType::U8 => MemoryLayout::from_bytes(1),
 
             BaseType::I16 |
-            BaseType::U16 => MemoryLayout::from_bits(16),
+            BaseType::U16 => MemoryLayout::from_bytes(2),
 
             BaseType::I32 |
-            BaseType::U32 => MemoryLayout::from_bits(32),
+            BaseType::U32 => MemoryLayout::from_bytes(4),
 
             BaseType::I64 |
-            BaseType::U64 => MemoryLayout::from_bits(64),
+            BaseType::U64 => MemoryLayout::from_bytes(8),
         }
     }
 }
@@ -131,23 +131,23 @@ pub fn new_from_type_list(type_info: &[TypeInfo]) -> BaseType {
     let is_short = type_info.contains(&TypeInfo::SHORT);
     let is_char = type_info.contains(&TypeInfo::CHAR);
 
-    let size_bits = match (is_long, is_short, is_char) {
-        (true, false, false) => 64,
-        (false, false, false) => 32,//default is 32 bit
-        (false, true, false) => 16,
-        (false, false, true) => 8,
+    let size_bytes = match (is_long, is_short, is_char) {
+        (true, false, false) => 8,
+        (false, false, false) => 4,//default is 32 bit
+        (false, true, false) => 2,
+        (false, false, true) => 1,
         _ => panic!("unknown type")
     };
 
-    let base_type = match (unsigned, size_bits) {
-        (true, 64) => BaseType::U64,
-        (false, 64) => BaseType::I64,
-        (true, 32) => BaseType::U32,
-        (false, 32) => BaseType::I32,
-        (true, 16) => BaseType::U16,
-        (false, 16) => BaseType::I16,
-        (true, 8) => BaseType::U8,
-        (false, 8) => BaseType::I8,
+    let base_type = match (unsigned, size_bytes) {
+        (true, 8) => BaseType::U64,
+        (false, 8) => BaseType::I64,
+        (true, 4) => BaseType::U32,
+        (false, 4) => BaseType::I32,
+        (true, 2) => BaseType::U16,
+        (false, 2) => BaseType::I16,
+        (true, 1) => BaseType::U8,
+        (false, 1) => BaseType::I8,
 
         (_, _) => panic!("unsupported size"),
     };

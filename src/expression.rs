@@ -254,7 +254,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             result.add_instruction(AsmOperation::MEMCPY { size: promoted_type.memory_size(asm_data) });
         },
         data_type => {
-            assert!(data_type.memory_size(asm_data).size_bits() <= 64);
+            assert!(data_type.memory_size(asm_data).size_bytes() <= 8);
             //maybe more special cases for struct assignment etc
 
             //put address of lvalue on stack

@@ -34,7 +34,7 @@ impl UnpaddedStructDefinition {
         //lastly, align to largest member's alignment, so that if this struct is in an array, subsequent structs are aligned
         let largest_member_alignment = self.ordered_members.as_ref().unwrap().iter()
             .map(|x| calculate_alignment(x.get_type(), asm_data))
-            .fold(MemoryLayout::new(), |acc, x| MemoryLayout::biggest(&acc, &x))
+            .fold(MemoryLayout::new(), |acc, x| acc.max(x))
             .size_bytes();
         let bytes_past_last_boundary = current_offset.size_bytes() % largest_member_alignment;
         let extra_padding = (largest_member_alignment - bytes_past_last_boundary) % largest_member_alignment;

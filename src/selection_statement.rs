@@ -118,8 +118,9 @@ impl SelectionStatement {
                 }
 
                 //stack required is the largest between the if and else branches
-                stack_data.set_to_biggest(if_body_stack_usage);
-                stack_data.set_to_biggest(else_body_stack_usage);
+                *stack_data = stack_data.clone()
+                    .max(if_body_stack_usage)
+                    .max(else_body_stack_usage);
 
                 //after if/else are complete, jump here
                 result.add_instruction(AsmOperation::Label { name: if_end_label });

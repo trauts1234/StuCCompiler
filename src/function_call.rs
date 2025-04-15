@@ -111,7 +111,7 @@ impl FunctionCall {
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Reg(generate_param_reg(i)),
                 from: Operand::Mem(MemoryOperand::AddToSP(sp_offset)),
-                size: MemoryLayout::from_bits(64),
+                size: MemoryLayout::from_bytes(8),
             });
         }
 
@@ -262,7 +262,7 @@ fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack
             },
             (original_type, casted_type) => {
                 result.add_comment("putting arg on stack");
-                assert!(original_type.memory_size(asm_data).size_bits() <= 64);
+                assert!(original_type.memory_size(asm_data).size_bytes() <= 8);
 
                 let arg_expr_asm = arg.arg_tree.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
                 result.merge(&arg_expr_asm);//put value in acc, using standard stack to calculate it

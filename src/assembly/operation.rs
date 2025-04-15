@@ -1,4 +1,4 @@
-use crate::{data_type::{base_type::BaseType, recursive_data_type::DataType}};
+use crate::data_type::{base_type::BaseType, recursive_data_type::DataType};
 use memory_size::MemoryLayout;
 use super::operand::{Operand, RegOrMem, PTR_SIZE};
 
@@ -149,19 +149,19 @@ fn instruction_jmpcc(label: &str, comparison: &AsmComparison) -> String {
 }
 
 fn instruction_sign_extend(original: &MemoryLayout) -> String {
-    match original.size_bits() {
-        8 => format!("cbw\n{}", instruction_sign_extend(&MemoryLayout::from_bits(16))),
-        16 => format!("cwde\n{}", instruction_sign_extend(&MemoryLayout::from_bits(32))),
-        32 => format!("cdqe\n"),
+    match original.size_bytes() {
+        1 => format!("cbw\n{}", instruction_sign_extend(&MemoryLayout::from_bytes(2))),
+        2 => format!("cwde\n{}", instruction_sign_extend(&MemoryLayout::from_bytes(4))),
+        4 => format!("cdqe\n"),
         _ => panic!("tried to sign extend unknown size")
     }
 }
 
 fn instruction_zero_extend(original: &MemoryLayout) -> String {
-    match original.size_bits() {
-        8 => String::from("movzx rax, al\n"),
-        16 => String::from("movzx rax, ax\n"),
-        32 => String::new(), // Writing to EAX automatically zeroes RAX's upper half.
+    match original.size_bytes() {
+        1 => String::from("movzx rax, al\n"),
+        2 => String::from("movzx rax, ax\n"),
+        4 => String::new(), // Writing to EAX automatically zeroes RAX's upper half.
         _ => panic!("tried to zero extend unknown size")
     }
 }
@@ -192,8 +192,8 @@ fn instruction_neg(destination: &RegOrMem, data_type: &DataType) -> String {
 
 fn instruction_div(divisor: &RegOrMem, data_type: &DataType) -> String {
     match data_type {
-        DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(32))),
-        DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemoryLayout::from_bits(64))),
+        DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemoryLayout::from_bytes(4))),
+        DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemoryLayout::from_bytes(8))),
         _ => panic!("cannot divide by this type")
     }
 }

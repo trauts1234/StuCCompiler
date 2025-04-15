@@ -60,7 +60,7 @@ impl ArgType {
                 }
             },
             x if x.is_integer() => {
-                assert!(x.memory_size(asm_data).size_bits() <= 64);//must be able to fit in a register
+                assert!(x.memory_size(asm_data).size_bytes() <= 8);//must be able to fit in a register
                 ArgType::INTEGER
             },
             x => panic!("tried to calculate param type from unknown type: {:?}", x)

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData};
+use crate::asm_gen_data::AsmData;
 use memory_size::MemoryLayout;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
 
@@ -67,7 +67,7 @@ impl DataType
 
     pub fn memory_size(&self, asm_data: &AsmData) -> MemoryLayout {
         match self {
-            DataType::ARRAY { size, element } => MemoryLayout::from_bits(size * &element.memory_size(asm_data).size_bits()),
+            DataType::ARRAY { size, element } => MemoryLayout::from_bytes(size * &element.memory_size(asm_data).size_bytes()),
             DataType::POINTER(_) => MemoryLayout::from_bytes(8),
             DataType::RAW(base) => base.memory_size(asm_data),
         }
@@ -100,23 +100,23 @@ pub fn calculate_integer_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseTy
     assert!(lhs.is_integer() && rhs.is_integer());
 
     //integer type promotion
-    let biggest_size = lhs.get_non_struct_memory_size().size_bits().max(rhs.get_non_struct_memory_size().size_bits());
+    let biggest_size = lhs.get_non_struct_memory_size().max(rhs.get_non_struct_memory_size());
 
-    match (biggest_size, lhs.is_unsigned(), rhs.is_unsigned()) {
-        (0..=31, _, _) |// small enough to be cast to int easily
-        (32, false, false)//signed, and both int sized
+    match (biggest_size.size_bytes(), lhs.is_unsigned(), rhs.is_unsigned()) {
+        (0..4, _, _) |// small enough to be cast to int easily
+        (4, false, false)//signed, and both int sized
             => BaseType::I32,
 
-        (32, _, _) => BaseType::U32,
+        (4, _, _) => BaseType::U32,
 
-        (33..=63, _, _) |// small enough to be cast to long long easily
-        (64, false, false)//signed, and both are long long sized
+        (5..8, _, _) |// small enough to be cast to long long easily
+        (8, false, false)//signed, and both are long long sized
             => BaseType::I64,
 
-        (64, _, _) //64 bit, with one being unsigned
+        (8, _, _) //64 bit, with one being unsigned
         => BaseType::U64,
 
-        (65.., _, _) => panic!("integer size too large!")
+        (9.., _, _) => panic!("integer size too large!")
 
     }
 }
@@ -131,20 +131,20 @@ pub fn calculate_unary_type_arithmetic(lhs: &DataType, asm_data: &AsmData) -> Da
         DataType::RAW(lhs_base) => {
             assert!(lhs_base.is_integer());
 
-            match (lhs_base.memory_size(asm_data).size_bits(), lhs_base.is_unsigned()) {
-                (0..=31, _) |// small enough to be cast to int easily
-                (32, false)//signed, and both int sized
+            match (lhs_base.memory_size(asm_data).size_bytes(), lhs_base.is_unsigned()) {
+                (0..4, _) |// small enough to be cast to int easily
+                (4, false)//signed, and both int sized
                     => DataType::new(BaseType::I32),
     
-                (32, true) => DataType::new(BaseType::U32),
+                (4, true) => DataType::new(BaseType::U32),
     
-                (33..=63, _) |// small enough to be cast to long long easily
-                (64, false)//signed, and long long sized
+                (5..8, _) |// small enough to be cast to long long easily
+                (8, false)//signed, and long long sized
                     => DataType::new(BaseType::I64),
     
-                (64, true) =>  DataType::new(BaseType::U64),
+                (8, true) =>  DataType::new(BaseType::U64),
     
-                (65.., _) => panic!("integer size too large!")
+                (9.., _) => panic!("integer size too large!")
     
             }
         }

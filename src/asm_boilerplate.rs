@@ -38,7 +38,7 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
         (x, false) => {
             let data_size = MemoryLayout::from_bytes(x);
 
-            result.add_commented_instruction(AsmOperation::BLANK, format!("casting i{} to i64", data_size.size_bits()));
+            result.add_commented_instruction(AsmOperation::BLANK, format!("casting signed {} integer to i64", data_size));
 
             result.add_instruction(AsmOperation::SignExtendACC { old_size: data_size});//sign extend rax to i64
 
@@ -47,7 +47,7 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
         (x, true) => {
             let data_size = MemoryLayout::from_bytes(x);
 
-            result.add_commented_instruction(AsmOperation::BLANK, format!("casting u{} to u64", data_size.size_bits()));
+            result.add_commented_instruction(AsmOperation::BLANK, format!("casting unsigned {} integer to u64", data_size));
             result.add_instruction(AsmOperation::ZeroExtendACC { old_size: data_size});//zero extend rax to u64
 
             result.merge(&cast_raw_from_acc(&BaseType::U64, to_raw, asm_data));//cast the u64 back down to whatever new_type is
