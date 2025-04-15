@@ -1,5 +1,5 @@
-use crate::{data_type::{base_type::BaseType, recursive_data_type::DataType}, memory_size::MemoryLayout};
-
+use crate::{data_type::{base_type::BaseType, recursive_data_type::DataType}};
+use memory_size::MemoryLayout;
 use super::operand::{Operand, RegOrMem, PTR_SIZE};
 
 

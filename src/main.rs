@@ -14,7 +14,6 @@ pub mod test;
 pub mod compilation_error;
 pub mod declaration;
 mod ast_metadata;
-mod memory_size;
 mod selection_statement;
 pub mod preprocessor;
 mod function_call;

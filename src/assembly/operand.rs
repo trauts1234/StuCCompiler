@@ -6,7 +6,7 @@ use immediate::ImmediateValue;
 use memory_operand::MemoryOperand;
 use register::Register;
 
-use crate::memory_size::MemoryLayout;
+use memory_size::MemoryLayout;
 
 pub const PTR_SIZE: MemoryLayout = MemoryLayout::from_bytes(8);
 

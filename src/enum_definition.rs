@@ -68,9 +68,6 @@ pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, previous_slice: &mut 
 }
 
 impl EnumList {
-    pub fn new() -> EnumList {
-        EnumList { all_variants:HashMap::new(), all_enum_names: HashMap::new() }
-    }
     pub fn add_variant(&mut self, variant: (String, NumberLiteral)) {
         let (var_name, var_num) = variant;
         

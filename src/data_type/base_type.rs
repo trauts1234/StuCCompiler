@@ -1,5 +1,5 @@
-use crate::{asm_gen_data::AsmData, data_type::type_token::TypeInfo, memory_size::MemoryLayout};
-
+use crate::{asm_gen_data::AsmData, data_type::type_token::TypeInfo};
+use memory_size::MemoryLayout;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BaseType {
