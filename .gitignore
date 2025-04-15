@@ -9,3 +9,4 @@ testout.txt
 /.vscode
 main
 tests/c_testsuite
+Cargo.lock
