@@ -16,6 +16,7 @@ impl TranslationUnit {
         let mut tokens = Vec::new();
         let mut lexer = Lexer::new(&data);
         while let Some(t) = lexer.next_token() {
+            println!("{:?}", t);
             tokens.push(t);
         }
 

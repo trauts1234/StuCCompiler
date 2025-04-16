@@ -65,6 +65,12 @@ impl Lexer {
     fn consume_str(&mut self) -> Token {
         assert!(self.consume() == Some('\"'));//consume the opening speechmark
 
+        if self.peek() == Some('\"') {
+            self.consume().unwrap();
+            //empty string
+            return Token::STRING(StringLiteral::try_new("", &mut self.string_label_generator).unwrap());
+        }
+
         let mut result_text = String::new();
         loop {
             let curr_char = self.consume().unwrap();

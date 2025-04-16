@@ -65,8 +65,8 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
 
             match ctx.get_scan_type() {
                 ScanType::NORMAL => {
-                    let mut split = unsubstituted_line_trim.split(" ");//raw line as substitutions don't happen in #define statements
-                    split.next();//consume the #define
+                    let mut split = unsubstituted_line_trim.splitn(3, " ");//raw line as substitutions don't happen in #define statements
+                    assert!(split.next().unwrap() == "#define");//consume the #define
 
                     let name = split.next().expect("tried to get name from #define but couldn't find it");
                     let value = split.next().or(Some("")).unwrap();// set what it is defined to, or an empty string

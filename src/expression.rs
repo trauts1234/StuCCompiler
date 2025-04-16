@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 #[derive(Clone)]
 pub enum Expression {
@@ -278,39 +278,34 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 size: PTR_SIZE,
             });
 
+            //this generates the following c-style code to assign the array literal to the destination array
+            //for(int i=0;i<array_size;i++){
+            //  array[i] = array_literal[i];
+            //}
             for arr_idx in 0..array_size {
+                //generate array_literal[i]
                 let curr_item = array_init.nth_item(arr_idx as usize);
-                let curr_item_type = curr_item.accept(&mut GetDataTypeVisitor{asm_data});
 
-                //generate the item
+                //generate array[i]
+                let destination_memory = Expression::UNARYPREFIX(UnaryPrefixExpression::new(Punctuator::ASTERISK,
+                    Expression::BINARYEXPRESSION(
+                        BinaryExpression::new(
+                            lhs.clone(),
+                            Punctuator::PLUS,
+                            Expression::NUMBERLITERAL(NumberLiteral::new(&arr_idx.to_string()))
+                        )
+                    )
+                ));
+
+                //generate array[i] = array_literal[i];
                 result.merge(
-                    &curr_item.accept(&mut ScalarInAccVisitor{asm_data, stack_data})
+                    &generate_assembly_for_assignment(
+                        &destination_memory,
+                        curr_item,
+                        asm_data,
+                        stack_data
+                    )
                 );
-                //cast to type of array
-                result.merge(
-                    &cast_from_acc(&curr_item_type, &array_item_type, asm_data)
-                );
-
-                //put pointer to destination in RCX
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Reg(Register::secondary()),
-                    from: Operand::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
-                    size: PTR_SIZE
-                });
-                //increase pointer to point to the arr_idx'th element
-                let mem_offset = MemorySize::from_bytes(array_item_type.memory_size(asm_data).size_bytes() * arr_idx);
-                result.add_instruction(AsmOperation::ADD {
-                    destination: RegOrMem::Reg(Register::secondary()),
-                    increment: Operand::Imm(mem_offset.as_imm()),
-                    data_type: DataType::RAW(BaseType::U64),
-                });
-
-                //save result
-                result.add_commented_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
-                    from: Operand::Reg(Register::acc()),
-                    size: array_item_type.memory_size(asm_data),
-                }, format!("array initialisation: saving element {}", arr_idx));
             }
         },
 
