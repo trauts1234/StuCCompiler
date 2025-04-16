@@ -1,5 +1,3 @@
-#include <DEFAULT_DEFINES.h>
-
 #define SCHAR_MAX __SCHAR_MAX__
 #define SHRT_MAX __SHRT_MAX__
 #define INT_MAX __INT_MAX__

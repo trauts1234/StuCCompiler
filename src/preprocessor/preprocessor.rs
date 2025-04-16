@@ -7,9 +7,35 @@ use crate::preprocessor::{preprocess_boolean_operators::get_binary_numerical_tex
 use super::{preprocess_context::PreprocessContext, string_apply::Apply};
 
 const INCLUDE_FOLDERS: &[&str] = &["c_lib"];//local custom version of glibc 
+const DEFAULT_DEFINES: &str = 
+"
+#define __CHAR_BIT__      8
+#define __SCHAR_MAX__     127
+#define __SHRT_MAX__      32767
+#define __INT_MAX__       2147483647
+#define __LONG_MAX__      9223372036854775807L
+#define __LONG_LONG_MAX__ 9223372036854775807LL
+#define SCHAR_MAX   __SCHAR_MAX__
+#define SHRT_MAX    __SHRT_MAX__
+#define INT_MAX     __INT_MAX__
+#define LONG_MAX    __LONG_MAX__
+#define LLONG_MAX   __LONG_LONG_MAX__
+#define SCHAR_MIN   (-__SCHAR_MAX__ - 1)
+#define SHRT_MIN    (-__SHRT_MAX__ - 1)
+#define INT_MIN     (-__INT_MAX__ - 1)
+#define LONG_MIN    (-__LONG_MAX__ - 1L)
+#define LLONG_MIN   (-__LONG_LONG_MAX__ - 1LL)
+#define UCHAR_MAX   (__SCHAR_MAX__ * 2 + 1)
+#define USHRT_MAX    (__SHRT_MAX__ * 2 + 1)
+#define UINT_MAX     (__INT_MAX__ * 2U + 1U)
+#define ULONG_MAX    (__LONG_MAX__ * 2UL + 1UL)
+#define ULLONG_MAX   (__LONG_LONG_MAX__ * 2ULL + 1ULL)";
 
 pub fn preprocess_c_file(filename: &Path) -> String {
-    let file_text = fs::read_to_string(filename).expect("failed to open c file");
+    let file_text = format!("{}\n{}",
+        DEFAULT_DEFINES,
+        fs::read_to_string(filename).expect("failed to open c file")
+    );
     preprocess(10, &mut PreprocessContext::new(), file_text)
 }
 

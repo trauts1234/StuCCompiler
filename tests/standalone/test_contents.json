@@ -532,5 +532,9 @@
     {
         "filename":"simplearrinitialisation.c",
         "return_code":0
+    },
+    {
+        "filename":"limitsdefines.c",
+        "return_code":0
     }
 ]
