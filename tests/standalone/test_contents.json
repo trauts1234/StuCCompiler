@@ -528,5 +528,9 @@
     {
         "filename":"anonymousenum.c",
         "return_code":0
+    },
+    {
+        "filename":"simplearrinitialisation.c",
+        "return_code":0
     }
 ]

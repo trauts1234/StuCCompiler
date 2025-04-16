@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 #[derive(Clone)]
 pub enum Expression {
@@ -28,7 +28,7 @@ impl Expression {
             Expression::BINARYEXPRESSION(x) => x.accept(visitor),
             Expression::STRUCTMEMBERACCESS(x) => x.accept(visitor),
             Expression::CAST(cast_expression) => cast_expression.accept(visitor),
-            Expression::ARRAYLITERAL(array_initialisation) => todo!(),
+            Expression::ARRAYLITERAL(_) => panic!("cannot determine data type/assemebly for array literal, try looking for casts or array initialisation instead"),
         }
     }
 }
@@ -66,6 +66,12 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
             max_index: curr_queue_idx.max_index-1
         };
     }
+
+    //look for array initialisation
+    if let Some(x) = ArrayInitialisation::try_consume_whole_expr(tokens_queue, previous_queue_idx, accessible_funcs, scope_data) {
+        return Some(Expression::ARRAYLITERAL(x));
+    }
+
     match curr_queue_idx.get_slice_size() {
         0 => None,//panic!("not expecting this, maybe it is not an expression"),
 
@@ -222,25 +228,23 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
     let promoted_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
 
-    match &promoted_type {
-        DataType::ARRAY {..} => {
-            unwrap_let!(DataType::ARRAY {..} = rhs.accept(&mut GetDataTypeVisitor{asm_data}));//rhs must be an array?
-
-            //initialising an array, char[12] x = "hello world";//for example
-            let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
-            let rhs_asm = rhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
-            result.merge(&lhs_asm);//get dest address
+    match (&promoted_type, rhs) {
+        //initialising array to string literal
+        (DataType::ARRAY {..}, Expression::STRINGLITERAL(_)) => {
+            let lhs_addr_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+            let rhs_addr_asm = rhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+            result.merge(&lhs_addr_asm);//get dest address
 
             *stack_data += PTR_SIZE;//allocate temporary storage for destination address
-            let destination_temporary_storage = stack_data;
+            let destination_temporary_storage = stack_data.clone();
             //store the destination address in a temporary stack variable
             result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Mem(MemoryOperand::SubFromBP(*destination_temporary_storage)),
+                to: RegOrMem::Mem(MemoryOperand::SubFromBP(destination_temporary_storage)),
                 from: Operand::Reg(Register::acc()),
                 size: PTR_SIZE,
             });
 
-            result.merge(&rhs_asm);//get src address
+            result.merge(&rhs_addr_asm);//get src address
 
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Reg(Register::_SI),
@@ -249,13 +253,70 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             });
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Reg(Register::_DI),
-                from: Operand::Mem(MemoryOperand::SubFromBP(*destination_temporary_storage)),
+                from: Operand::Mem(MemoryOperand::SubFromBP(destination_temporary_storage)),
                 size: PTR_SIZE,
             });
 
             result.add_instruction(AsmOperation::MEMCPY { size: promoted_type.memory_size(asm_data) });
         },
-        data_type => {
+
+        //initialising array to array literal
+        (DataType::ARRAY { .. }, Expression::ARRAYLITERAL(array_init)) => {
+            //get the data type of each element in the array 
+            unwrap_let!(DataType::ARRAY { size:array_size, element:array_item_type } = promoted_type);
+
+            //get address of destination array
+            let lhs_addr_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+            result.merge(&lhs_addr_asm);
+
+            //store lhs address on stack
+            *stack_data += PTR_SIZE;
+            let lhs_addr_storage = stack_data.clone();
+            result.add_instruction(AsmOperation::MOV {
+                to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
+                from: Operand::Reg(Register::acc()),
+                size: PTR_SIZE,
+            });
+
+            for arr_idx in 0..array_size {
+                let curr_item = array_init.nth_item(arr_idx as usize);
+                let curr_item_type = curr_item.accept(&mut GetDataTypeVisitor{asm_data});
+
+                //generate the item
+                result.merge(
+                    &curr_item.accept(&mut ScalarInAccVisitor{asm_data, stack_data})
+                );
+                //cast to type of array
+                result.merge(
+                    &cast_from_acc(&curr_item_type, &array_item_type, asm_data)
+                );
+
+                //put pointer to destination in RCX
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Reg(Register::secondary()),
+                    from: Operand::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
+                    size: PTR_SIZE
+                });
+                //increase pointer to point to the arr_idx'th element
+                let mem_offset = MemorySize::from_bytes(array_item_type.memory_size(asm_data).size_bytes() * arr_idx);
+                result.add_instruction(AsmOperation::ADD {
+                    destination: RegOrMem::Reg(Register::secondary()),
+                    increment: Operand::Imm(mem_offset.as_imm()),
+                    data_type: DataType::RAW(BaseType::U64),
+                });
+
+                //save result
+                result.add_commented_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
+                    from: Operand::Reg(Register::acc()),
+                    size: array_item_type.memory_size(asm_data),
+                }, format!("array initialisation: saving element {}", arr_idx));
+            }
+        },
+
+        (DataType::ARRAY { .. }, _) => panic!("tried to set array to something that is neither an array literal nor a string"),
+
+        (data_type, _) => {
             assert!(data_type.memory_size(asm_data).size_bytes() <= 8);
             //maybe more special cases for struct assignment etc
 
