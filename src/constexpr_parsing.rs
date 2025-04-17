@@ -1,11 +1,51 @@
 use unwrap_let::unwrap_let;
 
-use crate::{data_type::recursive_data_type::{calculate_integer_promoted_type, DataType}, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral};
+use crate::{data_type::recursive_data_type::{calculate_integer_promoted_type, DataType}, expression::Expression, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
     STRING(StringLiteral),
-    POINTER(String),//string: label of thing I am pointing to
+    POINTER{label: String, offset: NumberLiteral},
+}
+
+impl TryFrom<&Expression> for ConstexprValue {
+    
+    type Error = String;
+    
+    fn try_from(value: &Expression) -> Result<Self, Self::Error> {
+        match value {
+            Expression::NUMBERLITERAL(number_literal) => Ok(ConstexprValue::NUMBER(number_literal.clone())),
+            Expression::VARIABLE(minimal_data_variable) => Err(format!("variable {} is not a compile-time constant", minimal_data_variable.name)),
+            Expression::STRUCTMEMBERACCESS(struct_member_access) => todo!(),
+            Expression::STRINGLITERAL(string_literal) => Ok(ConstexprValue::STRING(string_literal.clone())),
+            Expression::ARRAYLITERAL(array_initialisation) => todo!(),
+            Expression::FUNCCALL(function_call) => Err(format!("results of calling {} are not a compile time constant", function_call.get_callee_decl().function_name)),
+            Expression::UNARYPREFIX(unary_prefix_expression) => todo!(),
+            Expression::BINARYEXPRESSION(binary_expression) => todo!(),
+            Expression::CAST(cast_expression) => todo!(),
+        }
+    }
+}
+
+impl TryFrom<UnaryPrefixExpression> for ConstexprValue {
+    type Error = String;
+
+    fn try_from(value: UnaryPrefixExpression) -> Result<Self, Self::Error> {
+
+        if let (Punctuator::AMPERSAND, Expression::VARIABLE(var)) = (value.get_operator(), value.get_operand()) {
+            //getting address of variable
+            return Ok(ConstexprValue::POINTER { label: var.name.to_string(), offset: NumberLiteral::new("0") })
+        }
+
+        let operand: ConstexprValue = value.get_operand().try_into()?;
+        match (value.get_operator(), operand) {
+            (Punctuator::AMPERSAND, _) => Err("cannot get address of this".to_owned()),
+            (Punctuator::ASTERISK, _) => Err("cannot dereference pointer in constant expression".to_owned()),
+            (Punctuator::DASH, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(-num)),
+
+            _ =>todo!()
+        }
+    }
 }
 
 impl ConstexprValue {
@@ -105,7 +145,7 @@ fn try_parse_constexpr_unary_prefix(tokens_queue: &mut TokenQueue, previous_queu
     match punctuator {
         Punctuator::AMPERSAND => {
             if let Token::IDENTIFIER(label) = tokens_queue.consume(&mut curr_queue_idx, scope_data)? {
-                Some(ConstexprValue::POINTER(label))//pointer to the label i.e &x is POINTER("x")
+                Some(ConstexprValue::POINTER { label, offset: NumberLiteral::new("0") })//pointer to the label i.e &x is POINTER("x")
             } else {None}
         },
         _ => panic!("invalid unary prefix in constant expression")

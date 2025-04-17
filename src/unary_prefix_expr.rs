@@ -202,7 +202,7 @@ impl UnaryPrefixExpression {
         match self.operator {
             Punctuator::AMPERSAND => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
             Punctuator::ASTERISK => operand_type.remove_outer_modifier(),
-            Punctuator::DASH | Punctuator::PLUSPLUS | Punctuator::DASHDASH | Punctuator::Tilde => calculate_unary_type_arithmetic(&operand_type, asm_data),//-x may promote x to a bigger type
+            Punctuator::DASH | Punctuator::PLUSPLUS | Punctuator::DASHDASH | Punctuator::Tilde => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
             Punctuator::Exclamation => DataType::RAW(BaseType::_BOOL),
             _ => panic!("tried getting data type of a not-implemented prefix")
         }

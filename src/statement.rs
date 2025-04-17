@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
 use memory_size::MemorySize;
 
 pub enum Statement {
@@ -34,7 +34,7 @@ impl Statement {
             return Some(ASTMetadata{resultant_tree: Self::CONTROLFLOW(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = expression::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = Expression::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data){
             return Some(ASTMetadata{resultant_tree: Self::EXPRESSION(resultant_tree), remaining_slice});
         }
 

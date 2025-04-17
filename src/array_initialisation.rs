@@ -42,6 +42,18 @@ impl ArrayInitialisation {
         )
     }
 
+    pub fn calculate_element_count(&self) -> u64 {
+        self.elements.iter()
+        .map(|x| {
+            if let Expression::ARRAYLITERAL(arr) = x {
+                arr.calculate_element_count()//nested array literal, count its item count
+            } else {
+                1//not an array, just one element
+            }
+        })
+        .sum()//calculate the sum of elements
+    }
+
     pub fn zero_fill_and_flatten_to_iter(&self, data_type: &DataType) -> Vec<Expression> {
         match data_type {
             DataType::ARRAY {element: element_type, .. } => {

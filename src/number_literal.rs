@@ -1,4 +1,6 @@
-use crate::{asm_gen_data::AsmData, assembly::operand::immediate::ImmediateValue, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::expr_visitor::ExprVisitor};
+use std::ops::Neg;
+use unwrap_let::unwrap_let;
+use crate::{asm_gen_data::AsmData, assembly::operand::immediate::ImmediateValue, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
@@ -23,7 +25,26 @@ impl NumberLiteral {
     }
 }
 
+impl Neg for NumberLiteral {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        let negated_val = match self.value {
+            LiteralValue::SIGNED(x) => LiteralValue::SIGNED(-x),
+            LiteralValue::UNSIGNED(x) => LiteralValue::UNSIGNED(x.wrapping_neg()),
+        };
+
+        unwrap_let!(DataType::RAW(base) = calculate_unary_type_arithmetic(&DataType::RAW(self.data_type.clone())));
+
+        Self {
+            value: negated_val,
+            data_type: base,
+        }
+    }
+}
+
 impl NumberLiteral {
+    //TODO maybe impl From/TryFrom???
     pub fn new(input: &str) -> NumberLiteral {
 
         let input = input.to_ascii_lowercase();

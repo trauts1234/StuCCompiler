@@ -18,6 +18,25 @@ pub enum Expression {
 
 impl Expression {
 
+    /**
+     * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
+     */
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Expression>> {
+        let semicolon_idx = tokens_queue.find_closure_matches(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing())?;
+        //define the slice that we are going to try and parse
+        let attempt_slice = TokenQueueSlice {
+            index: previous_queue_idx.index,
+            max_index: semicolon_idx.index
+        };
+
+        match try_consume_whole_expr(tokens_queue, &attempt_slice, accessible_funcs, scope_data) {
+            Some(expr) => {
+                Some(ASTMetadata{resultant_tree: expr, remaining_slice: semicolon_idx.next_clone()})
+            },
+            None => None
+        }
+    }
+
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         match self {
             Expression::NUMBERLITERAL(x) => x.accept(visitor),
@@ -33,24 +52,6 @@ impl Expression {
     }
 }
 
-/**
- * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
- */
-pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Expression>> {
-    let semicolon_idx = tokens_queue.find_closure_matches(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing())?;
-    //define the slice that we are going to try and parse
-    let attempt_slice = TokenQueueSlice {
-        index: previous_queue_idx.index,
-        max_index: semicolon_idx.index
-    };
-
-    match try_consume_whole_expr(tokens_queue, &attempt_slice, accessible_funcs, scope_data) {
-        Some(expr) => {
-            Some(ASTMetadata{resultant_tree: expr, remaining_slice: semicolon_idx.next_clone()})
-        },
-        None => None
-    }
-}
 /**
  * tries to parse the tokens queue starting at previous_queue_idx, to find an expression
  * returns an expression(entirely consumed), else none

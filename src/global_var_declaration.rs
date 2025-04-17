@@ -20,7 +20,7 @@ impl GlobalVariable {
                 )
             },
             ConstexprValue::STRING(string_literal) => format!("{} db {}\n", self.decl.get_name(), string_literal.get_comma_separated_bytes()),
-            ConstexprValue::POINTER(to_dereference) => format!("{} dq {}\n", self.decl.get_name(), to_dereference),
+            ConstexprValue::POINTER { label, offset } => format!("{} dq {} + {}\n", self.decl.get_name(), label, offset.nasm_format().generate_name()),
         }
     }
 

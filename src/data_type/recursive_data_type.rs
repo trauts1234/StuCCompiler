@@ -193,14 +193,14 @@ pub fn calculate_integer_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseTy
 /**
  * calculate the type of this type when promoted
  */
-pub fn calculate_unary_type_arithmetic(lhs: &DataType, asm_data: &AsmData) -> DataType {
+pub fn calculate_unary_type_arithmetic(lhs: &DataType) -> DataType {
     match lhs {
         DataType::ARRAY { size:_, element:_ } => lhs.decay(),
         DataType::POINTER(_) => lhs.clone(),
         DataType::RAW(lhs_base) => {
             assert!(lhs_base.is_integer());
 
-            match (lhs_base.memory_size(asm_data).size_bytes(), lhs_base.is_unsigned()) {
+            match (lhs_base.get_non_struct_memory_size().size_bytes(), lhs_base.is_unsigned()) {
                 (0..4, _) |// small enough to be cast to int easily
                 (4, false)//signed, and both int sized
                     => DataType::new(BaseType::I32),

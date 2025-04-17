@@ -135,12 +135,15 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             Some(Token::PUNCTUATOR(Punctuator::OPENSQUARE)) => {
 
                 tokens_queue.consume(&mut curr_queue_idx, &scope_data)?;//consume the open bracket
-                if let Token::NUMBER(arraysize) = tokens_queue.consume(&mut curr_queue_idx, &scope_data)? {
-                    array_modifiers.push(DeclModifier::ARRAY(arraysize.get_value().clone().into()));
-                } else {
-                    panic!("array size inference not supported!")//I can't predict the size of arrays yet, so char[] x = "hello world";does not work
+                match tokens_queue.consume(&mut curr_queue_idx, scope_data).unwrap() {
+                    Token::NUMBER(arraysize) => {
+                        array_modifiers.push(DeclModifier::ARRAY(arraysize.get_value().clone().into()));
+                    }
+                    Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => todo!("array size inference"),
+
+                    _ => panic!("unknown token in array declaration")
                 }
-                tokens_queue.consume(&mut curr_queue_idx, &scope_data)?;//consume the close bracket
+                assert_eq!(tokens_queue.consume(&mut curr_queue_idx, &scope_data)?, Token::PUNCTUATOR(Punctuator::CLOSESQUARE));//consume the close bracket
             },
             _ => {break;}
         }

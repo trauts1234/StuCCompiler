@@ -156,7 +156,7 @@ impl BinaryExpression {
             Punctuator::GreaterGreater => {
                 result.add_comment("bitwise shift right");
                 //lhs and rhs types are calculated individually as they do not influence each other
-                let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type, asm_data);
+                let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type);
                 let rhs_required_type = DataType::RAW(BaseType::U8);//can only shift by u8 in assembly
 
                 result.merge(&put_lhs_ax_rhs_cx(
@@ -175,7 +175,7 @@ impl BinaryExpression {
             Punctuator::LessLess => {
                 result.add_comment("bitwise shift left");
                 //lhs and rhs types are calculated individually as they do not influence each other
-                let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type, asm_data);
+                let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type);
                 let rhs_required_type = DataType::RAW(BaseType::U8);//can only shift by u8 in assembly
 
                 result.merge(&put_lhs_ax_rhs_cx(
@@ -218,7 +218,7 @@ impl BinaryExpression {
 
             //bit shifts have lhs promoted, then resultant type is the same as promoted lhs
             Punctuator::LessLess |
-            Punctuator::GreaterGreater => calculate_unary_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data}), asm_data),
+            Punctuator::GreaterGreater => calculate_unary_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data})),
 
             Punctuator::Less |
             Punctuator::Greater |
