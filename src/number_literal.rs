@@ -23,6 +23,16 @@ impl NumberLiteral {
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         visitor.visit_number_literal(self)
     }
+
+    /// promotes the number literal by applying unary plus to it
+    pub fn unary_plus(self) -> Self {
+        unwrap_let!(DataType::RAW(base) = calculate_unary_type_arithmetic(&DataType::RAW(self.data_type.clone())));
+
+        Self {
+            value: self.value,
+            data_type: base,
+        }
+    }
 }
 
 impl Neg for NumberLiteral {
@@ -201,6 +211,8 @@ impl NumberLiteral {
             BaseType::U16 => LiteralValue::UNSIGNED(u64_type as u16 as u64),
             BaseType::U32 => LiteralValue::UNSIGNED(u64_type as u32 as u64),
             BaseType::U64 => LiteralValue::UNSIGNED(u64_type),
+
+            BaseType::_BOOL => LiteralValue::UNSIGNED(if u64_type == 0 {0} else {1}),//booleans are 1 if nonzero
 
             _ => panic!("tried to cast number literal to unknown data type")
         };

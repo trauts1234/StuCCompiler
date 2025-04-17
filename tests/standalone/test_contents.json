@@ -536,5 +536,9 @@
     {
         "filename":"limitsdefines.c",
         "return_code":0
+    },
+    {
+        "filename":"booltest.c",
+        "return_code":0
     }
 ]
