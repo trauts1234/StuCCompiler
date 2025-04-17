@@ -242,6 +242,16 @@ impl BinaryExpression {
             rhs: Box::new(rhs),
         }
     }
+
+    pub fn lhs(&self) -> &Expression {
+        &self.lhs
+    }
+    pub fn rhs(&self) -> &Expression {
+        &self.rhs
+    }
+    pub fn operator(&self) -> &Punctuator {
+        &self.operator
+    }
 }
 
 fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {

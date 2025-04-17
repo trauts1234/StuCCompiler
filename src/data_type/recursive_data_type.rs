@@ -37,6 +37,9 @@ impl DataType
     /// 
     /// # examples
     /// ```
+    ///use stuccompiler2::data_type::base_type::BaseType;
+    ///use stuccompiler2::data_type::recursive_data_type::DataType;
+    /// 
     ///let my_type = DataType::ARRAY {
     ///   size: 2,
     ///   element: Box::new(DataType::ARRAY {
@@ -48,7 +51,7 @@ impl DataType
     /// };
     /// assert_eq!(
     ///   my_type.flatten_nested_array(),
-    ///   Datatype::ARRAY{
+    ///   DataType::ARRAY{
     ///     size:6,
     ///     element: Box::new(DataType::RAW(BaseType::I32))
     ///   }
@@ -118,6 +121,9 @@ impl DataType
     ///
     /// # examples
     /// ```
+    /// use data_type::recursive_data_type::DataType;
+    /// use stuccompiler2::data_type::base_type::BaseType;
+    /// 
     /// let my_type = DataType::ARRAY {
     ///   size: 2,
     ///   element: Box::new(DataType::ARRAY {

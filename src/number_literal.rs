@@ -1,11 +1,10 @@
-use std::ops::Neg;
+use std::{num::TryFromIntError, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Sub}};
 use unwrap_let::unwrap_let;
-use crate::{asm_gen_data::AsmData, assembly::operand::immediate::ImmediateValue, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::AsmData, assembly::operand::immediate::ImmediateValue, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
-    SIGNED(i64),//big enough for any signed type
-    UNSIGNED(u64),// '' unsigned type
+    INTEGER(i128)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,32 +23,182 @@ impl NumberLiteral {
         visitor.visit_number_literal(self)
     }
 
+    /// promotes the value using unary promotion rules
+    pub fn unary_promote(&self) -> Self {
+        unwrap_let!(DataType::RAW(base) = calculate_unary_type_arithmetic(&DataType::RAW(self.data_type.clone())));
+        self.cast(&base)
+    }
+
+    pub fn binary_promote(self, rhs: Self) -> (Self, Self) {
+        unwrap_let!(DataType::RAW(base) = calculate_promoted_type_arithmetic(&DataType::RAW(self.data_type.clone()), &DataType::RAW(rhs.data_type.clone())));
+
+        (
+            self.cast(&base),
+            rhs.cast(&base)
+        )
+    }
+
+    ///ensures that the number stored is a valid number for the data type
+    pub fn limit_literal(self) -> Self {
+        self.cast(&self.data_type)
+    }
+
     /// promotes the number literal by applying unary plus to it
     pub fn unary_plus(self) -> Self {
-        unwrap_let!(DataType::RAW(base) = calculate_unary_type_arithmetic(&DataType::RAW(self.data_type.clone())));
+        self.unary_promote()
+    }
 
-        Self {
-            value: self.value,
-            data_type: base,
-        }
+    pub fn bitwise_not(self) -> Self {
+        let mut promoted = self.unary_promote();//this should also promote boolean to integer, so no boolean not here...
+
+        promoted.value = match promoted.value {
+            
+            LiteralValue::INTEGER(x) => LiteralValue::INTEGER(!x)
+        };
+
+        promoted.limit_literal()
+    }
+
+    pub fn boolean_not(self) -> Self {
+        let mut as_bool = self.cast(&BaseType::_BOOL);
+
+        as_bool.value = match as_bool.value {
+            LiteralValue::INTEGER(0) => LiteralValue::INTEGER(1),
+            LiteralValue::INTEGER(1) => LiteralValue::INTEGER(0),
+            x => panic!("invalid value for boolean: {:?}", x)
+        };
+
+        as_bool.limit_literal()
     }
 }
 
 impl Neg for NumberLiteral {
     type Output = Self;
 
+    ///unary negation `-num` for a number.
     fn neg(self) -> Self::Output {
-        let negated_val = match self.value {
-            LiteralValue::SIGNED(x) => LiteralValue::SIGNED(-x),
-            LiteralValue::UNSIGNED(x) => LiteralValue::UNSIGNED(x.wrapping_neg()),
+        let mut promoted = self.unary_promote();
+
+        promoted.value = match (&promoted.value, &promoted.data_type) {
+            (LiteralValue::INTEGER(x), BaseType::I32) => LiteralValue::INTEGER((-x) as i32 as i128),
+            (LiteralValue::INTEGER(x), BaseType::U32) => LiteralValue::INTEGER((-x) as u32 as i128),
+            (LiteralValue::INTEGER(x), BaseType::I64) => LiteralValue::INTEGER((-x) as i64 as i128),
+            (LiteralValue::INTEGER(x), BaseType::U64) => LiteralValue::INTEGER((-x) as u64 as i128),
+            _ => panic!("invalid promoted type")
         };
 
-        unwrap_let!(DataType::RAW(base) = calculate_unary_type_arithmetic(&DataType::RAW(self.data_type.clone())));
+        promoted.limit_literal()
+    }
+}
 
-        Self {
-            value: negated_val,
-            data_type: base,
-        }
+impl BitOr for NumberLiteral {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x | y),
+        };
+
+        l.limit_literal()
+    }
+}
+
+impl BitAnd for NumberLiteral {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x & y),
+        };
+
+        l.limit_literal()
+    }
+}
+
+impl BitXor for NumberLiteral {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x ^ y),
+        };
+
+        l.limit_literal()
+    }
+}
+
+impl Add for NumberLiteral {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x + y),
+        };
+
+        l.limit_literal()
+    }
+}
+impl Sub for NumberLiteral {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x - y),
+        };
+
+        l.limit_literal()
+    }
+}
+
+impl Mul for NumberLiteral {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x * y),
+        };
+
+        l.limit_literal()
+    }
+}
+
+impl Div for NumberLiteral {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);//this should truncate self and rhs, so division should work properly...
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x / y),
+        };
+
+        l.limit_literal()
+    }
+}
+
+impl Rem for NumberLiteral {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);//this should truncate self and rhs, so division should work properly...
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x % y),
+        };
+
+        l.limit_literal()
     }
 }
 
@@ -143,7 +292,7 @@ impl NumberLiteral {
             assert!(data_type.is_integer());
     
             NumberLiteral {
-                value:LiteralValue::UNSIGNED(as_large_unsigned),//integer literals from text are always positive
+                value:LiteralValue::INTEGER(as_large_unsigned as i128),//integer literals from text are always positive
                 data_type: BaseType::U64,//start as large type, and cast from there
             }.cast(&data_type)//cast to the correct type
         } else {
@@ -154,8 +303,8 @@ impl NumberLiteral {
 
     pub fn new_from_literal_value(value: LiteralValue) -> NumberLiteral {
         let data_type = match &value {
-            LiteralValue::SIGNED(_) => BaseType::I64,
-            LiteralValue::UNSIGNED(_) => BaseType::U64,
+            LiteralValue::INTEGER(x) if *x < 0 => BaseType::I64,
+            _ => BaseType::U64,
         };
 
         NumberLiteral{
@@ -173,8 +322,7 @@ impl NumberLiteral {
      */
     pub fn nasm_format(&self) -> ImmediateValue {
         ImmediateValue(match self.value {
-            LiteralValue::SIGNED(x) => x.to_string(),
-            LiteralValue::UNSIGNED(x) => x.to_string(),
+            LiteralValue::INTEGER(x) => x.to_string()
         })
     }
 
@@ -182,14 +330,9 @@ impl NumberLiteral {
         let bytes_size = self.data_type.memory_size(asm_data).size_bytes();//pass in blank
 
         let number_bytes = match self.value {
-            LiteralValue::SIGNED(x) => {
-                assert!(self.data_type.is_signed());
+            LiteralValue::INTEGER(x) => {
                 x.to_le_bytes()
-            },
-            LiteralValue::UNSIGNED(x) => {
-                assert!(self.data_type.is_unsigned());
-                x.to_le_bytes()
-            },
+            }
         };
         
         number_bytes[..bytes_size as usize].iter()
@@ -199,20 +342,18 @@ impl NumberLiteral {
     }
 
     pub fn cast(&self, new_type: &BaseType) -> NumberLiteral {
-        let i64_type: i64 = self.value.clone().into();
-        let u64_type: u64 = self.value.clone().into();
-        let new_value = match new_type {
-            BaseType::I8 => LiteralValue::SIGNED(i64_type as i8 as i64),
-            BaseType::I16 => LiteralValue::SIGNED(i64_type as i16 as i64),
-            BaseType::I32 => LiteralValue::SIGNED(i64_type as i32 as i64),
-            BaseType::I64 => LiteralValue::SIGNED(i64_type),
+        let new_value = match (self.value.clone(), new_type) {
+            (LiteralValue::INTEGER(val), BaseType::I8)=> LiteralValue::INTEGER(val as i8 as i128),
+            (LiteralValue::INTEGER(val), BaseType::I16) => LiteralValue::INTEGER(val as i16 as i128),
+            (LiteralValue::INTEGER(val), BaseType::I32) => LiteralValue::INTEGER(val as i32 as i128),
+            (LiteralValue::INTEGER(val), BaseType::I64) => LiteralValue::INTEGER(val as i64 as i128),
 
-            BaseType::U8 => LiteralValue::UNSIGNED(u64_type as u8 as u64),
-            BaseType::U16 => LiteralValue::UNSIGNED(u64_type as u16 as u64),
-            BaseType::U32 => LiteralValue::UNSIGNED(u64_type as u32 as u64),
-            BaseType::U64 => LiteralValue::UNSIGNED(u64_type),
+            (LiteralValue::INTEGER(val), BaseType::U8)=> LiteralValue::INTEGER(val as u8 as i128),
+            (LiteralValue::INTEGER(val), BaseType::U16) => LiteralValue::INTEGER(val as u16 as i128),
+            (LiteralValue::INTEGER(val), BaseType::U32) => LiteralValue::INTEGER(val as u32 as i128),
+            (LiteralValue::INTEGER(val), BaseType::U64) => LiteralValue::INTEGER(val as u64 as i128),
 
-            BaseType::_BOOL => LiteralValue::UNSIGNED(if u64_type == 0 {0} else {1}),//booleans are 1 if nonzero
+            (LiteralValue::INTEGER(val), BaseType::_BOOL) => LiteralValue::INTEGER(if val == 0 {0} else {1}),//booleans are 1 if nonzero
 
             _ => panic!("tried to cast number literal to unknown data type")
         };
@@ -221,20 +362,12 @@ impl NumberLiteral {
     }
 }
 
-impl Into<i64> for LiteralValue {
-    fn into(self) -> i64 {
-        match self {
-            Self::SIGNED(x) => x,
-            Self::UNSIGNED(x) => x as i64,
-        }
-    }
-}
+impl TryInto<u64> for LiteralValue {
+    type Error = TryFromIntError;
 
-impl Into<u64> for LiteralValue {
-    fn into(self) -> u64 {
+    fn try_into(self) -> Result<u64, Self::Error> {
         match self {
-            Self::SIGNED(x) => x as u64,
-            Self::UNSIGNED(x) => x,
+            LiteralValue::INTEGER(x) => x.try_into()
         }
     }
 }

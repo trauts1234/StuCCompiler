@@ -1,6 +1,4 @@
-use unwrap_let::unwrap_let;
-
-use crate::{data_type::recursive_data_type::{calculate_integer_promoted_type, DataType}, expression::Expression, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{LiteralValue, NumberLiteral}, parse_data::ParseData, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{binary_expression::BinaryExpression, expression::Expression, lexer::punctuator::Punctuator, number_literal::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -20,8 +18,8 @@ impl TryFrom<&Expression> for ConstexprValue {
             Expression::STRINGLITERAL(string_literal) => Ok(ConstexprValue::STRING(string_literal.clone())),
             Expression::ARRAYLITERAL(array_initialisation) => todo!(),
             Expression::FUNCCALL(function_call) => Err(format!("results of calling {} are not a compile time constant", function_call.get_callee_decl().function_name)),
-            Expression::UNARYPREFIX(unary_prefix_expression) => todo!(),
-            Expression::BINARYEXPRESSION(binary_expression) => todo!(),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.clone().try_into(),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.clone().try_into(),
             Expression::CAST(cast_expression) => todo!(),
         }
     }
@@ -42,189 +40,33 @@ impl TryFrom<UnaryPrefixExpression> for ConstexprValue {
             (Punctuator::AMPERSAND, _) => Err("cannot get address of this".to_owned()),
             (Punctuator::ASTERISK, _) => Err("cannot dereference pointer in constant expression".to_owned()),
             (Punctuator::DASH, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(-num)),
+            (Punctuator::PLUS, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.unary_plus())),
+            (Punctuator::Tilde, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.bitwise_not())),
+            (Punctuator::Exclamation, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.boolean_not())),
 
-            _ =>todo!()
+            _ =>todo!("this unary punctuator is not implemented for constant folding")
         }
     }
 }
 
-impl ConstexprValue {
-    /**
-     * folds a constant expression to a number
-     */
-    pub fn try_consume_whole_constexpr(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ConstexprValue> {
-        if previous_queue_idx.get_slice_size() == 0 {
-            return None;
+impl TryFrom<BinaryExpression> for ConstexprValue {
+    type Error = String;
+
+    fn try_from(value: BinaryExpression) -> Result<Self, Self::Error> {
+        let lhs: ConstexprValue = value.lhs().try_into()?;
+        let rhs: ConstexprValue = value.rhs().try_into()?;
+        match (lhs, value.operator(), rhs) {
+            (ConstexprValue::NUMBER(l), Punctuator::Pipe, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l | r)),
+            (ConstexprValue::NUMBER(l), Punctuator::AMPERSAND, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l & r)),
+            (ConstexprValue::NUMBER(l), Punctuator::Hat, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l ^ r)),
+            (ConstexprValue::NUMBER(l), Punctuator::PLUS, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l + r)),
+            (ConstexprValue::NUMBER(l), Punctuator::DASH, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l - r)),
+            (ConstexprValue::NUMBER(l), Punctuator::ASTERISK, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l * r)),
+            (ConstexprValue::NUMBER(l), Punctuator::FORWARDSLASH, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l / r)),
+            (ConstexprValue::NUMBER(l), Punctuator::PERCENT, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l % r)),
+            
+
+            _ => todo!()
         }
-        if previous_queue_idx.get_slice_size() == 1 {
-            return match tokens_queue.peek(previous_queue_idx, scope_data).unwrap() {
-                Token::NUMBER(number) => Some(ConstexprValue::NUMBER(number)),
-                Token::STRING(str) => Some(ConstexprValue::STRING(str)),
-                _ => panic!("found invalid token when consuming constant expression")
-            };
-        }
-
-        let curr_queue_idx = previous_queue_idx.clone();
-
-        for precedence_required in (precedence::min_precedence()..=precedence::max_precedence()).rev() {
-            //find which direction the operators should be considered
-            //true is l->r, which means that if true, scan direction for splitting points should be reversed
-            let associative_direction = precedence::get_associativity_direction(precedence_required);
-
-            if associative_direction {
-                //look for unary postfix
-                assert!(curr_queue_idx.max_index <= tokens_queue.tokens.len());
-
-                if precedence_required == 1 {
-                    todo!("const expr array indexing");
-                    /*match try_parse_array_index(tokens_queue, &curr_queue_idx, scope_data) {
-                        Some(x) => {return x},
-                        None => {}
-                    }*/
-                }
-
-            } else {
-                //look for unary prefix as association is right to left
-                let first_token = tokens_queue.peek(&curr_queue_idx, &scope_data).unwrap();
-
-                let starts_with_valid_prefix = first_token
-                    .as_punctuator()
-                    .and_then(|punc| punc.as_unary_prefix_precedence())
-                    .is_some_and(|precedence| precedence == precedence_required);
-
-                if starts_with_valid_prefix {
-                    match try_parse_constexpr_unary_prefix(tokens_queue, &curr_queue_idx, scope_data) {
-                        Some(x) => {return Some(x);},
-                        None => {
-                            println!("failed to parse unary prefix")
-                        }
-                    }
-                }
-            }
-
-            //make a closure that detects operators that match what we want
-            let operator_matching_closure = |x: &Token| {
-                x.as_punctuator()//get punctuator
-                .and_then(|punc| punc.as_binary_operator_precedence())//try and get the punctuator as a binary operator's precedence
-                .is_some_and(|precedence| precedence == precedence_required)//ensure that it is the correct precedence level
-            };
-
-            //when searching, avoid splitting by something found inside brackets
-            let exclusions = TokenSearchType{
-                skip_in_curly_brackets: true,
-                skip_in_square_brackets: true,
-                skip_in_squiggly_brackets: false
-            };
-
-            let operator_indexes = tokens_queue.split_by_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure, &exclusions);
-
-            for operator_idx in operator_indexes {
-                //try to find an operator
-                //note that the operator_idx is a slice of just the operator
-
-                match try_parse_binary_constexpr(tokens_queue, &curr_queue_idx, operator_idx, scope_data) {
-                    Some(x) => {return Some(x);}
-                    None => {
-                        continue;
-                    }
-                }
-
-            }
-        }
-        panic!("could not parse constant expression");
-    }
-}
-
-fn try_parse_constexpr_unary_prefix(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ConstexprValue> {
-    let mut curr_queue_idx = previous_queue_idx.clone();
-    
-    let punctuator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)?.as_punctuator()?;//get punctuator
-
-    punctuator.as_unary_prefix_precedence()?;//ensure the punctuator is a valid unary prefix
-
-    match punctuator {
-        Punctuator::AMPERSAND => {
-            if let Token::IDENTIFIER(label) = tokens_queue.consume(&mut curr_queue_idx, scope_data)? {
-                Some(ConstexprValue::POINTER { label, offset: NumberLiteral::new("0") })//pointer to the label i.e &x is POINTER("x")
-            } else {None}
-        },
-        _ => panic!("invalid unary prefix in constant expression")
-    }
-}
-
-fn try_parse_binary_constexpr(tokens_queue: &mut TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: usize, scope_data: &mut ParseData) -> Option<ConstexprValue> {
-    //split to before and after the operator
-    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx, curr_queue_idx);
-
-    //try and parse the left and right hand sides, propogating errors
-    let parsed_left = ConstexprValue::try_consume_whole_constexpr(tokens_queue, &left_part, scope_data)?;
-    let parsed_right = ConstexprValue::try_consume_whole_constexpr(tokens_queue, &right_part, scope_data)?;
-
-    let operator = tokens_queue.peek(&TokenQueueSlice { index: operator_idx, max_index: operator_idx+1 }, &scope_data).expect("couldn't peek")
-        .as_punctuator().expect("couldn't cast to punctuator");
-
-    match (parsed_left, parsed_right) {
-        (ConstexprValue::NUMBER(x), ConstexprValue::NUMBER(y)) => {
-
-            unwrap_let!(DataType::RAW(x_base) = x.get_data_type());
-            unwrap_let!(DataType::RAW(y_base) = y.get_data_type());
-
-            let promoted_type = calculate_integer_promoted_type(&x_base, &y_base);
-
-            let lhs_val = x.cast(&promoted_type).get_value().clone();
-            let rhs_val = y.cast(&promoted_type).get_value().clone();
-
-            let new_value = match &operator {
-                Punctuator::PLUS => {
-                                match (lhs_val, rhs_val) {
-                                    (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l+r),
-                                    (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l+r),
-                                    _ => panic!("tried to add mixed signed-unsigned numbers in const expr")
-                                }
-                            },
-                Punctuator::DASH => {
-                                match (lhs_val, rhs_val) {
-                                    (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l-r),
-                                    (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l-r),
-                                    _ => panic!("tried to subtract mixed signed-unsigned numbers in const expr")
-                                }
-                            }
-                Punctuator::ASTERISK => {
-                    match (lhs_val, rhs_val) {
-                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l*r),
-                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l*r),
-                        _ => panic!("tried to multiply mixed signed-unsigned numbers in const expr")
-                    }
-                },
-                Punctuator::FORWARDSLASH => {
-                    match (lhs_val, rhs_val) {
-                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l/r),
-                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l/r),
-                        _ => panic!("tried to mix signed-unsigned numbers in const expr")
-                    }
-                },
-                Punctuator::PIPEPIPE => todo!(),
-                Punctuator::ANDAND => todo!(),
-                Punctuator::AMPERSAND => todo!(),
-                Punctuator::PERCENT => {
-                    match (lhs_val, rhs_val) {
-                        (LiteralValue::SIGNED(l), LiteralValue::SIGNED(r)) => LiteralValue::SIGNED(l%r),
-                        (LiteralValue::UNSIGNED(l), LiteralValue::UNSIGNED(r)) => LiteralValue::UNSIGNED(l%r),
-                        _ => panic!("tried to mix signed-unsigned numbers in const expr")
-                    }
-                },
-                Punctuator::Greater => todo!(),
-                Punctuator::Less => todo!(),
-                Punctuator::LESSEQUAL => todo!(),
-                Punctuator::GREATEREQUAL => todo!(),
-                Punctuator::DOUBLEEQUALS => todo!(),
-                Punctuator::EXCLAMATIONEQUALS => todo!(),
-                _ => panic!("invalid operator to binary expression")
-            };
-
-            //construct a number from the promoted type and the calculated value
-            Some(ConstexprValue::NUMBER(NumberLiteral::new_from_literal_value(new_value).cast(&promoted_type)))
-        }
-        _ => todo!()
     }
 }

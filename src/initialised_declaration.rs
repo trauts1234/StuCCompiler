@@ -137,7 +137,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
                 tokens_queue.consume(&mut curr_queue_idx, &scope_data)?;//consume the open bracket
                 match tokens_queue.consume(&mut curr_queue_idx, scope_data).unwrap() {
                     Token::NUMBER(arraysize) => {
-                        array_modifiers.push(DeclModifier::ARRAY(arraysize.get_value().clone().into()));
+                        array_modifiers.push(DeclModifier::ARRAY(arraysize.get_value().clone().try_into().unwrap()));
                     }
                     Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => todo!("array size inference"),
 
@@ -241,7 +241,6 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
     //consume the right hand side of the initialisation
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer
-    println!("\n\n{:?}", tokens_queue.get_slice(curr_queue_idx));
     Some(BinaryExpression::new(
         Expression::VARIABLE(MinimalDataVariable{name: var_name.to_string()}),
         Punctuator::EQUALS,

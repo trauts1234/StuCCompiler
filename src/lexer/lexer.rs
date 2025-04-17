@@ -95,7 +95,7 @@ impl Lexer {
 
         assert!(self.consume() == Some('\''));//consume close quote
         
-        Token::NUMBER(NumberLiteral::new_from_literal_value(LiteralValue::SIGNED(character as i64)).cast(&BaseType::I32))//convert the char to a number, then cast to i32, as char literals are int in C
+        Token::NUMBER(NumberLiteral::new_from_literal_value(LiteralValue::INTEGER(character as i128)).cast(&BaseType::I32))//convert the char to a number, then cast to i32, as char literals are int in C
     }
 
     fn consume_punctuation(&mut self) -> Token{
