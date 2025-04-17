@@ -51,7 +51,7 @@ pub struct StructDefinition {
     size: Option<MemorySize>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StructMemberAccess {
     struct_tree: Box<Expression>,//need a tree or something to represent what gives me back the struct
     member_name: String,

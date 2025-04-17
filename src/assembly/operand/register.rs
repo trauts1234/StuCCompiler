@@ -73,7 +73,7 @@ impl Register {
             (Register::R8,  1) => "r8b",
             (Register::R9,  1) => "r9b",
 
-            _ => panic!("invalid register-size combination for generating assembly")
+            (reg, bytes) => panic!("cannot generate {} byte register for {:?}", bytes, reg)
 
         }.to_string()
     }

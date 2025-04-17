@@ -33,6 +33,47 @@ impl DataType
         }
     }
 
+    /// flattens array of arrays into just one giant array
+    /// 
+    /// # examples
+    /// ```
+    ///let my_type = DataType::ARRAY {
+    ///   size: 2,
+    ///   element: Box::new(DataType::ARRAY {
+    ///     size: 3,
+    ///     element: Box::new(
+    ///       DataType::RAW(BaseType::I32)
+    ///     )
+    ///   })
+    /// };
+    /// assert_eq!(
+    ///   my_type.flatten_nested_array(),
+    ///   Datatype::ARRAY{
+    ///     size:6,
+    ///     element: Box::new(DataType::RAW(BaseType::I32))
+    ///   }
+    /// );
+    /// ```
+    pub fn flatten_nested_array(&self) -> Self {
+        if let DataType::ARRAY { size, element } = self {
+            match element.flatten_nested_array() {
+                DataType::ARRAY { size: inner_size, element: inner_element } => {
+                    DataType::ARRAY {
+                        size: size * inner_size,
+                        element: inner_element,
+                    }
+                }
+                other => DataType::ARRAY {
+                    size: *size,
+                    element: Box::new(other),
+                },
+            }
+        } else {
+            self.clone()
+        }
+    }
+    
+
     /**
      * if I am a varadic arg, replace myself with to_replace
      */
@@ -70,6 +111,34 @@ impl DataType
             DataType::ARRAY { size, element } => MemorySize::from_bytes(size * &element.memory_size(asm_data).size_bytes()),
             DataType::POINTER(_) => MemorySize::from_bytes(8),
             DataType::RAW(base) => base.memory_size(asm_data),
+        }
+    }
+
+    ///how many RAW or POINTER items are contained in this data type
+    ///
+    /// # examples
+    /// ```
+    /// let my_type = DataType::ARRAY {
+    ///   size: 2,
+    ///   element: Box::new(DataType::ARRAY {
+    ///     size: 3,
+    ///     element: Box::new(
+    ///       DataType::RAW(BaseType::I32)
+    ///     )
+    ///   })
+    /// };
+    /// //since my_type represents int x[2][3];, there are 6 elements
+    /// assert_eq!(my_type.array_num_elements(), 6);
+    /// 
+    /// 
+    /// let my_type_2 = DataType::RAW(BaseType::I32);
+    /// 
+    /// assert_eq!(my_type_2.array_num_elements(), 1);//just an int is the same as an array with 1 element
+    /// ```
+    pub fn array_num_elements(&self) -> u64 {
+        match self {
+            DataType::ARRAY { size, element } => size * element.array_num_elements(),
+            _ => 1
         }
     }
 }

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <limits.h>
 
+//TODO test trailing commas
+
 int test_basic_initialization() {
     int x[2] = {1, 2};
     if (x[0] != 1) return 1;

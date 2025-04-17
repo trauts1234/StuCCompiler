@@ -1,7 +1,7 @@
 use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
 use memory_size::MemorySize;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UnaryPrefixExpression {
     operand: Box<Expression>,
     operator: Punctuator,

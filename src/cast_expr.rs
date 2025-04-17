@@ -1,6 +1,6 @@
 use crate::{data_type::recursive_data_type::DataType, expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CastExpression {
     new_type: DataType,
     expr: Box<Expression>

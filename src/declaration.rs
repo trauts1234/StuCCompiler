@@ -1,6 +1,6 @@
 use crate::{data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /**
  * stores enough data to know about a variable, using available context during assembly generation
  */
