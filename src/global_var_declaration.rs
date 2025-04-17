@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, declaration::Declaration, expression::{try_consume_whole_expr, Expression}, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, declaration::Declaration, expression::try_consume_whole_expr, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -95,6 +95,6 @@ fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_id
 
     //pass empty function list as it should never call functions anyways
     try_consume_whole_expr(tokens_queue, curr_queue_idx, &FunctionList::new(), scope_data)//return the consumed value for the variable
-    .and_then(|x| (&x).try_into().ok())//fold to constant
+    .map(|x| (&x).try_into().unwrap()) // fold to constant
     .unwrap()
 }

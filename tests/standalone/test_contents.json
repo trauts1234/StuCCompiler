@@ -540,5 +540,9 @@
     {
         "filename":"booltest.c",
         "return_code":0
+    },
+    {
+        "filename":"globalvariablescomplex.c",
+        "return_code":0
     }
 ]
