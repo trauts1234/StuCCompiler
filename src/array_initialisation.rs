@@ -18,6 +18,14 @@ impl ArrayInitialisation {
             max_index: previous_queue_idx.max_index - 1,
         };
 
+        if curr_queue_idx.get_slice_size() == 0 {
+            //c23 empty array initialise
+            //int x[4] = {};
+            return Some(Self {
+                elements: Vec::new(),
+            });
+        }
+
         let items = tokens_queue.split_outside_parentheses(&curr_queue_idx, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
 
         let mut parsed = Vec::new();
@@ -33,61 +41,6 @@ impl ArrayInitialisation {
             ArrayInitialisation{ elements: parsed }
         )
     }
-
-    /**
-     * flattens nested initialisation
-     * for example: {{1},2,3,{4,5}} => {1,2,3,4,5}
-     */
-    /*pub fn flatten(self) -> Self {
-        let new_elements = self.elements.into_iter()//get my elements
-        //if the element is an array literal, flatten it, then merge an iterator of its elements
-        //if the element is not, add just itself as an iterator
-        .map(|i| {
-            if let Expression::ARRAYLITERAL(arr) = i {
-                arr.flatten().elements.into_iter()
-            } else {
-                vec![i].into_iter()
-            }
-        })
-        //flatten into a single iterator
-        .flatten()
-        //collect to list
-        .collect();
-
-        Self { elements: new_elements }
-    }*/
-
-    /**
-     * zero fills and rearranges elements to fit the structure of
-     */
-    /*pub fn conform_to_type(self, data_type: &DataType) -> Self {
-        let zero_element = ArrayInitialisation::NUMBER(Box::new(Expression::NUMBERLITERAL(NumberLiteral::new("0"))));
-        match self {
-            ArrayInitialisation::ARRAY { elements } => {
-                //array initialistion {1,2,3} must always define an array?
-                unwrap_let!(DataType::ARRAY { size, element: arr_element_type } = data_type);
-
-                let extra_zeros_required: usize = *size as usize - elements.len();
-
-                //int x[2][2] = {{1}, 2, 3} => {{1,0}, {2,3}}
-                let casted_zero_extended_elements: Vec<ArrayInitialisation> = 
-                    elements.into_iter()//get all current elements
-                    .chain(std::iter::repeat_n(zero_element, extra_zeros_required))//pad with zeros to correct array length required
-                    .map(|x| x.conform_to_type(&arr_element_type))//convert each element to correct type
-                    .collect();
-
-                Self::ARRAY { elements: casted_zero_extended_elements }
-            },
-            ArrayInitialisation::NUMBER(expression) => {
-                match data_type {
-                    DataType::ARRAY { size, element } => {
-
-                    },
-                    _ => self //number can already be trivially cast to pointer or other numerical data type
-                }
-            },
-        }
-    }*/
 
     pub fn zero_fill_and_flatten_to_iter(&self, data_type: &DataType) -> Vec<Expression> {
         match data_type {

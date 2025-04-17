@@ -21,7 +21,7 @@ int test_basic_initialization() {
     return 0;
 }
 
-/*int test_partial_initialization() {
+int test_partial_initialization() {
     // Test partial initialization (remaining elements should be 0)
     int x[5] = {1, 2};
     if (x[0] != 1) return 10;
@@ -37,7 +37,7 @@ int test_basic_initialization() {
     if (y[2] != 0) return 17;
     
     return 0;
-}*/
+}
 
 int test_multidimensional() {
     // Test multi-dimensional array initialization
@@ -50,13 +50,13 @@ int test_multidimensional() {
     if (matrix[1][2] != 6) return 25;
     
     // Test partial multidimensional initialization
-    /*int partial[2][3] = {{1, 2}};
+    int partial[2][3] = {{1, 2}};
     if (partial[0][0] != 1) return 26;
     if (partial[0][1] != 2) return 27;
     if (partial[0][2] != 0) return 28;
     if (partial[1][0] != 0) return 29;
     if (partial[1][1] != 0) return 30;
-    if (partial[1][2] != 0) return 31;*/
+    if (partial[1][2] != 0) return 31;
     
     return 0;
 }
@@ -217,7 +217,7 @@ int test_complex_expression_initializers() {
     return 0;
 }*/
 
-/*int test_edge_cases() {
+int test_edge_cases() {
     // Test initialization with maximum array bounds
     int x[1] = {INT_MAX};
     if (x[0] != INT_MAX) return 120;
@@ -232,7 +232,7 @@ int test_complex_expression_initializers() {
     if (large[999] != 0) return 124;
     
     return 0;
-}*/
+}
 
 int main() {
     int result;
@@ -240,8 +240,8 @@ int main() {
     result = test_basic_initialization();
     if (result != 0) return result;
     
-    //result = test_partial_initialization();
-    //if (result != 0) return result;
+    result = test_partial_initialization();
+    if (result != 0) return result;
     
     result = test_multidimensional();
     if (result != 0) return result;
@@ -270,8 +270,8 @@ int main() {
     //result = test_compound_literals();
     //if (result != 0) return result;
     
-    //result = test_edge_cases();
-    //if (result != 0) return result;
+    result = test_edge_cases();
+    if (result != 0) return result;
     
     return 0;
 }
