@@ -17,7 +17,7 @@ pub struct ScalarInAccVisitor<'a>{
 impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     type Output = Assembly;
 
-    fn visit_number_literal(&mut self, number: &crate::number_literal::NumberLiteral) -> Self::Output {
+    fn visit_number_literal(&mut self, number: &crate::number_literal::typed_value::NumberLiteral) -> Self::Output {
         let mut result = Assembly::make_empty();
 
         let reg_size = number.get_data_type().memory_size(self.asm_data);//decide how much storage is needed to temporarily store the constant

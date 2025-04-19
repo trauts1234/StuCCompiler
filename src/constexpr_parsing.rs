@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, expression::Expression, lexer::punctuator::Punctuator, number_literal::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{binary_expression::BinaryExpression, expression::Expression, lexer::punctuator::Punctuator, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -32,7 +32,7 @@ impl TryFrom<UnaryPrefixExpression> for ConstexprValue {
 
         if let (Punctuator::AMPERSAND, Expression::VARIABLE(var)) = (value.get_operator(), value.get_operand()) {
             //getting address of variable
-            return Ok(ConstexprValue::POINTER { label: var.name.to_string(), offset: NumberLiteral::new("0") })
+            return Ok(ConstexprValue::POINTER { label: var.name.to_string(), offset: NumberLiteral::from(0) })
         }
 
         let operand: ConstexprValue = value.get_operand().try_into()?;

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ast_metadata::ASTMetadata, data_type::base_type::BaseType, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::base_type::BaseType, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 /**
  * stores all the enums in a current scope
@@ -106,7 +106,7 @@ fn try_consume_enum_variant_definition(tokens_queue: &TokenQueue, remaining_toke
 
         *prev_variant_number += 1;//later, when this is a NumberLiteral, you should call some sort of evaluate_const_expr(1 + prev_variant_number) as it could be different types, or worse
 
-        return Some((variant_name, NumberLiteral::new(&prev_variant_number.to_string())))
+        return Some((variant_name, NumberLiteral::from(*prev_variant_number as i64)))
     } else {
         panic!("tried to read enum variant but didn't find an identifier");
     }

@@ -1,11 +1,8 @@
-use std::{num::TryFromIntError, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
 use unwrap_let::unwrap_let;
 use crate::{asm_gen_data::AsmData, assembly::{operand::immediate::ImmediateValue, operation::AsmComparison}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum LiteralValue {
-    INTEGER(i128)
-}
+use super::literal_value::LiteralValue;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberLiteral {
@@ -36,6 +33,66 @@ impl NumberLiteral {
             self.cast(&base),
             rhs.cast(&base)
         )
+    }
+
+    pub fn new_from_literal_value(value: LiteralValue) -> NumberLiteral {
+        let data_type = match &value {
+            LiteralValue::INTEGER(x) if *x < 0 => BaseType::I64,
+            _ => BaseType::U64,
+        };
+
+        NumberLiteral{
+            value,
+            data_type
+        }
+    }
+
+    pub fn get_value(&self) -> &LiteralValue {
+        &self.value
+    }
+
+    /**
+     * format this number in a way that it can be pasted into a nasm file
+     */
+    pub fn nasm_format(&self) -> ImmediateValue {
+        ImmediateValue(match self.value {
+            LiteralValue::INTEGER(x) => x.to_string()
+        })
+    }
+
+    pub fn get_comma_separated_bytes(&self, asm_data: &AsmData) -> String {
+        let bytes_size = self.data_type.memory_size(asm_data).size_bytes();//pass in blank
+
+        let number_bytes = match self.value {
+            LiteralValue::INTEGER(x) => {
+                x.to_le_bytes()
+            }
+        };
+        
+        number_bytes[..bytes_size as usize].iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(",")
+    }
+
+    pub fn cast(&self, new_type: &BaseType) -> NumberLiteral {
+        let new_value = match (self.value.clone(), new_type) {
+            (LiteralValue::INTEGER(val), BaseType::I8)=> LiteralValue::INTEGER(val as i8 as i128),
+            (LiteralValue::INTEGER(val), BaseType::I16) => LiteralValue::INTEGER(val as i16 as i128),
+            (LiteralValue::INTEGER(val), BaseType::I32) => LiteralValue::INTEGER(val as i32 as i128),
+            (LiteralValue::INTEGER(val), BaseType::I64) => LiteralValue::INTEGER(val as i64 as i128),
+
+            (LiteralValue::INTEGER(val), BaseType::U8)=> LiteralValue::INTEGER(val as u8 as i128),
+            (LiteralValue::INTEGER(val), BaseType::U16) => LiteralValue::INTEGER(val as u16 as i128),
+            (LiteralValue::INTEGER(val), BaseType::U32) => LiteralValue::INTEGER(val as u32 as i128),
+            (LiteralValue::INTEGER(val), BaseType::U64) => LiteralValue::INTEGER(val as u64 as i128),
+
+            (LiteralValue::INTEGER(val), BaseType::_BOOL) => LiteralValue::INTEGER(if val == 0 {0} else {1}),//booleans are 1 if nonzero
+
+            _ => panic!("tried to cast number literal to unknown data type")
+        };
+
+        NumberLiteral { value: new_value, data_type: new_type.clone() }
     }
 
     ///ensures that the number stored is a valid number for the data type
@@ -265,9 +322,21 @@ impl Shr for NumberLiteral {
     
 }
 
-impl NumberLiteral {
+impl From<i64> for NumberLiteral {
+    fn from(value: i64) -> Self {
+        Self { value: LiteralValue::INTEGER(value.into()), data_type: BaseType::I64 }
+    }
+}
+
+impl From<String> for NumberLiteral {
+    fn from(value: String) -> Self {
+        Self::from(value.as_ref())
+    }
+}
+
+impl From<&str> for NumberLiteral {
     //TODO maybe impl From/TryFrom???
-    pub fn new(input: &str) -> NumberLiteral {
+    fn from(input: &str) -> NumberLiteral {
 
         let input = input.to_ascii_lowercase();
 
@@ -364,75 +433,6 @@ impl NumberLiteral {
 
     }
 
-    pub fn new_from_literal_value(value: LiteralValue) -> NumberLiteral {
-        let data_type = match &value {
-            LiteralValue::INTEGER(x) if *x < 0 => BaseType::I64,
-            _ => BaseType::U64,
-        };
-
-        NumberLiteral{
-            value,
-            data_type
-        }
-    }
-
-    pub fn get_value(&self) -> &LiteralValue {
-        &self.value
-    }
-
-    /**
-     * format this number in a way that it can be pasted into a nasm file
-     */
-    pub fn nasm_format(&self) -> ImmediateValue {
-        ImmediateValue(match self.value {
-            LiteralValue::INTEGER(x) => x.to_string()
-        })
-    }
-
-    pub fn get_comma_separated_bytes(&self, asm_data: &AsmData) -> String {
-        let bytes_size = self.data_type.memory_size(asm_data).size_bytes();//pass in blank
-
-        let number_bytes = match self.value {
-            LiteralValue::INTEGER(x) => {
-                x.to_le_bytes()
-            }
-        };
-        
-        number_bytes[..bytes_size as usize].iter()
-        .map(|x| x.to_string())
-        .collect::<Vec<String>>()
-        .join(",")
-    }
-
-    pub fn cast(&self, new_type: &BaseType) -> NumberLiteral {
-        let new_value = match (self.value.clone(), new_type) {
-            (LiteralValue::INTEGER(val), BaseType::I8)=> LiteralValue::INTEGER(val as i8 as i128),
-            (LiteralValue::INTEGER(val), BaseType::I16) => LiteralValue::INTEGER(val as i16 as i128),
-            (LiteralValue::INTEGER(val), BaseType::I32) => LiteralValue::INTEGER(val as i32 as i128),
-            (LiteralValue::INTEGER(val), BaseType::I64) => LiteralValue::INTEGER(val as i64 as i128),
-
-            (LiteralValue::INTEGER(val), BaseType::U8)=> LiteralValue::INTEGER(val as u8 as i128),
-            (LiteralValue::INTEGER(val), BaseType::U16) => LiteralValue::INTEGER(val as u16 as i128),
-            (LiteralValue::INTEGER(val), BaseType::U32) => LiteralValue::INTEGER(val as u32 as i128),
-            (LiteralValue::INTEGER(val), BaseType::U64) => LiteralValue::INTEGER(val as u64 as i128),
-
-            (LiteralValue::INTEGER(val), BaseType::_BOOL) => LiteralValue::INTEGER(if val == 0 {0} else {1}),//booleans are 1 if nonzero
-
-            _ => panic!("tried to cast number literal to unknown data type")
-        };
-
-        NumberLiteral { value: new_value, data_type: new_type.clone() }
-    }
-}
-
-impl TryInto<u64> for LiteralValue {
-    type Error = TryFromIntError;
-
-    fn try_into(self) -> Result<u64, Self::Error> {
-        match self {
-            LiteralValue::INTEGER(x) => x.try_into()
-        }
-    }
 }
 
 fn calculate_positive_integer(base: u64, digits: &[char]) -> u64 {

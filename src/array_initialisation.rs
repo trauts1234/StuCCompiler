@@ -1,4 +1,4 @@
-use crate::{compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, expression::{self, Expression}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, expression::{self, Expression}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 #[derive(Clone, Debug)]
 pub struct ArrayInitialisation {
@@ -78,7 +78,7 @@ impl ArrayInitialisation {
                 let zero_padded = flattened_elements.into_iter()
                     // int x[4] = {1,2} => {1,2,0,0}
                     .chain(std::iter::repeat_n(
-                        Expression::NUMBERLITERAL(NumberLiteral::new("0")), extra_zeroes_required)
+                        Expression::NUMBERLITERAL(NumberLiteral::from(0)), extra_zeroes_required)
                     )
                     .collect();
                 

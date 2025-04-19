@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, declaration::Declaration, expression::try_consume_whole_expr, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, declaration::Declaration, expression::try_consume_whole_expr, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -88,7 +88,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
 
 fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> ConstexprValue {
     if tokens_queue.peek(&curr_queue_idx, &scope_data) != Some(Token::PUNCTUATOR(Punctuator::EQUALS)){
-        return ConstexprValue::NUMBER(NumberLiteral::new("0"));
+        return ConstexprValue::NUMBER(NumberLiteral::from(0));
     }
 
     tokens_queue.consume(curr_queue_idx, &scope_data).unwrap();//consume the equals sign

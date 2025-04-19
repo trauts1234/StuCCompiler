@@ -19,7 +19,7 @@ pub struct CopyStructVisitor<'a>{
 impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     type Output = Assembly;
 
-    fn visit_number_literal(&mut self, _number: &crate::number_literal::NumberLiteral) -> Self::Output {
+    fn visit_number_literal(&mut self, _number: &crate::number_literal::typed_value::NumberLiteral) -> Self::Output {
         panic!("tried to put struct on stack but found number literal")
     }
 

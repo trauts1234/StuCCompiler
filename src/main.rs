@@ -7,7 +7,6 @@ mod expression;
 mod translation_unit;
 mod lexer;
 pub mod control_flow_statement;
-pub mod number_literal;
 pub mod asm_boilerplate;
 pub mod compile;
 pub mod test;
@@ -38,6 +37,7 @@ pub mod initialised_declaration;
 mod cast_expr;
 mod typedef;
 pub mod array_initialisation;
+mod number_literal;
 
 struct CompilationOptions {
     c_file: PathBuf,

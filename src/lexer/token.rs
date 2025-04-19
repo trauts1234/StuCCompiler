@@ -1,4 +1,4 @@
-use crate::{data_type::type_token::TypeInfo, number_literal::NumberLiteral, string_literal::StringLiteral};
+use crate::{data_type::type_token::TypeInfo, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 use super::{keywords::Keyword, punctuator::Punctuator};
 
