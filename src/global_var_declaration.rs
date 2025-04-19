@@ -34,7 +34,7 @@ impl GlobalVariable {
         let mut curr_queue_idx = remaining_slice.clone();
 
         //find semicolon
-        let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType { skip_in_curly_brackets: false, skip_in_square_brackets: false, skip_in_squiggly_brackets:true })?;
+        let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all())?;
         //find where all the declarators are (the x=2,y part in int x=2,y;)
         let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
         //split each declarator

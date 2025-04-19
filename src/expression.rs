@@ -22,7 +22,7 @@ impl Expression {
      * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Expression>> {
-        let semicolon_idx = tokens_queue.find_closure_matches(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing())?;
+        let semicolon_idx = tokens_queue.find_closure_matches(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all())?;
         //define the slice that we are going to try and parse
         let attempt_slice = TokenQueueSlice {
             index: previous_queue_idx.index,
@@ -131,11 +131,8 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                         .is_some_and(|precedence| precedence == precedence_required);
 
                     if starts_with_valid_prefix {
-                        match try_parse_unary_prefix(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
-                            Some(x) => {return Some(Expression::UNARYPREFIX(x));},
-                            None => {
-                                println!("failed to parse unary prefix")
-                            }
+                        if let Some(x) = try_parse_unary_prefix(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
+                            return Some(Expression::UNARYPREFIX(x));
                         }
                     }
 

@@ -24,8 +24,6 @@ impl TranslationUnit {
             .cloned()
             .collect();
 
-        println!("{:#?}", tokens);
-
         let mut token_queue = TokenQueue::new(tokens);
         let mut token_idx = TokenQueueSlice::new();
 

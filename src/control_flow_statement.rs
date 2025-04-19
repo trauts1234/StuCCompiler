@@ -19,7 +19,7 @@ impl ControlFlowChange {
             Keyword::RETURN => {
 
                 //try to find semicolon at end of return statement
-                let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing())?;
+                let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all())?;
 
                 let return_value_slice = TokenQueueSlice{//between return statement and ; non inclusive
                     index: curr_queue_idx.index, 

@@ -140,7 +140,12 @@ impl StructDefinition {
             return None;//needs preceding "struct"
         }
     
-        let struct_name = if let Token::IDENTIFIER(x) = tokens_queue.consume(&mut curr_queue_idx, &scope_data).unwrap() {x} else {todo!("found struct keyword, then non-identifier token. perhaps you tried to declare an anonymous struct inline?")};
+        let struct_name = if let Token::IDENTIFIER(x) = tokens_queue.peek(&mut curr_queue_idx, &scope_data).unwrap() {
+            tokens_queue.consume(&mut curr_queue_idx, scope_data).unwrap();//consume the name
+            Some(x)
+        } else {
+            None
+        };
 
         match tokens_queue.peek(&curr_queue_idx, &scope_data).unwrap() {
             Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => {
@@ -154,7 +159,7 @@ impl StructDefinition {
                 }
                 assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
 
-                let struct_definition = UnpaddedStructDefinition { name: Some(struct_name), ordered_members: Some(members),  };
+                let struct_definition = UnpaddedStructDefinition { name: struct_name, ordered_members: Some(members),  };
                 scope_data.add_struct(&struct_definition);
 
                 Some(ASTMetadata {
@@ -165,7 +170,7 @@ impl StructDefinition {
 
             _ => Some(ASTMetadata { 
                 remaining_slice: curr_queue_idx,
-                resultant_tree: scope_data.get_struct(&struct_name).unwrap().clone()//TODO this could declare a struct?
+                resultant_tree: scope_data.get_struct(&struct_name.unwrap()).unwrap().clone()//TODO this could declare a struct?
             })
         }
     }
@@ -181,7 +186,7 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
 
     curr_queue_idx.index = remaining_slice.index;//consume it and let the calling function know
 
-    let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_nothing()).unwrap();
+    let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all()).unwrap();
 
     let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
 

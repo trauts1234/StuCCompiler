@@ -65,9 +65,10 @@ impl ParseData {
     }
 
     pub fn add_struct(&mut self, new_definition: &UnpaddedStructDefinition) {
-        let new_struct_name = new_definition.name.as_ref().unwrap();
+        let lookup_struct_definition = new_definition.name.as_ref()
+        .and_then(|name| self.structs.get_mut(name));
 
-        if let Some(definition) = self.structs.get_mut(new_struct_name) {
+        if let Some(definition) = lookup_struct_definition {
             match (&definition.ordered_members, &new_definition.ordered_members) {
                 (Some(_), Some(_)) => panic!("redefinition of struct {}", definition.name.clone().unwrap()),
 
