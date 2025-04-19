@@ -96,5 +96,5 @@ fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_id
     //pass empty function list as it should never call functions anyways
     try_consume_whole_expr(tokens_queue, curr_queue_idx, &FunctionList::new(), scope_data)//return the consumed value for the variable
     .map(|x| (&x).try_into().unwrap()) // fold to constant
-    .unwrap()
+    .expect(&format!("{:?}", tokens_queue.get_slice(curr_queue_idx)))
 }

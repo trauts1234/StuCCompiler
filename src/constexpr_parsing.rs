@@ -64,9 +64,13 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
             (ConstexprValue::NUMBER(l), Punctuator::ASTERISK, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l * r)),
             (ConstexprValue::NUMBER(l), Punctuator::FORWARDSLASH, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l / r)),
             (ConstexprValue::NUMBER(l), Punctuator::PERCENT, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l % r)),
+            (ConstexprValue::NUMBER(l), Punctuator::LessLess, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l << r)),
+            (ConstexprValue::NUMBER(l), Punctuator::GreaterGreater, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l >> r)),
+
+            (ConstexprValue::NUMBER(l), op, ConstexprValue::NUMBER(r)) if op.as_comparator_instr().is_some() => Ok(ConstexprValue::NUMBER(l.cmp(r, &op.as_comparator_instr().unwrap()))),
             
 
-            _ => todo!()
+            _ => todo!("constexpr folding of binary operator: {:?}", value.operator())
         }
     }
 }

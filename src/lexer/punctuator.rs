@@ -163,6 +163,7 @@ impl Punctuator {
             Self::Tilde |
             Self::PLUSPLUS |
             Self::DASHDASH |//prefix increment/decrement
+            Self::PLUS |//unary plus
             Self::DASH => Some(2),//unary negate
             _ => None
         }

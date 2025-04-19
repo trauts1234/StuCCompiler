@@ -1,7 +1,7 @@
 use crate::{asm_gen_data::AsmData, data_type::type_token::TypeInfo};
 use memory_size::MemorySize;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BaseType {
     VOID,
     VaArg,//varadic arg has a special type as it has no type?

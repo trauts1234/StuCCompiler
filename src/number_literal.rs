@@ -1,6 +1,6 @@
-use std::{num::TryFromIntError, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Sub}};
+use std::{num::TryFromIntError, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use unwrap_let::unwrap_let;
-use crate::{asm_gen_data::AsmData, assembly::operand::immediate::ImmediateValue, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::AsmData, assembly::{operand::immediate::ImmediateValue, operation::AsmComparison}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {
@@ -46,6 +46,29 @@ impl NumberLiteral {
     /// promotes the number literal by applying unary plus to it
     pub fn unary_plus(self) -> Self {
         self.unary_promote()
+    }
+
+    pub fn cmp(self, other: Self, comparison: &AsmComparison) -> Self {
+        let (lhs, rhs) = self.binary_promote(other);
+
+        let result = match (lhs.value, rhs.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => {
+            match comparison {
+                AsmComparison::EQ => LiteralValue::INTEGER((x == y) as i128),
+                AsmComparison::NE => LiteralValue::INTEGER((x != y) as i128),
+                AsmComparison::L => LiteralValue::INTEGER((x < y) as i128),
+                AsmComparison::LE => LiteralValue::INTEGER((x <= y) as i128),
+                AsmComparison::G => LiteralValue::INTEGER((x > y) as i128),
+                AsmComparison::GE => LiteralValue::INTEGER((x >= y) as i128),
+                AsmComparison::ALWAYS => panic!("invalid comparison")
+            }
+            }
+        };
+
+        NumberLiteral {
+            value: result,
+            data_type: BaseType::_BOOL, // Comparisons result in a boolean type
+        }
     }
 
     pub fn bitwise_not(self) -> Self {
@@ -200,6 +223,46 @@ impl Rem for NumberLiteral {
 
         l.limit_literal()
     }
+}
+
+impl Shl for NumberLiteral {
+    type Output = Self;
+
+    fn shl(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);//this should truncate self and rhs, so division should work properly...
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x << y),
+        };
+
+        l.limit_literal()
+    }
+}
+
+impl Shr for NumberLiteral {
+    type Output = Self;
+    
+    fn shr(self, rhs: Self) -> Self::Output {
+        let (mut l, r) = self.binary_promote(rhs);//this should truncate self and rhs, so division should work properly...
+
+        l.value = match (l.value, r.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(match l.data_type {
+                BaseType::I8 => (x as i8 >> y) as i128,
+                BaseType::U8 => (x as u8 >> y) as i128,
+                BaseType::I16 => (x as i16 >> y) as i128,
+                BaseType::U16 => (x as u16 >> y) as i128,
+                BaseType::I32 => (x as i32 >> y) as i128,
+                BaseType::U32 => (x as u32 >> y) as i128,
+                BaseType::I64 => (x as i64 >> y) as i128,
+                BaseType::U64 => (x as u64 >> y) as i128,
+                _ => panic!("cannot shift this value"),
+            }),
+        };
+
+        l.limit_literal()
+    }
+
+    
 }
 
 impl NumberLiteral {
