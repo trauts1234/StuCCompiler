@@ -183,7 +183,7 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
             Some(ASTMetadata { remaining_slice, resultant_tree: DataType::RAW(resultant_tree) })
         }
         Token::KEYWORD(Keyword::STRUCT) => {
-            let ASTMetadata { remaining_slice, resultant_tree: (struct_name, struct_type) } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
+            let ASTMetadata { remaining_slice, resultant_tree: (struct_name, _) } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
             Some(ASTMetadata {
                 remaining_slice,

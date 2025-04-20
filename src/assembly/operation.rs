@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::{assembly::operand::register::Register, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{DebugDisplay, IRDisplay}};
 use colored::Colorize;
 use memory_size::MemorySize;
@@ -267,8 +265,8 @@ impl IRDisplay for AsmOperation {
                     label
                 ),
                 
-            AsmOperation::SignExtendACC { old_size } => format!("sign extend {} from {}", Register::acc().display_ir(), old_size),
-            AsmOperation::ZeroExtendACC { old_size } => format!("zero extend {} from {}", Register::acc().display_ir(), old_size),
+            AsmOperation::SignExtendACC { old_size } => format!("{} {} from {}", opcode!("sign extend"), Register::acc().display_ir(), old_size),
+            AsmOperation::ZeroExtendACC { old_size } => format!("{} {} from {}", opcode!("zero extend"), Register::acc().display_ir(), old_size),
             AsmOperation::ADD { destination, increment, data_type } => format!("{} += {} ({})", destination.display_ir(), increment.display_ir(), data_type),
             AsmOperation::SUB { destination, decrement, data_type } => format!("{} -= {} ({})", destination.display_ir(), decrement.display_ir(), data_type),
             AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", Register::acc().display_ir(), multiplier.display_ir(), data_type),

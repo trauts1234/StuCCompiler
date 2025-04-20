@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::{compilation_state::label_generator::LabelGenerator, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]

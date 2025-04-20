@@ -2,8 +2,6 @@ pub mod memory_operand;
 pub mod register;
 pub mod immediate;
 
-use std::fmt::Display;
-
 use immediate::ImmediateValue;
 use memory_operand::MemoryOperand;
 use register::Register;

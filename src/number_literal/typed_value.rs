@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
 use unwrap_let::unwrap_let;
 use crate::{asm_gen_data::AsmData, assembly::{operand::immediate::ImmediateValue, operation::AsmComparison}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::IRDisplay, expression_visitors::expr_visitor::ExprVisitor};
 

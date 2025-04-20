@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use colored::Colorize;
 use memory_size::MemorySize;
 
