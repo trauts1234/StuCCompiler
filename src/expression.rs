@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{ASTDisplay, DebugDisplay}, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 #[derive(Clone, Debug)]
 pub enum Expression {
@@ -476,4 +476,20 @@ fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, acces
     let base_expr = try_consume_whole_expr(tokens_queue, &remaining_expr_slice, accessible_funcs, scope_data)?;
 
     Some(CastExpression::new(new_type, base_expr))
+}
+
+impl ASTDisplay for Expression {
+    fn display_ast(&self) -> String {
+        match self {
+            Expression::NUMBERLITERAL(number_literal) => number_literal.display(),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.display_ast(),
+            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.display_ast(),
+            Expression::STRINGLITERAL(string_literal) => string_literal.display(),
+            Expression::ARRAYLITERAL(array_initialisation) => array_initialisation.display_ast(),
+            Expression::FUNCCALL(function_call) => function_call.display_ast(),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.display_ast(),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.display_ast(),
+            Expression::CAST(cast_expression) => cast_expression.display_ast(),
+        }
+    }
 }

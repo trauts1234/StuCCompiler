@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, expression::Expression, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, debugging::ASTDisplay, expression::Expression, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
 use memory_size::MemorySize;
 
 pub enum Statement {
@@ -67,6 +67,19 @@ impl Statement {
                     }
 
             Self::NOP => Assembly::make_empty(),
+        }
+    }
+}
+
+impl ASTDisplay for Statement {
+    fn display_ast(&self) -> String {
+        match self {
+            Statement::EXPRESSION(expression) => expression.display_ast(),
+            Statement::COMPOUND(scope_statements) => scope_statements.display_ast(),
+            Statement::SELECTION(selection_statement) => selection_statement.display_ast(),
+            Statement::ITERATION(iteration_statement) => iteration_statement.display_ast(),
+            Statement::CONTROLFLOW(control_flow_change) => control_flow_change.display_ast(),
+            Statement::NOP => "NOP".to_owned(),
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, type_modifier::DeclModifier}, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, type_modifier::DeclModifier}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{self, Expression}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use memory_size::MemorySize;
 
 /**
@@ -53,6 +53,12 @@ impl InitialisedDeclaration {
         }
 
         result
+    }
+}
+
+impl ASTDisplay for InitialisedDeclaration {
+    fn display_ast(&self) -> String {
+        self.init_code.as_ref().map(|x| x.display_ast()).unwrap_or(String::new())
     }
 }
 

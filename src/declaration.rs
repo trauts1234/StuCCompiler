@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::DataType, debugging::IRDisplay, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, debugging::{ASTDisplay, DebugDisplay}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Clone, Debug)]
 /**
@@ -36,8 +36,14 @@ impl Declaration {
     
 }
 
-impl IRDisplay for Declaration {
-    fn display_ir(&self) -> String {
-        format!("{}: {}", self.get_name(), self.get_type())
+impl ASTDisplay for Declaration {
+    fn display_ast(&self) -> String {
+        format!("{}: {}", self.get_name(), self.get_type().display())
+    }
+}
+
+impl ASTDisplay for MinimalDataVariable {
+    fn display_ast(&self) -> String {
+        self.name.to_owned()
     }
 }

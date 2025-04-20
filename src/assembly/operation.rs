@@ -250,7 +250,7 @@ impl IRDisplay for AsmOperation {
                     opcode!("CMP"),
                     lhs.display_ir(),
                     rhs.display_ir(),
-                    data_type
+                    data_type.display()
                 ),
 
             AsmOperation::SETCC { destination, comparison } => 
@@ -267,13 +267,13 @@ impl IRDisplay for AsmOperation {
                 
             AsmOperation::SignExtendACC { old_size } => format!("{} {} from {}", opcode!("sign extend"), Register::acc().display_ir(), old_size),
             AsmOperation::ZeroExtendACC { old_size } => format!("{} {} from {}", opcode!("zero extend"), Register::acc().display_ir(), old_size),
-            AsmOperation::ADD { destination, increment, data_type } => format!("{} += {} ({})", destination.display_ir(), increment.display_ir(), data_type),
-            AsmOperation::SUB { destination, decrement, data_type } => format!("{} -= {} ({})", destination.display_ir(), decrement.display_ir(), data_type),
-            AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", Register::acc().display_ir(), multiplier.display_ir(), data_type),
-            AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", Register::acc().display_ir(), divisor.display_ir(), data_type),
+            AsmOperation::ADD { destination, increment, data_type } => format!("{} += {} ({})", destination.display_ir(), increment.display_ir(), data_type.display()),
+            AsmOperation::SUB { destination, decrement, data_type } => format!("{} -= {} ({})", destination.display_ir(), decrement.display_ir(), data_type.display()),
+            AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", Register::acc().display_ir(), multiplier.display_ir(), data_type.display()),
+            AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", Register::acc().display_ir(), divisor.display_ir(), data_type.display()),
             AsmOperation::SHL { destination, amount, base_type } => format!("{} <<= {} ({})", destination.display_ir(), amount.display_ir(), base_type.display()),
             AsmOperation::SHR { destination, amount, base_type } => format!("{} >>= {} ({})", destination.display_ir(), amount.display_ir(), base_type.display()),
-            AsmOperation::NEG { item, data_type } => format!("{} {} ({})", opcode!("NEG"), item.display_ir(), data_type),
+            AsmOperation::NEG { item, data_type } => format!("{} {} ({})", opcode!("NEG"), item.display_ir(), data_type.display()),
             AsmOperation::BitwiseNot { item, size } => format!("{} {} ({})", opcode!("NOT"), item.display_ir(), size),
             AsmOperation::BitwiseOp { destination, secondary, operation, size } => format!("{} {} {} ({})", destination.display_ir(), operation.display_ir(), secondary.display_ir(), size),
             AsmOperation::Label { name } => format!("{}:", name.red()),

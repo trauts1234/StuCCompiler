@@ -78,9 +78,9 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
 impl IRDisplay for ConstexprValue {
     fn display_ir(&self) -> String {
         match self {
-            ConstexprValue::NUMBER(number_literal) => number_literal.display_ir(),
+            ConstexprValue::NUMBER(number_literal) => number_literal.display(),
             ConstexprValue::STRING(string_literal) => string_literal.display(),
-            ConstexprValue::POINTER { label, offset } => format!("&({} + {})", label, offset.display_ir()),
+            ConstexprValue::POINTER { label, offset } => format!("&({} + {})", label, offset.display()),
         }
     }
 }

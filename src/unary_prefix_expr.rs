@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
 use memory_size::MemorySize;
 
 #[derive(Clone, Debug)]
@@ -219,9 +219,7 @@ impl UnaryPrefixExpression {
             _ => panic!("tried getting data type of a not-implemented prefix")
         }
     }
-}
 
-impl UnaryPrefixExpression {
     pub fn new(operator: Punctuator, operand: Expression) -> UnaryPrefixExpression {
         UnaryPrefixExpression { operand: Box::new(operand), operator }
     }
@@ -232,5 +230,13 @@ impl UnaryPrefixExpression {
 
     pub fn get_operand(&self) -> &Expression {
         &self.operand
+    }
+}
+
+impl ASTDisplay for UnaryPrefixExpression {
+    fn display_ast(&self) -> String {
+        let operator_prefix: &str = self.operator.clone().into();
+
+        format!("{}\n  {}", operator_prefix, self.operand.display_ast())
     }
 }

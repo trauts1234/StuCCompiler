@@ -51,6 +51,14 @@ impl StatementOrDeclaration {
 
 impl ASTDisplay for StatementOrDeclaration {
     fn display_ast(&self) -> String {
-        todo!()
+        match self {
+            StatementOrDeclaration::STATEMENT(statement) => statement.display_ast(),
+            StatementOrDeclaration::DECLARATION(initialised_declarations) => 
+                initialised_declarations
+                .iter()
+                .map(|decl| decl.display_ast())
+                .collect:: <Vec<_>>()
+                .join("\n")
+        }
     }
 }

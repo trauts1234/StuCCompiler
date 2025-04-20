@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::DataType, expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, debugging::{ASTDisplay, DebugDisplay}, expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Clone, Debug)]
 pub struct CastExpression {
@@ -24,5 +24,11 @@ impl CastExpression {
     }
     pub fn get_uncasted_expr(&self) -> &Expression {
         &self.expr
+    }
+}
+
+impl ASTDisplay for CastExpression {
+    fn display_ast(&self) -> String {
+        format!("({}) as {}", self.expr.display_ast(), self.new_type.display())
     }
 }

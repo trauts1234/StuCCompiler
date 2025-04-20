@@ -63,7 +63,15 @@ impl ScopeStatements {
 impl ASTDisplay for ScopeStatements {
     fn display_ast(&self) -> String {
         format!("{{\n{}\n}}",
-        self.statements.iter().map(|x| format!("\t{}", x.display_ast())).collect:: <Vec<_>>().join("\n")
+        self.statements
+        .iter()//get each statement
+        .map(|x|  x.display_ast())//convert to pretty printed AST
+        .collect:: <Vec<_>>()
+        .join("\n")//convert to lines
+        .split("\n")//split by newlines added, and newlines made by children
+        .map(|x| format!("\t{}", x))
+        .collect:: <Vec<_>>()
+        .join("\n")//then re add new lines
         )
     }
 }

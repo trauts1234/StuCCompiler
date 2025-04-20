@@ -151,13 +151,13 @@ impl DataType
     }
 }
 
-impl Display for DataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            DataType::ARRAY { size, element } => format!("ARR[{}]({})", size, element),
-            DataType::POINTER(data_type) => format!("PTR({})", data_type),
+impl DebugDisplay for DataType {
+    fn display(&self) -> String {
+        match self {
+            DataType::ARRAY { size, element } => format!("ARR[{}]({})", size, element.display()),
+            DataType::POINTER(data_type) => format!("PTR({})", data_type.display()),
             DataType::RAW(base_type) => base_type.display(),
-        })
+        }
     }
 }
 

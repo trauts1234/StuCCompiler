@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{asm_gen_data::AsmData, assembly::assembly_file::AssemblyFile, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::{DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::{ASTDisplay, DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -78,16 +78,13 @@ impl TranslationUnit {
             .map(|x| format!("{} db {}\n", x.get_label(), x.get_comma_separated_bytes()))
             .collect::<Vec<_>>();
 
-        let mut label_generator = LabelGenerator::new();
         let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);//no return type for a global scope
 
         let global_vars = self.global_variables.iter()
             .map(|x| x.generate_assembly(&asm_data))
             .collect::<Vec<_>>();
 
-        let instructions = self.functions.func_definitions_as_slice().iter()
-            .map(|x| x.generate_assembly(&mut label_generator, &asm_data))
-            .collect();
+        let instructions = self.generate_fn_asm();
 
         let assembly_file = AssemblyFile::builder()
         .global_func_lines(global_funcs)
@@ -104,6 +101,28 @@ impl TranslationUnit {
             .any(|reg| assembly_code.contains(reg)));//ensure my code does not contain the bad registers
 
         output_file.write(&assembly_code.into_bytes()).unwrap();
+    }
+
+    fn generate_fn_asm(&self) -> Vec<Assembly> {
+        let mut label_generator = LabelGenerator::new();
+        let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);
+
+        self.functions.func_definitions_as_slice().iter()
+        .map(|x| x.generate_assembly(&mut label_generator, &asm_data))
+        .collect()
+    }
+}
+
+impl ASTDisplay for TranslationUnit {
+    fn display_ast(&self) -> String {
+        let fn_display = self.functions
+        .func_definitions_as_slice()
+        .iter()
+        .map(|f| f.display_ast())
+        .collect:: <Vec<_>>()
+        .join("\n\n");
+
+        fn_display
     }
 }
 
@@ -129,14 +148,9 @@ impl IRDisplay for TranslationUnit {
                 .join("\n")
         );
 
-        //TODO cloned from generate_assembly
-        let mut label_generator = LabelGenerator::new();
-        let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);//no return type for a global scope
-
-        let asm = self.functions
-        .func_definitions_as_slice()
+        let asm = self.generate_fn_asm()
         .iter()
-        .map(|func| format!("{}", func.generate_assembly(&mut label_generator, &asm_data).display_ir()))
+        .map(|x| x.display_ir())
         .collect:: <Vec<_>>()
         .join("\n");
 

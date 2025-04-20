@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use memory_size::MemorySize;
 
 /**
@@ -211,5 +211,20 @@ impl IterationStatement {
         }
         
         result
+    }
+}
+
+impl ASTDisplay for IterationStatement {
+    fn display_ast(&self) -> String {
+        match self {
+            IterationStatement::FOR { initialisation, condition, increment, local_scope_data:_, body } => {
+                let init_txt = initialisation.as_ref().map(|x| x.display_ast()).unwrap_or(String::new());
+                let condition_txt = condition.display_ast();
+                let increment_txt = increment.as_ref().map(|x| x.display_ast()).unwrap_or(String::new());
+                let body_txt = body.display_ast();
+                format!("for({};{};{}) {}", init_txt, condition_txt, increment_txt, body_txt)
+            },
+            IterationStatement::WHILE { condition, body } => format!("while({}) {}", condition.display_ast(), body.display_ast()),
+        }
     }
 }

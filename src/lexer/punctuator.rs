@@ -169,3 +169,43 @@ impl Punctuator {
         }
     }
 }
+
+impl<'a> Into<&'a str> for Punctuator {
+    fn into(self) -> &'a str {
+        match self {
+            Self::PLUS => "+",
+            Self::PLUSPLUS => "++",
+            Self::DASH => "-",
+            Self::DASHDASH => "--",
+            Self::ASTERISK => "*",
+            Self::FORWARDSLASH => "/",
+            Self::EQUALS => "=",
+            Self::SEMICOLON => ";",
+            Self::Tilde => "~",
+            Self::Pipe => "|",
+            Self::PIPEPIPE => "||",
+            Self::ANDAND => "&&",
+            Self::Hat => "^",
+            Self::AMPERSAND => "&",
+            Self::PERCENT => "%",
+            Self::Exclamation => "!",
+            Self::Greater => ">",
+            Self::GreaterGreater => ">>",
+            Self::Less => "<",
+            Self::LessLess => "<<",
+            Self::LESSEQUAL => "<=",
+            Self::GREATEREQUAL => ">=",
+            Self::DOUBLEEQUALS => "==",
+            Self::EXCLAMATIONEQUALS => "!=",
+            Self::OPENCURLY => "(",
+            Self::CLOSECURLY => ")",
+            Self::OPENSQUIGGLY => "{",
+            Self::CLOSESQUIGGLY => "}",
+            Self::OPENSQUARE => "[",
+            Self::CLOSESQUARE => "]",
+            Self::COMMA => ",",
+            Self::FULLSTOP => ".",
+            Self::ELIPSIS => "...",
+        }
+    }
+}
