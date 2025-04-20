@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, debugging::IRDisplay, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Clone, Debug)]
 /**
@@ -34,4 +34,10 @@ impl Declaration {
     }
 
     
+}
+
+impl IRDisplay for Declaration {
+    fn display_ir(&self) -> String {
+        format!("{}: {}", self.get_name(), self.get_type())
+    }
 }

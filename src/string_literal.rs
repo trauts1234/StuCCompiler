@@ -1,4 +1,6 @@
-use crate::{compilation_state::label_generator::LabelGenerator, expression_visitors::expr_visitor::ExprVisitor};
+use std::fmt::Display;
+
+use crate::{compilation_state::label_generator::LabelGenerator, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {
@@ -55,5 +57,12 @@ impl StringLiteral {
         .map(|x| x as i8)//convert to integers
         .chain(std::iter::once(0))//add null terminator 0
         .collect()
+    }
+}
+
+impl DebugDisplay for StringLiteral {
+    fn display(&self) -> String {
+        //TODO what if there is newlines in the string??
+        self.text.iter().map(|x| *x as u8 as char).collect::<String>()
     }
 }

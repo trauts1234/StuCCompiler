@@ -1,4 +1,6 @@
-use crate::{asm_gen_data::AsmData, data_type::type_token::TypeInfo};
+use std::fmt::Display;
+
+use crate::{asm_gen_data::AsmData, data_type::type_token::TypeInfo, debugging::DebugDisplay, struct_definition::StructIdentifier};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,7 +16,7 @@ pub enum BaseType {
     U32,
     I64,
     U64,
-    STRUCT(String)
+    STRUCT(StructIdentifier)
 }
 
 impl BaseType {
@@ -100,6 +102,25 @@ impl BaseType {
 
             BaseType::I64 |
             BaseType::U64 => MemorySize::from_bytes(8),
+        }
+    }
+}
+
+impl DebugDisplay for BaseType {
+    fn display(&self) -> String {
+        match self {
+            BaseType::VOID => "void".to_owned(),
+            BaseType::VaArg => "varadic".to_owned(),
+            BaseType::_BOOL => "bool".to_owned(),
+            BaseType::I8 => "i8".to_owned(),
+            BaseType::U8 => "u8".to_owned(),
+            BaseType::I16 => "i16".to_owned(),
+            BaseType::U16 => "u16".to_owned(),
+            BaseType::I32 => "i32".to_owned(),
+            BaseType::U32 => "u32".to_owned(),
+            BaseType::I64 => "i64".to_owned(),
+            BaseType::U64 => "u64".to_owned(),
+            BaseType::STRUCT(struct_identifier) => format!("struct {}", struct_identifier.display()),
         }
     }
 }

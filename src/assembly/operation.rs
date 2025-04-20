@@ -1,4 +1,7 @@
-use crate::data_type::{base_type::BaseType, recursive_data_type::DataType};
+use std::fmt::Display;
+
+use crate::{assembly::operand::register::Register, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{DebugDisplay, IRDisplay}};
+use colored::Colorize;
 use memory_size::MemorySize;
 use super::operand::{Operand, RegOrMem, PTR_SIZE};
 
@@ -87,7 +90,7 @@ impl AsmOperation {
             AsmOperation::LEA { to, from } => format!("lea {}, {}", to.generate_name(PTR_SIZE), from.generate_name(PTR_SIZE)),
             AsmOperation::CMP { lhs, rhs, data_type } => instruction_cmp(lhs, rhs, data_type),
             AsmOperation::SETCC { destination, comparison } => instruction_setcc(destination, comparison),
-            AsmOperation::JMPCC { label, comparison } => instruction_jmpcc(label, comparison),
+            AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
             AsmOperation::SignExtendACC { old_size } => instruction_sign_extend(old_size),
             AsmOperation::ZeroExtendACC { old_size } => instruction_zero_extend(old_size),
             AsmOperation::ADD { destination, increment, data_type } => instruction_add(destination, increment, data_type),
@@ -133,9 +136,9 @@ fn instruction_setcc(destination: &RegOrMem, comparison: &AsmComparison) -> Stri
 
     format!("{} {}", comparison_instr, reg_name)
 }
-fn instruction_jmpcc(label: &str, comparison: &AsmComparison) -> String {
+fn instruction_jmpcc(comparison: &AsmComparison) -> &str {
 
-    let comparison_instr = match comparison {
+    match comparison {
         AsmComparison::NE => "jne",
         AsmComparison::EQ => "je",
         AsmComparison::ALWAYS => "jmp",
@@ -143,9 +146,7 @@ fn instruction_jmpcc(label: &str, comparison: &AsmComparison) -> String {
         AsmComparison::GE => "jge",
         AsmComparison::L => "jl",
         AsmComparison::G => "jg",
-    };
-
-    format!("{} {}", comparison_instr, label)
+    }
 }
 
 fn instruction_sign_extend(original: &MemorySize) -> String {
@@ -231,6 +232,84 @@ fn instruction_shiftright(destination: &RegOrMem, amount: &Operand, base_type: &
         //unsigned uses logical shift
         base if base.is_unsigned() => format!("shr {}, {}", destination.generate_name(size), amount.generate_name(MemorySize::from_bytes(1))),
         _ => panic!("cannot shift this type")
+    }
+}
+
+
+macro_rules! opcode {
+    ($op:expr) => {
+        ($op.yellow().to_string())
+    }
+}
+
+impl IRDisplay for AsmOperation {
+    fn display_ir(&self) -> String {
+        match self {
+            AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to.display_ir(), from.display_ir(), size),
+            AsmOperation::LEA { to, from } => format!("{} = {} {}", to.display_ir(), opcode!("LEA"), from.display_ir()),
+            AsmOperation::CMP { lhs, rhs, data_type } => 
+                format!("{} {}, {} ({})",
+                    opcode!("CMP"),
+                    lhs.display_ir(),
+                    rhs.display_ir(),
+                    data_type
+                ),
+
+            AsmOperation::SETCC { destination, comparison } => 
+                format!("{} {}",
+                    opcode!(format!("set-{}", comparison.display_ir())),
+                    destination.display_ir()
+                ),
+
+            AsmOperation::JMPCC { label, comparison } => 
+                format!("{} {}",
+                    opcode!(format!("jmp-{}", comparison.display_ir())),
+                    label
+                ),
+                
+            AsmOperation::SignExtendACC { old_size } => format!("sign extend {} from {}", Register::acc().display_ir(), old_size),
+            AsmOperation::ZeroExtendACC { old_size } => format!("zero extend {} from {}", Register::acc().display_ir(), old_size),
+            AsmOperation::ADD { destination, increment, data_type } => format!("{} += {} ({})", destination.display_ir(), increment.display_ir(), data_type),
+            AsmOperation::SUB { destination, decrement, data_type } => format!("{} -= {} ({})", destination.display_ir(), decrement.display_ir(), data_type),
+            AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", Register::acc().display_ir(), multiplier.display_ir(), data_type),
+            AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", Register::acc().display_ir(), divisor.display_ir(), data_type),
+            AsmOperation::SHL { destination, amount, base_type } => format!("{} <<= {} ({})", destination.display_ir(), amount.display_ir(), base_type.display()),
+            AsmOperation::SHR { destination, amount, base_type } => format!("{} >>= {} ({})", destination.display_ir(), amount.display_ir(), base_type.display()),
+            AsmOperation::NEG { item, data_type } => format!("{} {} ({})", opcode!("NEG"), item.display_ir(), data_type),
+            AsmOperation::BitwiseNot { item, size } => format!("{} {} ({})", opcode!("NOT"), item.display_ir(), size),
+            AsmOperation::BitwiseOp { destination, secondary, operation, size } => format!("{} {} {} ({})", destination.display_ir(), operation.display_ir(), secondary.display_ir(), size),
+            AsmOperation::Label { name } => format!("{}:", name.red()),
+            AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
+            AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),
+            AsmOperation::Return => opcode!("RET"),
+            AsmOperation::MEMCPY { size } => format!("{} {}", opcode!("MEMCPY"), size),
+            AsmOperation::CALL { label } => format!("{} {}", opcode!("CALL"), label),
+            AsmOperation::BLANK => String::new(),
+        }
+    }
+}
+
+impl IRDisplay for LogicalOperation {
+    fn display_ir(&self) -> String {
+        match self {
+            LogicalOperation::AND => "&=",
+            LogicalOperation::OR => "|=",
+            LogicalOperation::XOR => "^=",
+        }.to_owned()
+    }
+}
+
+impl IRDisplay for AsmComparison {
+    fn display_ir(&self) -> String {
+        match self {
+            AsmComparison::ALWAYS => "always",
+            AsmComparison::NE => "ne",
+            AsmComparison::EQ => "eq",
+            AsmComparison::LE => "le",
+            AsmComparison::GE => "ge",
+            AsmComparison::L => "l",
+            AsmComparison::G => "g",
+        }.to_owned()
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{assembly::operand::{memory_operand::MemoryOperand, Operand}, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{assembly::operand::{memory_operand::MemoryOperand, Operand}, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::{StructDefinition, StructIdentifier}};
 use indexmap::IndexMap;
 use memory_size::MemorySize;
 
@@ -13,7 +13,7 @@ pub struct AsmData {
     variables: IndexMap<String, AddressedDeclaration>,//hashmap, but keeps order to keep the stack sorted correctly
     function_decls: Vec<FunctionDeclaration>,
     current_function_return_type: DataType,
-    struct_list: IndexMap<String, StructDefinition>,//needs to be ordered since some structs need previously declared structs as members
+    struct_list: IndexMap<StructIdentifier, StructDefinition>,//needs to be ordered since some structs need previously declared structs as members
     break_label: Option<String>,//which label to jump to on a "break;" statement
 }
 
@@ -33,7 +33,7 @@ impl AsmData {
         };
 
         for (name, unpadded) in parse_data.get_all_structs().iter() {
-            result.struct_list.insert(name.to_string(), unpadded.pad_members(&result));//add structs in order
+            result.struct_list.insert(name.clone(), unpadded.pad_members(&result));//add structs in order
         }
 
         result
@@ -49,7 +49,7 @@ impl AsmData {
 
         //add new structs
         for (name, unpadded) in parse_data.get_all_structs().iter() {
-            result.struct_list.insert(name.to_string(), unpadded.pad_members(&result));//add new structs in order
+            result.struct_list.insert(name.clone(), unpadded.pad_members(&result));//add new structs in order
         }
 
         //when creating local variables, I need struct data beforehand
@@ -89,7 +89,7 @@ impl AsmData {
     pub fn get_function_return_type(&self) -> &DataType {
         &self.current_function_return_type
     }
-    pub fn get_struct(&self, name: &str) -> &StructDefinition {
+    pub fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition {
         self.struct_list.get(name).unwrap()
     }
 

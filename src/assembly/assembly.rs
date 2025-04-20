@@ -1,3 +1,5 @@
+use crate::debugging::IRDisplay;
+
 use super::{assembly_instruction::AsmInstruction, operation::AsmOperation};
 
 
@@ -30,5 +32,14 @@ impl Assembly {
 
     pub fn get_lines(&self) -> &[AsmInstruction] {
         &self.lines
+    }
+}
+
+impl IRDisplay for Assembly {
+    fn display_ir(&self) -> String {
+        self.lines.iter()
+        .map(|x| x.display_ir())
+        .collect:: <Vec<_>>()
+        .join("\n")
     }
 }

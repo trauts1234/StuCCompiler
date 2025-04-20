@@ -90,7 +90,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
  * also used in function params
  * function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &mut ParseData) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &ParseData) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
@@ -183,11 +183,11 @@ pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueS
             Some(ASTMetadata { remaining_slice, resultant_tree: DataType::RAW(resultant_tree) })
         }
         Token::KEYWORD(Keyword::STRUCT) => {
-            let ASTMetadata { remaining_slice, resultant_tree: struct_type } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
+            let ASTMetadata { remaining_slice, resultant_tree: (struct_name, struct_type) } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
 
             Some(ASTMetadata {
                 remaining_slice,
-                resultant_tree: DataType::RAW(BaseType::STRUCT(struct_type.name.clone().expect("not implemented: anonymous structs")))
+                resultant_tree: DataType::RAW(BaseType::STRUCT(struct_name.clone()))//TODO some label for structs other than a string name, perhaps enum, for string name or int index, just to identify anonymous structs
             })
         }
         Token::IDENTIFIER(name) => {

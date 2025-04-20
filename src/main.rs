@@ -38,6 +38,7 @@ mod cast_expr;
 mod typedef;
 pub mod array_initialisation;
 mod number_literal;
+mod debugging;
 
 struct CompilationOptions {
     c_file: PathBuf,

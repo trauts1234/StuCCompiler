@@ -1,4 +1,9 @@
+use std::fmt::Display;
+
+use colored::Colorize;
 use memory_size::MemorySize;
+
+use crate::debugging::IRDisplay;
 
 /**
  * name of an actual register
@@ -31,7 +36,7 @@ impl Register {
     pub fn secondary() -> Self {
         Register::_CX
     }
-    
+
     pub fn generate_name(&self, data_size: MemorySize) -> String {
         match (self, data_size.size_bytes()) {
             (Register::_SP, 8) => "rsp",
@@ -76,5 +81,26 @@ impl Register {
             (reg, bytes) => panic!("cannot generate {} byte register for {:?}", bytes, reg)
 
         }.to_string()
+    }
+
+    fn generate_variant_name(&self) -> &str {
+        match self {
+            Register::_AX => "_AX",
+            Register::_BX => "_BX",
+            Register::_CX => "_CX",
+            Register::_DX => "_DX",
+            Register::_SI => "_SI",
+            Register::_DI => "_DI",
+            Register::R8 => "R8",
+            Register::R9 => "R9",
+            Register::_SP => "_SP",
+            Register::_BP => "_BP",
+        }
+    }
+}
+
+impl IRDisplay for Register {
+    fn display_ir(&self) -> String {
+        self.generate_variant_name().red().to_string()
     }
 }

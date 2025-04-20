@@ -1,13 +1,28 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::Declaration, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use std::fmt::Display;
+
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::DebugDisplay, declaration::Declaration, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum StructIdentifier {
+    NAME(String),//struct has been given a name
+    ID(i32)//anonymous struct has been given an id number
+}
+impl DebugDisplay for StructIdentifier {
+    fn display(&self) -> String {
+        match self {
+            StructIdentifier::NAME(x) => x.to_owned(),
+            StructIdentifier::ID(x) => format!("ID({})", x),
+        }
+    }
+}
 
 /**
  * before assembly generation, structs have not had padding calculated
  */
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnpaddedStructDefinition {
-    pub(crate) name: Option<String>,
     pub(crate) ordered_members: Option<Vec<Declaration>>
 }
 
@@ -40,13 +55,12 @@ impl UnpaddedStructDefinition {
         let extra_padding = (largest_member_alignment - bytes_past_last_boundary) % largest_member_alignment;
         current_offset += MemorySize::from_bytes(extra_padding);
 
-        StructDefinition { name: self.name.clone(), ordered_members: Some(result), size: Some(current_offset) }
+        StructDefinition { ordered_members: Some(result), size: Some(current_offset) }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructDefinition {
-    name: Option<String>,
     ordered_members: Option<Vec<(Declaration, MemorySize)>>,//decl and offset from start that this member is located
     size: Option<MemorySize>
 }
@@ -113,9 +127,6 @@ impl StructMemberAccess {
 }
 
 impl StructDefinition {
-    pub fn get_name(&self) -> &Option<String> {
-        &self.name
-    }
 
     pub fn calculate_size(&self) -> Option<MemorySize> {
         self.size
@@ -125,14 +136,14 @@ impl StructDefinition {
         self.ordered_members.as_ref().expect("looking for member in struct with no members")
         .iter()
         .find(|(decl, _)| decl.name == member_name)//find correctly named member
-        .expect("couldn't find member in struct")
+        .expect(&format!("couldn't find struct member {}", member_name))
         .clone()
     }
     pub fn get_all_members(&self) -> &Option<Vec<(Declaration, MemorySize)>> {
         &self.ordered_members
     }
     
-    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<UnpaddedStructDefinition>> {
+    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<(StructIdentifier, UnpaddedStructDefinition)>> {
 
         let mut curr_queue_idx = previous_slice.clone();
 
@@ -142,9 +153,9 @@ impl StructDefinition {
     
         let struct_name = if let Token::IDENTIFIER(x) = tokens_queue.peek(&mut curr_queue_idx, &scope_data).unwrap() {
             tokens_queue.consume(&mut curr_queue_idx, scope_data).unwrap();//consume the name
-            Some(x)
+            StructIdentifier::NAME(x)
         } else {
-            None
+            StructIdentifier::ID(scope_data.generate_struct_id())
         };
 
         match tokens_queue.peek(&curr_queue_idx, &scope_data).unwrap() {
@@ -154,32 +165,32 @@ impl StructDefinition {
                 let remaining_slice = TokenQueueSlice{index:close_squiggly_idx+1, max_index:curr_queue_idx.max_index};
 
                 let mut members = Vec::new();
-                while let Some(new_member) = try_consume_struct_member(tokens_queue, &mut inside_variants, scope_data) {
-                    members.push(new_member);
+                while inside_variants.get_slice_size() > 0 {
+                    let mut new_member = try_consume_struct_member(tokens_queue, &mut inside_variants, scope_data);
+                    members.append(&mut new_member);
                 }
+
                 assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
 
-                let struct_definition = UnpaddedStructDefinition { name: struct_name, ordered_members: Some(members),  };
-                scope_data.add_struct(&struct_definition);
+                let struct_definition = UnpaddedStructDefinition { ordered_members: Some(members),  };
+                scope_data.add_struct(&struct_name, &struct_definition);
 
                 Some(ASTMetadata {
                     remaining_slice,
-                    resultant_tree: struct_definition
+                    resultant_tree: (struct_name, struct_definition)
                 })
             },
 
             _ => Some(ASTMetadata { 
                 remaining_slice: curr_queue_idx,
-                resultant_tree: scope_data.get_struct(&struct_name.unwrap()).unwrap().clone()//TODO this could declare a struct?
+                resultant_tree: (struct_name.clone(), scope_data.get_struct(&struct_name).unwrap().clone())//TODO this could declare a struct?
             })
         }
     }
 }
 
-fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<Declaration> {
-    if curr_queue_idx.get_slice_size() == 0 {
-        return None;
-    }
+///in struct definitions, this will consume the `int a,b;` part of `struct {int a,b;char c;}`
+fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Vec<Declaration> {
 
     //consume the base type
     let ASTMetadata { remaining_slice, resultant_tree:base_type } = consume_base_type(tokens_queue, &curr_queue_idx, scope_data).unwrap();
@@ -190,12 +201,19 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
 
     let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
 
-    //consume pointer or array info, and member name
-    let ASTMetadata{resultant_tree: decl, ..} = try_consume_declaration_modifiers(tokens_queue, &all_declarators_segment, &base_type, scope_data)?;
+    let declarator_segments = tokens_queue.split_outside_parentheses(&all_declarators_segment, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
 
     curr_queue_idx.index = semicolon_idx.index + 1;
 
-    Some(decl)
+    declarator_segments
+    .iter()//go through each comma separated declaration
+    .map(|declarator_segment| {
+        try_consume_declaration_modifiers(tokens_queue, &declarator_segment, &base_type, scope_data)//convert it into a declaration
+        .unwrap()
+        .resultant_tree//extract the declaration
+    })
+    .collect()
+
 }
 
 fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemorySize {

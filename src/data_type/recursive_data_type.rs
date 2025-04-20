@@ -1,4 +1,6 @@
-use crate::asm_gen_data::AsmData;
+use std::fmt::{Debug, Display};
+
+use crate::{asm_gen_data::AsmData, debugging::DebugDisplay};
 use memory_size::MemorySize;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
 
@@ -146,6 +148,16 @@ impl DataType
             DataType::ARRAY { size, element } => size * element.array_num_elements(),
             _ => 1
         }
+    }
+}
+
+impl Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            DataType::ARRAY { size, element } => format!("ARR[{}]({})", size, element),
+            DataType::POINTER(data_type) => format!("PTR({})", data_type),
+            DataType::RAW(base_type) => base_type.display(),
+        })
     }
 }
 

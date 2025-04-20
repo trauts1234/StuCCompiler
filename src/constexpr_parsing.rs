@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, expression::Expression, lexer::punctuator::Punctuator, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{binary_expression::BinaryExpression, debugging::{DebugDisplay, IRDisplay}, expression::Expression, lexer::punctuator::Punctuator, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -71,6 +71,16 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
             
 
             _ => todo!("constexpr folding of binary operator: {:?}", value.operator())
+        }
+    }
+}
+
+impl IRDisplay for ConstexprValue {
+    fn display_ir(&self) -> String {
+        match self {
+            ConstexprValue::NUMBER(number_literal) => number_literal.display_ir(),
+            ConstexprValue::STRING(string_literal) => string_literal.display(),
+            ConstexprValue::POINTER { label, offset } => format!("&({} + {})", label, offset.display_ir()),
         }
     }
 }

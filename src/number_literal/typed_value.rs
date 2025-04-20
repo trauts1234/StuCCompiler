@@ -1,6 +1,6 @@
-use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
+use std::{fmt::Display, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use unwrap_let::unwrap_let;
-use crate::{asm_gen_data::AsmData, assembly::{operand::immediate::ImmediateValue, operation::AsmComparison}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::AsmData, assembly::{operand::immediate::ImmediateValue, operation::AsmComparison}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::IRDisplay, expression_visitors::expr_visitor::ExprVisitor};
 
 use super::literal_value::LiteralValue;
 
@@ -322,6 +322,14 @@ impl Shr for NumberLiteral {
     
 }
 
+impl IRDisplay for NumberLiteral {
+    fn display_ir(&self) -> String {
+        match self.value {
+            LiteralValue::INTEGER(x) => x.to_string(),
+        }
+    }
+}
+
 impl From<i64> for NumberLiteral {
     fn from(value: i64) -> Self {
         Self { value: LiteralValue::INTEGER(value.into()), data_type: BaseType::I64 }
@@ -333,6 +341,7 @@ impl From<String> for NumberLiteral {
         Self::from(value.as_ref())
     }
 }
+
 
 impl From<&str> for NumberLiteral {
     //TODO maybe impl From/TryFrom???

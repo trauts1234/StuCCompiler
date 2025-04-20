@@ -1,3 +1,7 @@
+use colored::Colorize;
+
+use crate::debugging::IRDisplay;
+
 use super::operation::AsmOperation;
 
 
@@ -23,6 +27,17 @@ impl AsmInstruction {
             format!("{} ; {}", self.operation.to_text(), comment)
         } else {
             self.operation.to_text()
+        }
+    }
+}
+
+impl IRDisplay for AsmInstruction {
+    fn display_ir(&self) -> String {
+        if let Some(comment) = &self.comment {
+            let comment = format!("//{}", comment).bright_green();
+            format!("{} {}", self.operation.display_ir(), comment)
+        } else {
+            self.operation.display_ir()
         }
     }
 }

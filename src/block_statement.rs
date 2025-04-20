@@ -1,4 +1,6 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use std::fmt::Display;
+
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 use memory_size::MemorySize;
 
 /**
@@ -46,5 +48,11 @@ impl StatementOrDeclaration {
                 })
             },
         }
+    }
+}
+
+impl ASTDisplay for StatementOrDeclaration {
+    fn display_ast(&self) -> String {
+        todo!()
     }
 }

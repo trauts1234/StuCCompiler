@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexMap;
 
-use crate::{data_type::recursive_data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::UnpaddedStructDefinition};
+use crate::{data_type::recursive_data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::{StructIdentifier, UnpaddedStructDefinition}};
 
 #[derive(Debug, Default, Clone)]
 pub struct ParseData {
@@ -10,9 +10,10 @@ pub struct ParseData {
     pub(crate) enums: EnumList,
     typedefs: HashMap<String, DataType>,
     function_decls: Vec<FunctionDeclaration>,
-    structs: IndexMap<String, UnpaddedStructDefinition>,//defined and declared structs
+    structs: IndexMap<StructIdentifier, UnpaddedStructDefinition>,//defined and declared structs
 
     local_symbol_table: IndexMap<String, DataType>,//this is filled slowly, so do not read from it
+    next_free_struct_id: i32//anonymous structs get given an id from this
 }
 
 impl ParseData {
@@ -64,28 +65,26 @@ impl ParseData {
         &self.local_symbol_table
     }
 
-    pub fn add_struct(&mut self, new_definition: &UnpaddedStructDefinition) {
-        let lookup_struct_definition = new_definition.name.as_ref()
-        .and_then(|name| self.structs.get_mut(name));
+    pub fn add_struct(&mut self, name: &StructIdentifier, new_definition: &UnpaddedStructDefinition) {
 
-        if let Some(definition) = lookup_struct_definition {
+        if let Some(definition) = self.structs.get_mut(name) {
             match (&definition.ordered_members, &new_definition.ordered_members) {
-                (Some(_), Some(_)) => panic!("redefinition of struct {}", definition.name.clone().unwrap()),
+                (Some(_), Some(_)) => panic!("redefinition of struct {:?}", name),
 
                 (None, Some(_)) => definition.ordered_members = new_definition.ordered_members.clone(),//new definition contains more data
 
                 _ => {}//new definition provides no new data
             }
         } else {
-            self.structs.insert(new_struct_name.to_string(), new_definition.clone());//add new struct
+            self.structs.insert(name.clone(), new_definition.clone());//add new struct
         }
     }
 
-    pub fn get_struct(&self, name: &str) -> Option<&UnpaddedStructDefinition> {
+    pub fn get_struct(&self, name: &StructIdentifier) -> Option<&UnpaddedStructDefinition> {
         self.structs.get(name)
     }
 
-    pub fn get_all_structs(&self) -> &IndexMap<String, UnpaddedStructDefinition> {
+    pub fn get_all_structs(&self) -> &IndexMap<StructIdentifier, UnpaddedStructDefinition> {
         &self.structs
     }
 
@@ -96,5 +95,13 @@ impl ParseData {
 
     pub fn get_typedef(&self, name: &str) -> Option<&DataType> {
         self.typedefs.get(name)
+    }
+
+    pub fn generate_struct_id(&mut self) -> i32 {
+        let result = self.next_free_struct_id;
+
+        self.next_free_struct_id.checked_add(1).unwrap();
+
+        result
     }
 }

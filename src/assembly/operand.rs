@@ -2,11 +2,15 @@ pub mod memory_operand;
 pub mod register;
 pub mod immediate;
 
+use std::fmt::Display;
+
 use immediate::ImmediateValue;
 use memory_operand::MemoryOperand;
 use register::Register;
 
 use memory_size::MemorySize;
+
+use crate::debugging::IRDisplay;
 
 pub const PTR_SIZE: MemorySize = MemorySize::from_bytes(8);
 
@@ -53,6 +57,24 @@ impl RegOrMem {
         match self {
             RegOrMem::Reg(register) => register.generate_name(data_size),
             RegOrMem::Mem(memory_operand) => memory_operand.generate_name(),
+        }
+    }
+}
+
+impl IRDisplay for RegOrMem {
+    fn display_ir(&self) -> String {
+        match self {
+            RegOrMem::Reg(register) => register.display_ir(),
+            RegOrMem::Mem(memory_operand) => memory_operand.display_ir(),
+        }
+    }
+}
+impl IRDisplay for Operand {
+    fn display_ir(&self) -> String {
+        match self {
+            Operand::Reg(register) => register.display_ir(),
+            Operand::Mem(memory_operand) => memory_operand.display_ir(),
+            Operand::Imm(immediate_value) => immediate_value.display_ir(),
         }
     }
 }

@@ -1,4 +1,7 @@
+use colored::Colorize;
 use memory_size::MemorySize;
+
+use crate::debugging::IRDisplay;
 
 use super::{register::Register, PTR_SIZE};
 
@@ -21,5 +24,11 @@ impl MemoryOperand {
             MemoryOperand::LabelAccess(label) => format!("[rel {}]", label),
             MemoryOperand::MemoryAddress { pointer_reg } => format!("[{}]", pointer_reg.generate_name(PTR_SIZE)),
         }
+    }
+}
+
+impl IRDisplay for MemoryOperand {
+    fn display_ir(&self) -> String {
+        self.generate_name().blue().to_string()
     }
 }
