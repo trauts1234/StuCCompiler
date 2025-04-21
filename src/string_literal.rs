@@ -60,7 +60,6 @@ impl StringLiteral {
 
 impl DebugDisplay for StringLiteral {
     fn display(&self) -> String {
-        //TODO what if there is newlines in the string??
-        self.text.iter().map(|x| *x as u8 as char).collect::<String>()
+        format!("{:?}", self.text.iter().map(|x| *x as u8 as char).collect::<String>())
     }
 }
