@@ -23,7 +23,6 @@ mod string_literal;
 mod iteration_statement;
 pub mod data_type;
 mod binary_expression;
-mod unary_prefix_expr;
 mod enum_definition;
 mod constexpr_parsing;
 mod global_var_declaration;
