@@ -14,8 +14,14 @@ int main(){
     if(x.a[3] != 3) {
         return 2;
     }
-    if (x.b != 3 || x.c != 4 || x.d != 6) {
+    if (x.b != 4) {
         return 3;
+    }
+    if(x.c != 5) {
+        return 4;
+    }
+    if(x.d != 6) {
+        return 5;
     }
 
     return 0;

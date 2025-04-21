@@ -544,5 +544,9 @@
     {
         "filename":"globalvariablescomplex.c",
         "return_code":0
+    },
+    {
+        "filename":"semicolonsintypedef.c",
+        "return_code":0
     }
 ]

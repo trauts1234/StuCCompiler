@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::Expression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
@@ -91,24 +91,38 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         *self.stack_data += original_struct_definition.calculate_size().unwrap();//allocate struct on stack
         let resultant_struct_location = Operand::Mem(MemoryOperand::SubFromBP(*self.stack_data));
 
-        let struct_clone_asm = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: resultant_struct_location});
-        result.merge(&struct_clone_asm);//generate struct that I am getting member of
-
         result.add_comment(format!("getting struct's member {}", member_name));
 
-        //offset the start pointer to the address of the member
-        result.add_instruction(AsmOperation::ADD {
-            destination: RegOrMem::Reg(Register::acc()),
-            increment: Operand::Imm(member_offset.as_imm()),
-            data_type: DataType::RAW(BaseType::U64),
-        });
+        if let DataType::ARRAY { .. } = member_decl.get_type() {
+            //get pointer to struct
+            let struct_addr_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data});
+            result.merge(&struct_addr_asm);
 
-        //dereference pointer
-        result.add_instruction(AsmOperation::MOV {
-            to: RegOrMem::Reg(Register::acc()),
-            from: Operand::Mem(MemoryOperand::MemoryAddress{pointer_reg: Register::acc() }),
-            size: member_decl.get_type().memory_size(self.asm_data),
-        });
+            //offset the start pointer to the address of the member
+            result.add_instruction(AsmOperation::ADD {
+                destination: RegOrMem::Reg(Register::acc()),
+                increment: Operand::Imm(member_offset.as_imm()),
+                data_type: DataType::RAW(BaseType::U64),
+            });
+        } else {
+            //clone the struct, just in case it is a return value for example
+            let struct_clone_asm = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: resultant_struct_location});
+            result.merge(&struct_clone_asm);//generate struct that I am getting member of
+
+            //offset the start pointer to the address of the member
+            result.add_instruction(AsmOperation::ADD {
+                destination: RegOrMem::Reg(Register::acc()),
+                increment: Operand::Imm(member_offset.as_imm()),
+                data_type: DataType::RAW(BaseType::U64),
+            });
+
+            //dereference pointer
+            result.add_instruction(AsmOperation::MOV {
+                to: RegOrMem::Reg(Register::acc()),
+                from: Operand::Mem(MemoryOperand::MemoryAddress{pointer_reg: Register::acc() }),
+                size: member_decl.get_type().memory_size(self.asm_data),
+            });
+        }
 
         //asm_line!(result, "{}", member_access.accept(&mut PopStructFromStack{asm_data: self.asm_data}));//pop the struct if needed
 
