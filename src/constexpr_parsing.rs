@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, debugging::{DebugDisplay, IRDisplay}, expression::Expression, expression_operators::{BinaryExpressionOperator, UnaryPrefixOperator}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{binary_expression::BinaryExpression, debugging::{DebugDisplay, IRDisplay}, expression::{binary_expression_operator::BinaryExpressionOperator, expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -18,17 +18,17 @@ impl TryFrom<&Expression> for ConstexprValue {
             Expression::STRINGLITERAL(string_literal) => Ok(ConstexprValue::STRING(string_literal.clone())),
             Expression::ARRAYLITERAL(array_initialisation) => todo!(),
             Expression::FUNCCALL(function_call) => Err(format!("results of calling {} are not a compile time constant", function_call.get_callee_decl().function_name)),
-            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.clone().try_into(),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.try_into(),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.clone().try_into(),
             Expression::CAST(cast_expression) => todo!(),
         }
     }
 }
 
-impl TryFrom<UnaryPrefixExpression> for ConstexprValue {
+impl TryFrom<&UnaryPrefixExpression> for ConstexprValue {
     type Error = String;
 
-    fn try_from(value: UnaryPrefixExpression) -> Result<Self, Self::Error> {
+    fn try_from(value: &UnaryPrefixExpression) -> Result<Self, Self::Error> {
 
         if let (UnaryPrefixOperator::Reference, Expression::VARIABLE(var)) = (value.get_operator(), value.get_operand()) {
             //getting address of variable
