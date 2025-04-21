@@ -133,10 +133,31 @@ impl SelectionStatement {
 }
 
 impl ASTDisplay for SelectionStatement {
-    fn display_ast(&self) -> String {
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
-            SelectionStatement::IF { condition, if_body, else_body: None } => format!("if({}) {}", condition.display_ast(), if_body.display_ast()),
-            SelectionStatement::IF { condition, if_body, else_body: Some(else_body) } => format!("if({}) {} else {}", condition.display_ast(), if_body.display_ast(), else_body.display_ast())
+            SelectionStatement::IF { condition, if_body, else_body } => {
+                f.write("if statement");
+                f.indent();
+
+                f.write("condition");
+                f.indent();
+                condition.display_ast(f);
+                f.dedent();
+
+                f.write("if-body");
+                f.indent();
+                if_body.display_ast(f);
+                f.dedent();
+
+                if let Some(else_body) = else_body {
+                    f.write("else-body");
+                    f.indent();
+                    else_body.display_ast(f);
+                    f.dedent();
+                }
+
+                f.dedent();
+            }
         }
     }
 }

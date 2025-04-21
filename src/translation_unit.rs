@@ -114,15 +114,10 @@ impl TranslationUnit {
 }
 
 impl ASTDisplay for TranslationUnit {
-    fn display_ast(&self) -> String {
-        let fn_display = self.functions
-        .func_definitions_as_slice()
-        .iter()
-        .map(|f| f.display_ast())
-        .collect:: <Vec<_>>()
-        .join("\n\n");
-
-        fn_display
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        for func in self.functions.func_definitions_as_slice() {
+            func.display_ast(f);
+        }
     }
 }
 

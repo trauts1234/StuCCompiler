@@ -1,6 +1,6 @@
 use std::{path::Path, process::Command};
 
-use crate::{compilation_error::CompilationError, debugging::{ASTDisplay, IRDisplay}, translation_unit::TranslationUnit};
+use crate::{compilation_error::CompilationError, debugging::{ASTDisplay, IRDisplay, TreeDisplayInfo}, translation_unit::TranslationUnit};
 
 
 pub fn compile(input_path: &Path, output_name: &Path, link_with: &[&Path]) -> Result<(),CompilationError> {
@@ -12,7 +12,10 @@ pub fn compile(input_path: &Path, output_name: &Path, link_with: &[&Path]) -> Re
 
     let tu = TranslationUnit::new(input_path)?;
 
-    println!("{}", tu.display_ast());
+    let mut formatter = TreeDisplayInfo::default();
+    tu.display_ast(&mut formatter);
+    println!("{}", formatter.get_text());
+    
     println!("{}", tu.display_ir());
 
     tu.generate_assembly(&assembly_filename);

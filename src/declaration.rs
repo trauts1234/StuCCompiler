@@ -36,14 +36,14 @@ impl Declaration {
     
 }
 
-impl ASTDisplay for Declaration {
-    fn display_ast(&self) -> String {
+impl DebugDisplay for Declaration {
+    fn display(&self) -> String {
         format!("{}: {}", self.get_name(), self.get_type().display())
     }
 }
 
 impl ASTDisplay for MinimalDataVariable {
-    fn display_ast(&self) -> String {
-        self.name.to_owned()
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        f.write(&self.name);
     }
 }

@@ -72,14 +72,14 @@ impl Statement {
 }
 
 impl ASTDisplay for Statement {
-    fn display_ast(&self) -> String {
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
-            Statement::EXPRESSION(expression) => expression.display_ast(),
-            Statement::COMPOUND(scope_statements) => scope_statements.display_ast(),
-            Statement::SELECTION(selection_statement) => selection_statement.display_ast(),
-            Statement::ITERATION(iteration_statement) => iteration_statement.display_ast(),
-            Statement::CONTROLFLOW(control_flow_change) => control_flow_change.display_ast(),
-            Statement::NOP => "NOP".to_owned(),
+            Statement::EXPRESSION(expression) => expression.display_ast(f),
+            Statement::COMPOUND(scope_statements) => scope_statements.display_ast(f),
+            Statement::SELECTION(selection_statement) => selection_statement.display_ast(f),
+            Statement::ITERATION(iteration_statement) => iteration_statement.display_ast(f),
+            Statement::CONTROLFLOW(control_flow_change) => control_flow_change.display_ast(f),
+            Statement::NOP => f.write("NOP"),
         }
     }
 }

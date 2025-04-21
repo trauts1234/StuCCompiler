@@ -183,15 +183,13 @@ impl FunctionCall {
 }
 
 impl ASTDisplay for FunctionCall {
-    fn display_ast(&self) -> String {
-        format!("{}({})", 
-            self.func_name,
-            self.args
-            .iter()
-            .map(|x| x.display_ast())
-            .collect:: <Vec<_>>()
-            .join(", ")
-        )
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        f.write(&format!("call {}", self.func_name));
+        f.indent();
+        for i in &self.args {
+            i.display_ast(f);
+        }
+        f.dedent();
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::{self, Expression}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{compilation_state::functions::FunctionList, data_type::recursive_data_type::DataType, debugging::{ASTDisplay, TreeDisplayInfo}, expression::{self, Expression}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 #[derive(Clone, Debug)]
 pub struct ArrayInitialisation {
@@ -92,13 +92,11 @@ impl ArrayInitialisation {
 }
 
 impl ASTDisplay for ArrayInitialisation {
-    fn display_ast(&self) -> String {
-        format!("{{ {} }}",
-            self.elements
-            .iter()
-            .map(|x| x.display_ast())
-            .collect:: <Vec<_>>()
-            .join(", ")
-        )
+    fn display_ast(&self, f: &mut TreeDisplayInfo) {
+        f.write("{ ");
+        for element in &self.elements {
+            element.display_ast(f);
+        }
+        f.write(" }");
     }
 }

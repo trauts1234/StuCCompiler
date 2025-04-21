@@ -479,17 +479,17 @@ fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, acces
 }
 
 impl ASTDisplay for Expression {
-    fn display_ast(&self) -> String {
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
-            Expression::NUMBERLITERAL(number_literal) => number_literal.display(),
-            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.display_ast(),
-            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.display_ast(),
-            Expression::STRINGLITERAL(string_literal) => string_literal.display(),
-            Expression::ARRAYLITERAL(array_initialisation) => array_initialisation.display_ast(),
-            Expression::FUNCCALL(function_call) => function_call.display_ast(),
-            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.display_ast(),
-            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.display_ast(),
-            Expression::CAST(cast_expression) => cast_expression.display_ast(),
+            Expression::NUMBERLITERAL(number_literal) => f.write(&number_literal.display()),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.display_ast(f),
+            Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.display_ast(f),
+            Expression::STRINGLITERAL(string_literal) => f.write(&string_literal.display()),
+            Expression::ARRAYLITERAL(array_initialisation) => array_initialisation.display_ast(f),
+            Expression::FUNCCALL(function_call) => function_call.display_ast(f),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.display_ast(f),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.display_ast(f),
+            Expression::CAST(cast_expression) => cast_expression.display_ast(f),
         }
     }
 }

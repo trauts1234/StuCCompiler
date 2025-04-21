@@ -215,16 +215,47 @@ impl IterationStatement {
 }
 
 impl ASTDisplay for IterationStatement {
-    fn display_ast(&self) -> String {
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        f.write("loop");
+        f.indent();
         match self {
             IterationStatement::FOR { initialisation, condition, increment, local_scope_data:_, body } => {
-                let init_txt = initialisation.as_ref().map(|x| x.display_ast()).unwrap_or(String::new());
-                let condition_txt = condition.display_ast();
-                let increment_txt = increment.as_ref().map(|x| x.display_ast()).unwrap_or(String::new());
-                let body_txt = body.display_ast();
-                format!("for({};{};{}) {}", init_txt, condition_txt, increment_txt, body_txt)
+                if let Some(init) = initialisation {
+                    f.write("initialisation");
+                    f.indent();
+                    init.display_ast(f);
+                    f.dedent();
+                }
+
+                f.write("condition");
+                f.indent();
+                condition.display_ast(f);
+                f.dedent();
+
+                if let Some(inc) = increment {
+                    f.write("increment");
+                    f.indent();
+                    inc.display_ast(f);
+                    f.dedent();
+                }
+
+                f.write("body");
+                f.indent();
+                body.display_ast(f);
+                f.dedent();
             },
-            IterationStatement::WHILE { condition, body } => format!("while({}) {}", condition.display_ast(), body.display_ast()),
+            IterationStatement::WHILE { condition, body } => {
+                f.write("condition");
+                f.indent();
+                condition.display_ast(f);
+                f.dedent();
+
+                f.write("body");
+                f.indent();
+                body.display_ast(f);
+                f.dedent();
+            },
         }
+        f.dedent();
     }
 }

@@ -57,8 +57,10 @@ impl InitialisedDeclaration {
 }
 
 impl ASTDisplay for InitialisedDeclaration {
-    fn display_ast(&self) -> String {
-        self.init_code.as_ref().map(|x| x.display_ast()).unwrap_or(String::new())
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        if let Some(init) = &self.init_code {
+            init.display_ast(f);
+        }
     }
 }
 

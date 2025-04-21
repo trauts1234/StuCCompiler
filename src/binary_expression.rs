@@ -1,4 +1,5 @@
 
+use colored::Colorize;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
@@ -253,14 +254,13 @@ impl BinaryExpression {
 }
 
 impl ASTDisplay for BinaryExpression {
-    fn display_ast(&self) -> String {
-        let operator_text: &str = self.operator.clone().into();
-
-        format!("  {}\n{}\n  {}",
-            self.lhs.display_ast(),
-            operator_text,
-            self.rhs.display_ast()
-        )
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        let operator: &str = self.operator.clone().into();
+        f.write(&operator.yellow().to_string());
+        f.indent();
+        self.lhs.display_ast(f);
+        self.rhs.display_ast(f);
+        f.dedent();
     }
 }
 

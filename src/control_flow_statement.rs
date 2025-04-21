@@ -80,10 +80,17 @@ impl ControlFlowChange {
 }
 
 impl ASTDisplay for ControlFlowChange {
-    fn display_ast(&self) -> String {
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
-            ControlFlowChange::RETURN(expression) => format!("return {};", expression.as_ref().map(|x| x.display_ast()).unwrap_or(String::new())),
-            ControlFlowChange::BREAK => "break;".to_owned(),
+            ControlFlowChange::RETURN(expression) => {
+                f.write("return");
+                if let Some(expr) = expression {
+                    f.indent();
+                    expr.display_ast(f);
+                    f.dedent();
+                }
+            }
+            ControlFlowChange::BREAK => f.write("break"),
         }
     }
 }

@@ -133,11 +133,10 @@ impl FunctionDefinition {
 }
 
 impl ASTDisplay for FunctionDefinition {
-    fn display_ast(&self) -> String {
-        format!(
-            "{}\n{}",
-            self.decl.display_ast(),
-            self.code.display_ast()
-        )
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        f.write(&self.decl.display());
+        f.indent();
+        self.code.display_ast(f);
+        f.dedent();
     }
 }

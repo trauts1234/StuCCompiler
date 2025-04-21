@@ -1,4 +1,5 @@
 use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use colored::Colorize;
 use memory_size::MemorySize;
 
 #[derive(Clone, Debug)]
@@ -234,9 +235,12 @@ impl UnaryPrefixExpression {
 }
 
 impl ASTDisplay for UnaryPrefixExpression {
-    fn display_ast(&self) -> String {
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         let operator_prefix: &str = self.operator.clone().into();
+        f.write(&operator_prefix.yellow().to_string());
 
-        format!("{}\n  {}", operator_prefix, self.operand.display_ast())
+        f.indent();
+        self.operand.display_ast(f);
+        f.dedent();
     }
 }

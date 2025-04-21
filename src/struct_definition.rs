@@ -125,8 +125,11 @@ impl StructMemberAccess {
 }
 
 impl ASTDisplay for StructMemberAccess {
-    fn display_ast(&self) -> String {
-        format!("({}).{}", self.struct_tree.display_ast(), self.member_name)
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        f.write(&format!("access struct member {}", self.member_name));
+        f.indent();
+        self.struct_tree.display_ast(f);
+        f.dedent();
     }
 }
 

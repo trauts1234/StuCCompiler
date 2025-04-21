@@ -50,15 +50,14 @@ impl StatementOrDeclaration {
 }
 
 impl ASTDisplay for StatementOrDeclaration {
-    fn display_ast(&self) -> String {
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
-            StatementOrDeclaration::STATEMENT(statement) => statement.display_ast(),
-            StatementOrDeclaration::DECLARATION(initialised_declarations) => 
-                initialised_declarations
-                .iter()
-                .map(|decl| decl.display_ast())
-                .collect:: <Vec<_>>()
-                .join("\n")
+            StatementOrDeclaration::STATEMENT(statement) => statement.display_ast(f),
+            StatementOrDeclaration::DECLARATION(initialised_declarations) =>  {
+                for i in initialised_declarations {
+                    i.display_ast(f);
+                }
+            }
         }
     }
 }

@@ -28,7 +28,10 @@ impl CastExpression {
 }
 
 impl ASTDisplay for CastExpression {
-    fn display_ast(&self) -> String {
-        format!("({}) as {}", self.expr.display_ast(), self.new_type.display())
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        f.write(&format!("cast to {}", self.new_type.display()));
+        f.indent();
+        self.expr.display_ast(f);
+        f.dedent();
     }
 }

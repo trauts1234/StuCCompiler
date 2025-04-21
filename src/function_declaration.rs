@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, debugging::{ASTDisplay, DebugDisplay}, declaration::Declaration, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
@@ -146,12 +146,12 @@ pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_id
     })
 }
 
-impl ASTDisplay for FunctionDeclaration {
-    fn display_ast(&self) -> String {
+impl DebugDisplay for FunctionDeclaration {
+    fn display(&self) -> String {
         format!(
             "function {}: {} -> {}",
             self.function_name,
-            self.params.iter().map(|x| x.display_ast()).collect:: <Vec<_>>().join(", "),
+            self.params.iter().map(|x| x.display()).collect:: <Vec<_>>().join(", "),
             self.return_type.display()
         )
     }
