@@ -2,12 +2,12 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, expression_operators::BinaryExpressionOperator, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::punctuator::Punctuator};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
     lhs: Box<Expression>,
-    operator: Punctuator,
+    operator: BinaryExpressionOperator,
     rhs: Box<Expression>,
 }
 
@@ -19,7 +19,7 @@ impl BinaryExpression {
     pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         let mut result = Assembly::make_empty();
 
-        if self.operator == Punctuator::EQUALS {
+        if self.operator == BinaryExpressionOperator::Assign {
             return generate_assembly_for_assignment(&self.lhs, &self.rhs, asm_data, stack_data);
         }
 
@@ -27,14 +27,14 @@ impl BinaryExpression {
         let rhs_type = self.rhs.accept(&mut GetDataTypeVisitor {asm_data});
 
         let promoted_type = match &self.operator {//I already have a function for this?
-            Punctuator::EQUALS => panic!("assignment already done"),
+            BinaryExpressionOperator::Assign => panic!("assignment already done"),
             x if x.as_boolean_instr().is_some() => DataType::RAW(BaseType::_BOOL),//is a boolean operator, operands are booleans
             _ => calculate_promoted_type_arithmetic(&lhs_type, &rhs_type)//else find a common meeting ground
         };
         let promoted_size = promoted_type.memory_size(asm_data);
 
         match &self.operator {
-            Punctuator::PLUS => {
+            BinaryExpressionOperator::Add => {
                 result.add_comment(format!("adding {} numbers", promoted_size));
 
                 result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
@@ -48,7 +48,7 @@ impl BinaryExpression {
                 //result is now in AX
                 
             },
-            Punctuator::DASH => {
+            BinaryExpressionOperator::Subtract => {
                 result.add_comment(format!("subtracting {} numbers", promoted_size));
 
                 result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
@@ -62,7 +62,7 @@ impl BinaryExpression {
                 //result is now in AX
 
             }
-            Punctuator::ASTERISK => {
+            BinaryExpressionOperator::Multiply => {
                 result.add_comment("mulitplying numbers");
 
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
@@ -76,7 +76,7 @@ impl BinaryExpression {
                 });
 
             },
-            Punctuator::FORWARDSLASH => {
+            BinaryExpressionOperator::Divide => {
                 result.add_comment("dividing numbers");
 
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
@@ -89,7 +89,7 @@ impl BinaryExpression {
                 });
             },
 
-            Punctuator::PERCENT => {
+            BinaryExpressionOperator::Mod => {
                 result.add_comment("calculating modulus");
 
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
@@ -154,7 +154,7 @@ impl BinaryExpression {
             },
 
             //bit shifts left or right
-            Punctuator::GreaterGreater => {
+            BinaryExpressionOperator::BitshiftRight => {
                 result.add_comment("bitwise shift right");
                 //lhs and rhs types are calculated individually as they do not influence each other
                 let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type);
@@ -173,7 +173,7 @@ impl BinaryExpression {
                     base_type: lhs_base
                 });
             }
-            Punctuator::LessLess => {
+            BinaryExpressionOperator::BitshiftLeft => {
                 result.add_comment("bitwise shift left");
                 //lhs and rhs types are calculated individually as they do not influence each other
                 let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type);
@@ -201,40 +201,38 @@ impl BinaryExpression {
 
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         match self.operator {
-            Punctuator::Pipe |
-            Punctuator::AMPERSAND |
-            Punctuator::Hat |
-            Punctuator::PLUS |
-            Punctuator::DASH |
-            Punctuator::ASTERISK | 
-            Punctuator::FORWARDSLASH | 
-            Punctuator::PERCENT => {
+            BinaryExpressionOperator::BitwiseOr |
+            BinaryExpressionOperator::BitwiseAnd |
+            BinaryExpressionOperator::BitwiseXor |
+            BinaryExpressionOperator::Add |
+            BinaryExpressionOperator::Subtract |
+            BinaryExpressionOperator::Multiply | 
+            BinaryExpressionOperator::Divide | 
+            BinaryExpressionOperator::Mod => {
                 calculate_promoted_type_arithmetic(//calculate type when data types:
                     &self.lhs.accept(&mut GetDataTypeVisitor { asm_data }),//type of lhs
                     &self.rhs.accept(&mut GetDataTypeVisitor { asm_data }),//type of rhs
                 )
             },
 
-            Punctuator::EQUALS => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
+            BinaryExpressionOperator::Assign => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
 
             //bit shifts have lhs promoted, then resultant type is the same as promoted lhs
-            Punctuator::LessLess |
-            Punctuator::GreaterGreater => calculate_unary_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data})),
+            BinaryExpressionOperator::BitshiftLeft |
+            BinaryExpressionOperator::BitshiftRight => calculate_unary_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data})),
 
-            Punctuator::Less |
-            Punctuator::Greater |
-            Punctuator::GREATEREQUAL |
-            Punctuator::LESSEQUAL |
-            Punctuator::DOUBLEEQUALS |
-            Punctuator::PIPEPIPE |
-            Punctuator::ANDAND |
-            Punctuator::EXCLAMATIONEQUALS => DataType::RAW(BaseType::_BOOL),
-
-            _ => panic!("data type calculation for this binary operator is not implemented")
+            BinaryExpressionOperator::CmpLess |
+            BinaryExpressionOperator::CmpGreater |
+            BinaryExpressionOperator::CmpGreaterEqual |
+            BinaryExpressionOperator::CmpLessEqual |
+            BinaryExpressionOperator::CmpEqual |
+            BinaryExpressionOperator::CmpNotEqual |
+            BinaryExpressionOperator::BooleanOr |
+            BinaryExpressionOperator::BooleanAnd  => DataType::RAW(BaseType::_BOOL),
         }
     }
 
-    pub fn new(lhs: Expression, operator: Punctuator, rhs: Expression) -> BinaryExpression {
+    pub fn new(lhs: Expression, operator: BinaryExpressionOperator, rhs: Expression) -> BinaryExpression {
         BinaryExpression {
             lhs: Box::new(lhs),
             operator,
@@ -248,7 +246,7 @@ impl BinaryExpression {
     pub fn rhs(&self) -> &Expression {
         &self.rhs
     }
-    pub fn operator(&self) -> &Punctuator {
+    pub fn operator(&self) -> &BinaryExpressionOperator {
         &self.operator
     }
 }

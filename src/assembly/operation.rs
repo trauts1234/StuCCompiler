@@ -276,7 +276,7 @@ impl IRDisplay for AsmOperation {
             AsmOperation::NEG { item, data_type } => format!("{} {} ({})", opcode!("NEG"), item.display_ir(), data_type.display()),
             AsmOperation::BitwiseNot { item, size } => format!("{} {} ({})", opcode!("NOT"), item.display_ir(), size),
             AsmOperation::BitwiseOp { destination, secondary, operation, size } => format!("{} {} {} ({})", destination.display_ir(), operation.display_ir(), secondary.display_ir(), size),
-            AsmOperation::Label { name } => format!("{}:", name.red()),
+            AsmOperation::Label { name } => format!("{}:", name.red().to_string()),
             AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
             AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),
             AsmOperation::Return => opcode!("RET"),

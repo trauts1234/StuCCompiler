@@ -1,4 +1,5 @@
 use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use colored::Colorize;
 use memory_size::MemorySize;
 
 /**
@@ -83,14 +84,14 @@ impl ASTDisplay for ControlFlowChange {
     fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
             ControlFlowChange::RETURN(expression) => {
-                f.write("return");
+                f.write(&"return".yellow());
                 if let Some(expr) = expression {
                     f.indent();
                     expr.display_ast(f);
                     f.dedent();
                 }
             }
-            ControlFlowChange::BREAK => f.write("break"),
+            ControlFlowChange::BREAK => f.write(&"break".yellow()),
         }
     }
 }

@@ -1,3 +1,5 @@
+use colored::Colorize;
+
 use crate::{data_type::recursive_data_type::DataType, debugging::{ASTDisplay, DebugDisplay}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Clone, Debug)]
@@ -42,8 +44,8 @@ impl DebugDisplay for Declaration {
     }
 }
 
-impl ASTDisplay for MinimalDataVariable {
-    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
-        f.write(&self.name);
+impl DebugDisplay for MinimalDataVariable {
+    fn display(&self) -> String {
+        self.name.blue().to_string()
     }
 }

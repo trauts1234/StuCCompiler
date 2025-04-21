@@ -1,4 +1,5 @@
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
+use colored::Colorize;
 use unwrap_let::unwrap_let;
 use crate::{asm_gen_data::AsmData, assembly::{operand::immediate::ImmediateValue, operation::AsmComparison}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
 
@@ -325,7 +326,7 @@ impl Shr for NumberLiteral {
 impl DebugDisplay for NumberLiteral {
     fn display(&self) -> String {
         match self.value {
-            LiteralValue::INTEGER(x) => x.to_string(),
+            LiteralValue::INTEGER(x) => x.to_string().cyan().to_string(),
         }
     }
 }

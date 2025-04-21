@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, debugging::{DebugDisplay, IRDisplay}, expression::Expression, expression_operators::UnaryPrefixOperator, lexer::punctuator::Punctuator, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{binary_expression::BinaryExpression, debugging::{DebugDisplay, IRDisplay}, expression::Expression, expression_operators::{BinaryExpressionOperator, UnaryPrefixOperator}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -56,16 +56,16 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
         let lhs: ConstexprValue = value.lhs().try_into()?;
         let rhs: ConstexprValue = value.rhs().try_into()?;
         match (lhs, value.operator(), rhs) {
-            (ConstexprValue::NUMBER(l), Punctuator::Pipe, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l | r)),
-            (ConstexprValue::NUMBER(l), Punctuator::AMPERSAND, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l & r)),
-            (ConstexprValue::NUMBER(l), Punctuator::Hat, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l ^ r)),
-            (ConstexprValue::NUMBER(l), Punctuator::PLUS, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l + r)),
-            (ConstexprValue::NUMBER(l), Punctuator::DASH, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l - r)),
-            (ConstexprValue::NUMBER(l), Punctuator::ASTERISK, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l * r)),
-            (ConstexprValue::NUMBER(l), Punctuator::FORWARDSLASH, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l / r)),
-            (ConstexprValue::NUMBER(l), Punctuator::PERCENT, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l % r)),
-            (ConstexprValue::NUMBER(l), Punctuator::LessLess, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l << r)),
-            (ConstexprValue::NUMBER(l), Punctuator::GreaterGreater, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l >> r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitwiseOr, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l | r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitwiseAnd, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l & r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitwiseXor, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l ^ r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::Add, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l + r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::Subtract, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l - r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::Multiply, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l * r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::Divide, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l / r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::Mod, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l % r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitshiftLeft, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l << r)),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitshiftRight, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l >> r)),
 
             (ConstexprValue::NUMBER(l), op, ConstexprValue::NUMBER(r)) if op.as_comparator_instr().is_some() => Ok(ConstexprValue::NUMBER(l.cmp(r, &op.as_comparator_instr().unwrap()))),
             

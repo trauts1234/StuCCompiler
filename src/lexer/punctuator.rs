@@ -92,39 +92,6 @@ impl Punctuator {
         }
     }
 
-    /**
-     * if this punctuator is a comparison operator, what instruction would
-     * returns the correct setcc instruction
-     */
-    pub fn as_comparator_instr(&self) -> Option<AsmComparison> {
-        match self {
-            Self::Less => Some(AsmComparison::L),
-            Self::Greater => Some(AsmComparison::G),
-            Self::DOUBLEEQUALS => Some(AsmComparison::EQ),
-            Self::EXCLAMATIONEQUALS => Some(AsmComparison::NE),
-            Self::LESSEQUAL => Some(AsmComparison::LE),
-            Self::GREATEREQUAL => Some(AsmComparison::GE),
-            _ => None,
-        }
-    }
-
-    pub fn as_boolean_instr(&self) -> Option<LogicalOperation> {
-        match self {
-            Self::PIPEPIPE => Some(LogicalOperation::OR),
-            Self::ANDAND => Some(LogicalOperation::AND),
-            _ => None
-        }
-    }
-
-    pub fn as_bitwise_binary_instr(&self) -> Option<LogicalOperation> {
-        match self {
-            Self::Pipe => Some(LogicalOperation::OR),
-            Self::AMPERSAND => Some(LogicalOperation::AND),
-            Self::Hat => Some(LogicalOperation::XOR),
-            _ => None
-        }
-    }
-
      /**
      * if this punctuator can be a binary operator:
      * returns Some(precedence number)
@@ -155,6 +122,7 @@ impl Punctuator {
      * returns Some(precedence number)
      * if it can't: None
      */
+    //TODO maybe mobe to expression operator themselves
     pub fn as_unary_prefix_precedence(&self) -> Option<i32> {
         match self {
             Self::ASTERISK |//dereference

@@ -1,4 +1,5 @@
 use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use colored::Colorize;
 use memory_size::MemorySize;
 
 /**
@@ -216,41 +217,41 @@ impl IterationStatement {
 
 impl ASTDisplay for IterationStatement {
     fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
-        f.write("loop");
+        f.write(&"loop".red().to_string());
         f.indent();
         match self {
             IterationStatement::FOR { initialisation, condition, increment, local_scope_data:_, body } => {
                 if let Some(init) = initialisation {
-                    f.write("initialisation");
+                    f.write(&"initialisation".red().to_string());
                     f.indent();
                     init.display_ast(f);
                     f.dedent();
                 }
 
-                f.write("condition");
+                f.write(&"condition".green().to_string());
                 f.indent();
                 condition.display_ast(f);
                 f.dedent();
 
                 if let Some(inc) = increment {
-                    f.write("increment");
+                    f.write(&"increment".red().to_string());
                     f.indent();
                     inc.display_ast(f);
                     f.dedent();
                 }
 
-                f.write("body");
+                f.write(&"body".red().to_string());
                 f.indent();
                 body.display_ast(f);
                 f.dedent();
             },
             IterationStatement::WHILE { condition, body } => {
-                f.write("condition");
+                f.write(&"condition".green().to_string());
                 f.indent();
                 condition.display_ast(f);
                 f.dedent();
 
-                f.write("body");
+                f.write(&"body".red().to_string());
                 f.indent();
                 body.display_ast(f);
                 f.dedent();

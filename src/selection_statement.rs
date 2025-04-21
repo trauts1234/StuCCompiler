@@ -1,4 +1,5 @@
 use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay, expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use colored::Colorize;
 use memory_size::MemorySize;
 
 /**
@@ -136,21 +137,21 @@ impl ASTDisplay for SelectionStatement {
     fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
             SelectionStatement::IF { condition, if_body, else_body } => {
-                f.write("if statement");
+                f.write(&"if statement".red().to_string());
                 f.indent();
 
-                f.write("condition");
+                f.write(&"condition".green().to_string());
                 f.indent();
                 condition.display_ast(f);
                 f.dedent();
 
-                f.write("if-body");
+                f.write(&"if-body".red().to_string());
                 f.indent();
                 if_body.display_ast(f);
                 f.dedent();
 
                 if let Some(else_body) = else_body {
-                    f.write("else-body");
+                    f.write(&"else-body".red().to_string());
                     f.indent();
                     else_body.display_ast(f);
                     f.dedent();

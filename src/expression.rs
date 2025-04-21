@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{ASTDisplay, DebugDisplay}, declaration::MinimalDataVariable, expression_operators::UnaryPrefixOperator, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{ASTDisplay, DebugDisplay}, declaration::MinimalDataVariable, expression_operators::{BinaryExpressionOperator, UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 #[derive(Clone, Debug)]
 pub enum Expression {
@@ -386,8 +386,9 @@ fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueS
     let parsed_left = try_consume_whole_expr(tokens_queue, &left_part, accessible_funcs, scope_data)?;
     let parsed_right = try_consume_whole_expr(tokens_queue, &right_part, accessible_funcs, scope_data)?;
 
-    let operator = tokens_queue.peek(&TokenQueueSlice { index: operator_idx, max_index: operator_idx+1 }, &scope_data).expect("couldn't peek")
-        .as_punctuator().expect("couldn't cast to punctuator");
+    let operator = tokens_queue.peek(&TokenQueueSlice { index: operator_idx, max_index: operator_idx+1 }, &scope_data)//get token in the middle
+    .and_then(|x| x.as_punctuator())//try to convert to punctuator
+    .and_then(|x| x.try_into().ok())?;//try to convert to binary expression operator
 
     Some(BinaryExpression::new(parsed_left, operator, parsed_right))
 }
@@ -415,7 +416,7 @@ fn try_parse_array_index(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueS
         //a[b] == *(a+b) in C
         return Some(
             UnaryPrefixExpression::new(UnaryPrefixOperator::Dereference, //dereference
-                Expression::BINARYEXPRESSION(BinaryExpression::new(array_expr, Punctuator::PLUS, index_expr))//pointer plus index
+                Expression::BINARYEXPRESSION(BinaryExpression::new(array_expr, BinaryExpressionOperator::Add, index_expr))//pointer plus index
             )
         );
     }
@@ -482,7 +483,7 @@ impl ASTDisplay for Expression {
     fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
             Expression::NUMBERLITERAL(number_literal) => f.write(&number_literal.display()),
-            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.display_ast(f),
+            Expression::VARIABLE(minimal_data_variable) => f.write(&minimal_data_variable.display()),
             Expression::STRUCTMEMBERACCESS(struct_member_access) => struct_member_access.display_ast(f),
             Expression::STRINGLITERAL(string_literal) => f.write(&string_literal.display()),
             Expression::ARRAYLITERAL(array_initialisation) => array_initialisation.display_ast(f),
