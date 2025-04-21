@@ -60,7 +60,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     fn visit_string_literal(&mut self, string: &crate::string_literal::StringLiteral) -> Self::Output {
         let mut result = Assembly::make_empty();
         result.add_instruction(AsmOperation::LEA {
-            to: Operand::Reg(Register::acc()),
+            to: RegOrMem::Reg(Register::acc()),
             from: Operand::Mem(MemoryOperand::LabelAccess(string.get_label().to_string()))
         });//warning: duplicated code from get address
 

@@ -9,7 +9,7 @@ pub enum AsmOperation {
     ///moves size bytes from -> to
     MOV {to: RegOrMem, from: Operand, size: MemorySize},
     ///references from, puts address in to
-    LEA {to: Operand, from: Operand},
+    LEA {to: RegOrMem, from: Operand},
 
     ///compares lhs and rhs, based on their data type
     CMP {lhs: Operand, rhs: Operand, data_type: DataType},

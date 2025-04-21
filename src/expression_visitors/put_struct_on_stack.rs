@@ -115,7 +115,7 @@ fn clone_struct_to_stack(struct_size: MemorySize, resulatant_location: &Operand)
     
     //put destination in RDI
     result.add_instruction(AsmOperation::LEA {
-        to: Operand::Reg(Register::_DI),
+        to: RegOrMem::Reg(Register::_DI),
         from: resulatant_location.clone(),
     });
     //put source in RSI
@@ -130,7 +130,7 @@ fn clone_struct_to_stack(struct_size: MemorySize, resulatant_location: &Operand)
 
     //point to the cloned struct
     result.add_instruction(AsmOperation::LEA {
-        to: Operand::Reg(Register::acc()),
+        to: RegOrMem::Reg(Register::acc()),
         from: resulatant_location.clone(),
     });
 
