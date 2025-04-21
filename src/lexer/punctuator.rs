@@ -1,5 +1,3 @@
-use crate::assembly::operation::{LogicalOperation, AsmComparison};
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Punctuator {
     PLUS,

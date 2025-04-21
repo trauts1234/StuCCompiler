@@ -40,6 +40,7 @@ pub mod array_initialisation;
 mod number_literal;
 mod debugging;
 mod expression_operators;
+mod struct_member_access;
 
 struct CompilationOptions {
     c_file: PathBuf,

@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, cast_expr::CastExpression, declaration::MinimalDataVariable, function_call::FunctionCall, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, struct_definition::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{binary_expression::BinaryExpression, cast_expr::CastExpression, declaration::MinimalDataVariable, function_call::FunctionCall, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, struct_member_access::StructMemberAccess, unary_prefix_expr::UnaryPrefixExpression};
 
 
 //a test to see if a visitor pattern would be useful
