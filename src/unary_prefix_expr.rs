@@ -1,11 +1,11 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::Expression, expression_operators::UnaryPrefixOperator, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, lexer::punctuator::Punctuator};
 use colored::Colorize;
 use memory_size::MemorySize;
 
 #[derive(Clone, Debug)]
 pub struct UnaryPrefixExpression {
     operand: Box<Expression>,
-    operator: Punctuator,
+    operator: UnaryPrefixOperator,
 }
 
 impl UnaryPrefixExpression {
@@ -17,13 +17,13 @@ impl UnaryPrefixExpression {
         let mut result = Assembly::make_empty();
 
         match self.operator {
-            Punctuator::AMPERSAND => {
+            UnaryPrefixOperator::Reference => {
                 result.add_comment("getting address of something");
                 //put address of the right hand side in acc
                 let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
                 result.merge(&operand_ref_asm);
             },
-            Punctuator::ASTERISK => {
+            UnaryPrefixOperator::Dereference => {
                 result.add_comment("dereferencing pointer");
                 // put the address pointed to in rax
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
@@ -39,7 +39,7 @@ impl UnaryPrefixExpression {
                     });//dereference pointer
                 }
             },
-            Punctuator::DASH => {
+            UnaryPrefixOperator::Negate => {
                 result.add_comment("negating something");
 
                 let promoted_type = self.get_data_type(asm_data);
@@ -52,7 +52,7 @@ impl UnaryPrefixExpression {
 
                 result.add_instruction(AsmOperation::NEG { item: RegOrMem::Reg(Register::acc()), data_type: promoted_type });//negate the promoted value
             },
-            Punctuator::PLUS => {
+            UnaryPrefixOperator::UnaryPlus => {
                 result.add_comment("unary +");
 
                 let promoted_type = self.get_data_type(asm_data);
@@ -64,7 +64,7 @@ impl UnaryPrefixExpression {
                 result.merge(&cast_asm);//promote the type
                 
             },
-            Punctuator::PLUSPLUS => {
+            UnaryPrefixOperator::Increment => {
 
                 let promoted_type = self.get_data_type(asm_data);
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
@@ -113,7 +113,7 @@ impl UnaryPrefixExpression {
 
             }, 
 
-            Punctuator::DASHDASH => {
+            UnaryPrefixOperator::Decrement => {
                 //TODO this code is duplicated from PLUSPLUS
 
                 let promoted_type = self.get_data_type(asm_data);
@@ -163,7 +163,7 @@ impl UnaryPrefixExpression {
 
             },
 
-            Punctuator::Exclamation => {
+            UnaryPrefixOperator::BooleanNot => {
                 result.add_comment("boolean not");
 
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
@@ -187,7 +187,7 @@ impl UnaryPrefixExpression {
                 });
             },
 
-            Punctuator::Tilde => {
+            UnaryPrefixOperator::BitwiseNot => {
                 result.add_comment("boolean not");
                 let promoted_type = self.get_data_type(asm_data);
 
@@ -204,7 +204,6 @@ impl UnaryPrefixExpression {
                     size: promoted_type.memory_size(asm_data)
                 });
             }
-            _ => panic!("operator to unary prefix is invalid")
         }
 
         result
@@ -213,19 +212,18 @@ impl UnaryPrefixExpression {
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
         match self.operator {
-            Punctuator::AMPERSAND => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
-            Punctuator::ASTERISK => operand_type.remove_outer_modifier(),
-            Punctuator::PLUS | Punctuator::DASH | Punctuator::PLUSPLUS | Punctuator::DASHDASH | Punctuator::Tilde => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
-            Punctuator::Exclamation => DataType::RAW(BaseType::_BOOL),
-            _ => panic!("tried getting data type of a not-implemented prefix")
+            UnaryPrefixOperator::Reference => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
+            UnaryPrefixOperator::Dereference => operand_type.remove_outer_modifier(),
+            UnaryPrefixOperator::UnaryPlus | UnaryPrefixOperator::Negate | UnaryPrefixOperator::Increment | UnaryPrefixOperator::Decrement | UnaryPrefixOperator::BitwiseNot => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
+            UnaryPrefixOperator::BooleanNot => DataType::RAW(BaseType::_BOOL),
         }
     }
 
-    pub fn new(operator: Punctuator, operand: Expression) -> UnaryPrefixExpression {
+    pub fn new(operator: UnaryPrefixOperator, operand: Expression) -> UnaryPrefixExpression {
         UnaryPrefixExpression { operand: Box::new(operand), operator }
     }
 
-    pub fn get_operator(&self) -> &Punctuator {
+    pub fn get_operator(&self) -> &UnaryPrefixOperator {
         &self.operator
     }
 

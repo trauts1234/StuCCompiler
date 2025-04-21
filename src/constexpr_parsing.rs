@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, debugging::{DebugDisplay, IRDisplay}, expression::Expression, lexer::punctuator::Punctuator, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
+use crate::{binary_expression::BinaryExpression, debugging::{DebugDisplay, IRDisplay}, expression::Expression, expression_operators::UnaryPrefixOperator, lexer::punctuator::Punctuator, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, unary_prefix_expr::UnaryPrefixExpression};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -30,19 +30,19 @@ impl TryFrom<UnaryPrefixExpression> for ConstexprValue {
 
     fn try_from(value: UnaryPrefixExpression) -> Result<Self, Self::Error> {
 
-        if let (Punctuator::AMPERSAND, Expression::VARIABLE(var)) = (value.get_operator(), value.get_operand()) {
+        if let (UnaryPrefixOperator::Reference, Expression::VARIABLE(var)) = (value.get_operator(), value.get_operand()) {
             //getting address of variable
             return Ok(ConstexprValue::POINTER { label: var.name.to_string(), offset: NumberLiteral::from(0) })
         }
 
         let operand: ConstexprValue = value.get_operand().try_into()?;
         match (value.get_operator(), operand) {
-            (Punctuator::AMPERSAND, _) => Err("cannot get address of this".to_owned()),
-            (Punctuator::ASTERISK, _) => Err("cannot dereference pointer in constant expression".to_owned()),
-            (Punctuator::DASH, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(-num)),
-            (Punctuator::PLUS, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.unary_plus())),
-            (Punctuator::Tilde, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.bitwise_not())),
-            (Punctuator::Exclamation, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.boolean_not())),
+            (UnaryPrefixOperator::Reference, _) => Err("cannot get address of this".to_owned()),
+            (UnaryPrefixOperator::Dereference, _) => Err("cannot dereference pointer in constant expression".to_owned()),
+            (UnaryPrefixOperator::Negate, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(-num)),
+            (UnaryPrefixOperator::UnaryPlus, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.unary_plus())),
+            (UnaryPrefixOperator::BitwiseNot, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.bitwise_not())),
+            (UnaryPrefixOperator::BooleanNot, ConstexprValue::NUMBER(num)) => Ok(ConstexprValue::NUMBER(num.boolean_not())),
 
             _ =>todo!("this unary punctuator is not implemented for constant folding")
         }

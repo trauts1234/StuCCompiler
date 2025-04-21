@@ -39,6 +39,7 @@ mod typedef;
 pub mod array_initialisation;
 mod number_literal;
 mod debugging;
+mod expression_operators;
 
 struct CompilationOptions {
     c_file: PathBuf,
