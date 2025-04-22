@@ -1,7 +1,7 @@
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
 use colored::Colorize;
 use unwrap_let::unwrap_let;
-use crate::{asm_gen_data::AsmData, assembly::{operand::immediate::ImmediateValue, operation::AsmComparison}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::AsmData, assembly::{comparison::ComparisonKind, operand::immediate::ImmediateValue}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
 
 use super::literal_value::LiteralValue;
 
@@ -106,19 +106,19 @@ impl NumberLiteral {
         self.unary_promote()
     }
 
-    pub fn cmp(self, other: Self, comparison: &AsmComparison) -> Self {
+    pub fn cmp(self, other: Self, comparison: &ComparisonKind) -> Self {
         let (lhs, rhs) = self.binary_promote(other);
 
         let result = match (lhs.value, rhs.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => {
             match comparison {
-                AsmComparison::EQ => LiteralValue::INTEGER((x == y) as i128),
-                AsmComparison::NE => LiteralValue::INTEGER((x != y) as i128),
-                AsmComparison::L => LiteralValue::INTEGER((x < y) as i128),
-                AsmComparison::LE => LiteralValue::INTEGER((x <= y) as i128),
-                AsmComparison::G => LiteralValue::INTEGER((x > y) as i128),
-                AsmComparison::GE => LiteralValue::INTEGER((x >= y) as i128),
-                AsmComparison::ALWAYS => panic!("invalid comparison")
+                ComparisonKind::EQ => LiteralValue::INTEGER((x == y) as i128),
+                ComparisonKind::NE => LiteralValue::INTEGER((x != y) as i128),
+                ComparisonKind::L => LiteralValue::INTEGER((x < y) as i128),
+                ComparisonKind::LE => LiteralValue::INTEGER((x <= y) as i128),
+                ComparisonKind::G => LiteralValue::INTEGER((x > y) as i128),
+                ComparisonKind::GE => LiteralValue::INTEGER((x >= y) as i128),
+                ComparisonKind::ALWAYS => panic!("invalid comparison")
             }
             }
         };

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use memory_size::MemorySize;
 
@@ -93,7 +93,6 @@ impl SelectionStatement {
                 result.add_instruction(AsmOperation::JMPCC {
                     label: cond_false_label.to_string(),
                     comparison: AsmComparison::EQ,
-                    signed_comparison: true
                 });
 
                 let mut if_body_stack_usage = stack_data.clone();
@@ -107,7 +106,6 @@ impl SelectionStatement {
                 result.add_instruction(AsmOperation::JMPCC {
                     label: if_end_label.to_string(),
                     comparison: AsmComparison::ALWAYS,//unconditional jump
-                    signed_comparison: true
                 });
 
                 if let Some(else_body) = else_body {

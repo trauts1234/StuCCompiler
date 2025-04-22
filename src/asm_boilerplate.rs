@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand, RegOrMem}, operation::{AsmComparison, AsmOperation}}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
 use memory_size::MemorySize;
 
 pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmData) -> Assembly {
@@ -25,7 +25,6 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
         result.add_instruction(AsmOperation::SETCC {
             destination: RegOrMem::Reg(Register::acc()),
             comparison: AsmComparison::NE,
-            signed_comparison: from_raw.is_signed()
         });
 
         return result;

@@ -1,7 +1,7 @@
 use crate::{assembly::operand::register::Register, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{DebugDisplay, IRDisplay}};
 use colored::Colorize;
 use memory_size::MemorySize;
-use super::operand::{Operand, RegOrMem, PTR_SIZE};
+use super::{comparison::AsmComparison, operand::{Operand, RegOrMem, PTR_SIZE}};
 
 
 #[derive(Clone)]
@@ -14,9 +14,9 @@ pub enum AsmOperation {
     ///compares lhs and rhs, based on their data type
     CMP {lhs: Operand, rhs: Operand, data_type: DataType},
     /// based on the comparison, sets destination to 1 or 0
-    SETCC {destination: RegOrMem, comparison: AsmComparison, signed_comparison: bool},
+    SETCC {destination: RegOrMem, comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
-    JMPCC {label: String, comparison: AsmComparison, signed_comparison: bool},
+    JMPCC {label: String, comparison: AsmComparison},
 
     ///sign extends the accumulator to i64 from the old size
     SignExtendACC {old_size: MemorySize},
@@ -57,21 +57,6 @@ pub enum AsmOperation {
 }
 
 #[derive(Clone)]
-pub enum AsmComparison {
-    ALWAYS,//always jump or set to true
-    NE,//not equal
-    EQ,//equal
-    ///less than or equal to
-    LE,
-    ///greater than or equal to
-    GE,
-    ///less than
-    L,
-    ///greater than
-    G,
-}
-
-#[derive(Clone)]
 pub enum LogicalOperation {
     AND,
     OR,
@@ -87,8 +72,8 @@ impl AsmOperation {
             AsmOperation::MOV { to, from, size } => format!("mov {}, {}", to.generate_name(*size), from.generate_name(*size)),
             AsmOperation::LEA { to, from } => format!("lea {}, {}", to.generate_name(PTR_SIZE), from.generate_name(PTR_SIZE)),
             AsmOperation::CMP { lhs, rhs, data_type } => instruction_cmp(lhs, rhs, data_type),
-            AsmOperation::SETCC { destination, comparison, signed_comparison } => instruction_setcc(destination, comparison, *signed_comparison),
-            AsmOperation::JMPCC { label, comparison, signed_comparison } => format!("{} {}", instruction_jmpcc(comparison, *signed_comparison), label),
+            AsmOperation::SETCC { destination, comparison } => instruction_setcc(destination, comparison),
+            AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
             AsmOperation::SignExtendACC { old_size } => instruction_sign_extend(old_size),
             AsmOperation::ZeroExtendACC { old_size } => instruction_zero_extend(old_size),
             AsmOperation::ADD { destination, increment, data_type } => instruction_add(destination, increment, data_type),
@@ -119,31 +104,31 @@ fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &DataType) -> String
     }
 }
 
-fn instruction_setcc(destination: &RegOrMem, comparison: &AsmComparison, signed: bool) -> String {
+fn instruction_setcc(destination: &RegOrMem, comparison: &AsmComparison) -> String {
     let reg_name = destination.generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
 
     let comparison_instr = match comparison {
         AsmComparison::NE => "setne",
         AsmComparison::EQ => "sete",
         AsmComparison::ALWAYS => return format!("mov {}, 1 ; unconditional set", reg_name),//for set always, there is no command, so quickly return a mov command
-        AsmComparison::LE => if signed {"setle"} else {"setbe"},
-        AsmComparison::GE => if signed {"setge"} else {"setae"},
-        AsmComparison::L => if signed {"setl"} else {"setb"},
-        AsmComparison::G => if signed {"setg"} else {"seta"},
+        AsmComparison::LE {signed} => if *signed {"setle"} else {"setbe"},
+        AsmComparison::GE {signed} => if *signed {"setge"} else {"setae"},
+        AsmComparison::L {signed} => if *signed {"setl"} else {"setb"},
+        AsmComparison::G {signed} => if *signed {"setg"} else {"seta"},
     };
 
     format!("{} {}", comparison_instr, reg_name)
 }
-fn instruction_jmpcc(comparison: &AsmComparison, signed: bool) -> &str {
+fn instruction_jmpcc(comparison: &AsmComparison) -> &str {
 
     match comparison {
         AsmComparison::NE => "jne",
         AsmComparison::EQ => "je",
         AsmComparison::ALWAYS => "jmp",
-        AsmComparison::LE  => if signed {"jle"} else {"jbe"},
-        AsmComparison::GE  => if signed {"jge"} else {"jae"},
-        AsmComparison::L  => if signed {"jl"} else {"jb"},
-        AsmComparison::G  => if signed {"jg"} else {"ja"},
+        AsmComparison::LE {signed}  => if *signed {"jle"} else {"jbe"},
+        AsmComparison::GE {signed}  => if *signed {"jge"} else {"jae"},
+        AsmComparison::L {signed}  => if *signed {"jl"} else {"jb"},
+        AsmComparison::G {signed}  => if *signed {"jg"} else {"ja"},
     }
 }
 
@@ -253,13 +238,13 @@ impl IRDisplay for AsmOperation {
                     data_type.display()
                 ),
 
-            AsmOperation::SETCC { destination, comparison, signed_comparison:_ } => 
+            AsmOperation::SETCC { destination, comparison } => 
                 format!("{} {}",
                     opcode!(format!("set-{}", comparison.display_ir())),
                     destination.display_ir()
                 ),
 
-            AsmOperation::JMPCC { label, comparison, signed_comparison:_ } => 
+            AsmOperation::JMPCC { label, comparison } => 
                 format!("{} {}",
                     opcode!(format!("jmp-{}", comparison.display_ir())),
                     label

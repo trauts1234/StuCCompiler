@@ -1,4 +1,4 @@
-use crate::{assembly::operation::{AsmComparison, LogicalOperation}, lexer::punctuator::Punctuator};
+use crate::{assembly::{comparison::ComparisonKind, operation::LogicalOperation}, lexer::punctuator::Punctuator};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum BinaryExpressionOperator {
@@ -42,14 +42,14 @@ impl BinaryExpressionOperator {
      * if this punctuator is a comparison operator, what instruction would
      * returns the correct setcc instruction
      */
-    pub fn as_comparator_instr(&self) -> Option<AsmComparison> {
+    pub fn as_comparator_instr(&self) -> Option<ComparisonKind> {
         match self {
-            Self::CmpLess => Some(AsmComparison::L),
-            Self::CmpGreater => Some(AsmComparison::G),
-            Self::CmpEqual => Some(AsmComparison::EQ),
-            Self::CmpNotEqual => Some(AsmComparison::NE),
-            Self::CmpLessEqual => Some(AsmComparison::LE),
-            Self::CmpGreaterEqual => Some(AsmComparison::GE),
+            Self::CmpLess => Some(ComparisonKind::L),
+            Self::CmpGreater => Some(ComparisonKind::G),
+            Self::CmpEqual => Some(ComparisonKind::EQ),
+            Self::CmpNotEqual => Some(ComparisonKind::NE),
+            Self::CmpLessEqual => Some(ComparisonKind::LE),
+            Self::CmpGreaterEqual => Some(ComparisonKind::GE),
             _ => None,
         }
     }

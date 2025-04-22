@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::{AsmComparison, AsmOperation}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use memory_size::MemorySize;
 
@@ -153,7 +153,6 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::JMPCC {
                     label: format!("{}_loop_end", generic_label),
                     comparison: AsmComparison::EQ,
-                    signed_comparison: condition_type.decay_to_primative().is_signed()
                 });
 
                 //overwrite stack data whilst generating assembly for the loop body
@@ -171,7 +170,6 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::JMPCC {
                     label: loop_start_label.to_string(),
                     comparison: AsmComparison::ALWAYS,
-                    signed_comparison: true//does not matter since it jumps always
                 });
 
                 result.add_instruction(AsmOperation::Label { name: loop_end_label });
@@ -197,7 +195,6 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::JMPCC {
                     label: loop_end_label.to_string(),
                     comparison: AsmComparison::EQ,
-                    signed_comparison: condition_type.decay_to_primative().is_signed()
                 });
 
                 // generate the loop body
@@ -208,7 +205,6 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::JMPCC {
                     label: loop_start_label.to_string(),
                     comparison: AsmComparison::ALWAYS,
-                    signed_comparison: true//deos not matter since it is a jump always
                 });
 
                 result.add_instruction(AsmOperation::Label { name: loop_end_label });

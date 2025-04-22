@@ -115,10 +115,13 @@ impl BinaryExpression {
                     data_type: promoted_type.clone()
                 });
 
-                let asm_comparison = comparison.as_comparator_instr().unwrap();
+                let asm_comparison = comparison
+                    .as_comparator_instr()
+                    .unwrap()
+                    .to_asm_comparison(promoted_type.decay_to_primative().is_signed());//take signedness and convert comparison kind to an asm comparison
 
                 //create the correct setcc instruction
-                result.add_instruction(AsmOperation::SETCC { destination: RegOrMem::Reg(Register::acc()), comparison: asm_comparison, signed_comparison: promoted_type.decay_to_primative().is_signed() });
+                result.add_instruction(AsmOperation::SETCC { destination: RegOrMem::Reg(Register::acc()), comparison: asm_comparison });
 
             },
 
