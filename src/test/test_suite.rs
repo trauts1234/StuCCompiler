@@ -2,12 +2,14 @@
  * tests using the test suite from https://github.com/c-testsuite/c-testsuite/tree/master
  */
 
-use std::{fs, path::{Path, PathBuf}, process::{Command, Stdio}, str::FromStr};
+use std::{fs, path::PathBuf, process::{Command, Stdio}, str::FromStr};
 
 use crate::compile;
 
+use super::file_tools::find_c_files;
+
 #[test]
-//#[ignore = "not yet implemented"]
+#[ignore = "not yet implemented"]
 fn test_all() {
     let test_folder = PathBuf::from_str("tests/c_testsuite").unwrap();
 
@@ -37,22 +39,4 @@ fn test_all() {
         assert_eq!(String::from_utf8_lossy(&binary_command.stdout), expected_stdout);
 
     }
-}
-
-
-
-
-fn find_c_files<P: AsRef<Path>>(dir: P) -> Vec<std::path::PathBuf> {
-    let mut c_files = Vec::new();
-
-    for entry in fs::read_dir(dir).unwrap() {
-        let entry = entry.unwrap();
-        let path = entry.path();
-
-        if path.is_file() && path.extension().is_some_and(|ext| ext == "c") {
-            c_files.push(path);
-        }
-    }
-
-    c_files
 }
