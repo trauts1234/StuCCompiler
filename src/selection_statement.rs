@@ -92,7 +92,8 @@ impl SelectionStatement {
                 //if the result is 0, jump to the else block or the end of the if statement
                 result.add_instruction(AsmOperation::JMPCC {
                     label: cond_false_label.to_string(),
-                    comparison: AsmComparison::EQ
+                    comparison: AsmComparison::EQ,
+                    signed_comparison: true
                 });
 
                 let mut if_body_stack_usage = stack_data.clone();
@@ -105,7 +106,8 @@ impl SelectionStatement {
                 //jump to the end of the if/else block
                 result.add_instruction(AsmOperation::JMPCC {
                     label: if_end_label.to_string(),
-                    comparison: AsmComparison::ALWAYS//unconditional jump
+                    comparison: AsmComparison::ALWAYS,//unconditional jump
+                    signed_comparison: true
                 });
 
                 if let Some(else_body) = else_body {

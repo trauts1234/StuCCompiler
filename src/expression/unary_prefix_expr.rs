@@ -184,6 +184,7 @@ impl UnaryPrefixExpression {
                 result.add_instruction(AsmOperation::SETCC {
                     destination: RegOrMem::Reg(Register::acc()),
                     comparison: AsmComparison::EQ,//set to 1 if it was previously equal to 0
+                    signed_comparison: false
                 });
             },
 

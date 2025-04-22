@@ -72,7 +72,8 @@ impl ControlFlowChange {
             ControlFlowChange::BREAK => {
                 let label = asm_data.get_break_label().expect("break statement outside of a loop");
                 //unconditionally jump to the label
-                result.add_instruction(AsmOperation::JMPCC { label: label.clone(), comparison: AsmComparison::ALWAYS });
+                //signedness does not matter as it unconditionally jumps
+                result.add_instruction(AsmOperation::JMPCC { label: label.clone(), comparison: AsmComparison::ALWAYS, signed_comparison: true });
             },
         }
 

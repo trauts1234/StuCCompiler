@@ -146,13 +146,14 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::CMP {
                     lhs: Operand::Reg(Register::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
-                    data_type: condition_type
+                    data_type: condition_type.clone()
                 });
 
                 //if the result is 0, jump to the end of the loop
                 result.add_instruction(AsmOperation::JMPCC {
                     label: format!("{}_loop_end", generic_label),
                     comparison: AsmComparison::EQ,
+                    signed_comparison: condition_type.decay_to_primative().is_signed()
                 });
 
                 //overwrite stack data whilst generating assembly for the loop body
@@ -169,7 +170,8 @@ impl IterationStatement {
                 //after increment, go to top of loop
                 result.add_instruction(AsmOperation::JMPCC {
                     label: loop_start_label.to_string(),
-                    comparison: AsmComparison::ALWAYS
+                    comparison: AsmComparison::ALWAYS,
+                    signed_comparison: true//does not matter since it jumps always
                 });
 
                 result.add_instruction(AsmOperation::Label { name: loop_end_label });
@@ -188,13 +190,14 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::CMP {
                     lhs: Operand::Reg(Register::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
-                    data_type: condition_type,
+                    data_type: condition_type.clone(),
                 });
 
                 // if the result is 0, jump to the end of the loop
                 result.add_instruction(AsmOperation::JMPCC {
                     label: loop_end_label.to_string(),
                     comparison: AsmComparison::EQ,
+                    signed_comparison: condition_type.decay_to_primative().is_signed()
                 });
 
                 // generate the loop body
@@ -205,6 +208,7 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::JMPCC {
                     label: loop_start_label.to_string(),
                     comparison: AsmComparison::ALWAYS,
+                    signed_comparison: true//deos not matter since it is a jump always
                 });
 
                 result.add_instruction(AsmOperation::Label { name: loop_end_label });

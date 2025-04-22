@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use crate::{asm_gen_data::AsmData, debugging::DebugDisplay};
 use memory_size::MemorySize;
@@ -32,6 +32,17 @@ impl DataType
         match self {
             Self::ARRAY { size:_, element } => DataType::POINTER(element.clone()),
             _ => self.clone()
+        }
+    }
+
+    /// converts arrays to u64 memory addresses
+    /// pointers to u64
+    /// any raw type is unaffected
+    pub fn decay_to_primative(&self) -> BaseType {
+        match self {
+            DataType::ARRAY { .. } => BaseType::U64,
+            DataType::POINTER(_) => BaseType::U64,
+            DataType::RAW(base_type) => base_type.clone(),
         }
     }
 

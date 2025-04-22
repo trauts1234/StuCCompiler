@@ -25,6 +25,7 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
         result.add_instruction(AsmOperation::SETCC {
             destination: RegOrMem::Reg(Register::acc()),
             comparison: AsmComparison::NE,
+            signed_comparison: from_raw.is_signed()
         });
 
         return result;
