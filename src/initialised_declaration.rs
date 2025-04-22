@@ -146,14 +146,15 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
                 match tokens_queue.consume(&mut curr_queue_idx, scope_data).unwrap() {
                     Token::NUMBER(arraysize) => {
                         array_modifiers.push(DeclModifier::ARRAY(arraysize.get_value().clone().try_into().unwrap()));
+                        assert_eq!(tokens_queue.consume(&mut curr_queue_idx, &scope_data)?, Token::PUNCTUATOR(Punctuator::CLOSESQUARE));//consume the close bracket
                     }
                     Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => {
                         array_modifiers.push(DeclModifier::UnknownSizeArray);
+                        //close bracket already consumed
                     },
 
                     _ => panic!("unknown token in array declaration")
                 }
-                assert_eq!(tokens_queue.consume(&mut curr_queue_idx, &scope_data)?, Token::PUNCTUATOR(Punctuator::CLOSESQUARE));//consume the close bracket
             },
             _ => {break;}
         }
