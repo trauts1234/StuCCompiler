@@ -147,7 +147,9 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
                     Token::NUMBER(arraysize) => {
                         array_modifiers.push(DeclModifier::ARRAY(arraysize.get_value().clone().try_into().unwrap()));
                     }
-                    Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => todo!("array size inference"),
+                    Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => {
+                        array_modifiers.push(DeclModifier::UnknownSizeArray);
+                    },
 
                     _ => panic!("unknown token in array declaration")
                 }

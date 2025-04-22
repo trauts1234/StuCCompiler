@@ -7,6 +7,7 @@ use super::{base_type::BaseType, type_modifier::DeclModifier};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DataType {
+    UNKNOWNSIZEARRAY{element: Box<DataType>},
     ARRAY{size: u64, element: Box<DataType>},
     POINTER(Box<DataType>),
     RAW(BaseType)
@@ -24,7 +25,8 @@ impl DataType
             //array of count, and "remaining" tokens => array of count, process(remaining)
             [DeclModifier::ARRAY(count), remaining @ ..] => DataType::ARRAY { size: *count, element: Box::new(Self::new_from_slice(base, remaining)) },
             //pointer to "remaining" tokens => pointer to process(remaining)
-            [DeclModifier::POINTER, remaining @ ..] => DataType::POINTER(Box::new(Self::new_from_slice(base, remaining)))
+            [DeclModifier::POINTER, remaining @ ..] => DataType::POINTER(Box::new(Self::new_from_slice(base, remaining))),
+            [DeclModifier::UnknownSizeArray, remaining @ ..] => DataType::UNKNOWNSIZEARRAY { element: Box::new(Self::new_from_slice(base, remaining)) }
         }
     }
     
@@ -40,6 +42,7 @@ impl DataType
     /// any raw type is unaffected
     pub fn decay_to_primative(&self) -> BaseType {
         match self {
+            DataType::UNKNOWNSIZEARRAY { .. } => BaseType::U64,
             DataType::ARRAY { .. } => BaseType::U64,
             DataType::POINTER(_) => BaseType::U64,
             DataType::RAW(base_type) => base_type.clone(),
@@ -103,6 +106,7 @@ impl DataType
 
     pub fn remove_outer_modifier(&self) -> Self {
         match self {
+            Self::UNKNOWNSIZEARRAY { element } => *element.clone(),
             Self::ARRAY { size:_, element } => *element.clone(),
             Self::POINTER(element) => *element.clone(),
             Self::RAW(_) => panic!("tried to remove outer modifier from raw type")
@@ -112,18 +116,13 @@ impl DataType
         match modifier {
             DeclModifier::POINTER => Self::POINTER(Box::new(self.clone())),
             DeclModifier::ARRAY(size) => Self::ARRAY { size, element: Box::new(self.clone()) },
-        }
-    }
-    pub fn add_inner_modifier(&self, modifier: DeclModifier) -> Self {
-        match self {
-            DataType::ARRAY { size, element } => DataType::ARRAY { size: *size, element: Box::new(element.add_inner_modifier(modifier)) },
-            DataType::POINTER(recursive_data_type) => DataType::POINTER(Box::new(recursive_data_type.add_inner_modifier(modifier))),
-            DataType::RAW(base_type) => Self::new_from_slice(DataType::RAW(base_type.clone()), &[modifier]),//add the modifier to the innermost
+            DeclModifier::UnknownSizeArray => Self::UNKNOWNSIZEARRAY { element: Box::new(self.clone()) },
         }
     }
 
     pub fn memory_size(&self, asm_data: &AsmData) -> MemorySize {
         match self {
+            DataType::UNKNOWNSIZEARRAY { element } => panic!("cannot find size of unknow size array. perhaps this should return an Option???"),
             DataType::ARRAY { size, element } => MemorySize::from_bytes(size * &element.memory_size(asm_data).size_bytes()),
             DataType::POINTER(_) => MemorySize::from_bytes(8),
             DataType::RAW(base) => base.memory_size(asm_data),
@@ -165,6 +164,7 @@ impl DataType
 impl DebugDisplay for DataType {
     fn display(&self) -> String {
         match self {
+            DataType::UNKNOWNSIZEARRAY { element } => format!("ARR[]({})", element.display()),
             DataType::ARRAY { size, element } => format!("ARR[{}]({})", size, element.display()),
             DataType::POINTER(data_type) => format!("PTR({})", data_type.display()),
             DataType::RAW(base_type) => base_type.display(),
@@ -180,16 +180,16 @@ impl DebugDisplay for DataType {
  */
 pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> DataType {
 
-    match (lhs, rhs) {
-        (DataType::ARRAY { size:_, element:_ }, _) => lhs.decay(),//lhs is array, so promoted type is pointer
-        (DataType::POINTER(_), _) => lhs.clone(),//lhs is pointer, so every possible rhs is cast to pointer
+    match (lhs.decay(), rhs.decay()) {
+        (DataType::POINTER(_), _) => lhs.decay(),//lhs decays to pointer, so every possible rhs is cast to pointer
 
-        (_, DataType::ARRAY { size:_, element:_ }) => rhs.decay(),
-        (_, DataType::POINTER(_)) => rhs.clone(),
+        (_, DataType::POINTER(_)) => rhs.decay(),
 
         (DataType::RAW(lhs_base), DataType::RAW(rhs_base)) => {
-            DataType::RAW(calculate_integer_promoted_type(lhs_base, rhs_base))
+            DataType::RAW(calculate_integer_promoted_type(&lhs_base, &rhs_base))
         }
+
+        _ => panic!()//this should never happen as decay always returns pointer or raw
     }
 
 }
@@ -223,8 +223,7 @@ pub fn calculate_integer_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseTy
  * calculate the type of this type when promoted
  */
 pub fn calculate_unary_type_arithmetic(lhs: &DataType) -> DataType {
-    match lhs {
-        DataType::ARRAY { size:_, element:_ } => lhs.decay(),
+    match lhs.decay() {
         DataType::POINTER(_) => lhs.clone(),
         DataType::RAW(lhs_base) => {
             assert!(lhs_base.is_integer());
@@ -245,6 +244,8 @@ pub fn calculate_unary_type_arithmetic(lhs: &DataType) -> DataType {
                 (9.., _) => panic!("integer size too large!")
     
             }
-        }
+        },
+
+        _ => panic!()//should never happen as decay always returns pointer or raw
     }
 }

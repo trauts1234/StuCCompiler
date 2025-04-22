@@ -70,7 +70,9 @@ impl UnaryPrefixExpression {
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
                 let increment_amount = match &original_type {
+                    DataType::UNKNOWNSIZEARRAY { .. } |
                     DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+                    
                     DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
                     DataType::RAW(_) => ImmediateValue("1".to_string())
                 };
@@ -120,7 +122,9 @@ impl UnaryPrefixExpression {
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
                 let increment_amount = match &original_type {
+                    DataType::UNKNOWNSIZEARRAY { .. } |
                     DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+
                     DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//decrement by number of bytes
                     DataType::RAW(_) => ImmediateValue("1".to_string())
                 };

@@ -13,8 +13,10 @@ impl ArgType {
 
     pub fn param_from_type(data_type: &DataType, asm_data: &AsmData) -> ArgType {
         match data_type {
+            DataType::UNKNOWNSIZEARRAY { .. } |
             DataType::ARRAY {..} => ArgType::INTEGER,//decays to a pointer, which is integer
-            DataType::POINTER(_) => ArgType::INTEGER,// ''
+
+            DataType::POINTER(_) => ArgType::INTEGER,// pointer can be passed as an integer type
             DataType::RAW(base_type) => 
                 Self::param_from_base_type(base_type, asm_data),
         }

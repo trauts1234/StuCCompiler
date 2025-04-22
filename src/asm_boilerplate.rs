@@ -3,9 +3,14 @@ use memory_size::MemorySize;
 
 pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmData) -> Assembly {
     match (original, new_type) {
-        (_, DataType::ARRAY { size:_, element:_ }) => panic!("cannot cast to array"),
+        (_, DataType::UNKNOWNSIZEARRAY { .. }) |
+        (_, DataType::ARRAY { .. }) => panic!("cannot cast to array"),
+
         (_, DataType::RAW(BaseType::VaArg)) => Assembly::make_empty(),//cast to varadic arg does nothing, as types are not specified for va args
-        (DataType::ARRAY { size:_, element:_ }, _) => cast_from_acc(&original.decay(), new_type, asm_data),//decay arrays
+
+        (DataType::UNKNOWNSIZEARRAY { .. }, _) |
+        (DataType::ARRAY { .. }, _) => cast_from_acc(&original.decay(), new_type, asm_data),//decay arrays
+        
         (DataType::POINTER(_), _) => cast_from_acc(&DataType::RAW(BaseType::U64), new_type, asm_data),//pointers are stored in memory just like u64, so cast to u64
         (_, DataType::POINTER(_)) => cast_from_acc(original, &DataType::RAW(BaseType::U64), asm_data),// ''
         (DataType::RAW(from_raw), DataType::RAW(to_raw)) => cast_raw_from_acc(from_raw, to_raw, asm_data)
