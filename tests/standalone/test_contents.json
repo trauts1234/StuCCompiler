@@ -548,5 +548,9 @@
     {
         "filename":"semicolonsintypedef.c",
         "return_code":0
+    },
+    {
+        "filename":"postfixincrement.c",
+        "return_code":0
     }
 ]

@@ -35,6 +35,10 @@ impl Register {
         Register::_CX
     }
 
+    pub fn third() -> Self {
+        Register::_DX
+    }
+
     pub fn generate_name(&self, data_size: MemorySize) -> String {
         match (self, data_size.size_bytes()) {
             (Register::_SP, 8) => "rsp",

@@ -2,7 +2,7 @@ use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::functions::FunctionList, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{ASTDisplay, DebugDisplay}, declaration::MinimalDataVariable, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_member_access::StructMemberAccess, expression::unary_prefix_expr::UnaryPrefixExpression};
 
-use super::{binary_expression_operator::BinaryExpressionOperator, unary_prefix_operator::UnaryPrefixOperator};
+use super::{binary_expression_operator::BinaryExpressionOperator, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
 #[derive(Clone, Debug)]
 pub enum Expression {
@@ -14,6 +14,7 @@ pub enum Expression {
     FUNCCALL(FunctionCall),
 
     UNARYPREFIX(UnaryPrefixExpression),
+    UNARYSUFFIX(UnaryPostfixExpression),
     BINARYEXPRESSION(BinaryExpression),
     CAST(CastExpression)
 }
@@ -46,6 +47,7 @@ impl Expression {
             Expression::STRINGLITERAL(x) => x.accept(visitor),
             Expression::FUNCCALL(x) => x.accept(visitor),
             Expression::UNARYPREFIX(x) => x.accept(visitor),
+            Expression::UNARYSUFFIX(x) => x.accept(visitor),
             Expression::BINARYEXPRESSION(x) => x.accept(visitor),
             Expression::STRUCTMEMBERACCESS(x) => x.accept(visitor),
             Expression::CAST(cast_expression) => cast_expression.accept(visitor),
@@ -111,7 +113,7 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
 
                     if precedence_required == 1 {
                         if let Some(index_expr) = try_parse_array_index(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
-                            return Some(Expression::UNARYPREFIX(index_expr));
+                            return Some(Expression::UNARYPREFIX(index_expr));//since a[b] = *(a+b), indexing returns a unary prefix
                         }
 
                         if let Some(func) = FunctionCall::try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
@@ -120,6 +122,18 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
 
                         if let Some(access) = try_parse_member_access(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
                             return Some(Expression::STRUCTMEMBERACCESS(access));
+                        }
+                    }
+
+                    let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data).unwrap();
+                    let ends_with_valid_suffix = last_token
+                        .as_punctuator()
+                        .and_then(|punc| punc.as_unary_suffix_precendece())
+                        .is_some_and(|precedence| precedence == precedence_required);
+
+                    if ends_with_valid_suffix {
+                        if let Some(x) = try_parse_unary_suffix(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
+                            return Some(Expression::UNARYSUFFIX(x));
                         }
                     }
 
@@ -132,7 +146,7 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                         .and_then(|punc| punc.as_unary_prefix_precedence())
                         .is_some_and(|precedence| precedence == precedence_required);
 
-                    if starts_with_valid_prefix {
+                    if starts_with_valid_prefix {//TODO do I need this if statement
                         if let Some(x) = try_parse_unary_prefix(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data) {
                             return Some(Expression::UNARYPREFIX(x));
                         }
@@ -375,6 +389,20 @@ fn try_parse_unary_prefix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQ
     Some(UnaryPrefixExpression::new(unary_op, operand))
 }
 
+fn try_parse_unary_suffix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<UnaryPostfixExpression> {
+    let mut curr_queue_idx = previous_queue_idx.clone();
+    
+    let unary_op: UnaryPostfixOperator = tokens_queue.peek_back(&curr_queue_idx, &scope_data)
+    .and_then(|tok| tok.as_punctuator())
+    .and_then(|punc| punc.try_into().ok())?;//get unary operator, or return if it isn't one
+
+    curr_queue_idx.max_index -= 1;//consume the last token
+
+    let operand = try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data)?;
+
+    Some(UnaryPostfixExpression::new(unary_op, operand))
+}
+
 /**
  * tries to parse the left and right hand side of operator_idx, as a binary expression e.g 1 + 2 split by "+"
  * if this parse was successful, an expression is returned
@@ -491,6 +519,7 @@ impl ASTDisplay for Expression {
             Expression::ARRAYLITERAL(array_initialisation) => array_initialisation.display_ast(f),
             Expression::FUNCCALL(function_call) => function_call.display_ast(f),
             Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.display_ast(f),
+            Expression::UNARYSUFFIX(unary_suffix) => unary_suffix.display_ast(f),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.display_ast(f),
             Expression::CAST(cast_expression) => cast_expression.display_ast(f),
         }

@@ -50,8 +50,7 @@ int global_shift_right = 16 >> 2;
 int global_shift_negative = -16 >> 2;  // Implementation-defined
 int global_shift_overflow = 1 << 31;  // Undefined behavior
 
-int verify_global_initialization() {
-    int errors = 0;
+int main() {
     
     // Local equivalents for comparison
     int local_add = 1 + 1;
@@ -88,167 +87,161 @@ int verify_global_initialization() {
     // Check basic arithmetic
     if (global_add != local_add) {
 
-        errors++;
+        return 1;
     }
     
     if (global_sub != local_sub) {
 
-        errors++;
+        return 2;
     }
     
     if (global_mul != local_mul) {
 
-        errors++;
+        return 3;
     }
     
     if (global_div != local_div) {
 
-        errors++;
+        return 4;
     }
     
     if (global_mod != local_mod) {
 
-        errors++;
+        return 5;
     }
     
     // Check complex expressions
     if (global_complex1 != local_complex1) {
 
-        errors++;
+        return 6;
     }
     
     if (global_complex2 != local_complex2) {
 
-        errors++;
+        return 7;
     }
     
     if (global_complex3 != local_complex3) {
 
-        errors++;
+        return 8;
     }
     
     // Check unary operations
     if (global_unary_plus != local_unary_plus) {
 
-        errors++;
+        return 9;
     }
     
     if (global_unary_minus != local_unary_minus) {
 
-        errors++;
+        return 10;
     }
     
     if (global_unary_not != local_unary_not) {
 
-        errors++;
+        return 11;
     }
     
     if (global_unary_bitwise_not != local_unary_bitwise_not) {
 
-        errors++;
+        return 12;
     }
     
     // Check bitwise operations
     if (global_bitwise_and != local_bitwise_and) {
 
-        errors++;
+        return 13;
     }
 
     if (global_bitwise_or != local_bitwise_or) {
 
-        errors++;
+        return 14;
     }
     
     if (global_bitwise_xor != local_bitwise_xor) {
 
-        errors++;
+        return 15;
     }
     
     // Check edge cases
     if (global_int_max != local_int_max) {
 
-        errors++;
+        return 16;
     }
     
     if (global_int_max_plus_one != local_int_max_plus_one) {
 
-        errors++;
+        return 17;
     }
     
     if (global_int_min != local_int_min) {
 
-        errors++;
+        return 18;
     }
     
     if (global_int_min_minus_one != local_int_min_minus_one) {
 
-        errors++;
+        return 19;
     }
     
     // Check type promotion
     if (global_char_add != local_char_add) {
 
-        errors++;
+        return 20;
     }
     
     if (global_short_promotion != local_short_promotion) {
 
-        errors++;
+        return 21;
     }
     
     if (global_int_promotion != local_int_promotion) {
 
-        errors++;
+        return 22;
     }
     
     // Check unsigned vs signed
     if (global_unsigned_max != local_unsigned_max) {
 
-        errors++;
+        return 23;
     }
     
     if (global_signed_comparison != local_signed_comparison) {
-
-        errors++;
+        printf("%d %d", global_signed_comparison, local_signed_comparison);
+        return 24;
     }
     
     // Check hex and octal
     if (global_hex != local_hex) {
 
-        errors++;
+        return 25;
     }
     
     if (global_octal != local_octal) {
 
-        errors++;
+        return 26;
     }
     
     // Check shifting
     if (global_shift_left != local_shift_left) {
 
-        errors++;
+        return 27;
     }
     
     if (global_shift_right != local_shift_right) {
 
-        errors++;
+        return 28;
     }
     
     if (global_shift_negative != local_shift_negative) {
 
-        errors++;
+        return 29;
     }
     
     if (global_shift_overflow != local_shift_overflow) {
 
-        errors++;
+        return 30;
     }
 
-    return errors;
-}
-
-int main() {
-    int result = verify_global_initialization();
-    
-    return result;
+    return 0;
 }

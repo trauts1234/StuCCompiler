@@ -235,7 +235,7 @@ impl UnaryPrefixExpression {
 impl ASTDisplay for UnaryPrefixExpression {
     fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         let operator_prefix: &str = self.operator.clone().into();
-        f.write(&operator_prefix.yellow().to_string());
+        f.write(&format!("prefix {}", operator_prefix.yellow()));
 
         f.indent();
         self.operand.display_ast(f);

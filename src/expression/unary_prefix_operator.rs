@@ -33,14 +33,14 @@ impl TryFrom<Punctuator> for UnaryPrefixOperator {
 impl<'a> Into<&'a str> for UnaryPrefixOperator {
     fn into(self) -> &'a str {
         match self {
-            UnaryPrefixOperator::Reference => "reference",
-            UnaryPrefixOperator::Dereference => "dereference",
-            UnaryPrefixOperator::Negate => "negate",
-            UnaryPrefixOperator::UnaryPlus => "unary plus",
-            UnaryPrefixOperator::Decrement => "decrement",
-            UnaryPrefixOperator::Increment => "increment",
-            UnaryPrefixOperator::BooleanNot => "boolean not",
-            UnaryPrefixOperator::BitwiseNot => "bitwise not",
+            Self::Reference => "reference",
+            Self::Dereference => "dereference",
+            Self::Negate => "negate",
+            Self::UnaryPlus => "unary plus",
+            Self::Decrement => "decrement",
+            Self::Increment => "increment",
+            Self::BooleanNot => "boolean not",
+            Self::BitwiseNot => "bitwise not",
         }
     }
 }

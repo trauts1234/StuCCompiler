@@ -28,6 +28,10 @@ impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
         expr.get_data_type(self.asm_data)
     }
 
+    fn visit_unary_postfix(&mut self, expr: &crate::expression::unary_postfix_expression::UnaryPostfixExpression) -> Self::Output {
+        expr.get_data_type(self.asm_data)
+    }
+
     fn visit_binary_expression(&mut self, expr: &BinaryExpression) -> Self::Output {
         expr.get_data_type(self.asm_data)
     }

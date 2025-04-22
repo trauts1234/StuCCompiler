@@ -134,6 +134,14 @@ impl Punctuator {
             _ => None
         }
     }
+
+    pub fn as_unary_suffix_precendece(&self) -> Option<i32> {
+        match self {
+            Self::PLUSPLUS |
+            Self::DASHDASH => Some(1),
+            _ => None
+        }
+    }
 }
 
 impl<'a> Into<&'a str> for Punctuator {

@@ -57,6 +57,10 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         result
     }
 
+    fn visit_unary_postfix(&mut self, _expr: &crate::expression::unary_postfix_expression::UnaryPostfixExpression) -> Self::Output {
+        panic!("tried to get address of unary postfix")
+    }
+
     fn visit_binary_expression(&mut self, _expr: &crate::binary_expression::BinaryExpression) -> Self::Output {
         panic!("tried to get address of binary expression")
     }

@@ -75,6 +75,10 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         expr.generate_assembly(self.asm_data, self.stack_data)
     }
 
+    fn visit_unary_postfix(&mut self, expr: &crate::expression::unary_postfix_expression::UnaryPostfixExpression) -> Self::Output {
+        expr.generate_assembly(self.asm_data, self.stack_data)
+    }
+
     fn visit_binary_expression(&mut self, expr: &crate::binary_expression::BinaryExpression) -> Self::Output {
         expr.generate_assembly(self.asm_data, self.stack_data)
     }
