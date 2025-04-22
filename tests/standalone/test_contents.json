@@ -552,5 +552,9 @@
     {
         "filename":"postfixincrement.c",
         "return_code":0
+    },
+    {
+        "filename":"postfixdecrement.c",
+        "return_code":0
     }
 ]

@@ -29,7 +29,53 @@ impl UnaryPostfixExpression {
 
         match self.operator {
             UnaryPostfixOperator::Decrement => {
-                todo!()
+                result.add_comment("postfix decrement");
+                let promoted_type = self.get_data_type(asm_data);
+                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+
+                let increment_amount = match &original_type {
+                    DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+                    DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
+                    DataType::RAW(_) => ImmediateValue("1".to_string())
+                };
+
+                //put address of operand in secondary
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                result.merge(&operand_asm);
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Reg(Register::secondary()),
+                    from: Operand::Reg(Register::acc()),
+                    size: PTR_SIZE
+                });
+
+                //put self.operand in acc and third
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Reg(Register::acc()),
+                    from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
+                    size: original_type.memory_size(asm_data),
+                });
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Reg(Register::third()),
+                    from: Operand::Reg(Register::acc()),
+                    size: original_type.memory_size(asm_data),
+                });
+
+                //increment value in third
+                result.add_instruction(AsmOperation::SUB {
+                    destination: RegOrMem::Reg(Register::third()),
+                    decrement: Operand::Imm(increment_amount),
+                    data_type: original_type.clone(),
+                });
+                //save third to the variable address
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
+                    from: Operand::Reg(Register::third()),
+                    size: original_type.memory_size(asm_data),
+                });
+
+                //promote the original self.operand in acc
+                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
+                result.merge(&cast_asm);
             },
             UnaryPostfixOperator::Increment => {
                 result.add_comment("postfix increment");
