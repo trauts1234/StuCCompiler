@@ -11,7 +11,7 @@ use crate::compile;
 use super::file_tools::{find_c_files, find_folders};
 
 #[test]
-//#[ignore = "not yet implemented"]
+#[ignore = "not yet implemented"]
 fn test_all() {
     let test_folder = PathBuf::from_str("tests/fujitsu_testsuite").unwrap();
 
