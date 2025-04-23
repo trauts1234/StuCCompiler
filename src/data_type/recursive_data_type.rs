@@ -122,7 +122,7 @@ impl DataType
 
     pub fn memory_size(&self, asm_data: &AsmData) -> MemorySize {
         match self {
-            DataType::UNKNOWNSIZEARRAY { element } => panic!("cannot find size of unknow size array. perhaps this should return an Option???"),
+            DataType::UNKNOWNSIZEARRAY { .. } => panic!("cannot find size of unknow size array. perhaps this should return an Option???"),
             DataType::ARRAY { size, element } => MemorySize::from_bytes(size * &element.memory_size(asm_data).size_bytes()),
             DataType::POINTER(_) => MemorySize::from_bytes(8),
             DataType::RAW(base) => base.memory_size(asm_data),

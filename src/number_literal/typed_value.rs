@@ -455,7 +455,7 @@ fn calculate_positive_integer(base: u64, digits: &[char]) -> u64 {
     .map(|(i, digit)| digit * base.pow(i.try_into().unwrap()))//take into account place value of each digit
     .sum()//sum each place value
 }
-fn calculate_float(base: i32, digits: &[char]) -> f64 {
+/*fn calculate_float(base: i32, digits: &[char]) -> f64 {
     assert!(digits.contains(&'.'));
     todo!();
-}
+}*/

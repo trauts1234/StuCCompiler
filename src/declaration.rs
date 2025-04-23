@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{data_type::recursive_data_type::DataType, debugging::{ASTDisplay, DebugDisplay}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Clone, Debug)]
 /**

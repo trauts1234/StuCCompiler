@@ -19,7 +19,7 @@ impl TryFrom<&Expression> for ConstexprValue {
             Expression::ARRAYLITERAL(array_initialisation) => todo!(),
             Expression::FUNCCALL(function_call) => Err(format!("results of calling {} are not a compile time constant", function_call.get_callee_decl().function_name)),
             Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.try_into(),
-            Expression::UNARYSUFFIX(unary_suffix_expression) => Err("cannot fold unary postfix increment/decrement".to_owned()),
+            Expression::UNARYSUFFIX(_) => Err("cannot fold unary postfix increment/decrement".to_owned()),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.clone().try_into(),
             Expression::CAST(cast_expression) => todo!(),
         }
