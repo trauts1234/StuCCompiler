@@ -10,7 +10,7 @@ pub struct InitialisedDeclaration{
 
 impl InitialisedDeclaration {
     /**
-     * local_variables is mut as variables are added
+     * scope_data is mut as variables are added
      * consumes declarations/definitions of stack variables
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Vec<InitialisedDeclaration>>> {
@@ -191,14 +191,14 @@ enum DataTypeInfo {
 
 pub struct ConsumedBaseType {
     data_type: DataTypeInfo,
-    storage_duration: Option<StorageDuration>
+    storage_duration: StorageDuration
 }
 
 impl ConsumedBaseType {
-    pub fn new() -> Self {
+    pub fn new(default_storage_duration: StorageDuration) -> Self {
         ConsumedBaseType {
             data_type: DataTypeInfo::Partial(Vec::new()),
-            storage_duration: Some(StorageDuration::Automatic),//TODO implement static and extern, leave this as None
+            storage_duration: default_storage_duration,
         }
     }
     ///calculates and returns the data type and storage duration, consuming the ConsumedBaseType
@@ -209,7 +209,7 @@ impl ConsumedBaseType {
             DataTypeInfo::Full(data_type) => data_type,
         };
 
-        Some((complete_data_type, self.storage_duration?))
+        Some((complete_data_type, self.storage_duration))
     }
 
     fn add_type_info(&mut self, extra: TypeInfo) {
@@ -229,7 +229,7 @@ impl ConsumedBaseType {
 }
 
 pub fn consume_type_specifier(tokens_queue: &TokenQueue, queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
-    let ASTMetadata { remaining_slice, resultant_tree } = consume_type_specifier_recursive(tokens_queue, queue_idx, scope_data, ConsumedBaseType::new());
+    let ASTMetadata { remaining_slice, resultant_tree } = consume_type_specifier_recursive(tokens_queue, queue_idx, scope_data, ConsumedBaseType::new(StorageDuration::Default));
 
     Some(ASTMetadata {
         remaining_slice,

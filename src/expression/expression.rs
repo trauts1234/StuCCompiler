@@ -501,7 +501,8 @@ fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, acces
         max_index: curr_queue_idx.max_index,
     };
 
-    let ASTMetadata { remaining_slice, resultant_tree: new_type } = consume_fully_qualified_type(tokens_queue, &new_type_slice, scope_data)?;
+    //discard storage duration for cast
+    let ASTMetadata { remaining_slice, resultant_tree: (new_type, _) } = consume_fully_qualified_type(tokens_queue, &new_type_slice, scope_data)?;
     assert!(remaining_slice.get_slice_size() == 0);//cannot be any remaining tokens in the cast type
 
     let base_expr = try_consume_whole_expr(tokens_queue, &remaining_expr_slice, accessible_funcs, scope_data)?;

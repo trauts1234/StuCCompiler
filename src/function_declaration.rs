@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers, ConsumedBaseType}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers, ConsumedBaseType}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
@@ -47,7 +47,8 @@ impl FunctionDeclaration {
 pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<FunctionDeclaration>> {
 
     //try and consume int* or similar as return type, get curr_queue_idx and the function return type
-    let ASTMetadata { remaining_slice: mut curr_queue_idx, resultant_tree: return_type } = consume_fully_qualified_type(tokens_queue, previous_queue_idx, scope_data)?;
+    // the return value's storage duration (static, extern etc.) is the visibility of the function?
+    let ASTMetadata { remaining_slice: mut curr_queue_idx, resultant_tree: (return_type, func_visibility) } = consume_fully_qualified_type(tokens_queue, previous_queue_idx, scope_data)?;
 
     //try to match an identifier, to find out the function name
 
@@ -128,7 +129,7 @@ fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, sc
 }
 
 //TODO move to more appropriate file
-pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<DataType>> {
+pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
     let mut return_modifiers = Vec::new();
 
     let ASTMetadata { remaining_slice, resultant_tree: (return_data_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data)?;
@@ -142,7 +143,7 @@ pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_id
 
     Some(ASTMetadata {
         remaining_slice: curr_queue_idx,
-        resultant_tree: DataType::new_from_slice(return_data_type, &return_modifiers),
+        resultant_tree: (DataType::new_from_slice(return_data_type, &return_modifiers), storage_duration),
     })
 }
 
