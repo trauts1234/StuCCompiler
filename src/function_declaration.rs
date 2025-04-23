@@ -1,4 +1,4 @@
-use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, type_modifier::DeclModifier}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers, ConsumedBaseType}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
@@ -112,7 +112,7 @@ fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, sc
         })
     }
 
-    let ASTMetadata { remaining_slice, resultant_tree:data_type_base } = consume_base_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
+    let ASTMetadata { remaining_slice, resultant_tree: (data_type_base, storage_class) } = consume_type_specifier(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
     let curr_queue_idx = remaining_slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
@@ -131,7 +131,7 @@ fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, sc
 pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<DataType>> {
     let mut return_modifiers = Vec::new();
 
-    let ASTMetadata { remaining_slice, resultant_tree:return_data_type } = consume_base_type(tokens_queue, previous_queue_idx, scope_data)?;
+    let ASTMetadata { remaining_slice, resultant_tree: (return_data_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data)?;
 
     let mut curr_queue_idx = remaining_slice.clone();
 

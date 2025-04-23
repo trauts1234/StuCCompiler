@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, data_type::recursive_data_type::DataType, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, data_type::recursive_data_type::DataType, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers, ConsumedBaseType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -79,7 +79,7 @@ impl StructDefinition {
         &self.ordered_members
     }
     
-    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<(StructIdentifier, UnpaddedStructDefinition)>> {
+    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<StructIdentifier>> {
 
         let mut curr_queue_idx = previous_slice.clone();
 
@@ -94,8 +94,8 @@ impl StructDefinition {
             StructIdentifier::ID(scope_data.generate_struct_id())
         };
 
-        match tokens_queue.peek(&curr_queue_idx, &scope_data).unwrap() {
-            Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) => {
+        match tokens_queue.peek(&curr_queue_idx, &scope_data) {
+            Some(Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY)) => {
                 let close_squiggly_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
                 let mut inside_variants = TokenQueueSlice{index:curr_queue_idx.index+1, max_index: close_squiggly_idx};//+1 to skip the {
                 let remaining_slice = TokenQueueSlice{index:close_squiggly_idx+1, max_index:curr_queue_idx.max_index};
@@ -113,13 +113,13 @@ impl StructDefinition {
 
                 Some(ASTMetadata {
                     remaining_slice,
-                    resultant_tree: (struct_name, struct_definition)
+                    resultant_tree: struct_name
                 })
             },
 
             _ => Some(ASTMetadata { 
                 remaining_slice: curr_queue_idx,
-                resultant_tree: (struct_name.clone(), scope_data.get_struct(&struct_name).unwrap().clone())//TODO this could declare a struct?
+                resultant_tree: struct_name
             })
         }
     }
@@ -129,7 +129,7 @@ impl StructDefinition {
 fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Vec<Declaration> {
 
     //consume the base type
-    let ASTMetadata { remaining_slice, resultant_tree:base_type } = consume_base_type(tokens_queue, &curr_queue_idx, scope_data).unwrap();
+    let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, &curr_queue_idx, scope_data).unwrap();
 
     curr_queue_idx.index = remaining_slice.index;//consume it and let the calling function know
 

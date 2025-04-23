@@ -34,7 +34,7 @@ const DEFAULT_DEFINES: &str =
 pub fn preprocess_c_file(filename: &Path) -> String {
     let file_text = format!("{}\n{}",
         DEFAULT_DEFINES,
-        fs::read_to_string(filename).expect("failed to open c file")
+        fs::read_to_string(filename).expect(&format!("failed to open file {:?}", filename))
     );
     preprocess(10, &mut PreprocessContext::new(), file_text)
 }

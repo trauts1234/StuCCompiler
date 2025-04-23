@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{consume_base_type, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers, ConsumedBaseType}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -29,7 +29,7 @@ impl GlobalVariable {
         let mut declarations = Vec::new();
         
         //consume int or unsigned int or enum etc.
-        let ASTMetadata { remaining_slice, resultant_tree:base_type } = consume_base_type(tokens_queue, previous_queue_idx, scope_data)?;
+        let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data)?;
 
         let mut curr_queue_idx = remaining_slice.clone();
 

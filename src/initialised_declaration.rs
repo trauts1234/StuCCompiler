@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, type_modifier::DeclModifier}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type,expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::functions::FunctionList, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type,expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use memory_size::MemorySize;
 
 /**
@@ -18,7 +18,7 @@ impl InitialisedDeclaration {
         let mut declarations = Vec::new();
         
         //consume int or unsigned int or enum etc.
-        let ASTMetadata { remaining_slice, resultant_tree: data_type } = consume_base_type(tokens_queue, &previous_queue_idx, scope_data)?;
+        let ASTMetadata { remaining_slice, resultant_tree: (data_type, storage_duration) } = consume_type_specifier(tokens_queue, &previous_queue_idx, scope_data)?;
 
         let mut curr_queue_idx = remaining_slice.clone();
 
@@ -183,53 +183,95 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
     })
 }
 
-pub fn consume_base_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<DataType>> {
+/// this stores the partially calculated data type for consume_base_type
+enum DataTypeInfo {
+    Partial(Vec<TypeInfo>),//when collecting "int" "unsigned" etc.
+    Full(DataType),//when a complete data type has been found, i.e enum/typedef
+}
 
-    let mut curr_queue_idx = previous_slice.clone();
+pub struct ConsumedBaseType {
+    data_type: DataTypeInfo,
+    storage_duration: Option<StorageDuration>
+}
 
-    match tokens_queue.peek(&curr_queue_idx, &scope_data)? {
-        Token::KEYWORD(Keyword::ENUM) => {
-            let ASTMetadata { remaining_slice, resultant_tree } = try_consume_enum_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
-
-            Some(ASTMetadata { remaining_slice, resultant_tree: DataType::RAW(resultant_tree) })
+impl ConsumedBaseType {
+    pub fn new() -> Self {
+        ConsumedBaseType {
+            data_type: DataTypeInfo::Partial(Vec::new()),
+            storage_duration: Some(StorageDuration::Automatic),//TODO implement static and extern, leave this as None
         }
-        Token::KEYWORD(Keyword::STRUCT) => {
-            let ASTMetadata { remaining_slice, resultant_tree: (struct_name, _) } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut curr_queue_idx, scope_data).unwrap();
+    }
+    ///calculates and returns the data type and storage duration, consuming the ConsumedBaseType
+    pub fn type_and_duration(self) -> Option<(DataType, StorageDuration)> {
+        let complete_data_type = match self.data_type {
+            DataTypeInfo::Partial(x) if x.len() == 0 => return None,//no information on type, must be a failure
+            DataTypeInfo::Partial(type_infos) => DataType::RAW(base_type::new_from_type_list(&type_infos)),
+            DataTypeInfo::Full(data_type) => data_type,
+        };
 
-            Some(ASTMetadata {
-                remaining_slice,
-                resultant_tree: DataType::RAW(BaseType::STRUCT(struct_name.clone()))//TODO some label for structs other than a string name, perhaps enum, for string name or int index, just to identify anonymous structs
-            })
+        Some((complete_data_type, self.storage_duration?))
+    }
+
+    fn add_type_info(&mut self, extra: TypeInfo) {
+        match &mut self.data_type {
+            DataTypeInfo::Partial(type_infos) => type_infos.push(extra),
+            DataTypeInfo::Full(_) => panic!("tried to add type info {:?} to a complete type", extra),
         }
-        Token::IDENTIFIER(name) => {
-            scope_data.get_typedef(&name)//try to get typedef
-            .map(|result| ASTMetadata { remaining_slice: curr_queue_idx.next_clone(), resultant_tree: result.clone() })//wrap in AST metadata
+    }
+    fn add_complete_type(&mut self, new_type: DataType) {
+        match &self.data_type {
+            DataTypeInfo::Partial(type_infos) => assert!(type_infos.len() == 0),//perhaps I collected an "int" type and the whole type is being overwritten?
+            DataTypeInfo::Full(_) => panic!("tried to overwrite completed type"),//perhaps I had a struct x, then tried to overwrite with struct y in "struct x struct y" or similar bad code
+        }
+        //overwrite my type
+        self.data_type = DataTypeInfo::Full(new_type)
+    }
+}
+
+pub fn consume_type_specifier(tokens_queue: &TokenQueue, queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
+    let ASTMetadata { remaining_slice, resultant_tree } = consume_type_specifier_recursive(tokens_queue, queue_idx, scope_data, ConsumedBaseType::new());
+
+    Some(ASTMetadata {
+        remaining_slice,
+        resultant_tree: resultant_tree.type_and_duration()?,//try and get data, or fail
+    })
+}
+
+/// a recursive function that consumes the "unsigned int" or "struct x" part of a declaration
+/// assumes that the queue starts with a valid type specifier
+pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, mut initial_type: ConsumedBaseType) -> ASTMetadata<ConsumedBaseType> {
+    match tokens_queue.peek(queue_idx, &scope_data) {
+        Some(Token::TYPESPECIFIER(ts)) => {
+            initial_type.add_type_info(ts);
+            //recursively get other type specifiers
+            consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type)
+        }
+
+        Some(Token::KEYWORD(Keyword::ENUM)) => {
+            let ASTMetadata { remaining_slice, resultant_tree } = try_consume_enum_as_type(tokens_queue, &mut queue_idx.clone(), scope_data).unwrap();
+
+            initial_type.add_complete_type(DataType::RAW(resultant_tree));//enum specifies a type, so no need for "int" and "unsigned" etc.
+
+            consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type)
+        }
+        Some(Token::KEYWORD(Keyword::STRUCT)) => {
+            let ASTMetadata { remaining_slice, resultant_tree: struct_name } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut queue_idx.clone(), scope_data).unwrap();
+
+            initial_type.add_complete_type(DataType::RAW(BaseType::STRUCT(struct_name)));//struct specifies a whole type so just store that
+
+            consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type)//recursively look for more info
+        }
+        Some(Token::IDENTIFIER(name)) => {
+            match scope_data.get_typedef(&name) {
+                Some(x) => {
+                    initial_type.add_complete_type(x.clone());//get type of typedef and fill it in
+                    consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type)//consume other info
+                }
+                None => ASTMetadata { remaining_slice: queue_idx.clone(), resultant_tree: initial_type }//unknown identifier, probably a variable name
+            }
         },
 
-        _ => {
-            //fallback to default type system
-
-            let mut data_type_info = Vec::new();
-            //try and consume as many type specifiers as possible
-            loop {
-                if let Some(Token::TYPESPECIFIER(ts)) = tokens_queue.peek(&curr_queue_idx, &scope_data) {
-                    data_type_info.push(ts.clone());
-                    tokens_queue.consume(&mut curr_queue_idx, &scope_data);
-                } else {
-                    break;
-                }
-            }
-
-            if data_type_info.len() == 0 {
-                return None;
-            }
-
-            Some(ASTMetadata {
-                remaining_slice: curr_queue_idx,
-                //create data type out of it, but just get the base type as it can never be a pointer/array etc.
-                resultant_tree: DataType::RAW(base_type::new_from_type_list(&data_type_info))
-            })
-        }
+        _ => ASTMetadata { remaining_slice: queue_idx.clone(), resultant_tree: initial_type } //invalid, return what has already been parsed
     }
 }
 
