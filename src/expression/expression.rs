@@ -88,7 +88,6 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                     Some(Expression::NUMBERLITERAL(num))
                 },
                 Token::IDENTIFIER(var_name) => {
-                    assert!(scope_data.variable_defined(&var_name));
                     Some(Expression::VARIABLE(MinimalDataVariable{name: var_name}))
                 },
                 Token::STRING(string_lit) => {

@@ -57,7 +57,7 @@ impl FunctionDefinition {
         let mut stack_data = MemorySize::new();//stack starts as empty in a function
 
         //clone myself, but add all my local variables, and add my return type
-        let asm_data = &asm_data.clone_for_new_scope(&self.local_scope_data, self.get_return_type(), &mut stack_data);
+        let asm_data = &asm_data.clone_for_new_function(&self.local_scope_data, self.get_return_type(), &mut stack_data);
 
         //set label as same as function name
         result.add_instruction(AsmOperation::Label { name: self.decl.function_name.clone() });

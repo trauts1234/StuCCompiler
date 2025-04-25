@@ -6,13 +6,12 @@ use crate::{data_type::recursive_data_type::DataType, enum_definition::EnumList,
 
 #[derive(Debug, Default, Clone)]
 pub struct ParseData {
-    variables: HashSet<String>,
     pub(crate) enums: EnumList,
     typedefs: HashMap<String, DataType>,
     function_decls: Vec<FunctionDeclaration>,
     structs: IndexMap<StructIdentifier, UnpaddedStructDefinition>,//defined and declared structs
 
-    local_symbol_table: IndexMap<String, DataType>,//this is filled slowly, so do not read from it
+    local_symbol_table: Vec<(String, DataType)>,//this is filled slowly, so do not read from it
     next_free_struct_id: i32//anonymous structs get given an id from this
 }
 
@@ -26,7 +25,7 @@ impl ParseData {
      */
     pub fn clone_for_new_scope(&self) -> ParseData {
         let mut result = self.clone();
-        result.local_symbol_table = IndexMap::new();//as in new scope, all symbols are in an outer scope
+        result.local_symbol_table = Vec::new();//as in new scope, all symbols are in an outer scope
 
         result
     }
@@ -45,23 +44,19 @@ impl ParseData {
 
     pub fn get_function_declaration(&self, func_name: &str) -> Option<&FunctionDeclaration> {
         self.function_decls.iter()
+        .rev()//search closest first
         .find(|func| func.function_name == func_name)
     }
 
     pub fn add_variable(&mut self, name: &str, data_type: DataType) {
-        self.variables.insert(name.to_string());
-
         if self.local_symbol_table.iter().any(|(x,_)| x == name) {
             panic!("redefinition of variable {} in local scope", name);
         }
 
-        self.local_symbol_table.insert(name.to_string(), data_type);
-    }
-    pub fn variable_defined(&self, name: &str) -> bool {
-        self.variables.contains(name)
+        self.local_symbol_table.push((name.to_string(), data_type));
     }
 
-    pub fn get_symbol_table(&self) -> &IndexMap<String, DataType> {
+    pub fn get_symbol_table(&self) -> &Vec<(String, DataType)> {
         &self.local_symbol_table
     }
 

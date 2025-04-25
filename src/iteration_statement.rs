@@ -121,7 +121,7 @@ impl IterationStatement {
         match self {
             Self::FOR { initialisation, condition, increment, body, local_scope_data } => {
                 //overwrite asm_data by creating new scope
-                let asm_data = asm_data.clone_for_new_scope(local_scope_data, asm_data.get_function_return_type().clone(), stack_data);
+                let asm_data = asm_data.clone_for_new_scope(local_scope_data, stack_data);
                 
                 let condition_type = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data});
 

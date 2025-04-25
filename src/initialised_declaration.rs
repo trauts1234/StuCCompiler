@@ -289,8 +289,6 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
 
     tokens_queue.consume(curr_queue_idx, &scope_data).unwrap();//consume the equals sign
 
-    assert!(scope_data.variable_defined(var_name));
-
     //consume the right hand side of the initialisation
     //then create an assignment expression to write the value to the variable
     //this should also work for pointer intitialisation, as that sets the address of the pointer

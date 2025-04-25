@@ -1,6 +1,6 @@
 use crate::{ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDeclaration {
     pub(crate) function_name: String,
     pub(crate) params: Vec<Declaration>,//should this be a data type?
