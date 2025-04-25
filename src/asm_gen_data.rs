@@ -1,6 +1,10 @@
 use crate::{assembly::operand::{memory_operand::MemoryOperand, Operand}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::{StructDefinition, StructIdentifier}};
 use memory_size::MemorySize;
 
+pub trait GetStruct {
+    fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition;
+}
+
 #[derive(Clone)]
 pub struct AddressedDeclaration {
     pub(crate) data_type: DataType,
@@ -18,15 +22,33 @@ pub struct AsmData {
 /// Stores information that is required globally and does not change when entering new scopes, like the list of accessible functions
 pub struct GlobalAsmData {
     function_decls: Vec<FunctionDeclaration>,
-    label_gen: LabelGenerator
+    label_gen: LabelGenerator,
+    /// any variable that is accessed via a label, like extern and static variables.
+    /// static variables in functions are also stored here
+    global_variables: Vec<(String, AddressedDeclaration)>,
+    /// all structs declared at a global scope
+    global_structs: Vec<(StructIdentifier, StructDefinition)>,
 }
 
 impl GlobalAsmData {
     pub fn new(global_parse_data: &ParseData) -> Self {
-        Self {
+        let global_variables = global_parse_data.get_symbol_table()
+            .iter()
+            .map(generate_global_variable_decl)
+            .collect();
+
+        //generate a partially complete self, so that structs can be padded using myself
+        let mut partial_result = Self {
             function_decls: global_parse_data.func_declarations_as_vec(),
-            label_gen: LabelGenerator::default()
+            label_gen: LabelGenerator::default(),
+            global_variables,
+            global_structs: Vec::new()
+        };
+        for (name, unpadded) in global_parse_data.get_all_structs() {
+            partial_result.global_structs.push((name.clone(), unpadded.pad_members(&partial_result)));
         }
+
+        partial_result
     }
 
     pub fn get_function_declaration(&self, func_name: &str) -> Option<&FunctionDeclaration> {
@@ -40,35 +62,13 @@ impl GlobalAsmData {
 }
 
 impl AsmData {
-    pub fn new_for_global_scope(parse_data: &ParseData) -> AsmData {
-        let global_variables = parse_data.get_symbol_table()
-            .iter()
-            .map(generate_global_variable_decl)
-            .collect();
-
-        let mut result = AsmData {
-            variables: global_variables,//store global variables
-            current_function_return_type: DataType::RAW(BaseType::VOID),//global namespace has no return type
-            struct_list: Vec::new(),//will get filled soon
-            break_label: None,//break cannot be called here
+    pub fn for_new_function(global_asm_data: &GlobalAsmData, parse_data: &ParseData, current_function_return_type: DataType, stack_data: &mut MemorySize) -> AsmData {
+        let mut result = Self {
+            variables: global_asm_data.global_variables.clone(),
+            current_function_return_type,
+            struct_list: global_asm_data.global_structs.clone(),
+            break_label: None,
         };
-
-        for (name, unpadded) in parse_data.get_all_structs().iter() {
-            result.struct_list.push((name.clone(), unpadded.pad_members(&result)));//add structs in order
-        }
-
-        result
-    }
-    pub fn clone_for_new_function(&self, parse_data: &ParseData, current_function_return_type: DataType, stack_data: &mut MemorySize) -> AsmData {
-        let mut result = self.clone();
-
-        //set return type
-        result.current_function_return_type = current_function_return_type;
-
-        //add new structs
-        for (name, unpadded) in parse_data.get_all_structs().iter() {
-            result.struct_list.push((name.clone(), unpadded.pad_members(&result)));//add new structs in order
-        }
 
         //when creating local variables, I need struct data beforehand
         let local_variables: Vec<_> = parse_data.get_symbol_table().iter().map(|(a,b)| (a.clone(), b.clone())).collect();
@@ -122,7 +122,6 @@ impl AsmData {
         result
     }
 
-
     pub fn get_variable(&self, name: &str) -> &AddressedDeclaration {
         &self.variables
         .iter()
@@ -134,7 +133,14 @@ impl AsmData {
     pub fn get_function_return_type(&self) -> &DataType {
         &self.current_function_return_type
     }
-    pub fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition {
+
+    pub fn get_break_label(&self) -> Option<&String> {
+        self.break_label.as_ref()
+    }
+}
+
+impl GetStruct for AsmData {
+    fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition {
         &self.struct_list
         .iter()
         .rev()
@@ -142,9 +148,14 @@ impl AsmData {
         .unwrap()
         .1
     }
-
-    pub fn get_break_label(&self) -> Option<&String> {
-        self.break_label.as_ref()
+}
+impl GetStruct for GlobalAsmData {
+    fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition {
+        &self.global_structs
+        .iter()
+        .find(|(n,_)| n == name)
+        .unwrap()
+        .1
     }
 }
 

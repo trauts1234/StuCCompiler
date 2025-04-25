@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -9,14 +9,14 @@ pub struct GlobalVariable {
 }
 
 impl GlobalVariable {
-    pub fn generate_assembly(&self, asm_data: &AsmData) -> String {
+    pub fn generate_assembly(&self, struct_info: &dyn GetStruct) -> String {
         match &self.default_value {
             ConstexprValue::NUMBER(number_literal) => {
                 unwrap_let!(DataType::RAW(decl_underlying_type) = &self.decl.data_type);
 
                 format!("{} db {}\n", 
                     self.decl.get_name(), 
-                    number_literal.cast(decl_underlying_type).get_comma_separated_bytes(asm_data)//cast the number to the variable's type, then write the bytes for it
+                    number_literal.cast(decl_underlying_type).get_comma_separated_bytes(struct_info)//cast the number to the variable's type, then write the bytes for it
                 )
             },
             ConstexprValue::STRING(string_literal) => format!("{} db {}\n", self.decl.get_name(), string_literal.get_comma_separated_bytes()),

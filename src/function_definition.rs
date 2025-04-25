@@ -1,5 +1,5 @@
 use memory_size::MemorySize;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{ASTDisplay, DebugDisplay}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{ASTDisplay, DebugDisplay}, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -52,12 +52,12 @@ impl FunctionDefinition {
             remaining_slice});
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
         let mut stack_data = MemorySize::new();//stack starts as empty in a function
 
         //clone myself, but add all my local variables, and add my return type
-        let asm_data = &asm_data.clone_for_new_function(&self.local_scope_data, self.get_return_type(), &mut stack_data);
+        let asm_data = &AsmData::for_new_function(&global_asm_data, &self.local_scope_data, self.get_return_type(), &mut stack_data);
 
         //set label as same as function name
         result.add_instruction(AsmOperation::Label { name: self.decl.function_name.clone() });

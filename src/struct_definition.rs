@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, ast_metadata::ASTMetadata, data_type::recursive_data_type::DataType, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GetStruct}, ast_metadata::ASTMetadata, data_type::recursive_data_type::DataType, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -27,25 +27,25 @@ impl UnpaddedStructDefinition {
     /**
      * returns padded members, and the overall size of the struct
      */
-    pub fn pad_members(&self, asm_data: &AsmData) -> StructDefinition {
+    pub fn pad_members(&self, struct_info: &dyn GetStruct) -> StructDefinition {
         let mut current_offset = MemorySize::new();
 
         let mut result = Vec::new();
 
         for m in self.ordered_members.as_ref().expect("tried to create struct with no members") {
-            let alignment_bytes = calculate_alignment(m.get_type(), asm_data).size_bytes();
+            let alignment_bytes = calculate_alignment(m.get_type(), struct_info).size_bytes();
 
             let bytes_past_last_boundary = current_offset.size_bytes() % alignment_bytes;
             let extra_padding = (alignment_bytes - bytes_past_last_boundary) % alignment_bytes;
             current_offset += MemorySize::from_bytes(extra_padding);//increase offset in this struct to reach optimal alignment
 
             result.push((m.clone(), current_offset));
-            current_offset += m.get_type().memory_size(asm_data);//increase offset in struct by the size of the member
+            current_offset += m.get_type().memory_size(struct_info);//increase offset in struct by the size of the member
         }
 
         //lastly, align to largest member's alignment, so that if this struct is in an array, subsequent structs are aligned
         let largest_member_alignment = self.ordered_members.as_ref().unwrap().iter()
-            .map(|x| calculate_alignment(x.get_type(), asm_data))
+            .map(|x| calculate_alignment(x.get_type(), struct_info))
             .fold(MemorySize::new(), |acc, x| acc.max(x))
             .size_bytes();
         let bytes_past_last_boundary = current_offset.size_bytes() % largest_member_alignment;
@@ -152,10 +152,10 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
 
 }
 
-fn calculate_alignment(data_type: &DataType, asm_data: &AsmData) -> MemorySize {
+fn calculate_alignment(data_type: &DataType, struct_info: &dyn GetStruct) -> MemorySize {
     if let DataType::ARRAY {..} = data_type {
-        calculate_alignment(&data_type.remove_outer_modifier(), asm_data) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
+        calculate_alignment(&data_type.remove_outer_modifier(), struct_info) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
     } else {
-        data_type.memory_size(asm_data)
+        data_type.memory_size(struct_info)
     }
 }

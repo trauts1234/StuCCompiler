@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, struct_member_access::StructMemberAccess};
+use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::expr_visitor::ExprVisitor;

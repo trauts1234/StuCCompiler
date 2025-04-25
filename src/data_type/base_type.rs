@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, data_type::type_token::TypeInfo, debugging::DebugDisplay, struct_definition::StructIdentifier};
+use crate::{asm_gen_data::{AsmData, GetStruct}, data_type::type_token::TypeInfo, debugging::DebugDisplay, struct_definition::StructIdentifier};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,12 +60,12 @@ impl BaseType {
         !self.is_unsigned()
     }
 
-    pub fn memory_size(&self, asm_data: &AsmData) -> MemorySize {
+    pub fn memory_size(&self, struct_info: &dyn GetStruct) -> MemorySize {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
 
-            BaseType::STRUCT(x) => asm_data.get_struct(x).calculate_size().expect("tried to calculate size of partially declared struct"),
+            BaseType::STRUCT(x) => struct_info.get_struct(x).calculate_size().expect("tried to calculate size of partially declared struct"),
 
             BaseType::_BOOL |
             BaseType::I8 |

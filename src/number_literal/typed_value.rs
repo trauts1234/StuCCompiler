@@ -1,7 +1,7 @@
 use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
 use colored::Colorize;
 use unwrap_let::unwrap_let;
-use crate::{asm_gen_data::AsmData, assembly::{comparison::ComparisonKind, operand::immediate::ImmediateValue}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{comparison::ComparisonKind, operand::immediate::ImmediateValue}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
 
 use super::literal_value::LiteralValue;
 
@@ -61,8 +61,8 @@ impl NumberLiteral {
         })
     }
 
-    pub fn get_comma_separated_bytes(&self, asm_data: &AsmData) -> String {
-        let bytes_size = self.data_type.memory_size(asm_data).size_bytes();//pass in blank
+    pub fn get_comma_separated_bytes(&self, struct_info: &dyn GetStruct) -> String {
+        let bytes_size = self.data_type.memory_size(struct_info).size_bytes();//pass in blank
 
         let number_bytes = match self.value {
             LiteralValue::INTEGER(x) => {

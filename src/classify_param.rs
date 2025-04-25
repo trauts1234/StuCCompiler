@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::Declaration};
+use crate::{asm_gen_data::{AsmData, GetStruct}, data_type::{base_type::BaseType, recursive_data_type::DataType}, declaration::Declaration};
 use memory_size::MemorySize;
 
 #[derive(PartialEq, Clone)]

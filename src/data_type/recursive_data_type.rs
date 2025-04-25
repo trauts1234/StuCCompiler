@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{asm_gen_data::AsmData, debugging::DebugDisplay};
+use crate::{asm_gen_data::GetStruct, debugging::DebugDisplay};
 use memory_size::MemorySize;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
 
@@ -120,12 +120,12 @@ impl DataType
         }
     }
 
-    pub fn memory_size(&self, asm_data: &AsmData) -> MemorySize {
+    pub fn memory_size(&self, struct_info: &dyn GetStruct) -> MemorySize {
         match self {
             DataType::UNKNOWNSIZEARRAY { .. } => panic!("cannot find size of unknow size array. perhaps this should return an Option???"),
-            DataType::ARRAY { size, element } => MemorySize::from_bytes(size * &element.memory_size(asm_data).size_bytes()),
+            DataType::ARRAY { size, element } => MemorySize::from_bytes(size * &element.memory_size(struct_info).size_bytes()),
             DataType::POINTER(_) => MemorySize::from_bytes(8),
-            DataType::RAW(base) => base.memory_size(asm_data),
+            DataType::RAW(base) => base.memory_size(struct_info),
         }
     }
 

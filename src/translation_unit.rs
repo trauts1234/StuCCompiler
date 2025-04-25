@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::{ASTDisplay, DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
+use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::functions::FunctionList, debugging::{ASTDisplay, DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -65,6 +65,7 @@ impl TranslationUnit {
 
     pub fn generate_assembly(&self, output_filename: &Path) {
         let mut output_file = File::create(output_filename).unwrap();
+        let mut global_asm_data = GlobalAsmData::new(&self.global_scope_data);
 
         let (global_funcs, extern_funcs): (Vec<_>, Vec<_>) = self
         .global_scope_data
@@ -78,13 +79,11 @@ impl TranslationUnit {
             .map(|x| format!("{} db {}\n", x.get_label(), x.get_comma_separated_bytes()))
             .collect::<Vec<_>>();
 
-        let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);//no return type for a global scope
-
         let global_vars = self.global_variables.iter()
-            .map(|x| x.generate_assembly(&asm_data))
+            .map(|x| x.generate_assembly(&global_asm_data))
             .collect::<Vec<_>>();
 
-        let instructions = self.generate_fn_asm();
+        let instructions = self.generate_fn_asm(&mut global_asm_data);
 
         let assembly_file = AssemblyFile::builder()
         .global_func_lines(global_funcs)
@@ -103,12 +102,10 @@ impl TranslationUnit {
         output_file.write(&assembly_code.into_bytes()).unwrap();
     }
 
-    fn generate_fn_asm(&self) -> Vec<Assembly> {
-        let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);
-        let mut global_asm_data = GlobalAsmData::new(&self.global_scope_data);
+    fn generate_fn_asm(&self, global_asm_data: &mut GlobalAsmData) -> Vec<Assembly> {
 
         self.functions.func_definitions_as_slice().iter()
-        .map(|x| x.generate_assembly(&asm_data, &mut global_asm_data))
+        .map(|x| x.generate_assembly(global_asm_data))
         .collect()
     }
 }
@@ -123,6 +120,8 @@ impl ASTDisplay for TranslationUnit {
 
 impl IRDisplay for TranslationUnit {
     fn display_ir(&self) -> String {
+        let mut global_asm_data = GlobalAsmData::new(&self.global_scope_data);
+
         let str_literals = format!(
             "{}\n{}",
             "string literals:".purple(),
@@ -143,7 +142,7 @@ impl IRDisplay for TranslationUnit {
                 .join("\n")
         );
 
-        let asm = self.generate_fn_asm()
+        let asm = self.generate_fn_asm(&mut global_asm_data)
         .iter()
         .map(|x| x.display_ir())
         .collect:: <Vec<_>>()
