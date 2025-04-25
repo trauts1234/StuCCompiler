@@ -1,4 +1,4 @@
-use crate::{assembly::operand::{memory_operand::MemoryOperand, Operand}, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::{StructDefinition, StructIdentifier}};
+use crate::{assembly::operand::{memory_operand::MemoryOperand, Operand}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::{StructDefinition, StructIdentifier}};
 use memory_size::MemorySize;
 
 #[derive(Clone)]
@@ -9,11 +9,34 @@ pub struct AddressedDeclaration {
 
 #[derive(Clone)]
 pub struct AsmData {
-    variables: Vec<(String, AddressedDeclaration)>,//hashmap, but keeps order to keep the stack sorted correctly
-    function_decls: Vec<FunctionDeclaration>,
+    variables: Vec<(String, AddressedDeclaration)>,
     current_function_return_type: DataType,
     struct_list: Vec<(StructIdentifier, StructDefinition)>,//needs to be ordered since some structs need previously declared structs as members
     break_label: Option<String>,//which label to jump to on a "break;" statement
+}
+
+/// Stores information that is required globally and does not change when entering new scopes, like the list of accessible functions
+pub struct GlobalAsmData {
+    function_decls: Vec<FunctionDeclaration>,
+    label_gen: LabelGenerator
+}
+
+impl GlobalAsmData {
+    pub fn new(global_parse_data: &ParseData) -> Self {
+        Self {
+            function_decls: global_parse_data.func_declarations_as_vec(),
+            label_gen: LabelGenerator::default()
+        }
+    }
+
+    pub fn get_function_declaration(&self, func_name: &str) -> Option<&FunctionDeclaration> {
+        self.function_decls.iter()
+        .find(|func| func.function_name == func_name)
+    }
+
+    pub fn label_gen_mut(&mut self) -> &mut LabelGenerator {
+        &mut self.label_gen
+    }
 }
 
 impl AsmData {
@@ -25,7 +48,6 @@ impl AsmData {
 
         let mut result = AsmData {
             variables: global_variables,//store global variables
-            function_decls: parse_data.func_declarations_as_vec(),//store possible functions to call
             current_function_return_type: DataType::RAW(BaseType::VOID),//global namespace has no return type
             struct_list: Vec::new(),//will get filled soon
             break_label: None,//break cannot be called here
@@ -100,10 +122,6 @@ impl AsmData {
         result
     }
 
-    pub fn get_function_declaration(&self, func_name: &str) -> Option<&FunctionDeclaration> {
-        self.function_decls.iter()
-        .find(|func| func.function_name == func_name)
-    }
 
     pub fn get_variable(&self, name: &str) -> &AddressedDeclaration {
         &self.variables

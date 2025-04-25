@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use memory_size::MemorySize;
 
@@ -108,10 +108,10 @@ impl IterationStatement {
         }
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
-        let generic_label = label_gen.generate_label();
+        let generic_label = global_asm_data.label_gen_mut().generate_label();
         let loop_start_label = format!("{}_loop_start", generic_label);
         let loop_end_label = format!("{}_loop_end", generic_label);
 
@@ -129,7 +129,7 @@ impl IterationStatement {
 
                 //write to stack data whilst generating assembly for initialising the loop body
                 let init_asm = match initialisation {
-                    Some(x) => x.generate_assembly(label_gen, &asm_data, stack_data),
+                    Some(x) => x.generate_assembly(&asm_data, stack_data, global_asm_data),
                     None => Assembly::make_empty(),//no initialisation => blank assembly
                 };
                 
@@ -156,7 +156,7 @@ impl IterationStatement {
                 });
 
                 //overwrite stack data whilst generating assembly for the loop body
-                let body_asm = body.generate_assembly(label_gen, &asm_data, stack_data);
+                let body_asm = body.generate_assembly(&asm_data, stack_data, global_asm_data);
                 result.merge(&body_asm);//generate the loop body
 
                 result.add_instruction(AsmOperation::Label { name: loop_increment_label.to_string() });//add label to jump to incrementing the loop
@@ -198,7 +198,7 @@ impl IterationStatement {
                 });
 
                 // generate the loop body
-                let body_asm = body.generate_assembly(label_gen, asm_data, stack_data);
+                let body_asm = body.generate_assembly(asm_data, stack_data, global_asm_data);
                 result.merge(&body_asm);
 
                 // after loop complete, go to top of loop

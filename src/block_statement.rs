@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 use memory_size::MemorySize;
 
 /**
@@ -31,9 +31,9 @@ impl StatementOrDeclaration {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize, global_asm_data: &mut GlobalAsmData) -> Assembly {
         match self {
-            Self::STATEMENT(statement) => statement.generate_assembly(label_gen, asm_data, stack_data),
+            Self::STATEMENT(statement) => statement.generate_assembly(asm_data, stack_data, global_asm_data),
             Self::DECLARATION(decl) => {
                 //declare each variable individually
                 //no intermediate newline as generate_assembly puts in a trailing newline

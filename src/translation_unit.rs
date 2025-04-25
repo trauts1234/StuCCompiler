@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::{ASTDisplay, DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::{ASTDisplay, DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -104,11 +104,11 @@ impl TranslationUnit {
     }
 
     fn generate_fn_asm(&self) -> Vec<Assembly> {
-        let mut label_generator = LabelGenerator::default();
         let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);
+        let mut global_asm_data = GlobalAsmData::new(&self.global_scope_data);
 
         self.functions.func_definitions_as_slice().iter()
-        .map(|x| x.generate_assembly(&mut label_generator, &asm_data))
+        .map(|x| x.generate_assembly(&asm_data, &mut global_asm_data))
         .collect()
     }
 }

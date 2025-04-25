@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
 use memory_size::MemorySize;
 
 pub enum Statement {
@@ -46,12 +46,12 @@ impl Statement {
         None
     }
 
-    pub fn generate_assembly(&self, label_gen: &mut LabelGenerator, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize, global_asm_data: &mut GlobalAsmData) -> Assembly {
 
         //match on variant and call recursively
         match self {
             Self::COMPOUND(scope) => {
-                        scope.generate_assembly(label_gen, asm_data, stack_data)
+                        scope.generate_assembly(asm_data, stack_data, global_asm_data)
                     }
             Self::CONTROLFLOW(command) => {
                         command.generate_assembly(asm_data, stack_data)
@@ -60,10 +60,10 @@ impl Statement {
                         expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data})
                     }
             Self::SELECTION(selection) => {
-                        selection.generate_assembly(label_gen, asm_data, stack_data)
+                        selection.generate_assembly(asm_data, stack_data, global_asm_data)
                     },
             Self::ITERATION(it) => {
-                        it.generate_assembly(label_gen, asm_data, stack_data)
+                        it.generate_assembly(asm_data, stack_data, global_asm_data)
                     }
 
             Self::NOP => Assembly::make_empty(),
