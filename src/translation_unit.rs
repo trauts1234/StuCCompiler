@@ -104,7 +104,7 @@ impl TranslationUnit {
     }
 
     fn generate_fn_asm(&self) -> Vec<Assembly> {
-        let mut label_generator = LabelGenerator::new();
+        let mut label_generator = LabelGenerator::default();
         let asm_data = AsmData::new_for_global_scope(&self.global_scope_data);
 
         self.functions.func_definitions_as_slice().iter()

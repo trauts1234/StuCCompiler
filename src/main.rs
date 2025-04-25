@@ -39,7 +39,6 @@ pub mod array_initialisation;
 mod number_literal;
 mod debugging;
 mod struct_member_access;
-mod intermediate_representation;
 
 struct CompilationOptions {
     c_file: PathBuf,

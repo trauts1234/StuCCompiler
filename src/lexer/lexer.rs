@@ -35,7 +35,7 @@ impl Lexer {
         Lexer{
             data: sanitised_file.to_string(),
             next_to_eat:0,
-            string_label_generator: LabelGenerator::new()
+            string_label_generator: LabelGenerator::default()//TODO a second label generator??? why?
         }
     }
 
