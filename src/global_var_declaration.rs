@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::functions::FunctionList, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -24,12 +24,12 @@ impl GlobalVariable {
         }
     }
 
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<Vec<GlobalVariable>>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Vec<GlobalVariable>>> {
 
         let mut declarations = Vec::new();
         
         //consume int or unsigned int or enum etc.
-        let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data)?;
+        let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data, struct_label_gen)?;
 
         let mut curr_queue_idx = remaining_slice.clone();
 
@@ -42,7 +42,7 @@ impl GlobalVariable {
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator
-            if let Some(ASTMetadata { resultant_tree, .. }) = try_consume_constexpr_declarator(tokens_queue, &declarator_segment, &base_type, scope_data) {
+            if let Some(ASTMetadata { resultant_tree, .. }) = try_consume_constexpr_declarator(tokens_queue, &declarator_segment, &base_type, scope_data, struct_label_gen) {
                 declarations.push(resultant_tree);//the declarator consumption actaully gives us a full declaration
             }
         }
@@ -62,7 +62,7 @@ impl IRDisplay for GlobalVariable {
     }
 }
 
-fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &mut ParseData) -> Option<ASTMetadata<GlobalVariable>> {
+fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<GlobalVariable>> {
     if slice.get_slice_size() == 0 {
         return None;
     }
@@ -81,7 +81,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
     curr_queue_idx = remaining_tokens;//tokens have been consumed
 
     //try to match an initialisation expression
-    let default_value = consume_constexpr_initialisation(tokens_queue, &mut curr_queue_idx, scope_data);
+    let default_value = consume_constexpr_initialisation(tokens_queue, &mut curr_queue_idx, scope_data, struct_label_gen);
 
     Some(ASTMetadata {
         resultant_tree: GlobalVariable {
@@ -92,7 +92,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
     })
 }
 
-fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> ConstexprValue {
+fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> ConstexprValue {
     if tokens_queue.peek(&curr_queue_idx, &scope_data) != Some(Token::PUNCTUATOR(Punctuator::EQUALS)){
         return ConstexprValue::NUMBER(NumberLiteral::from(0));
     }
@@ -100,7 +100,7 @@ fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_id
     tokens_queue.consume(curr_queue_idx, &scope_data).unwrap();//consume the equals sign
 
     //pass empty function list as it should never call functions anyways
-    try_consume_whole_expr(tokens_queue, curr_queue_idx, &FunctionList::new(), scope_data)//return the consumed value for the variable
+    try_consume_whole_expr(tokens_queue, curr_queue_idx, &FunctionList::new(), scope_data, struct_label_gen)//return the consumed value for the variable
     .map(|x| (&x).try_into().unwrap()) // fold to constant
     .expect(&format!("{:?}", tokens_queue.get_slice(curr_queue_idx)))
 }

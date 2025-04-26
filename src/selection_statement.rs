@@ -14,7 +14,7 @@ pub enum SelectionStatement{
 }
 
 impl SelectionStatement {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<SelectionStatement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<SelectionStatement>> {
         let mut curr_queue_idx = previous_queue_idx.clone();
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, &scope_data) {x} else {return None;};
@@ -32,7 +32,7 @@ impl SelectionStatement {
                     max_index: closecurly_idx
                 };
 
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, scope_data).unwrap();
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, scope_data, struct_label_gen).unwrap();
 
                 //consume the condition
                 curr_queue_idx = TokenQueueSlice{
@@ -41,7 +41,7 @@ impl SelectionStatement {
                 };
 
                 //consume the function body
-                let ASTMetadata{ remaining_slice, resultant_tree: taken_body } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: taken_body } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data, struct_label_gen).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 let has_else_branch = tokens_queue.peek(&curr_queue_idx, &scope_data).is_some_and(|x| x == Token::KEYWORD(Keyword::ELSE));
@@ -49,7 +49,7 @@ impl SelectionStatement {
                 //try and consume the else branch
                 let not_taken_body: Option<Box<Statement>> = if has_else_branch {
                     tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume the else keyword
-                    let ASTMetadata{ remaining_slice, resultant_tree: else_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data).unwrap();
+                    let ASTMetadata{ remaining_slice, resultant_tree: else_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data, struct_label_gen).unwrap();
                     curr_queue_idx = remaining_slice;//consume the else
 
                     Some(Box::new(else_body))

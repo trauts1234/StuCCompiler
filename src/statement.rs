@@ -15,26 +15,26 @@ impl Statement {
      * tries to parse the tokens queue starting at previous_queue_idx, to find a statement
      * returns a statement and the remaining tokens as a queue location, else none
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData) -> Option<ASTMetadata<Statement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Statement>> {
         let curr_queue_idx = previous_queue_idx.clone();
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &scope_data){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &scope_data, struct_label_gen){
             return Some(ASTMetadata{resultant_tree: Self::COMPOUND(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = SelectionStatement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = SelectionStatement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data, struct_label_gen){
             return Some(ASTMetadata{resultant_tree: Self::SELECTION(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = IterationStatement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = IterationStatement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data, struct_label_gen){
             return Some(ASTMetadata{resultant_tree: Self::ITERATION(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ControlFlowChange::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ControlFlowChange::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data, struct_label_gen){
             return Some(ASTMetadata{resultant_tree: Self::CONTROLFLOW(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = Expression::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = Expression::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data, struct_label_gen){
             return Some(ASTMetadata{resultant_tree: Self::EXPRESSION(resultant_tree), remaining_slice});
         }
 

@@ -1,17 +1,14 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, ast_metadata::ASTMetadata, data_type::recursive_data_type::DataType, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum StructIdentifier {
-    NAME(String),//struct has been given a name
-    ID(i32)//anonymous struct has been given an id number
+pub struct StructIdentifier {
+    pub(crate) name: Option<String>,
+    pub(crate) id: u32
 }
 impl DebugDisplay for StructIdentifier {
     fn display(&self) -> String {
-        match self {
-            StructIdentifier::NAME(x) => x.to_owned(),
-            StructIdentifier::ID(x) => format!("ID({})", x),
-        }
+        format!("{:?}.id{}", self.name, self.id)
     }
 }
 
@@ -79,19 +76,19 @@ impl StructDefinition {
         &self.ordered_members
     }
     
-    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<StructIdentifier>> {
+    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<StructIdentifier>> {
 
         let mut curr_queue_idx = previous_slice.clone();
 
         if tokens_queue.consume(&mut curr_queue_idx, &scope_data)? != Token::KEYWORD(Keyword::STRUCT) {
             return None;//needs preceding "struct"
         }
-    
+
         let struct_name = if let Token::IDENTIFIER(x) = tokens_queue.peek(&mut curr_queue_idx, &scope_data).unwrap() {
             tokens_queue.consume(&mut curr_queue_idx, scope_data).unwrap();//consume the name
-            StructIdentifier::NAME(x)
+            Some(x)
         } else {
-            StructIdentifier::ID(scope_data.generate_struct_id())
+            None
         };
 
         match tokens_queue.peek(&curr_queue_idx, &scope_data) {
@@ -102,34 +99,35 @@ impl StructDefinition {
 
                 let mut members = Vec::new();
                 while inside_variants.get_slice_size() > 0 {
-                    let mut new_member = try_consume_struct_member(tokens_queue, &mut inside_variants, scope_data);
+                    let mut new_member = try_consume_struct_member(tokens_queue, &mut inside_variants, scope_data, struct_label_gen);
                     members.append(&mut new_member);
                 }
 
                 assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
 
                 let struct_definition = UnpaddedStructDefinition { ordered_members: Some(members),  };
-                scope_data.add_struct(&struct_name, &struct_definition);
+                let struct_identifier = scope_data.add_struct(&struct_name, &struct_definition, struct_label_gen);
 
                 Some(ASTMetadata {
                     remaining_slice,
-                    resultant_tree: struct_name
+                    resultant_tree: struct_identifier
                 })
             },
 
             _ => Some(ASTMetadata { 
                 remaining_slice: curr_queue_idx,
-                resultant_tree: struct_name
+                //add declaration and return identifier of it
+                resultant_tree: scope_data.add_struct(&struct_name, &UnpaddedStructDefinition { ordered_members: None }, struct_label_gen)
             })
         }
     }
 }
 
 ///in struct definitions, this will consume the `int a,b;` part of `struct {int a,b;char c;}`
-fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Vec<Declaration> {
+fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Vec<Declaration> {
 
     //consume the base type
-    let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, &curr_queue_idx, scope_data).unwrap();
+    let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen).unwrap();
 
     curr_queue_idx.index = remaining_slice.index;//consume it and let the calling function know
 
