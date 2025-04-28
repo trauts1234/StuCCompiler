@@ -556,5 +556,9 @@
     {
         "filename":"postfixdecrement.c",
         "return_code":0
+    },
+    {
+        "filename":"structshadowing.c",
+        "return_code":0
     }
 ]

@@ -45,6 +45,9 @@ impl GlobalAsmData {
             global_structs: Vec::new()
         };
         for (name, unpadded) in global_parse_data.get_all_structs() {
+            if unpadded.ordered_members == None {
+                continue;//skip if just a declaration
+            }
             partial_result.global_structs.push((name.clone(), unpadded.pad_members(&partial_result)));
         }
 
@@ -94,7 +97,9 @@ impl AsmData {
         println!("cloning metadata for new scope");
         //add new structs
         for (name, unpadded) in parse_data.get_all_structs().iter() {
-            println!("{:?}", name);
+            if unpadded.ordered_members == None {
+                continue;//skip if just a declaration
+            }
             result.struct_list.push((name.clone(), unpadded.pad_members(&result)));//add new structs in order
         }
 

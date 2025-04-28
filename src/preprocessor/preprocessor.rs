@@ -29,7 +29,9 @@ const DEFAULT_DEFINES: &str =
 #define USHRT_MAX    (__SHRT_MAX__ * 2 + 1)
 #define UINT_MAX     (__INT_MAX__ * 2U + 1U)
 #define ULONG_MAX    (__LONG_MAX__ * 2UL + 1UL)
-#define ULLONG_MAX   (__LONG_LONG_MAX__ * 2ULL + 1ULL)";
+#define ULLONG_MAX   (__LONG_LONG_MAX__ * 2ULL + 1ULL)
+#define __PTRDIFF_TYPE__ long int
+#define __SIZE_TYPE__ long unsigned int";
 
 pub fn preprocess_c_file(filename: &Path) -> String {
     let file_text = format!("{}\n{}",
@@ -114,7 +116,7 @@ fn parse_preprocessor(include_limit: i32, ctx: &mut PreprocessContext, unsubstit
         }
 
         line if line.starts_with("#include") => {
-            return manage_include_directive(include_limit, ctx, &unsubstituted_line);//no macros in #include statements
+            return manage_include_directive(include_limit, ctx, &line);//no macros in #include statements
         }
 
         line if line.starts_with("#ifdef") => {
