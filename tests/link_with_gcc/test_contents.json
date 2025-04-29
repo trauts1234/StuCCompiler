@@ -18,5 +18,9 @@
     {
         "foldername":"global_extern",
         "return_code":0
+    },
+    {
+        "foldername":"global_auto",
+        "return_code":0
     }
 ]
