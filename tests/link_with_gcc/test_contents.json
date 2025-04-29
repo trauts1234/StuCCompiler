@@ -14,5 +14,9 @@
     {
         "foldername": "call_alignment",
         "return_code": 0
+    },
+    {
+        "foldername":"global_extern",
+        "return_code":0
     }
 ]

@@ -1,13 +1,13 @@
+use crate::{declaration::Declaration, global_var_declaration::GlobalVariable};
+
 use super::assembly::Assembly;
 
 
 pub struct AssemblyFile {
     string_literal_lines: Vec<String>,//raw assembly lines defining string literals
-    global_func_lines: Vec<String>,//function names that are exported
-    extern_func_lines: Vec<String>,//function names that are imported
-
-    global_variable_lines: Vec<String>,//raw assembly lines defining and initialising global variables
-
+    global_labels: Vec<String>,//function names that are exported
+    extern_labels: Vec<String>,//function names that are imported
+    global_variable_init: Vec<String>,//initialise static and auto variables
     functions: Vec<Assembly>,//list of each function
 }
 
@@ -17,18 +17,19 @@ impl AssemblyFile {
     }
 
     pub fn to_nasm_file(&self) -> String {
-        let global_function_text: String = self.global_func_lines
+        let global_label_text: String = self.global_labels
             .iter()
-            .map(|func_name| format!("global {}\n", func_name))
+            .map(|label| format!("global {}\n", label))
             .collect();
 
-        let extern_function_text: String = self.extern_func_lines
+        let extern_label_text: String = self.extern_labels
             .iter()
-            .map(|func_name| format!("extern {}\n", func_name))
+            .map(|label| format!("extern {}\n", label))
             .collect();
 
         let string_literals = self.string_literal_lines.join("\n");
-        let global_vars = self.global_variable_lines.join("\n");
+
+        let var_init = self.global_variable_init.join("\n");
 
         let instructions = self.functions
             .iter()
@@ -48,16 +49,20 @@ SECTION .data
 {}
 SECTION .note.GNU-stack ;disable executing the stack
 SECTION .text
-{}",global_function_text, extern_function_text, string_literals, global_vars, instructions)
+{}",global_label_text, extern_label_text, string_literals, var_init, instructions)
     }
 }
 
 #[derive(Default)]//adds ::default() which sets all vectors to empty
 pub struct AssemblyFileBuilder {
     string_literal_lines: Vec<String>,
-    global_func_lines: Vec<String>,
-    extern_func_lines: Vec<String>,
-    global_variable_lines: Vec<String>,
+    ///labels that must be marked global to be exported
+    global_label_lines: Vec<String>,
+    ///labels that must be marked extern to be imported
+    extern_label_lines: Vec<String>,
+
+    /// assembly lines for initialising static or auto variables
+    global_variable_init: Vec<String>,
     functions: Vec<Assembly>,
 }
 
@@ -67,18 +72,13 @@ impl AssemblyFileBuilder {
         self
     }
 
-    pub fn global_func_lines(mut self, lines: Vec<String>) -> Self {
-        self.global_func_lines = lines;
+    pub fn global_label_lines(mut self, lines: Vec<String>) -> Self {
+        self.global_label_lines = lines;
         self
     }
 
-    pub fn extern_func_lines(mut self, lines: Vec<String>) -> Self {
-        self.extern_func_lines = lines;
-        self
-    }
-
-    pub fn global_variable_lines(mut self, lines: Vec<String>) -> Self {
-        self.global_variable_lines = lines;
+    pub fn extern_label_lines(mut self, lines: Vec<String>) -> Self {
+        self.extern_label_lines = lines;
         self
     }
 
@@ -86,13 +86,18 @@ impl AssemblyFileBuilder {
         self.functions = functions;
         self
     }
+    
+    pub fn global_variable_init(mut self, inits: Vec<String>) -> Self {
+        self.global_variable_init = inits;
+        self
+    }
 
     pub fn build(self) -> AssemblyFile {
         AssemblyFile {
             string_literal_lines: self.string_literal_lines,
-            global_func_lines: self.global_func_lines,
-            extern_func_lines: self.extern_func_lines,
-            global_variable_lines: self.global_variable_lines,
+            global_labels: self.global_label_lines,
+            extern_labels: self.extern_label_lines,
+            global_variable_init: self.global_variable_init,
             functions: self.functions,
         }
     }

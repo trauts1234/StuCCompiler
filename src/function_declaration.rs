@@ -5,6 +5,7 @@ pub struct FunctionDeclaration {
     pub(crate) function_name: String,
     pub(crate) params: Vec<Declaration>,//should this be a data type?
     pub(crate) return_type: DataType,
+    pub(crate) visibility: StorageDuration,//can be auto, static or extern, just like storage durations
 }
 
 impl FunctionDeclaration {
@@ -97,7 +98,8 @@ pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQu
         FunctionDeclaration {
             function_name,
             params,
-            return_type
+            return_type,
+            visibility: func_visibility
         },
         remaining_slice: curr_queue_idx});
 }

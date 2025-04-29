@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::{ASTDisplay, DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
+use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -70,6 +70,7 @@ impl TranslationUnit {
         let mut output_file = File::create(output_filename).unwrap();
         let mut global_asm_data = GlobalAsmData::new(&self.global_scope_data);
 
+        //get the names of global and extern functions
         let (global_funcs, extern_funcs): (Vec<_>, Vec<_>) = self
         .global_scope_data
         .func_declarations_as_vec()
@@ -77,22 +78,38 @@ impl TranslationUnit {
         .filter(|func| func.external_linkage())//only functions with external linkage
         .map(|func| func.function_name.clone())//get function name
         .partition(|func_name| self.functions.get_function_definition(&func_name).is_some());//separate global and extern function declarations
+        //get declarations of global and extern vars
+        let (global_vars, extern_vars): (Vec<_>, Vec<_>) = self
+        .global_variables
+        .iter()//go through global variables
+        .filter(|x| *x.storage_class() != StorageDuration::Static)//remove static variables
+        .partition(|x| *x.storage_class() != StorageDuration::Extern);//split by whether it is extern
+        //generate the names of labels that need to be marked global or extern
+        let global_labels: Vec<_> = global_vars.iter()
+            .map(|x| x.var_name().to_owned())
+            .chain(global_funcs.into_iter())
+            .collect();
+        let extern_labels: Vec<_> = extern_vars.iter()
+            .map(|x| x.var_name().to_owned())
+            .chain(extern_funcs.into_iter())
+            .collect();
 
         let string_literals = self.string_literals.iter()
             .map(|x| format!("{} db {}\n", x.get_label(), x.get_comma_separated_bytes()))
             .collect::<Vec<_>>();
 
-        let global_vars = self.global_variables.iter()
+        let global_vars_init = self.global_variables.iter()
+            .filter(|x| *x.storage_class() != StorageDuration::Extern)//extern variables must not be defined
             .map(|x| x.generate_assembly(&global_asm_data))
             .collect::<Vec<_>>();
 
         let instructions = self.generate_fn_asm(&mut global_asm_data);
 
         let assembly_file = AssemblyFile::builder()
-        .global_func_lines(global_funcs)
-        .extern_func_lines(extern_funcs)
+        .global_label_lines(global_labels)
+        .extern_label_lines(extern_labels)
         .string_literal_lines(string_literals)
-        .global_variable_lines(global_vars)
+        .global_variable_init(global_vars_init)
         .functions(instructions)
         .build();
 

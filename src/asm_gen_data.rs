@@ -55,6 +55,9 @@ impl GlobalAsmData {
         self.function_decls.iter()
         .find(|func| func.function_name == func_name)
     }
+    pub fn get_global_variables(&self) -> &[(String, AddressedDeclaration)] {
+        &self.global_variables
+    }
 
     pub fn label_gen_mut(&mut self) -> &mut LabelGenerator {
         &mut self.label_gen

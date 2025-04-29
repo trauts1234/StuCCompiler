@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -131,6 +131,7 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
 
     //consume the base type
     let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen).unwrap();
+    assert_eq!(storage_duration, StorageDuration::Default);//cannot specify static or extern in a struct
 
     curr_queue_idx.index = remaining_slice.index;//consume it and let the calling function know
 

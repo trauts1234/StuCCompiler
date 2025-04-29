@@ -1,11 +1,12 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, constexpr_parsing::ConstexprValue, data_type::recursive_data_type::DataType, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, constexpr_parsing::ConstexprValue, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
     decl: Declaration,
-    default_value: ConstexprValue//perhaps some more abstract data type when structs are implemented
+    default_value: ConstexprValue,//perhaps some more abstract data type when structs are implemented
+    storage_class: StorageDuration
 }
 
 impl GlobalVariable {
@@ -43,7 +44,7 @@ impl GlobalVariable {
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator
-            if let Some(ASTMetadata { resultant_tree, .. }) = try_consume_constexpr_declarator(tokens_queue, &declarator_segment, &base_type, scope_data, struct_label_gen) {
+            if let Some(ASTMetadata { resultant_tree, .. }) = try_consume_constexpr_declarator(tokens_queue, &declarator_segment, &base_type, storage_duration.clone(), scope_data, struct_label_gen) {
                 declarations.push(resultant_tree);//the declarator consumption actaully gives us a full declaration
             }
         }
@@ -55,6 +56,13 @@ impl GlobalVariable {
             remaining_slice: curr_queue_idx,
         })
     }
+
+    pub fn storage_class(&self) -> &StorageDuration {
+        &self.storage_class
+    }
+    pub fn var_name(&self) -> &str {
+        self.decl.get_name()
+    }
 }
 
 impl IRDisplay for GlobalVariable {
@@ -63,7 +71,7 @@ impl IRDisplay for GlobalVariable {
     }
 }
 
-fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<GlobalVariable>> {
+fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, storage_class: StorageDuration, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<GlobalVariable>> {
     if slice.get_slice_size() == 0 {
         return None;
     }
@@ -88,6 +96,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
         resultant_tree: GlobalVariable {
             decl,
             default_value,
+            storage_class
         }, 
         remaining_slice: TokenQueueSlice::empty(),
     })
