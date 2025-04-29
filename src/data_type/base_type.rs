@@ -125,10 +125,6 @@ impl DebugDisplay for BaseType {
 
 pub fn new_from_type_list(type_info: &[TypeInfo]) -> BaseType {
 
-    if type_info.contains(&TypeInfo::EXTERN) {
-        println!("extern modifiers not counted. if this function doesn't have a definition it will be automatically marked extern");
-    }
-
     //void type
     if type_info.contains(&TypeInfo::VOID){
         return BaseType::VOID;

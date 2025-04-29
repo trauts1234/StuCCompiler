@@ -1,4 +1,4 @@
-use crate::{compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, type_token::TypeInfo}, lexer::keywords::Keyword, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::{compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, storage_type::StorageDuration, type_token::TypeInfo}, lexer::keywords::Keyword, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 use super::{token::Token, punctuator::Punctuator};
 
@@ -57,6 +57,8 @@ impl Lexer {
             Token::KEYWORD(kw)
         } else if let Some(type_data) = TypeInfo::try_new(&letters) {
             Token::TYPESPECIFIER(type_data)
+        } else if let Ok(storage_data) = StorageDuration::try_from(letters.as_str()) {
+            Token::STORAGESPECIFIER(storage_data)
         } else {
             Token::IDENTIFIER(letters)
         }

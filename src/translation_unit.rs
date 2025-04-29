@@ -52,7 +52,7 @@ impl TranslationUnit {
                 scope_data.add_typedef(name, new_def);
                 token_idx = remaining_slice;
             } else {
-                return Err(CompilationError::PARSE(format!("unknown remaining data in translation unit: tokens {} and onwards", token_idx.index)));
+                return Err(CompilationError::PARSE(format!("unknown remaining data in translation unit: tokens {} and onwards:\n{:?}", token_idx.index, token_queue.get_slice(&token_idx))));
             }
         }
 

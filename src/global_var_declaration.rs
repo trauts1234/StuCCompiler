@@ -21,6 +21,7 @@ impl GlobalVariable {
             },
             ConstexprValue::STRING(string_literal) => format!("{} db {}\n", self.decl.get_name(), string_literal.get_comma_separated_bytes()),
             ConstexprValue::POINTER { label, offset } => format!("{} dq {} + {}\n", self.decl.get_name(), label, offset.nasm_format().generate_name()),
+            ConstexprValue::ZEROES => format!("{} TIMES {} db 0", self.decl.get_name(), self.decl.data_type.memory_size(struct_info).size_bytes()),
         }
     }
 
@@ -94,7 +95,7 @@ fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &Token
 
 fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> ConstexprValue {
     if tokens_queue.peek(&curr_queue_idx, &scope_data) != Some(Token::PUNCTUATOR(Punctuator::EQUALS)){
-        return ConstexprValue::NUMBER(NumberLiteral::from(0));
+        return ConstexprValue::ZEROES;
     }
 
     tokens_queue.consume(curr_queue_idx, &scope_data).unwrap();//consume the equals sign

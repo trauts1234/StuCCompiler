@@ -245,6 +245,12 @@ pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &T
             initial_type.add_type_info(ts);
             //recursively get other type specifiers
             consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, struct_label_gen)
+        },
+
+        Some(Token::STORAGESPECIFIER(storage_dur)) => {
+            initial_type.storage_duration = storage_dur;
+            //recursively get other specifiers
+            consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, struct_label_gen)
         }
 
         Some(Token::KEYWORD(Keyword::ENUM)) => {

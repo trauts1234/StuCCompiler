@@ -7,11 +7,9 @@ pub enum TypeInfo{
     SIGNED,
     LONG,
     SHORT,
-    EXTERN,
     VOID,
 
     VaArg,//varadic arg has a special type
-    //missing some, should have "static", and other bits that suggest the type of a variable
 }
 
 impl TypeInfo {
@@ -24,7 +22,6 @@ impl TypeInfo {
             "short" => Some(Self::SHORT),
             "char" => Some(Self::CHAR),
             "_Bool" => Some(Self::_BOOL),
-            "extern" => Some(Self::EXTERN),
             "void" => Some(Self::VOID),
             _ => None
         }

@@ -1,4 +1,4 @@
-use crate::{data_type::type_token::TypeInfo, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::{data_type::{storage_type::StorageDuration, type_token::TypeInfo}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 use super::{keywords::Keyword, punctuator::Punctuator};
 
@@ -8,6 +8,7 @@ pub enum Token {
     NUMBER(NumberLiteral),
     PUNCTUATOR(Punctuator),
     TYPESPECIFIER(TypeInfo),
+    STORAGESPECIFIER(StorageDuration),
     KEYWORD(Keyword),
     IDENTIFIER(String)
 }

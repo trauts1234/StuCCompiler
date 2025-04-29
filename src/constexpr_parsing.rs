@@ -4,6 +4,7 @@ pub enum ConstexprValue {
     NUMBER(NumberLiteral),
     STRING(StringLiteral),
     POINTER{label: String, offset: NumberLiteral},
+    ZEROES,//sets the memory to all 0 (zero initialisation)
 }
 
 impl TryFrom<&Expression> for ConstexprValue {
@@ -82,6 +83,7 @@ impl IRDisplay for ConstexprValue {
             ConstexprValue::NUMBER(number_literal) => number_literal.display(),
             ConstexprValue::STRING(string_literal) => string_literal.display(),
             ConstexprValue::POINTER { label, offset } => format!("&({} + {})", label, offset.display()),
+            ConstexprValue::ZEROES => format!("0"),
         }
     }
 }
