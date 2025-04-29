@@ -94,7 +94,6 @@ impl AsmData {
     pub fn clone_for_new_scope(&self, parse_data: &ParseData, stack_data: &mut MemorySize) -> AsmData {
         let mut result = self.clone();
 
-        println!("cloning metadata for new scope");
         //add new structs
         for (name, unpadded) in parse_data.get_all_structs().iter() {
             result.struct_list.push((name.clone(), unpadded.pad_members(&result)));//add new structs in order

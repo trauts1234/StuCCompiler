@@ -115,8 +115,6 @@ fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, sc
         })
     }
 
-    println!("{:?}", tokens_queue.get_slice(&curr_queue_idx));
-
     let ASTMetadata { remaining_slice, resultant_tree: (data_type_base, storage_class) } = consume_type_specifier(tokens_queue, &mut curr_queue_idx, scope_data, struct_label_gen).unwrap();
     let curr_queue_idx = remaining_slice.clone();
 

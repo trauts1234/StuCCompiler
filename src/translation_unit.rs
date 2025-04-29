@@ -56,8 +56,6 @@ impl TranslationUnit {
             }
         }
 
-        println!("{:?}", scope_data);
-
         Ok(TranslationUnit {
             functions,
             global_scope_data: scope_data,

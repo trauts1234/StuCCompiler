@@ -72,8 +72,6 @@ impl ParseData {
     /// if the struct was previously *declared*, it is overwritten with new contents
     pub fn add_struct(&mut self, name: &Option<String>, new_definition: &UnpaddedStructDefinition, struct_label_generator: &mut LabelGenerator) -> StructIdentifier {
 
-        println!("adding struct {:?}", name);
-
         let defined_struct_finder =
             self.structs
             .iter()
@@ -107,7 +105,6 @@ impl ParseData {
             (None, _, true) | //defined an undeclared struct
             (None, None, false) // declared an undeclared struct
             => {
-                println!("{:?} {:?}", defined_struct_finder, new_definition);
                 let identifier = StructIdentifier {
                     name: name.clone(),
                     id: struct_label_generator.generate_label_number(),
