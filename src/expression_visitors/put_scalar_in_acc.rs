@@ -144,4 +144,8 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         result
     }
+    
+    fn visit_sizeof(&mut self, sizeof: &crate::expression::sizeof_expression::SizeofExpr) -> Self::Output {
+        sizeof.generate_assembly(self.asm_data)
+    }
 }

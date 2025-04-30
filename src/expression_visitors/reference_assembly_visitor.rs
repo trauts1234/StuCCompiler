@@ -92,4 +92,8 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
     fn visit_cast_expr(&mut self, _: &crate::cast_expr::CastExpression) -> Self::Output {
         panic!("cannot get address of a cast")
     }
+    
+    fn visit_sizeof(&mut self, _: &crate::expression::sizeof_expression::SizeofExpr) -> Self::Output {
+        panic!("cannot get address of a sizeof");
+    }
 }

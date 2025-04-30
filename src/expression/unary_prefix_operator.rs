@@ -9,7 +9,7 @@ pub enum UnaryPrefixOperator {
     Decrement,
     Increment,
     BooleanNot,
-    BitwiseNot
+    BitwiseNot,
 }
 
 impl TryFrom<Punctuator> for UnaryPrefixOperator {

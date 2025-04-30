@@ -125,12 +125,14 @@ fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, sc
     } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base, scope_data)?;
 
     Some(Declaration {
-        data_type: full_data_type.decay(),//.decay since arrays ALWAYS decay to pointers, even when sizeof is involved
+        data_type: full_data_type.decay(),//.decay since arrays ALWAYS decay to pointers in function params
         name: var_name
     })
 }
 
 //TODO move to more appropriate file
+/// consumes a full type, like "long int *"
+/// 
 pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
     let mut return_modifiers = Vec::new();
 

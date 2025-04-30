@@ -1,26 +1,20 @@
 [
     {
-        "foldername": "call_six_integer_params",
-        "return_code": 0
+        "foldername": "call_six_integer_params"
     },
     {
-        "foldername": "call_eight_integer_params",
-        "return_code": 0
+        "foldername": "call_eight_integer_params"
     },
     {
-        "foldername": "call_structs",
-        "return_code": 0
+        "foldername": "call_structs"
     },
     {
-        "foldername": "call_alignment",
-        "return_code": 0
+        "foldername": "call_alignment"
     },
     {
-        "foldername":"global_extern",
-        "return_code":0
+        "foldername":"global_extern"
     },
     {
-        "foldername":"global_auto",
-        "return_code":0
+        "foldername":"global_auto"
     }
 ]

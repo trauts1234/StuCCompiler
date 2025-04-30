@@ -43,4 +43,8 @@ impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
     fn visit_cast_expr(&mut self, expr: &crate::cast_expr::CastExpression) -> Self::Output {
         expr.get_new_type().clone()
     }
+    
+    fn visit_sizeof(&mut self, _: &crate::expression::sizeof_expression::SizeofExpr) -> Self::Output {
+        DataType::RAW(BaseType::U64)//sizeof is size_t-sized
+    }
 }

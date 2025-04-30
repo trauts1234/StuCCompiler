@@ -23,6 +23,7 @@ impl TryFrom<&Expression> for ConstexprValue {
             Expression::UNARYSUFFIX(_) => Err("cannot fold unary postfix increment/decrement".to_owned()),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.clone().try_into(),
             Expression::CAST(cast_expression) => todo!(),
+            Expression::SIZEOF(sizeof_expr) => Err(format!("no asm_data in constant folding, so cannot evaluate sizeof")),//sizeof
         }
     }
 }

@@ -10,6 +10,7 @@ pub enum Keyword {
     RETURN,
     BREAK,
     TYPEDEF,
+    SIZEOF,
 }
 
 impl Keyword {
@@ -24,6 +25,7 @@ impl Keyword {
             "return" => Some(Self::RETURN),
             "break" => Some(Self::BREAK),
             "typedef" => Some(Self::TYPEDEF),
+            "sizeof" => Some(Self::SIZEOF),
             _ => None,
         }
     }

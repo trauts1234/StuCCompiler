@@ -107,6 +107,10 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     fn visit_cast_expr(&mut self, _: &crate::cast_expr::CastExpression) -> Self::Output {
         panic!("cannot cast to struct")
     }
+    
+    fn visit_sizeof(&mut self, _: &crate::expression::sizeof_expression::SizeofExpr) -> Self::Output {
+        panic!("sizeof never returns a struct")
+    }
 }
 
 /**

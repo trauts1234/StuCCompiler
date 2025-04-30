@@ -13,7 +13,6 @@ struct GccLinkedTest {
     args: Option<Vec<String>>,
     stdin:Option<String>,
     stdout: Option<String>,
-    return_code: Option<i32>,
 }
 
 #[test]
@@ -71,9 +70,8 @@ fn test_linked_with_gcc() {
 
         println!("testing results for {}", test_case.foldername);
 
-        if let Some(ret_code) = test_case.return_code {
-            assert_eq!(binary_command.status.code().expect("binary was terminated by OS signal?"), ret_code);
-        }
+        assert_eq!(binary_command.status.code().expect("binary was terminated by OS signal?"), 0);
+
         if let Some(text_output) = test_case.stdout {
             assert_eq!(String::from_utf8_lossy(&binary_command.stdout), text_output);
         }
