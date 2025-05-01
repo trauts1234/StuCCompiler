@@ -1,5 +1,8 @@
 use crate::{function_definition::FunctionDefinition, parse_data::ParseData};
 
+/**
+ * stores a list of all the functions that have been defined locally
+ */
 pub struct FunctionList {
     func_definitions: Vec<FunctionDefinition>,//all function definitions made in this translation unit
 }

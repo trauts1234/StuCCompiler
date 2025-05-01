@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use memory_size::MemorySize;
 
@@ -25,7 +25,7 @@ impl IterationStatement {
     /**
      * outer_scope_data should never be modified, just 
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<IterationStatement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, outer_scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<IterationStatement>> {
         let mut curr_queue_idx = previous_queue_idx.clone();
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, outer_scope_data) {x} else {return None;};
@@ -55,12 +55,12 @@ impl IterationStatement {
                 //TODO let for loops have blank slices: for(;true;) IS VALID
 
                 //get initialisation command, or None
-                let initialisation = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, accessible_funcs, &mut in_loop_data, struct_label_gen).and_then(|ast_data| Some(Box::new(ast_data.resultant_tree)));
+                let initialisation = StatementOrDeclaration::try_consume(tokens_queue, &init_with_semicolon, &mut in_loop_data, struct_label_gen).and_then(|ast_data| Some(Box::new(ast_data.resultant_tree)));
                 //get loop condition or if none, a constant "true" value
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, &mut in_loop_data, struct_label_gen)
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, &mut in_loop_data, struct_label_gen)
                     .unwrap_or(Expression::NUMBERLITERAL(NumberLiteral::from(1)));
                 //get increment or None
-                let increment = expression::try_consume_whole_expr(tokens_queue, &increment_slice, accessible_funcs, &mut in_loop_data, struct_label_gen);
+                let increment = expression::try_consume_whole_expr(tokens_queue, &increment_slice, &mut in_loop_data, struct_label_gen);
 
                 //consume the "for (;;)" part
                 curr_queue_idx = TokenQueueSlice{
@@ -69,7 +69,7 @@ impl IterationStatement {
                 };
 
                 //consume the body
-                let ASTMetadata{ remaining_slice, resultant_tree: loop_body } = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut in_loop_data, struct_label_gen).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body } = Statement::try_consume(tokens_queue, &curr_queue_idx, &mut in_loop_data, struct_label_gen).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 Some(ASTMetadata{
@@ -87,7 +87,7 @@ impl IterationStatement {
                     max_index: closecurly_idx
                 };
 
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, outer_scope_data, struct_label_gen).unwrap();
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, outer_scope_data, struct_label_gen).unwrap();
 
                 //consume the "while ()" part
                 curr_queue_idx = TokenQueueSlice{
@@ -96,7 +96,7 @@ impl IterationStatement {
                 };
 
                 //consume the body
-                let ASTMetadata{ remaining_slice, resultant_tree: loop_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, outer_scope_data, struct_label_gen).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: loop_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, outer_scope_data, struct_label_gen).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 Some(ASTMetadata{

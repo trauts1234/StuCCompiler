@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, debugging::ASTDisplay, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 use memory_size::MemorySize;
 
 /**
@@ -14,7 +14,7 @@ impl ScopeStatements {
      * tries to parse the tokens queue starting at previous_queue_idx, to find a scope, for a function or other
      * returns a ScopeStatements and the remaining tokens as a queue location, else none
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, outer_scope_data: &ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<ScopeStatements>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, outer_scope_data: &ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<ScopeStatements>> {
         let mut curr_queue_idx = previous_queue_idx.clone();
 
         let mut statements = Vec::new();
@@ -31,7 +31,7 @@ impl ScopeStatements {
         let (mut curr_queue_idx, remaining_slice_after_scope) = tokens_queue.split_to_slices(squiggly_close_idx, &curr_queue_idx);
 
         //greedily consume as many statements as possible
-        while let Some(ASTMetadata{resultant_tree, remaining_slice}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, accessible_funcs, &mut inner_scope_data, struct_label_gen) {
+        while let Some(ASTMetadata{resultant_tree, remaining_slice}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut inner_scope_data, struct_label_gen) {
 
             statements.push(resultant_tree);
             curr_queue_idx = remaining_slice;//jump to next one

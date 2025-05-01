@@ -7,7 +7,7 @@ pub struct ArrayInitialisation {
 
 impl ArrayInitialisation {
     /// parses initialisation like {1, 2, 3}
-    pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<Self> {
+    pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<Self> {
         if !tokens_queue.slice_is_brackets(previous_queue_idx, Punctuator::OPENSQUIGGLY) {
             return None;//initialisation must be the whole slice
         }
@@ -33,7 +33,7 @@ impl ArrayInitialisation {
         for slice in items {
             //try to convert each slice to an expression
             parsed.push(
-                expression::try_consume_whole_expr(tokens_queue, &slice, accessible_funcs, scope_data, struct_label_gen)?//return None early if any slice is not an expression
+                expression::try_consume_whole_expr(tokens_queue, &slice, scope_data, struct_label_gen)?//return None early if any slice is not an expression
             );
         }
 

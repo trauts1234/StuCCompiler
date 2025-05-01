@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDeclaration {
@@ -21,10 +21,10 @@ impl FunctionDeclaration {
     /**
      * consumes a function declaration only, and will return None if the function has a definition attached
      */
-    pub fn try_consume(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<FunctionDeclaration>> {
+    pub fn try_consume(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<FunctionDeclaration>> {
         let mut curr_queue_idx = previous_queue_idx.clone();
 
-        let ASTMetadata { remaining_slice, resultant_tree: decl, .. } = consume_decl_only(tokens_queue, &curr_queue_idx, scope_data, accessible_funcs, struct_label_gen)?;
+        let ASTMetadata { remaining_slice, resultant_tree: decl, .. } = consume_decl_only(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen)?;
 
         curr_queue_idx = remaining_slice;//skip decl as it has now been parsed
 
@@ -47,11 +47,11 @@ impl FunctionDeclaration {
  *  int f(int x);
  *  int f(int x) {return 1;}
  */
-pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<FunctionDeclaration>> {
+pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<FunctionDeclaration>> {
 
     //try and consume int* or similar as return type, get curr_queue_idx and the function return type
     // the return value's storage duration (static, extern etc.) is the visibility of the function?
-    let ASTMetadata { remaining_slice: mut curr_queue_idx, resultant_tree: (return_type, func_visibility) } = consume_fully_qualified_type(tokens_queue, previous_queue_idx, scope_data, accessible_funcs, struct_label_gen)?;
+    let ASTMetadata { remaining_slice: mut curr_queue_idx, resultant_tree: (return_type, func_visibility) } = consume_fully_qualified_type(tokens_queue, previous_queue_idx, scope_data, struct_label_gen)?;
 
     //try to match an identifier, to find out the function name
 
@@ -82,7 +82,7 @@ pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQu
     let mut params = Vec::new();
     if args_location.get_slice_size() >= 1{//ensure there is text between the brackets
         for arg_segment in args_segments {
-            params.push(consume_fn_param(tokens_queue, &arg_segment, scope_data, accessible_funcs, struct_label_gen)?);
+            params.push(consume_fn_param(tokens_queue, &arg_segment, scope_data, struct_label_gen)?);
         }
     }
 
@@ -106,7 +106,7 @@ pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQu
         remaining_slice: curr_queue_idx});
 }
 
-fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ParseData, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> Option<Declaration> {
+fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<Declaration> {
     let mut curr_queue_idx = arg_segment.clone();
 
     if Token::PUNCTUATOR(Punctuator::ELIPSIS) == tokens_queue.peek(&curr_queue_idx, &scope_data)? {
@@ -117,14 +117,14 @@ fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, sc
         })
     }
 
-    let ASTMetadata { remaining_slice, resultant_tree: (data_type_base, storage_class) } = consume_type_specifier(tokens_queue, &mut curr_queue_idx, scope_data, accessible_funcs, struct_label_gen).unwrap();
+    let ASTMetadata { remaining_slice, resultant_tree: (data_type_base, storage_class) } = consume_type_specifier(tokens_queue, &mut curr_queue_idx, scope_data, struct_label_gen).unwrap();
     let curr_queue_idx = remaining_slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
     let ASTMetadata{
         resultant_tree: Declaration { data_type: full_data_type, name: var_name },
         remaining_slice:_,
-    } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base, scope_data, accessible_funcs, struct_label_gen)?;
+    } = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, &data_type_base, scope_data, struct_label_gen)?;
 
     Some(Declaration {
         data_type: full_data_type.decay(),//.decay since arrays ALWAYS decay to pointers in function params
@@ -135,10 +135,10 @@ fn consume_fn_param(tokens_queue: &TokenQueue, arg_segment: &TokenQueueSlice, sc
 //TODO move to more appropriate file
 /// consumes a full type, like "long int *"
 /// 
-pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
+pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
     let mut return_modifiers = Vec::new();
 
-    let ASTMetadata { remaining_slice, resultant_tree: (return_data_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data, accessible_funcs, struct_label_gen)?;
+    let ASTMetadata { remaining_slice, resultant_tree: (return_data_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data, struct_label_gen)?;
 
     let mut curr_queue_idx = remaining_slice.clone();
 

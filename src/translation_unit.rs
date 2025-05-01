@@ -36,19 +36,19 @@ impl TranslationUnit {
 
         while !token_queue.no_remaining_tokens(&token_idx) {
 
-            if let Some(ASTMetadata{resultant_tree, remaining_slice }) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &functions, &scope_data, &mut struct_label_gen){
+            if let Some(ASTMetadata{resultant_tree, remaining_slice }) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &scope_data, &mut struct_label_gen){
                 functions.add_function(&mut scope_data, resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice, resultant_tree }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone_for_new_scope(), &functions, &mut struct_label_gen) {
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone_for_new_scope(), &mut struct_label_gen) {
                 //do I need to save the clone of scope data I passed? probably not
                 scope_data.add_declaration(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data, &functions, &mut struct_label_gen) {
+            } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data, &mut struct_label_gen) {
                 global_variables.append(&mut resultant_tree);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice, resultant_tree: (name, new_def, storage_duration) }) = Typedef::try_consume(&token_queue, &token_idx, &mut scope_data, &functions, &mut struct_label_gen) {
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree: (name, new_def, storage_duration) }) = Typedef::try_consume(&token_queue, &token_idx, &mut scope_data, &mut struct_label_gen) {
                 scope_data.add_typedef(name, new_def);
                 token_idx = remaining_slice;
             } else {
