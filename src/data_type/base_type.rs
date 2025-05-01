@@ -1,4 +1,6 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, data_type::type_token::TypeInfo, debugging::DebugDisplay, struct_definition::StructIdentifier};
+use std::fmt::Display;
+
+use crate::{asm_gen_data::GetStruct, data_type::type_token::TypeInfo, struct_definition::StructIdentifier};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -104,21 +106,21 @@ impl BaseType {
     }
 }
 
-impl DebugDisplay for BaseType {
-    fn display(&self) -> String {
+impl Display for BaseType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BaseType::VOID => "void".to_owned(),
-            BaseType::VaArg => "varadic".to_owned(),
-            BaseType::_BOOL => "bool".to_owned(),
-            BaseType::I8 => "i8".to_owned(),
-            BaseType::U8 => "u8".to_owned(),
-            BaseType::I16 => "i16".to_owned(),
-            BaseType::U16 => "u16".to_owned(),
-            BaseType::I32 => "i32".to_owned(),
-            BaseType::U32 => "u32".to_owned(),
-            BaseType::I64 => "i64".to_owned(),
-            BaseType::U64 => "u64".to_owned(),
-            BaseType::STRUCT(struct_identifier) => format!("struct {}", struct_identifier.display()),
+            BaseType::VOID => write!(f, "void"),
+            BaseType::VaArg => write!(f, "varadic"),
+            BaseType::_BOOL => write!(f, "bool"),
+            BaseType::I8 => write!(f, "i8"),
+            BaseType::U8 => write!(f, "u8"),
+            BaseType::I16 => write!(f, "i16"),
+            BaseType::U16 => write!(f, "u16"),
+            BaseType::I32 => write!(f, "i32"),
+            BaseType::U32 => write!(f, "u32"),
+            BaseType::I64 => write!(f, "i64"),
+            BaseType::U64 => write!(f, "u64"),
+            BaseType::STRUCT(struct_identifier) => write!(f, "{}", struct_identifier),
         }
     }
 }

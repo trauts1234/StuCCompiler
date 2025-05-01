@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::DataType, debugging::{ASTDisplay, DebugDisplay}, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Clone, Debug)]
 pub struct CastExpression {
@@ -29,7 +29,7 @@ impl CastExpression {
 
 impl ASTDisplay for CastExpression {
     fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
-        f.write(&format!("cast to {}", self.new_type.display()));
+        f.write(&format!("cast to {}", self.new_type));
         f.indent();
         self.expr.display_ast(f);
         f.dedent();

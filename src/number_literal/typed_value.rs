@@ -1,7 +1,7 @@
-use std::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub};
+use std::{fmt::Display, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
 use unwrap_let::unwrap_let;
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{comparison::ComparisonKind, operand::immediate::ImmediateValue}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::GetStruct, assembly::{comparison::ComparisonKind, operand::immediate::ImmediateValue}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
 
 use super::literal_value::LiteralValue;
 
@@ -323,11 +323,12 @@ impl Shr for NumberLiteral {
     
 }
 
-impl DebugDisplay for NumberLiteral {
-    fn display(&self) -> String {
+impl Display for NumberLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
         match self.value {
             LiteralValue::INTEGER(x) => x.to_string().cyan().to_string(),
-        }
+        })
     }
 }
 

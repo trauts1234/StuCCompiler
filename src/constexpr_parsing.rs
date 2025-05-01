@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, debugging::{DebugDisplay, IRDisplay}, expression::{binary_expression_operator::BinaryExpressionOperator, expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, expression::unary_prefix_expr::UnaryPrefixExpression};
+use crate::{binary_expression::BinaryExpression, debugging::IRDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, expression::unary_prefix_expr::UnaryPrefixExpression};
 
 pub enum ConstexprValue {
     NUMBER(NumberLiteral),
@@ -81,10 +81,10 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
 impl IRDisplay for ConstexprValue {
     fn display_ir(&self) -> String {
         match self {
-            ConstexprValue::NUMBER(number_literal) => number_literal.display(),
-            ConstexprValue::STRING(string_literal) => string_literal.display(),
-            ConstexprValue::POINTER { label, offset } => format!("&({} + {})", label, offset.display()),
-            ConstexprValue::ZEROES => format!("0"),
+            ConstexprValue::NUMBER(number_literal) => format!("{}", number_literal),
+            ConstexprValue::STRING(string_literal) => format!("{}", string_literal),
+            ConstexprValue::POINTER { label, offset } => format!("&({} + {})", label, offset),
+            ConstexprValue::ZEROES => "0".to_owned(),
         }
     }
 }

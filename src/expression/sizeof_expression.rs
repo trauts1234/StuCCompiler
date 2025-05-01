@@ -1,6 +1,6 @@
 use colored::Colorize;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{ASTDisplay, DebugDisplay}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}};
 
 use super::expression::Expression;
 
@@ -44,7 +44,7 @@ impl ASTDisplay for SizeofExpr {
         f.indent();
         match self {
             SizeofExpr::SizeofExpression(expression) => expression.display_ast(f),
-            SizeofExpr::SizeofType(data_type) => f.write(&data_type.display()),
+            SizeofExpr::SizeofType(data_type) => f.write(&format!("{}", data_type)),
         };
         f.dedent();
     }

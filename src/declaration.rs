@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use colored::Colorize;
 
-use crate::{data_type::recursive_data_type::DataType, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Clone, Debug)]
 /**
@@ -38,14 +40,14 @@ impl Declaration {
     
 }
 
-impl DebugDisplay for Declaration {
-    fn display(&self) -> String {
-        format!("{}: {}", self.get_name(), self.get_type().display())
+impl Display for Declaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.get_name(), self.get_type())
     }
 }
 
-impl DebugDisplay for MinimalDataVariable {
-    fn display(&self) -> String {
-        self.name.blue().to_string()
+impl Display for MinimalDataVariable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name.blue())
     }
 }

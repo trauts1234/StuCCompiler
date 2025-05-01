@@ -1,4 +1,6 @@
-use crate::{compilation_state::label_generator::LabelGenerator, debugging::DebugDisplay, expression_visitors::expr_visitor::ExprVisitor};
+use std::fmt::Display;
+
+use crate::{compilation_state::label_generator::LabelGenerator, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StringLiteral {
@@ -58,8 +60,8 @@ impl StringLiteral {
     }
 }
 
-impl DebugDisplay for StringLiteral {
-    fn display(&self) -> String {
-        format!("{:?}", self.text.iter().map(|x| *x as u8 as char).collect::<String>())
+impl Display for StringLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.text.iter().map(|x| *x as u8 as char).collect::<String>())
     }
 }

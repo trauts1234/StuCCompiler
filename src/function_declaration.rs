@@ -1,4 +1,6 @@
-use crate::{ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use std::fmt::Display;
+
+use crate::{ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDeclaration {
@@ -151,13 +153,12 @@ pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_id
     })
 }
 
-impl DebugDisplay for FunctionDeclaration {
-    fn display(&self) -> String {
-        format!(
+impl Display for FunctionDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,
             "function {}: {} -> {}",
             self.function_name,
-            self.params.iter().map(|x| x.display()).collect:: <Vec<_>>().join(", "),
-            self.return_type.display()
-        )
+            self.params.iter().map(|x| format!("{}", x)).collect:: <Vec<_>>().join(", "),
+            self.return_type)
     }
 }

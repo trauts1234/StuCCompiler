@@ -1,4 +1,6 @@
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, debugging::DebugDisplay, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use std::fmt::Display;
+
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -6,11 +8,12 @@ pub struct StructIdentifier {
     pub(crate) name: Option<String>,
     pub(crate) id: u32
 }
-impl DebugDisplay for StructIdentifier {
-    fn display(&self) -> String {
-        format!("{:?}.id{}", self.name, self.id)
+impl Display for StructIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "struct {:?}.id{}", self.name, self.id)
     }
 }
+
 
 /**
  * before assembly generation, structs have not had padding calculated

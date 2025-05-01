@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, constexpr_parsing::ConstexprValue, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, debugging::{DebugDisplay, IRDisplay}, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, constexpr_parsing::ConstexprValue, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, debugging::IRDisplay, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -67,7 +67,7 @@ impl GlobalVariable {
 
 impl IRDisplay for GlobalVariable {
     fn display_ir(&self) -> String {
-        format!("global var {} = {} ({})", self.decl.name, self.default_value.display_ir(), self.decl.data_type.display())
+        format!("global var {} = {} ({})", self.decl.name, self.default_value.display_ir(), self.decl.data_type)
     }
 }
 

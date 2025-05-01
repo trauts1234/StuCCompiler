@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, DebugDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
+use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -145,7 +145,7 @@ impl IRDisplay for TranslationUnit {
             "string literals:".purple(),
             self.string_literals
                 .iter()
-                .map(|x| format!("const string {} = {}", x.get_label(), x.display()))
+                .map(|x| format!("const string {} = {}", x.get_label(), x))
                 .collect::<Vec<_>>()
                 .join("\n")
         );

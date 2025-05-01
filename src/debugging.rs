@@ -8,10 +8,6 @@ pub trait ASTDisplay {
     fn display_ast(&self, f: &mut TreeDisplayInfo);
 }
 
-pub trait DebugDisplay {
-    fn display(&self) -> String;
-}
-
 #[derive(Default)]
 pub struct TreeDisplayInfo {
     indent: usize,
