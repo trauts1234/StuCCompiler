@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Keyword {
@@ -28,5 +30,24 @@ impl Keyword {
             "sizeof" => Some(Self::SIZEOF),
             _ => None,
         }
+    }
+}
+
+impl Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            match self {
+                Keyword::ENUM => "enum",
+                Keyword::STRUCT => "struct",
+                Keyword::IF => "if",
+                Keyword::ELSE => "else",
+                Keyword::FOR => "for",
+                Keyword::WHILE => "while",
+                Keyword::RETURN => "return",
+                Keyword::BREAK => "break",
+                Keyword::TYPEDEF => "typedef",
+                Keyword::SIZEOF => "sizeof",
+            }
+        )
     }
 }

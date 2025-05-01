@@ -26,12 +26,12 @@ impl GlobalVariable {
         }
     }
 
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Vec<GlobalVariable>>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Vec<GlobalVariable>>> {
 
         let mut declarations = Vec::new();
         
         //consume int or unsigned int or enum etc.
-        let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data, struct_label_gen)?;
+        let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, previous_queue_idx, scope_data, accessible_funcs, struct_label_gen)?;
 
         let mut curr_queue_idx = remaining_slice.clone();
 
@@ -44,7 +44,7 @@ impl GlobalVariable {
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator
-            if let Some(ASTMetadata { resultant_tree, .. }) = try_consume_constexpr_declarator(tokens_queue, &declarator_segment, &base_type, storage_duration.clone(), scope_data, struct_label_gen) {
+            if let Some(ASTMetadata { resultant_tree, .. }) = try_consume_constexpr_declarator(tokens_queue, &declarator_segment, &base_type, storage_duration.clone(), scope_data, accessible_funcs, struct_label_gen) {
                 declarations.push(resultant_tree);//the declarator consumption actaully gives us a full declaration
             }
         }
@@ -71,14 +71,14 @@ impl IRDisplay for GlobalVariable {
     }
 }
 
-fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, storage_class: StorageDuration, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<GlobalVariable>> {
+fn try_consume_constexpr_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, storage_class: StorageDuration, scope_data: &mut ParseData, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<GlobalVariable>> {
     if slice.get_slice_size() == 0 {
         return None;
     }
     
     let mut curr_queue_idx = slice.clone();
     
-    let ASTMetadata{resultant_tree: Declaration { data_type, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data, accessible_funcs, struct_label_gen)?;
 
     scope_data.add_variable(&var_name, data_type.clone());//save variable to variable list early, so that I can reference it in the initialisation
 
@@ -112,5 +112,5 @@ fn consume_constexpr_initialisation(tokens_queue: &mut TokenQueue, curr_queue_id
     //pass empty function list as it should never call functions anyways
     try_consume_whole_expr(tokens_queue, curr_queue_idx, &FunctionList::new(), scope_data, struct_label_gen)//return the consumed value for the variable
     .map(|x| (&x).try_into().unwrap()) // fold to constant
-    .expect(&format!("{:?}", tokens_queue.get_slice(curr_queue_idx)))
+    .expect(&tokens_queue.display_slice(curr_queue_idx))
 }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 
 /// represents how a variable is stored
 #[derive(Debug, Clone, PartialEq)]
@@ -20,5 +22,17 @@ impl<'a> TryFrom<&'a str> for StorageDuration {
             "static" => Ok(Self::Static),
             _ => Err(())
         }
+    }
+}
+
+impl Display for StorageDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            match self {
+                StorageDuration::Default => "auto",
+                StorageDuration::Extern => "extern",
+                StorageDuration::Static => "static",
+            }
+        )
     }
 }

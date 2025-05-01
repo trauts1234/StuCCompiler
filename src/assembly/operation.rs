@@ -178,7 +178,9 @@ fn instruction_div(divisor: &RegOrMem, data_type: &DataType) -> String {
     match data_type {
         DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
         DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
-        _ => panic!("cannot divide by this type")
+        DataType::RAW(BaseType::U32) => format!("mov edx, 0\ndiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
+        DataType::RAW(BaseType::U64) => format!("mov rdx, 0\ndiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
+        x => panic!("cannot divide by this type: {}", x)
     }
 }
 

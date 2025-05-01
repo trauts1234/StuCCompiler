@@ -560,5 +560,13 @@
     {
         "filename":"structshadowing.c",
         "return_code":0
+    },
+    {
+        "filename":"sizeof.c",
+        "return_code":0
+    },
+    {
+        "filename":"unsigneddivide.c",
+        "return_code":0
     }
 ]

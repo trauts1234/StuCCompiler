@@ -113,12 +113,14 @@ impl TokenQueue {
         return next;
     }
 
-    /**
-     * warning: this does not substitute enum variants
-     */
-    pub fn get_slice(&self, slice: &TokenQueueSlice) -> &[Token] {
+    pub fn display_slice(&self, slice: &TokenQueueSlice) -> String {
         let max_idx = slice.max_index.min(self.tokens.len());//whichever is smaller: list size, slice max index
-        &self.tokens[slice.index..max_idx]
+
+        self.tokens[slice.index..max_idx]
+        .iter()
+        .fold(String::new(),
+            |acc, x| acc + &format!("{}", x)
+        )
     }
 
     pub fn is_slice_inbounds(&self, slice: &TokenQueueSlice) -> bool {

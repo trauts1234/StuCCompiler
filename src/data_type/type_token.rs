@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TypeInfo{
     INT,
@@ -25,5 +27,23 @@ impl TypeInfo {
             "void" => Some(Self::VOID),
             _ => None
         }
+    }
+}
+
+impl Display for TypeInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}",
+            match self {
+                TypeInfo::INT => "int",
+                TypeInfo::CHAR => "char",
+                TypeInfo::_BOOL => "bool",
+                TypeInfo::UNSIGNED => "unsigned",
+                TypeInfo::SIGNED => "signed",
+                TypeInfo::LONG => "long",
+                TypeInfo::SHORT => "short",
+                TypeInfo::VOID => "void",
+                TypeInfo::VaArg => "...",
+            }
+        )
     }
 }

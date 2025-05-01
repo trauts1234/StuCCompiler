@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Punctuator {
     PLUS,
@@ -144,42 +146,42 @@ impl Punctuator {
     }
 }
 
-impl<'a> Into<&'a str> for Punctuator {
-    fn into(self) -> &'a str {
-        match self {
-            Self::PLUS => "+",
-            Self::PLUSPLUS => "++",
-            Self::DASH => "-",
-            Self::DASHDASH => "--",
-            Self::ASTERISK => "*",
-            Self::FORWARDSLASH => "/",
-            Self::EQUALS => "=",
-            Self::SEMICOLON => ";",
-            Self::Tilde => "~",
-            Self::Pipe => "|",
-            Self::PIPEPIPE => "||",
-            Self::ANDAND => "&&",
-            Self::Hat => "^",
-            Self::AMPERSAND => "&",
-            Self::PERCENT => "%",
-            Self::Exclamation => "!",
-            Self::Greater => ">",
-            Self::GreaterGreater => ">>",
-            Self::Less => "<",
-            Self::LessLess => "<<",
-            Self::LESSEQUAL => "<=",
-            Self::GREATEREQUAL => ">=",
-            Self::DOUBLEEQUALS => "==",
-            Self::EXCLAMATIONEQUALS => "!=",
-            Self::OPENCURLY => "(",
-            Self::CLOSECURLY => ")",
-            Self::OPENSQUIGGLY => "{",
-            Self::CLOSESQUIGGLY => "}",
-            Self::OPENSQUARE => "[",
-            Self::CLOSESQUARE => "]",
-            Self::COMMA => ",",
-            Self::FULLSTOP => ".",
-            Self::ELIPSIS => "...",
-        }
+impl Display for Punctuator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match *self {
+            Punctuator::PLUS => "+",
+            Punctuator::PLUSPLUS => "++",
+            Punctuator::DASH => "-",
+            Punctuator::DASHDASH => "--",
+            Punctuator::ASTERISK => "*",
+            Punctuator::FORWARDSLASH => "/",
+            Punctuator::EQUALS => "=",
+            Punctuator::SEMICOLON => ";",
+            Punctuator::Tilde => "~",
+            Punctuator::Pipe => "|",
+            Punctuator::PIPEPIPE => "||",
+            Punctuator::ANDAND => "&&",
+            Punctuator::Hat => "^",
+            Punctuator::AMPERSAND => "&",
+            Punctuator::PERCENT => "%",
+            Punctuator::Exclamation => "!",
+            Punctuator::Greater => ">",
+            Punctuator::GreaterGreater => ">>",
+            Punctuator::Less => "<",
+            Punctuator::LessLess => "<<",
+            Punctuator::LESSEQUAL => "<=",
+            Punctuator::GREATEREQUAL => ">=",
+            Punctuator::DOUBLEEQUALS => "==",
+            Punctuator::EXCLAMATIONEQUALS => "!=",
+            Punctuator::OPENCURLY => "(",
+            Punctuator::CLOSECURLY => ")",
+            Punctuator::OPENSQUIGGLY => "{",
+            Punctuator::CLOSESQUIGGLY => "}",
+            Punctuator::OPENSQUARE => "[",
+            Punctuator::CLOSESQUARE => "]",
+            Punctuator::COMMA => ",",
+            Punctuator::FULLSTOP => ".",
+            Punctuator::ELIPSIS => "...",
+        })
     }
 }

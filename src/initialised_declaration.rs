@@ -1,5 +1,6 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type,expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
 use memory_size::MemorySize;
+use unwrap_let::unwrap_let;
 
 /**
  * stores a variable and assembly to construct it
@@ -18,7 +19,7 @@ impl InitialisedDeclaration {
         let mut declarations = Vec::new();
         
         //consume int or unsigned int or enum etc.
-        let ASTMetadata { remaining_slice, resultant_tree: (data_type, storage_duration) } = consume_type_specifier(tokens_queue, &previous_queue_idx, scope_data, struct_label_gen)?;
+        let ASTMetadata { remaining_slice, resultant_tree: (data_type, storage_duration) } = consume_type_specifier(tokens_queue, &previous_queue_idx, scope_data,accessible_funcs, struct_label_gen)?;
 
         let mut curr_queue_idx = remaining_slice.clone();
 
@@ -74,7 +75,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
     let mut curr_queue_idx = slice.clone();
 
     //by parsing the *x[2] part of int *x[2];, I can get the modifiers and the variable name
-    let ASTMetadata{resultant_tree: Declaration { data_type: data_type_with_modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data)?;
+    let ASTMetadata{resultant_tree: Declaration { data_type: data_type_with_modifiers, name: var_name }, remaining_slice:remaining_tokens} = try_consume_declaration_modifiers(tokens_queue, &curr_queue_idx, base_type, scope_data, accessible_funcs, struct_label_gen)?;
 
     assert!(tokens_queue.peek(&curr_queue_idx, scope_data) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
@@ -98,7 +99,7 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
  * also used in function params
  * function pointers not supported
  */
-pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &ParseData) -> Option<ASTMetadata<Declaration>> {
+pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &TokenQueueSlice, base_type: &DataType, scope_data: &mut ParseData, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Declaration>> {
     let mut curr_queue_idx = slice.clone();
 
     let mut pointer_modifiers = Vec::new();
@@ -120,7 +121,7 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             //find the corresponding close bracket, and deal with it
             let in_brackets_tokens = tokens_queue.consume_inside_parenthesis(&mut curr_queue_idx);
 
-            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, base_type, scope_data)?;
+            let parsed_in_brackets = try_consume_declaration_modifiers(tokens_queue, &in_brackets_tokens, base_type, scope_data, accessible_funcs, struct_label_gen)?;
 
             //curr queue idx is already advanced from consuming the parenthesis
 
@@ -142,18 +143,24 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
         match tokens_queue.peek(&curr_queue_idx, &scope_data) {
             Some(Token::PUNCTUATOR(Punctuator::OPENSQUARE)) => {
 
-                tokens_queue.consume(&mut curr_queue_idx, &scope_data)?;//consume the open bracket
-                match tokens_queue.consume(&mut curr_queue_idx, scope_data).unwrap() {
-                    Token::NUMBER(arraysize) => {
-                        array_modifiers.push(DeclModifier::ARRAY(arraysize.get_value().clone().try_into().unwrap()));
-                        assert_eq!(tokens_queue.consume(&mut curr_queue_idx, &scope_data)?, Token::PUNCTUATOR(Punctuator::CLOSESQUARE));//consume the close bracket
-                    }
-                    Token::PUNCTUATOR(Punctuator::CLOSESQUARE) => {
-                        array_modifiers.push(DeclModifier::UnknownSizeArray);
-                        //close bracket already consumed
-                    },
+                let close_square_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index);
 
-                    _ => panic!("unknown token in array declaration")
+                //generate a slice of data inside the brackets
+                let in_square_brackets = TokenQueueSlice {
+                    index: curr_queue_idx.index + 1,
+                    max_index: close_square_idx
+                };
+                curr_queue_idx.index = close_square_idx+1;//skip remaining slice to after the brackets
+
+                if in_square_brackets.get_slice_size() == 0 {
+                    array_modifiers.push(DeclModifier::UnknownSizeArray);
+                } else {
+                    let array_size_expr = expression::try_consume_whole_expr(tokens_queue, &in_square_brackets, accessible_funcs, scope_data, struct_label_gen).expect("tried to parse constant expression for the size of an array, but failed to generate an expression");
+                    let array_size_constexpr: ConstexprValue = (&array_size_expr).try_into().expect("array size is not a compile-time constant");
+
+                    unwrap_let!(ConstexprValue::NUMBER(arr_len) = array_size_constexpr);
+
+                    array_modifiers.push(DeclModifier::ARRAY(arr_len.get_value().try_into().unwrap()));
                 }
             },
             _ => {break;}
@@ -228,8 +235,8 @@ impl ConsumedBaseType {
     }
 }
 
-pub fn consume_type_specifier(tokens_queue: &TokenQueue, queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
-    let ASTMetadata { remaining_slice, resultant_tree } = consume_type_specifier_recursive(tokens_queue, queue_idx, scope_data, ConsumedBaseType::new(StorageDuration::Default), struct_label_gen);
+pub fn consume_type_specifier(tokens_queue: &TokenQueue, queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
+    let ASTMetadata { remaining_slice, resultant_tree } = consume_type_specifier_recursive(tokens_queue, queue_idx, scope_data, ConsumedBaseType::new(StorageDuration::Default), accessible_funcs, struct_label_gen);
 
     Some(ASTMetadata {
         remaining_slice,
@@ -239,18 +246,18 @@ pub fn consume_type_specifier(tokens_queue: &TokenQueue, queue_idx: &TokenQueueS
 
 /// a recursive function that consumes the "unsigned int" or "struct x" part of a declaration
 /// assumes that the queue starts with a valid type specifier
-pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, mut initial_type: ConsumedBaseType, struct_label_gen: &mut LabelGenerator) -> ASTMetadata<ConsumedBaseType> {
+pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, mut initial_type: ConsumedBaseType, accessible_funcs: &FunctionList, struct_label_gen: &mut LabelGenerator) -> ASTMetadata<ConsumedBaseType> {
     match tokens_queue.peek(queue_idx, &scope_data) {
         Some(Token::TYPESPECIFIER(ts)) => {
             initial_type.add_type_info(ts);
             //recursively get other type specifiers
-            consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, struct_label_gen)
+            consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, accessible_funcs, struct_label_gen)
         },
 
         Some(Token::STORAGESPECIFIER(storage_dur)) => {
             initial_type.storage_duration = storage_dur;
             //recursively get other specifiers
-            consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, struct_label_gen)
+            consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, accessible_funcs, struct_label_gen)
         }
 
         Some(Token::KEYWORD(Keyword::ENUM)) => {
@@ -258,20 +265,20 @@ pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &T
 
             initial_type.add_complete_type(DataType::RAW(resultant_tree));//enum specifies a type, so no need for "int" and "unsigned" etc.
 
-            consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type, struct_label_gen)
+            consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type, accessible_funcs, struct_label_gen)
         }
         Some(Token::KEYWORD(Keyword::STRUCT)) => {
-            let ASTMetadata { remaining_slice, resultant_tree: struct_name } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut queue_idx.clone(), scope_data, struct_label_gen).unwrap();
+            let ASTMetadata { remaining_slice, resultant_tree: struct_name } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut queue_idx.clone(), scope_data, accessible_funcs, struct_label_gen).unwrap();
 
             initial_type.add_complete_type(DataType::RAW(BaseType::STRUCT(struct_name)));//struct specifies a whole type so just store that
 
-            consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type, struct_label_gen)//recursively look for more info
+            consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type, accessible_funcs, struct_label_gen)//recursively look for more info
         }
         Some(Token::IDENTIFIER(name)) => {
             match scope_data.get_typedef(&name) {
                 Some(x) => {
                     initial_type.add_complete_type(x.clone());//get type of typedef and fill it in
-                    consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, struct_label_gen)//consume other info
+                    consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, accessible_funcs, struct_label_gen)//consume other info
                 }
                 None => ASTMetadata { remaining_slice: queue_idx.clone(), resultant_tree: initial_type }//unknown identifier, probably a variable name
             }

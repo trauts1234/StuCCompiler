@@ -1,6 +1,8 @@
+use std::fmt::Formatter;
+
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::{ASTDisplay, TreeDisplayInfo}, declaration::MinimalDataVariable, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -486,24 +488,22 @@ fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSli
 }
 
 fn try_parse_sizeof(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, accessible_funcs: &FunctionList, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<SizeofExpr> {
-    let mut curr_queue_idx = if tokens_queue.slice_is_brackets(expr_slice, Punctuator::OPENCURLY) {
-        //data is inside brackets, so remove brackets
-        TokenQueueSlice {
-            index: expr_slice.index+1,
-            max_index: expr_slice.max_index-1,
-        }
-    } else {
-        expr_slice.clone()
-    };
+    let mut curr_queue_idx = expr_slice.clone();
 
     if tokens_queue.consume(&mut curr_queue_idx, scope_data)? != Token::KEYWORD(Keyword::SIZEOF) {
         return None;//must start with sizeof
     }
 
+    if tokens_queue.slice_is_brackets(&curr_queue_idx, Punctuator::OPENCURLY) {
+        //go inside brackets if they are present
+        curr_queue_idx.index += 1;
+        curr_queue_idx.max_index -= 1;
+    }
+
     //try and look for an expression
     let base_expr = try_consume_whole_expr(tokens_queue, &curr_queue_idx, accessible_funcs, scope_data, struct_label_gen);
     //try and look for a data type
-    let data_type = consume_fully_qualified_type(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen)
+    let data_type = consume_fully_qualified_type(tokens_queue, &curr_queue_idx, scope_data, accessible_funcs, struct_label_gen)
         .map(|x| {
             assert!(x.remaining_slice.get_slice_size() == 0);
             x.resultant_tree.0
@@ -511,9 +511,8 @@ fn try_parse_sizeof(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, acc
 
     match (base_expr, data_type) {
         (None, None) => None,
-        (None, Some(x)) => Some(SizeofExpr::SizeofType(x)),
+        (_, Some(x)) => Some(SizeofExpr::SizeofType(x)),//in one test case, int8_t was being considered a variable and a type, so just consider it as a type here
         (Some(x), None) => Some(SizeofExpr::SizeofExpression(Box::new(x))),
-        (Some(_), Some(_)) => panic!("found sizeof x where x could be a data type or an expression. help!"),
     }
 }
 
@@ -538,7 +537,7 @@ fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, acces
     };
 
     //discard storage duration for cast
-    let ASTMetadata { remaining_slice, resultant_tree: (new_type, _) } = consume_fully_qualified_type(tokens_queue, &new_type_slice, scope_data, struct_label_gen)?;
+    let ASTMetadata { remaining_slice, resultant_tree: (new_type, _) } = consume_fully_qualified_type(tokens_queue, &new_type_slice, scope_data, accessible_funcs, struct_label_gen)?;
     assert!(remaining_slice.get_slice_size() == 0);//cannot be any remaining tokens in the cast type
 
     let base_expr = try_consume_whole_expr(tokens_queue, &remaining_expr_slice, accessible_funcs, scope_data, struct_label_gen)?;

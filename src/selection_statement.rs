@@ -32,7 +32,7 @@ impl SelectionStatement {
                     max_index: closecurly_idx
                 };
 
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, scope_data, struct_label_gen).expect(&format!("{:?}", tokens_queue.get_slice(&curr_queue_idx)));
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, accessible_funcs, scope_data, struct_label_gen).expect(&tokens_queue.display_slice(&condition_slice));
 
                 //consume the condition
                 curr_queue_idx = TokenQueueSlice{
