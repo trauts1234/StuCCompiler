@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{lexer::Lexer, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
+use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{ token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -14,12 +14,8 @@ impl TranslationUnit {
     pub fn new(filename: &Path) -> Result<TranslationUnit, CompilationError> {
 
         let data = preprocess_c_file(filename);
-
-        let mut tokens = Vec::new();
-        let mut lexer = Lexer::new(&data);
-        while let Some(t) = lexer.next_token() {
-            tokens.push(t);
-        }
+        
+        let tokens: Vec<_> = Token::parse(&data);
 
         let string_literals: Vec<StringLiteral> = tokens.iter()
             .filter_map(|tok| if let Token::STRING(str_lit) = tok {Some(str_lit)} else {None})//get all strings from the token list

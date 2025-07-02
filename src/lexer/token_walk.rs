@@ -119,7 +119,7 @@ impl TokenQueue {
         self.tokens[slice.index..max_idx]
         .iter()
         .fold(String::new(),
-            |acc, x| acc + &format!("{}", x)
+            |acc, x| acc + &format!(", {:?}", x)
         )
     }
 
