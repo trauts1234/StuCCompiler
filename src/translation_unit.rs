@@ -13,9 +13,7 @@ pub struct TranslationUnit {
 impl TranslationUnit {
     pub fn new(filename: &Path) -> Result<TranslationUnit, CompilationError> {
 
-        let data = preprocess_c_file(filename);
-        
-        let tokens: Vec<_> = Token::parse(&data);
+        let tokens = preprocess_c_file(filename);
 
         let string_literals: Vec<StringLiteral> = tokens.iter()
             .filter_map(|tok| if let Token::STRING(str_lit) = tok {Some(str_lit)} else {None})//get all strings from the token list

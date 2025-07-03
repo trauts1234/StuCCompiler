@@ -13,3 +13,9 @@ unwrap_let = "*"
 memory_size = "*"
 colored = "*"
 logos = "*"
+
+[dependencies.uuid]
+version = "1.17.0"
+features = [
+    "v4",
+]

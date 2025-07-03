@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use uuid::Uuid;
+
 use crate::{compilation_state::label_generator::LabelGenerator, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,11 +31,11 @@ impl StringLiteral {
         .collect::<Vec<_>>()
         .join(",")
     }
-    pub fn try_new(inside_speechmarks: &str, string_label_generator: &mut LabelGenerator) -> Option<StringLiteral> {
+    pub fn try_new(inside_speechmarks: &str) -> Option<StringLiteral> {
         assert!(inside_speechmarks.is_ascii());
     
         Some(StringLiteral {
-            label: format!("string_{}", string_label_generator.generate_label_number()),
+            label: format!("string_{}", Uuid::new_v4()),
             text: Self::use_escape_sequences(inside_speechmarks)
         })
     }

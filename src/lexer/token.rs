@@ -1,18 +1,17 @@
 use std::fmt::Display;
 
-use logos::Logos;
+use logos::{Lexer, Logos};
 
-use crate::{compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, storage_type::StorageDuration, type_token::TypeInfo}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::{data_type::{base_type::BaseType, storage_type::StorageDuration, type_token::TypeInfo}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 use super::{keywords::Keyword, punctuator::Punctuator};
 
 #[derive(Debug, Clone, PartialEq, Logos)]
-#[logos(skip "[ \n]")]
-#[logos(extras = LabelGenerator)]
+#[logos(skip "[ \t]")]
 pub enum Token {
     #[regex(r#""((\\.)|[^"\\])*""#, |x| {//match a string including
         let slice = x.slice();
-        StringLiteral::try_new(&slice[1..slice.len()-1], &mut x.extras)//remove the speech marks
+        StringLiteral::try_new(&slice[1..slice.len()-1])//remove the speech marks
     })]
     STRING(StringLiteral),
 
@@ -60,24 +59,36 @@ pub enum Token {
     KEYWORD(Keyword),
 
     #[regex(r"[a-zA-Z_]\w*", |x| x.slice().to_string())]
-    IDENTIFIER(String)
+    IDENTIFIER(String),
+
+    /// This variant should never appear as it gets removed
+    #[token("\n")]
+    NEWLINE
 }
 
 impl Token {
-    pub fn parse(data: &str) -> Vec<Self> {
-        println!("tokenizing {}", data);
-        let mut iterator = Self::lexer_with_extras(data, LabelGenerator::default());
+    /// Parses until a newline, but will still consume multiline strings if required
+    pub fn parse_logical_line<'a, L>(lex: &mut Lexer<'a, L>) -> Vec<Self>
+    where L: Clone, L: Logos<'a, Extras = (), Source = str, Error = ()>
+    {
+        let mut casted_lexer: Lexer<'_, Token> = lex.clone().morph::<Token>();
+
         let mut result = Vec::new();
 
-        while let Some(next) = iterator.next() {
-            match next {
-                Ok(x) => result.push(x),
-                Err(_) => {
-                    let rem = iterator.remainder();
+        'outer: loop {
+            match  casted_lexer.next() {
+                None |
+                Some(Ok(Token::NEWLINE)) => break 'outer,
+
+                Some(Ok(x)) => result.push(x),
+                Some(Err(())) => {
+                    let rem = casted_lexer.remainder();
                     panic!("error when tokenizing. remainder: {:?}", &rem[..usize::min(100, rem.len())]);
                 }
             }
         }
+
+        *lex = casted_lexer.morph();
 
         result
     }
@@ -101,6 +112,7 @@ impl Display for Token {
             Token::STORAGESPECIFIER(x) => x.fmt(f),
             Token::KEYWORD(x) => x.fmt(f),
             Token::IDENTIFIER(x) => x.fmt(f),
+            Token::NEWLINE => panic!("tried to Display a newline token")
         }
     }
 }
