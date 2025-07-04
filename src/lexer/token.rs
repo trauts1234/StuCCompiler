@@ -56,6 +56,7 @@ pub enum Token {
     #[token("typedef", |_| Keyword::TYPEDEF)]
     #[token("break", |_| Keyword::BREAK)]
     #[token("sizeof", |_| Keyword::SIZEOF)]
+    #[token("defined", |_| Keyword::DEFINED)]
     KEYWORD(Keyword),
 
     #[regex(r"[a-zA-Z_]\w*", |x| x.slice().to_string())]

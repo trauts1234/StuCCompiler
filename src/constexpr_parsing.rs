@@ -71,10 +71,13 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
             (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitshiftLeft, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l << r)),
             (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitshiftRight, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l >> r)),
 
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BooleanOr, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l.boolean_or(r))),
+            (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BooleanAnd, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l.boolean_and(r))),
+
             (ConstexprValue::NUMBER(l), op, ConstexprValue::NUMBER(r)) if op.as_comparator_instr().is_some() => Ok(ConstexprValue::NUMBER(l.cmp(r, &op.as_comparator_instr().unwrap()))),
             
 
-            _ => todo!("constexpr folding of binary operator: {:?}", value.operator())
+            _ => todo!("constexpr folding of binary operator {:?}", value.operator())
         }
     }
 }

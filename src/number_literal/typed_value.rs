@@ -5,7 +5,7 @@ use crate::{asm_gen_data::GetStruct, assembly::{comparison::ComparisonKind, oper
 
 use super::literal_value::LiteralValue;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct NumberLiteral {
     value: LiteralValue,
     data_type: BaseType
@@ -106,6 +106,31 @@ impl NumberLiteral {
         self.unary_promote()
     }
 
+    pub fn boolean_or(self, other: Self) -> Self {
+        let promoted = self.unary_promote();
+
+        match Self::binary_promote(self, other) {
+            (NumberLiteral { value: LiteralValue::INTEGER(0), data_type: _ }, NumberLiteral { value: LiteralValue::INTEGER(0), data_type: _ }) =>
+                Self { value: LiteralValue::INTEGER(0), data_type: promoted.data_type },// 0 | 0 = 0
+
+            _ => Self { value: LiteralValue::INTEGER(1), data_type: promoted.data_type }
+        }
+    }
+
+    pub fn boolean_and(self, other: Self) -> Self {
+        let promoted = self.unary_promote();
+
+        match Self::binary_promote(self, other) {
+            (NumberLiteral { value: LiteralValue::INTEGER(x), data_type: _ }, NumberLiteral { value: LiteralValue::INTEGER(y), data_type: _ })
+            if x != 0 && y != 0 =>
+                Self { value: LiteralValue::INTEGER(1), data_type: promoted.data_type },// 1 | 1 = 1
+
+            _ => {
+                Self { value: LiteralValue::INTEGER(0), data_type: promoted.data_type }
+            }
+        }
+    }
+
     pub fn cmp(self, other: Self, comparison: &ComparisonKind) -> Self {
         let (lhs, rhs) = self.binary_promote(other);
 
@@ -150,6 +175,12 @@ impl NumberLiteral {
         };
 
         as_bool.limit_literal()
+    }
+}
+
+impl PartialEq for NumberLiteral {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
     }
 }
 

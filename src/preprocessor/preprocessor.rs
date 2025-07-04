@@ -2,7 +2,7 @@ use std::{fs, path::{Path, PathBuf}};
 
 use regex::Regex;
 
-use crate::{lexer::token::{self, Token}, preprocessor::{preprocess_boolean_operators::get_binary_numerical_text_and_functions, preprocess_context::ScanType, preprocess_token::PreprocessToken}};
+use crate::{lexer::token::Token, preprocessor::{preprocess_constant_fold::{fold, is_true}, preprocess_context::ScanType, preprocess_token::PreprocessToken}};
 
 use super::{preprocess_context::PreprocessContext, string_apply::Apply};
 
@@ -111,7 +111,7 @@ fn handle_preprocessor_commands(tokens: Vec<PreprocessToken>) -> Vec<Token> {
             },
 
             PreprocessToken::If(condition_tokens) => {
-                let condition: bool = panic!();
+                let condition: bool = is_true(fold(condition_tokens, &ctx));
                 ctx.inc_selection_depth();
                 if !condition && ctx.get_scan_type() == ScanType::NORMAL {
                     // Was previously scanning, but this conditional failed

@@ -35,7 +35,7 @@ impl StringLiteral {
         assert!(inside_speechmarks.is_ascii());
     
         Some(StringLiteral {
-            label: format!("string_{}", Uuid::new_v4()),
+            label: format!("string_{}", Uuid::new_v4().simple()),
             text: Self::use_escape_sequences(inside_speechmarks)
         })
     }

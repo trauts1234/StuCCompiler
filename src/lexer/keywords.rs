@@ -13,6 +13,7 @@ pub enum Keyword {
     BREAK,
     TYPEDEF,
     SIZEOF,
+    DEFINED
 }
 
 impl Keyword {
@@ -28,6 +29,7 @@ impl Keyword {
             "break" => Some(Self::BREAK),
             "typedef" => Some(Self::TYPEDEF),
             "sizeof" => Some(Self::SIZEOF),
+            "defined" => Some(Self::DEFINED),
             _ => None,
         }
     }
@@ -47,6 +49,7 @@ impl Display for Keyword {
                 Keyword::BREAK => "break",
                 Keyword::TYPEDEF => "typedef",
                 Keyword::SIZEOF => "sizeof",
+                Keyword::DEFINED => "defined",
             }
         )
     }

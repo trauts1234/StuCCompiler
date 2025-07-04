@@ -63,7 +63,10 @@ impl Expression {
  * returns an expression(entirely consumed), else none
  */
 pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<Expression> {
-    let mut curr_queue_idx = previous_queue_idx.clone();
+    let mut curr_queue_idx = TokenQueueSlice {
+        index: previous_queue_idx.index,
+        max_index: previous_queue_idx.max_index.min(tokens_queue.tokens.len())//prevent very wide slices from overflowing the array
+    };
 
     if tokens_queue.slice_is_brackets(&curr_queue_idx, Punctuator::OPENCURLY) {
         //we are an expression surrounded by brackets
