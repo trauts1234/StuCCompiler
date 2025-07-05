@@ -2,7 +2,7 @@ use std::{fs, path::{Path, PathBuf}};
 
 use regex::Regex;
 
-use crate::{lexer::token::Token, preprocessor::{preprocess_constant_fold::{fold, is_true}, preprocess_context::ScanType, preprocess_token::PreprocessToken}};
+use crate::{lexer::token::Token, preprocessor::{preprocess_constant_fold::{fold, is_true, sub_definitions}, preprocess_context::ScanType, preprocess_token::PreprocessToken}};
 
 use super::{preprocess_context::PreprocessContext, string_apply::Apply};
 
@@ -158,23 +158,7 @@ fn handle_preprocessor_commands(tokens: Vec<PreprocessToken>) -> Vec<Token> {
             }
             PreprocessToken::LineOfCode(line) => {
                 if ctx.get_scan_type() == ScanType::NORMAL {
-                    result.extend(
-                        line.into_iter()
-                        //handle defined macros in the code
-                        .flat_map(|tok| {
-                            //check if the token is an identifier
-                            if let Token::IDENTIFIER(ref x) = tok {
-                                //check if the identifier is bound to a macro
-                                if let Some(definition) = ctx.get_definition(x) {
-                                    definition//identifier was bound to macro, return it
-                                } else {
-                                    vec![tok]//identifier but not defined as a macro
-                                }
-                            } else {
-                                vec![tok]//take the token
-                            }
-                        })
-                    );//only add code if I want to read it
+                    result.extend(sub_definitions(line, &ctx, &Vec::new()));
                 }
             },
         }
