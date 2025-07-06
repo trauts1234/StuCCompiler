@@ -1,10 +1,8 @@
 use std::{fs, path::{Path, PathBuf}};
 
-use regex::Regex;
-
 use crate::{lexer::token::Token, preprocessor::{preprocess_constant_fold::{fold, is_true, sub_definitions}, preprocess_context::ScanType, preprocess_token::PreprocessToken}};
 
-use super::{preprocess_context::PreprocessContext, string_apply::Apply};
+use super::preprocess_context::PreprocessContext;
 
 const INCLUDE_FOLDERS: &[&str] = &["c_lib"];//local custom version of glibc 
 //TODO put these somewhere sensible
@@ -143,9 +141,18 @@ fn handle_preprocessor_commands(tokens: Vec<PreprocessToken>) -> Vec<Token> {
             },
             PreprocessToken::Elif(condition_tokens) => {
                 let condition: bool = is_true(fold(condition_tokens, &ctx));
-                if condition && ctx.get_scan_type() == ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()) {
-                    // Was previously looking for a true branch, and this one is it
-                    ctx.set_scan_type(ScanType::NORMAL);
+                match ctx.get_scan_type() {
+                    ScanType::NORMAL => {
+                        //was previously on taken branch, now skip all branches at this depth
+                        ctx.set_scan_type(ScanType::SKIPPINGBRANCH(ctx.selection_depth()));
+                    }
+
+                    ScanType::FINDINGTRUEBRANCH(dep) if dep == ctx.selection_depth() && condition => {
+                        // Was previously looking for a true branch, and this one is it
+                        ctx.set_scan_type(ScanType::NORMAL);
+                    }
+
+                    _ => {}//either continue trying to find a true branch or continue skipping depending on conditions
                 }
             },
             PreprocessToken::DefineToken((name, value)) => {

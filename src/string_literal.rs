@@ -1,10 +1,10 @@
 use std::fmt::Display;
-
+use std::hash::Hash;
 use uuid::Uuid;
 
-use crate::{compilation_state::label_generator::LabelGenerator, expression_visitors::expr_visitor::ExprVisitor};
+use crate::expression_visitors::expr_visitor::ExprVisitor;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StringLiteral {
     text: Vec<i8>,//text plus zero terminator
     label: String
@@ -59,6 +59,12 @@ impl StringLiteral {
         .map(|x| x as i8)//convert to integers
         .chain(std::iter::once(0))//add null terminator 0
         .collect()
+    }
+}
+
+impl Hash for StringLiteral {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.label.hash(state);
     }
 }
 
