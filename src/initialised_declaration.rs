@@ -178,10 +178,10 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
             extra_modifiers
             .rev()//reverse, to put innermost first, then outer ones
             .fold(
-                inner_data.get_type().clone(),//start with inner type
+                inner_data.data_type.clone(),//start with inner type
                 |curr_type, modifier| curr_type.add_outer_modifier(modifier)//add each modifier, innermost first
             ),
-        name: inner_data.get_name().to_string(),
+        name: inner_data.name.to_string(),
     };
 
     Some(ASTMetadata {

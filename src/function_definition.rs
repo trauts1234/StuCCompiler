@@ -36,7 +36,7 @@ impl FunctionDefinition {
             return None;//function declaration + semicolon means no definition for certain
         }
         for i in func_decl.params.iter().rev() {
-            scope_data.add_variable(i.get_name(), i.get_type().clone());
+            scope_data.add_variable(&i.name, i.data_type.clone());
         }
 
         scope_data.add_declaration(func_decl.clone());//so that I can call recursively
@@ -77,8 +77,8 @@ impl FunctionDefinition {
         //args on stack are pushed r->l, so work backwards pushing the register values to the stack
         for param_idx in (0..self.decl.params.len()).rev() {
             let param = &self.decl.params[param_idx];//get metadata about param
-            let param_size = param.get_type().memory_size(asm_data);//get size of param 
-            unwrap_let!(Operand::Mem(MemoryOperand::SubFromBP(param_offset)) = &asm_data.get_variable(param.get_name()).location);//get the location of where the param should *end up* since it gets moved from registers to memory
+            let param_size = param.data_type.memory_size(asm_data);//get size of param 
+            unwrap_let!(Operand::Mem(MemoryOperand::SubFromBP(param_offset)) = &asm_data.get_variable(&param.name).location);//get the location of where the param should *end up* since it gets moved from registers to memory
             
             if param_idx >= 6 {
                 let below_bp_offset = MemorySize::from_bytes(8);//8 bytes for return addr, as rbp points to the start of the stack frame

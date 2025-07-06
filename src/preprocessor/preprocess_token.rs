@@ -1,4 +1,4 @@
-use logos::{Lexer, Logos};
+use logos::{ Logos};
 
 use crate::lexer::token::Token;
 
@@ -6,7 +6,7 @@ use crate::lexer::token::Token;
 #[derive(Clone, Logos, Debug)]
 #[logos(skip "[ \\t\n]+")]
 pub enum PreprocessToken {
-    #[regex("#[ \\t]*include[ \\t]*<[^>]+>", |x| {
+    #[regex("#[ \\t]*include[ \\t]*<[^>]+>\n", |x| {
         let slice = x.slice();
         let start_idx = slice.find("<").unwrap() + 1;
         let end_idx = slice.rfind(">").unwrap();
@@ -14,7 +14,7 @@ pub enum PreprocessToken {
     })]
     IncludeLib(String),
 
-    #[regex("#[ \\t]*include[ \\t]*\"[^\"]+\"", |x| {
+    #[regex("#[ \\t]*include[ \\t]*\"[^\"]+\".*\n", |x| {
         let slice = x.slice();
         let start_idx = slice.find("\"").unwrap() + 1;
         let end_idx = slice.rfind("\"").unwrap();
@@ -52,10 +52,10 @@ pub enum PreprocessToken {
     })]
     Pragma(String),
 
-    #[regex("#[ \\t]*endif[ \\t]*\n")]
+    #[regex("#[ \\t]*endif.*\n")]
     Endif,
 
-    #[regex("#[ \\t]*else[ \\t]*\n",)]
+    #[regex("#[ \\t]*else.*\n",)]
     Else,
 
     #[regex("#[ \\t]*elif", Token::parse_logical_line)]
@@ -74,16 +74,6 @@ pub enum PreprocessToken {
     })]
     DefineToken((String, Vec<Token>)),// #define x y
 
-    #[regex("#[ \\t]*define[ \\t]*\\w*\\(.+\n", |x| {
-        todo!("#define functions not supported");
-        x.slice()
-        .split_once("define").expect("could not find 'define' in a #define function")
-        .1
-        .trim()
-        .to_string()
-    })]
-    DefineFunction(String),// #define x(y) foo -> x(y) foo
-
     #[regex("#[ \\t]*undef.+\n", |x| {// #  undef token  \n
         x.slice()
         .split_once("undef")
@@ -100,6 +90,7 @@ pub enum PreprocessToken {
     #[regex("[^#]", |lex| {
         let start_idx = lex.span().start;
         let text = &lex.source()[start_idx..];
+        assert!(!text.starts_with("#"));
         *lex = PreprocessToken::lexer(text);//take back the accidentally consumed character, then parse a line of code
         Token::parse_logical_line(lex)
     }, priority = 1)]
@@ -108,6 +99,8 @@ pub enum PreprocessToken {
 
 impl PreprocessToken {
     /// Note: requires trailing newline
+    /// 
+    /// This still works if comments are present
     pub fn parse(data: &str) -> Vec<Self> {
         assert!(data.ends_with("\n"));
         let mut iterator = Self::lexer(data);
@@ -126,39 +119,4 @@ impl PreprocessToken {
 
         result
     }
-}
-
-#[derive(Debug, Logos, Clone)]
-enum CommentHandling {
-    #[token(r"*/", priority=2)]
-    CommentEnd,
-    #[regex(r"[^\*]", priority=1)]
-    CommentText,
-
-    #[token("*", priority=1)]
-    CommentAsterisk,
-}
-
-fn consume_comment<'a, L>(lex: &mut Lexer<'a, L>) -> logos::Skip
-where L: Clone, L: Logos<'a, Extras = (), Source = str, Error = ()>
-{
-
-    let new_lex: Lexer<'a, L>= {
-        let mut comment_lex: Lexer<'_, CommentHandling> = lex.clone().morph::<CommentHandling>();
-        loop {
-            match comment_lex.next() {
-                Some(Ok(CommentHandling::CommentEnd)) => {
-                    //comment is complete
-                    break comment_lex.morph();
-                },
-                Some(Ok(_)) => {},
-                Some(Err(_)) => panic!("error parsing comment"),
-                None => panic!("unclosed multiline comment")
-            }
-        }
-    };
-
-    *lex = new_lex;
-    
-    logos::Skip
 }

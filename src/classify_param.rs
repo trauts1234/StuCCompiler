@@ -32,18 +32,18 @@ impl ArgType {
                         let args_iter = struct_type.get_all_members().as_ref().expect("tried to pass a struct as a param but it had no members").iter();
                         
                         let is_first_eightbyte_predicate = |(decl, offset): &&(Declaration, MemorySize)| {
-                            let last_byte_of_member_offset = decl.get_type().memory_size(asm_data) + *offset;
+                            let last_byte_of_member_offset = decl.data_type.memory_size(asm_data) + *offset;
 
                             last_byte_of_member_offset.size_bytes() <= 8
                         };
 
                         let first_eightbyte_types: Vec<_> = args_iter.clone()
                             .take_while(is_first_eightbyte_predicate)
-                            .map(|(decl, _)| Self::param_from_type(decl.get_type(), asm_data))
+                            .map(|(decl, _)| Self::param_from_type(&decl.data_type, asm_data))
                             .collect();
                         let second_eightbyte_types: Vec<_> = args_iter
                             .skip_while(is_first_eightbyte_predicate)
-                            .map(|(decl, _)| Self::param_from_type(decl.get_type(), asm_data))
+                            .map(|(decl, _)| Self::param_from_type(&decl.data_type, asm_data))
                             .collect();
 
                         let first_eightbyte = classify_eightbyte(&first_eightbyte_types);

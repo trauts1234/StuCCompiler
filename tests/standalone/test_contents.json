@@ -568,5 +568,9 @@
     {
         "filename":"unsigneddivide.c",
         "return_code":0
+    },
+    {
+        "filename": "overlappingcommentstring.c",
+        "return_code":0
     }
 ]

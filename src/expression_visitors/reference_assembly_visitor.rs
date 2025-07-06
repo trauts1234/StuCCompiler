@@ -77,7 +77,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         let original_struct_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data: self.asm_data, stack_data: self.stack_data});
         result.merge(&original_struct_asm);
 
-        result.add_comment(format!("increasing pointer to get address of member {}", member_data.0.get_name()));
+        result.add_comment(format!("increasing pointer to get address of member {}", member_data.0.name));
 
         //increase pointer to index of member
         result.add_instruction(AsmOperation::ADD {

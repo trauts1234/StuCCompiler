@@ -1,6 +1,4 @@
-use unwrap_let::unwrap_let;
-
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, debugging::IRDisplay, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration}, debugging::IRDisplay, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -11,18 +9,44 @@ pub struct GlobalVariable {
 
 impl GlobalVariable {
     pub fn generate_assembly(&self, struct_info: &dyn GetStruct) -> String {
-        match &self.default_value {
-            ConstexprValue::NUMBER(number_literal) => {
-                unwrap_let!(DataType::RAW(decl_underlying_type) = &self.decl.data_type);
-
+        match (&self.decl.data_type, &self.default_value) {
+            //base type is set to a number
+            (DataType::RAW(base_type), ConstexprValue::NUMBER(number_literal)) => {
                 format!("{} db {}\n", 
-                    self.decl.get_name(), 
-                    number_literal.cast(decl_underlying_type).get_comma_separated_bytes(struct_info)//cast the number to the variable's type, then write the bytes for it
+                    self.decl.name, 
+                    number_literal.cast(&base_type).get_comma_separated_bytes(struct_info)//cast the number to the variable's type, then write the bytes for it
                 )
             },
-            ConstexprValue::STRING(string_literal) => format!("{} db {}\n", self.decl.get_name(), string_literal.get_comma_separated_bytes()),
-            ConstexprValue::POINTER { label, offset } => format!("{} dq {} + {}\n", self.decl.get_name(), label, offset.nasm_format().generate_name()),
-            ConstexprValue::ZEROES => format!("{} TIMES {} db 0", self.decl.get_name(), self.decl.data_type.memory_size(struct_info).size_bytes()),
+
+            // array is being set to a string
+            (DataType::ARRAY { size, element }, ConstexprValue::STRING(string_literal)) => {
+                assert_eq!(**element, DataType::RAW(BaseType::I8));
+                assert_eq!(*size as usize, string_literal.get_num_chars());
+                format!("{} db {}\n", self.decl.name, string_literal.get_comma_separated_bytes())
+            }
+
+            // unknown size array is being set to a string
+            (DataType::UNKNOWNSIZEARRAY { element }, ConstexprValue::STRING(string_literal)) => {
+                assert_eq!(**element, DataType::RAW(BaseType::I8));
+                format!("{} db {}\n", self.decl.name, string_literal.get_comma_separated_bytes())
+            }
+
+            // pointer is being set to string
+            // so make the pointer point at the string
+            (DataType::POINTER(element), ConstexprValue::STRING(string_literal)) => {
+                assert_eq!(**element, DataType::RAW(BaseType::I8));
+                format!("{} dq {}\n", self.decl.name, string_literal.get_label())
+            }
+
+            //  pointer being set to a pointer...
+            (DataType::POINTER(_), ConstexprValue::POINTER { label, offset }) => {
+                format!("{} dq {} + {}\n", self.decl.name, label, offset.nasm_format().generate_name())
+            }
+
+            // zeroing out the variable
+            (data_type, ConstexprValue::ZEROES) => format!("{} TIMES {} db 0", self.decl.name, data_type.memory_size(struct_info).size_bytes()),
+
+            (t, val) => panic!("cannot initialise {:?} to {:?}", t, val)
         }
     }
 
@@ -61,7 +85,7 @@ impl GlobalVariable {
         &self.storage_class
     }
     pub fn var_name(&self) -> &str {
-        self.decl.get_name()
+        &self.decl.name
     }
 }
 

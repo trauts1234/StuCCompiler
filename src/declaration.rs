@@ -28,21 +28,9 @@ pub struct Declaration {
     pub(crate) name: String,
 }
 
-impl Declaration {
-    pub fn get_type(&self) -> &DataType {
-        //maybe unused
-        &self.data_type
-    }
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-
-    
-}
-
 impl Display for Declaration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.get_name(), self.get_type())
+        write!(f, "{}: {}", self.name, self.data_type)
     }
 }
 

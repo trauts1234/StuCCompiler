@@ -49,8 +49,7 @@ fn read_tokenise(path: &Path) -> Vec<PreprocessToken> {
     )
     .replace("\r\n", "\n")//fix weird newlines
     .replace("\t", " ")//make all whitespace a space character or newline
-    .replace("\\\n", "")//remove \ newline, a feature in c
-    .apply(|x| remove_comments(x));//remove all comments
+    .replace("\\\n", "");//remove \ newline, a feature in c
 
     PreprocessToken::parse(&text)
 }
@@ -150,7 +149,6 @@ fn handle_preprocessor_commands(tokens: Vec<PreprocessToken>) -> Vec<Token> {
                     ctx.define(name, value);
                 }
             },
-            PreprocessToken::DefineFunction(_) => todo!(),
             PreprocessToken::Undef(ident) => {
                 if ctx.get_scan_type() == ScanType::NORMAL {
                     ctx.undefine(&ident);
@@ -165,19 +163,6 @@ fn handle_preprocessor_commands(tokens: Vec<PreprocessToken>) -> Vec<Token> {
     }
 
     result
-}
-
-/**
- * this replaces all comments in the text_file with " " as whitespace
- * TODO what about commenty-looking things inside or overlapping strings???!!!!
- */
-pub fn remove_comments(text_file: String) -> String {
-    let multiline_comment_regex = Regex::new(r"/\*[\s\S]*?\*/").unwrap();
-    let singleline_comment_regex = Regex::new(r"\/\/[^\n]*").unwrap();
-    
-    text_file
-        .apply(|x| multiline_comment_regex.replace_all(&x, " ").to_string())//remove multiline comments
-        .apply(|x| singleline_comment_regex.replace_all(&x, " ").to_string())//remove single line comments
 }
 
 

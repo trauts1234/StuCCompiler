@@ -31,7 +31,7 @@ impl StructMemberAccess {
 
         let (member_decl, _) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get the type of the member
 
-        member_decl.get_type().clone()
+        member_decl.data_type.clone()
     }
 
     pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {

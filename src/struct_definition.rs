@@ -33,19 +33,19 @@ impl UnpaddedStructDefinition {
         let mut result = Vec::new();
         if let Some(some_ordered_members) = self.ordered_members.as_ref() {
             for m in some_ordered_members {
-                let alignment_bytes = calculate_alignment(m.get_type(), struct_info).size_bytes();
+                let alignment_bytes = calculate_alignment(&m.data_type, struct_info).size_bytes();
     
                 let bytes_past_last_boundary = current_offset.size_bytes() % alignment_bytes;
                 let extra_padding = (alignment_bytes - bytes_past_last_boundary) % alignment_bytes;
                 current_offset += MemorySize::from_bytes(extra_padding);//increase offset in this struct to reach optimal alignment
     
                 result.push((m.clone(), current_offset));
-                current_offset += m.get_type().memory_size(struct_info);//increase offset in struct by the size of the member
+                current_offset += m.data_type.memory_size(struct_info);//increase offset in struct by the size of the member
             }
     
             //lastly, align to largest member's alignment, so that if this struct is in an array, subsequent structs are aligned
             let largest_member_alignment = self.ordered_members.as_ref().unwrap().iter()
-                .map(|x| calculate_alignment(x.get_type(), struct_info))
+                .map(|x| calculate_alignment(&x.data_type, struct_info))
                 .fold(MemorySize::new(), |acc, x| acc.max(x))
                 .size_bytes();
             let bytes_past_last_boundary = current_offset.size_bytes() % largest_member_alignment;

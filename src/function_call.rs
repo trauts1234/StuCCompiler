@@ -27,10 +27,10 @@ impl FunctionCall {
         let type_matched_args: Vec<_> = self.args.iter().enumerate().map(|(i, x)|{
             
             let param_type = if i >= self.decl.params.len() {
-                assert!(*self.decl.params.last().unwrap().get_type() == DataType::new(BaseType::VaArg));//more args than params, so must be varadic
+                assert!(self.decl.params.last().unwrap().data_type == DataType::new(BaseType::VaArg));//more args than params, so must be varadic
                 x.accept(&mut GetDataTypeVisitor{asm_data}).decay()//type is that of the arg, remembering to decay
             } else {
-                self.decl.params[i].get_type().clone()//arg gets cast to param type
+                self.decl.params[i].data_type.clone()//arg gets cast to param type
             };
 
             (param_type, x)

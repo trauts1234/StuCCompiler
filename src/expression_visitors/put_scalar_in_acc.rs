@@ -97,7 +97,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         result.add_comment(format!("getting struct's member {}", member_name));
 
-        if let DataType::ARRAY { .. } = member_decl.get_type() {
+        if let DataType::ARRAY { .. } = member_decl.data_type {
             //get pointer to struct
             let struct_addr_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data});
             result.merge(&struct_addr_asm);
@@ -124,7 +124,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Reg(Register::acc()),
                 from: Operand::Mem(MemoryOperand::MemoryAddress{pointer_reg: Register::acc() }),
-                size: member_decl.get_type().memory_size(self.asm_data),
+                size: member_decl.data_type.memory_size(self.asm_data),
             });
         }
 

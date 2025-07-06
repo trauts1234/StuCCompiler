@@ -62,8 +62,10 @@ pub enum Token {
     #[regex(r"[a-zA-Z_]\w*", |x| x.slice().to_string())]
     IDENTIFIER(String),
 
-    /// This variant should never appear as it gets removed
-    #[token("\n")]
+    /// This variant should never appear
+    #[token("\n")]//newline signals end of parsing this line
+    #[regex("//.*\n")]//single line comment completes the line also
+    #[regex(r"/\*", consume_comment)]//skip multiline comments
     NEWLINE
 }
 
@@ -84,7 +86,8 @@ impl Token {
                 Some(Ok(x)) => result.push(x),
                 Some(Err(())) => {
                     let rem = casted_lexer.remainder();
-                    panic!("error when tokenizing. remainder: {:?}", &rem[..usize::min(100, rem.len())]);
+                    println!("result: {:?}", result);
+                    panic!("error when tokenizing. remainder: {}{}", casted_lexer.slice(), &rem[..usize::min(100, rem.len())]);
                 }
             }
         }
@@ -116,4 +119,39 @@ impl Display for Token {
             Token::NEWLINE => panic!("tried to Display a newline token")
         }
     }
+}
+
+#[derive(Debug, Logos, Clone)]
+enum CommentHandling {
+    #[token(r"*/", priority=2)]
+    CommentEnd,
+    #[regex(r"[^\*]", priority=1)]
+    CommentText,
+
+    #[token("*", priority=1)]
+    CommentAsterisk,
+}
+
+fn consume_comment<'a, L>(lex: &mut Lexer<'a, L>) -> logos::Skip
+where L: Clone, L: Logos<'a, Extras = (), Source = str, Error = ()>
+{
+
+    let new_lex: Lexer<'a, L>= {
+        let mut comment_lex: Lexer<'_, CommentHandling> = lex.clone().morph::<CommentHandling>();
+        loop {
+            match comment_lex.next() {
+                Some(Ok(CommentHandling::CommentEnd)) => {
+                    //comment is complete
+                    break comment_lex.morph();
+                },
+                Some(Ok(_)) => {},
+                Some(Err(_)) => panic!("error parsing comment"),
+                None => panic!("unclosed multiline comment")
+            }
+        }
+    };
+
+    *lex = new_lex;
+    
+    logos::Skip
 }

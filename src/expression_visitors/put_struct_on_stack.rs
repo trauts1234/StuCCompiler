@@ -92,7 +92,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         let generate_struct_base = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: self.resultant_location.clone()});
         result.merge(&generate_struct_base);
 
-        result.add_comment(format!("increasing pointer to get index of member struct {}", member_data.0.get_name()));
+        result.add_comment(format!("increasing pointer to get index of member struct {}", member_data.0.name));
 
         //increase pointer to index of member
         result.add_instruction(AsmOperation::ADD {
