@@ -142,7 +142,11 @@ fn handle_preprocessor_commands(tokens: Vec<PreprocessToken>) -> Vec<Token> {
                 })
             },
             PreprocessToken::Elif(condition_tokens) => {
-                panic!()
+                let condition: bool = is_true(fold(condition_tokens, &ctx));
+                if condition && ctx.get_scan_type() == ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()) {
+                    // Was previously looking for a true branch, and this one is it
+                    ctx.set_scan_type(ScanType::NORMAL);
+                }
             },
             PreprocessToken::DefineToken((name, value)) => {
                 if ctx.get_scan_type() == ScanType::NORMAL {
