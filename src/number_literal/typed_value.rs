@@ -1,7 +1,7 @@
-use std::{fmt::Display, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
+use std::{arch::x86_64, cmp::{self, Ordering}, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
 use unwrap_let::unwrap_let;
-use crate::{asm_gen_data::GetStruct, assembly::{comparison::ComparisonKind, operand::immediate::ImmediateValue}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::GetStruct, assembly::comparison::ComparisonKind, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
 
 use super::literal_value::LiteralValue;
 
@@ -52,28 +52,33 @@ impl NumberLiteral {
         &self.value
     }
 
-    /**
-     * format this number in a way that it can be pasted into a nasm file
-     */
-    pub fn nasm_format(&self) -> ImmediateValue {
-        ImmediateValue(match self.value {
-            LiteralValue::INTEGER(x) => x.to_string()
-        })
-    }
-
-    pub fn get_comma_separated_bytes(&self, struct_info: &dyn GetStruct) -> String {
+    /// Generates the `x db 10` - type commands
+    pub fn generate_data_definition_instruction(&self, struct_info: &dyn GetStruct, variable_name: &str) -> String {
         let bytes_size = self.data_type.memory_size(struct_info).size_bytes();//pass in blank
 
-        let number_bytes = match self.value {
+        match self.value {
             LiteralValue::INTEGER(x) => {
-                x.to_le_bytes()
+                //store the integer as a list of bytes
+                format!("{} db {}",
+                    variable_name,
+
+                    x.to_le_bytes()[..bytes_size as usize].iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+                )
+            },
+            
+            LiteralValue::FLOAT {value, .. } => {
+                match self.data_type {
+                    BaseType::F32 => format!("{} dd {:.1}", variable_name, value),
+                    BaseType::F64 => format!("{} dq {:.1}", variable_name, value),
+                    _ => panic!("invalid data type for float literal?")
+                }
             }
-        };
-        
-        number_bytes[..bytes_size as usize].iter()
-        .map(|x| x.to_string())
-        .collect::<Vec<String>>()
-        .join(",")
+        }
+
+
     }
 
     pub fn cast(&self, new_type: &BaseType) -> NumberLiteral {
@@ -134,19 +139,23 @@ impl NumberLiteral {
     pub fn cmp(self, other: Self, comparison: &ComparisonKind) -> Self {
         let (lhs, rhs) = self.binary_promote(other);
 
-        let result = match (lhs.value, rhs.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => {
-            match comparison {
-                ComparisonKind::EQ => LiteralValue::INTEGER((x == y) as i128),
-                ComparisonKind::NE => LiteralValue::INTEGER((x != y) as i128),
-                ComparisonKind::L => LiteralValue::INTEGER((x < y) as i128),
-                ComparisonKind::LE => LiteralValue::INTEGER((x <= y) as i128),
-                ComparisonKind::G => LiteralValue::INTEGER((x > y) as i128),
-                ComparisonKind::GE => LiteralValue::INTEGER((x >= y) as i128),
-                ComparisonKind::ALWAYS => panic!("invalid comparison")
-            }
-            }
+        let cmp_result = match (lhs.value, rhs.value) {
+            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => x.cmp(&y),
+            (LiteralValue::INTEGER(x), LiteralValue::FLOAT {value: y, ..}) => cmp_i128_f64(x, y),
+            (LiteralValue::FLOAT {value:x,..}, LiteralValue::INTEGER(y)) => cmp_i128_f64(y, x).reverse(),
+            (LiteralValue::FLOAT {value:x,..}, LiteralValue::FLOAT {value:y,..}) => x.partial_cmp(&y).unwrap(),
         };
+
+        let result = 
+            match comparison {
+                ComparisonKind::EQ => LiteralValue::INTEGER(cmp_result.is_eq() as i128),
+                ComparisonKind::NE => LiteralValue::INTEGER(cmp_result.is_ne() as i128),
+                ComparisonKind::L => LiteralValue::INTEGER(cmp_result.is_lt() as i128),
+                ComparisonKind::LE => LiteralValue::INTEGER(cmp_result.is_le() as i128),
+                ComparisonKind::G => LiteralValue::INTEGER(cmp_result.is_gt() as i128),
+                ComparisonKind::GE => LiteralValue::INTEGER(cmp_result.is_ge() as i128),
+                ComparisonKind::ALWAYS => panic!("invalid comparison")
+            };
 
         NumberLiteral {
             value: result,
@@ -159,7 +168,8 @@ impl NumberLiteral {
 
         promoted.value = match promoted.value {
             
-            LiteralValue::INTEGER(x) => LiteralValue::INTEGER(!x)
+            LiteralValue::INTEGER(x) => LiteralValue::INTEGER(!x),
+            LiteralValue::FLOAT {..} => panic!("bitwise not is not applicable for floats")
         };
 
         promoted.limit_literal()
@@ -175,6 +185,16 @@ impl NumberLiteral {
         };
 
         as_bool.limit_literal()
+    }
+}
+
+fn cmp_i128_f64(x: i128, y: f64) -> Ordering {
+    if (i128::MAX as f64) < y {
+        Ordering::Less//x is definitely less than y, as y > x's domain
+    } else if (i128::MIN as f64) > y {
+        Ordering::Greater//x is definitely greater than y, as y < x's domain
+    } else {
+        (x as f64).partial_cmp(&y).unwrap()
     }
 }
 
@@ -211,6 +231,7 @@ impl BitOr for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x | y),
+            _ => panic!("bitwise or is not applicable for these data types")
         };
 
         l.limit_literal()
@@ -225,6 +246,7 @@ impl BitAnd for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x & y),
+            _ => panic!("bitwise and is not applicable for these data types")
         };
 
         l.limit_literal()
@@ -239,6 +261,7 @@ impl BitXor for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x ^ y),
+            _ => panic!("bitwise xor is not applicable for these data types")
         };
 
         l.limit_literal()
@@ -253,6 +276,7 @@ impl Add for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x + y),
+            _ => todo!()
         };
 
         l.limit_literal()
@@ -266,6 +290,7 @@ impl Sub for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x - y),
+            _ => todo!()
         };
 
         l.limit_literal()
@@ -280,6 +305,7 @@ impl Mul for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x * y),
+            _ => todo!()
         };
 
         l.limit_literal()
@@ -294,6 +320,7 @@ impl Div for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x / y),
+            _ => todo!()
         };
 
         l.limit_literal()
@@ -308,6 +335,7 @@ impl Rem for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x % y),
+            _ => panic!("invalid literal value combination for MOD")
         };
 
         l.limit_literal()
@@ -322,6 +350,7 @@ impl Shl for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x << y),
+            _ => panic!("shl is not valid for these data types")
         };
 
         l.limit_literal()
@@ -346,6 +375,7 @@ impl Shr for NumberLiteral {
                 BaseType::U64 => (x as u64 >> y) as i128,
                 _ => panic!("cannot shift this value"),
             }),
+            _ => panic!("shl is not valid for these data types")
         };
 
         l.limit_literal()
@@ -359,6 +389,7 @@ impl Display for NumberLiteral {
         write!(f, "{}",
         match self.value {
             LiteralValue::INTEGER(x) => x.to_string().cyan().to_string(),
+            LiteralValue::FLOAT {value, ..} => format!("{:.1}", value).cyan().to_string()
         })
     }
 }
@@ -394,9 +425,10 @@ impl From<&str> for NumberLiteral {
         let (forced_type, remaining): (Option<BaseType>, _) = match remaining {
             //float types
 
-            [x @.., 'f'] if !is_integer => (todo!("float"), x),
-            [x @.., 'l'] if !is_integer => (todo!("double"), x),
-            x if !is_integer => (todo!("double"), x),
+            [x @.., 'f'] if base != 16 => (Some(BaseType::F32), x),
+
+            [x @.., 'l'] |
+            x if !is_integer => (Some(BaseType::F64), x),
 
             //integer types
 
@@ -462,6 +494,7 @@ impl From<&str> for NumberLiteral {
                 9_223_372_036_854_775_808..=18446744073709551615 => BaseType::U64,
             };
     
+            println!("{:?}", forced_type);
             let data_type = forced_type.unwrap_or(predicted_type);
             assert!(data_type.is_integer());
     

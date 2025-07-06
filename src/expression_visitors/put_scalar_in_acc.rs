@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, struct_member_access::StructMemberAccess};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::literal_value::LiteralValue, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
@@ -21,11 +21,14 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         let reg_size = number.get_data_type().memory_size(self.asm_data);//decide how much storage is needed to temporarily store the constant
-        result.add_comment(format!("reading number literal: {}", number.nasm_format().0));
+        result.add_comment(format!("reading number literal: {:?}", number.get_value()));
 
         result.add_instruction(AsmOperation::MOV {
             to: RegOrMem::Reg(Register::acc()),
-            from: Operand::Imm(number.nasm_format()),
+            from: match number.get_value() {
+                LiteralValue::INTEGER(value) => Operand::Imm(ImmediateValue(value.to_string())),
+                LiteralValue::FLOAT { label, ..} => Operand::Mem(MemoryOperand::LabelAccess(label.to_string())),
+            },
             size: reg_size,
         });
 

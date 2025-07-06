@@ -16,6 +16,8 @@ pub enum BaseType {
     U32,
     I64,
     U64,
+    F32,
+    F64,
     STRUCT(StructIdentifier)
 }
 
@@ -28,7 +30,8 @@ impl BaseType {
     }
     pub fn is_integer(&self) -> bool {
         match self {
-            BaseType::VOID | BaseType::VaArg | BaseType::STRUCT(_) => false,
+            BaseType::VOID | BaseType::VaArg | BaseType::STRUCT(_) |
+            BaseType::F32 | BaseType::F64 => false,
 
             BaseType::_BOOL |
             BaseType::I8 | 
@@ -49,7 +52,9 @@ impl BaseType {
             BaseType::I8 | 
             BaseType::I16 | 
             BaseType::I32 | 
-            BaseType::I64 => false,
+            BaseType::I64 |
+            BaseType::F32 |
+            BaseType::F64 => false,
 
             BaseType::_BOOL |
             BaseType::U8 | 
@@ -77,10 +82,12 @@ impl BaseType {
             BaseType::U16 => MemorySize::from_bytes(2),
 
             BaseType::I32 |
-            BaseType::U32 => MemorySize::from_bytes(4),
+            BaseType::U32 |
+            BaseType::F32 => MemorySize::from_bytes(4),
 
             BaseType::I64 |
-            BaseType::U64 => MemorySize::from_bytes(8),
+            BaseType::U64 |
+            BaseType::F64 => MemorySize::from_bytes(8),
         }
     }
     pub fn get_non_struct_memory_size(&self) -> MemorySize {
@@ -98,10 +105,12 @@ impl BaseType {
             BaseType::U16 => MemorySize::from_bytes(2),
 
             BaseType::I32 |
-            BaseType::U32 => MemorySize::from_bytes(4),
+            BaseType::U32 |
+            BaseType::F32 => MemorySize::from_bytes(4),
 
             BaseType::I64 |
-            BaseType::U64 => MemorySize::from_bytes(8),
+            BaseType::U64 |
+            BaseType::F64 => MemorySize::from_bytes(8),
         }
     }
 }
@@ -120,6 +129,8 @@ impl Display for BaseType {
             BaseType::U32 => write!(f, "u32"),
             BaseType::I64 => write!(f, "i64"),
             BaseType::U64 => write!(f, "u64"),
+            BaseType::F32 => write!(f, "f32"),
+            BaseType::F64 => write!(f, "f64"),
             BaseType::STRUCT(struct_identifier) => write!(f, "{}", struct_identifier),
         }
     }

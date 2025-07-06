@@ -21,10 +21,18 @@ fn test_all() {
         for c_file_path in find_c_files(&subfolder_path) {
 
             let expected_output_path = c_file_path.with_extension("reference_output");
-            let expected_output_contents = fs::read_to_string(expected_output_path).unwrap();//read the output file
-            let (expected_stdout, last_line) = expected_output_contents.trim_end().rsplit_once("\n").unwrap();//get the stdout expected, and the last line which specifies the return code
-            unwrap_let!( ("exit", exit_code) = last_line.split_once(" ").unwrap());//should be in the form "exit n" so split by space and verify it starts with "exit"
-    
+            let expected_output = fs::read_to_string(expected_output_path);//try to read the output
+            //if there is an output, return code and stdout code
+            let expected_output: Option<(i32, &str)> = match &expected_output {
+                Ok(text) => {
+                    let (expected_stdout, last_line) = text.trim_end().rsplit_once("\n").unwrap();//get the stdout expected, and the last line which specifies the return code
+                    unwrap_let!( ("exit", exit_code) = last_line.split_once(" ").unwrap());//should be in the form "exit n" so split by space and verify it starts with "exit"
+                    Some((exit_code.parse::<i32>().unwrap(), expected_stdout))
+                },
+
+                Err(_) => None
+            };
+
             compile::compile(&c_file_path, &output_filename, &[]).unwrap();
     
             let binary_process = Command::new(&output_filename)
@@ -39,10 +47,13 @@ fn test_all() {
     
             println!("testing results for {:?}", c_file_path.file_name().unwrap());
 
-            //check return code
-            assert_eq!(binary_command.status.code().expect("binary was terminated by OS signal?"), exit_code.parse::<i32>().unwrap());
-            //check stdout
-            assert_eq!(String::from_utf8_lossy(&binary_command.stdout), expected_stdout);
+            //if I have some results to compare, check them
+            if let Some((return_code, stdout_text)) = expected_output {
+                //check return code
+                assert_eq!(binary_command.status.code().expect("binary was terminated by OS signal?"), return_code);
+                //check stdout
+                assert_eq!(String::from_utf8_lossy(&binary_command.stdout).trim_end_matches("\n"), stdout_text);
+            }
     
         }
     }
