@@ -410,100 +410,60 @@ impl From<String> for NumberLiteral {
 impl From<&str> for NumberLiteral {
     //TODO maybe impl From/TryFrom???
     fn from(input: &str) -> NumberLiteral {
-
-        let input = input.to_ascii_lowercase();
-
-        let chars: Vec<char> = input.chars().collect();
-        let (base, remaining) = match chars.as_slice() {
-            ['0', 'x', remaining @ ..] => (16, remaining),
-            ['0', 'b', remaining @ ..] => (2, remaining),
-            ['0', remaining @ ..] => (8, remaining),
-            remaining => (10, remaining)
-        };
-        let is_integer = !remaining.contains(&'.');
-
-        let (forced_type, remaining): (Option<BaseType>, _) = match remaining {
-            //float types
-
-            [x @.., 'f'] if base != 16 => (Some(BaseType::F32), x),
-
-            [x @.., 'l'] |
-            x if !is_integer => (Some(BaseType::F64), x),
-
-            //integer types
-
-            [x @.., 'u','l','l'] | //ull
-            [x @.., 'l', 'l', 'u'] |//llu
-            [x @.., 'u','l'] |//ul
-            [x @.., 'l', 'u'] //lu
-                if is_integer => (Some(BaseType::U64), x),//all are u64
-
-            [x @.., 'u'] if is_integer => (Some(BaseType::U32), x),//u
-
-            [x @.., 'l', 'l' ] | //ll
-            [x @.., 'l'] //l
-                if is_integer => (Some(BaseType::I64), x),//are i64
-            
-            x if is_integer => (None, x),//no suffix, predict type based on data size
-
-            _ => panic!("invalid literal")
-        };
-
-        let (remaining, literal_exponent) = match base {
-            16 => {
-                if let Some(pos) = remaining.iter().position(|&c| c == 'p') {
-                    let lhs = &remaining[..pos];
-                    let power = &remaining[pos+1..];
-
-                    assert!(lhs.len() > 0 && power.len() > 0);
-
-                    (lhs, calculate_positive_integer(base, power))// 0x1.5p3 = 0x1.5 * 2^3
-                    
+        match input.to_ascii_lowercase().chars().collect::<Vec<_>>().as_slice() {
+            ['0','x', rem @ ..] => {
+                let hex_data = hex_parse::hex_parse(rem);
+                let integer_part = integer_value(hex_data.integer_part, 16);
+                let fractional_part = fractional_value(hex_data.fractional_part, 16);
+                let power = 2i128.pow(integer_value(hex_data.exponent_part, 10).try_into().unwrap());//power on hex is 2^num where num is base 10
+                
+                if let Some(frac) = fractional_part {
+                    todo!("hex float literals")
                 } else {
-                    assert!(is_integer);//hex floats need exponent
-                    (remaining, 0)//no power letter
-                }
-            }
-
-            10 => {
-                if let Some(pos) = remaining.iter().position(|&c| c == 'e') {
-                    let lhs = &remaining[..pos];
-                    let power = &remaining[pos+1..];
-
-                    assert!(lhs.len() > 0 && power.len() > 0);
-
-                    (lhs, calculate_positive_integer(base, power))// 1.5e3 = 1.5 * 10^3
-                    
-                } else {
-                    (remaining, 0)//no power letter
+                    NumberLiteral {
+                        value: LiteralValue::INTEGER(integer_part * power),//just an integer
+                        //read the suffix (non-float) or calculate the best type
+                        data_type: calculate_suffix_type(hex_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
+                    }
                 }
             },
 
-            8 | 2 => (remaining, 0),//no possible exponent for octal or binary numbers
+            ['0', 'b', rem @ ..] => {
+                let bin_data = bin_parse::bin_parse(rem);
+                let integer_part = integer_value(bin_data.integer_part, 2);
 
-            _ => panic!("invalid base for number literal")
-        };
+                NumberLiteral {
+                    value: LiteralValue::INTEGER(integer_part),
+                    data_type: calculate_suffix_type(bin_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
+                }
+            },
 
-        if is_integer {
-            assert!(literal_exponent == 0);//no power on integers
-            let as_large_unsigned = calculate_positive_integer(base, remaining);
+            ['0', rem @ ..] => {
+                let oct_data = oct_parse::oct_parse(rem);
+                let integer_part = integer_value(oct_data.integer_part, 8);
 
-            let predicted_type = match as_large_unsigned {
-                0..=2_147_483_647 => BaseType::I32,
-                2_147_483_648..=9_223_372_036_854_775_807 => BaseType::I64,
-                9_223_372_036_854_775_808..=18446744073709551615 => BaseType::U64,
-            };
-    
-            println!("{:?}", forced_type);
-            let data_type = forced_type.unwrap_or(predicted_type);
-            assert!(data_type.is_integer());
-    
-            NumberLiteral {
-                value:LiteralValue::INTEGER(as_large_unsigned as i128),//integer literals from text are always positive
-                data_type: BaseType::U64,//start as large type, and cast from there
-            }.cast(&data_type)//cast to the correct type
-        } else {
-            todo!("float literals")
+                NumberLiteral {
+                    value: LiteralValue::INTEGER(integer_part),
+                    data_type: calculate_suffix_type(oct_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
+                }
+            },
+
+            rem => {
+                let dec_data = dec_parse::dec_parse(rem);
+                let integer_part = integer_value(dec_data.integer_part, 10);
+                let fractional_part = fractional_value(dec_data.decimal_part, 10);
+                let power = 10i128.pow(integer_value(dec_data.exponent_part, 10).try_into().unwrap());//power on denary is 10^num where num is base 10
+                
+                if let Some(frac) = fractional_part {
+                    todo!("base 10 float literals")
+                } else {
+                    NumberLiteral {
+                        value: LiteralValue::INTEGER(integer_part * power),//just an integer
+                        //read the suffix (non-float) or calculate the best type
+                        data_type: calculate_suffix_type(dec_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
+                    }
+                }
+            }
         }
 
     }
@@ -520,7 +480,228 @@ fn calculate_positive_integer(base: u64, digits: &[char]) -> u64 {
     .map(|(i, digit)| digit * base.pow(i.try_into().unwrap()))//take into account place value of each digit
     .sum()//sum each place value
 }
-/*fn calculate_float(base: i32, digits: &[char]) -> f64 {
-    assert!(digits.contains(&'.'));
-    todo!();
-}*/
+
+fn powers_iter(base: i128) -> impl Iterator<Item = i128> {
+    std::iter::successors(Some(1), move |&k| Some(k * base))
+}
+fn integer_value(integer_digits: &[char], base: u32) -> i128 {
+    integer_digits
+    .iter()
+    .rev()//start with least significant digit
+    .map(|digit| digit.to_digit(base).unwrap().into())//get digit value
+    .zip(powers_iter(base.into()))//add powers of base
+    .map(|(digit, multiplier): (i128, i128)| multiplier * digit)//get digit value and multiply by power
+    .sum()//find total value
+}
+
+/// Returns `None` if there are no digits
+fn fractional_value(fractional_digits: &[char], base: u32) -> Option<f64> {
+    if fractional_digits.is_empty() {
+        None
+    } 
+    else {Some(
+        fractional_digits
+        .iter()
+        .zip(powers_iter(base.into()))
+        .map(|(digit, multiplier)| {
+            let digit_value: f64 = digit.to_digit(base).unwrap().into();
+            let divisor: f64 = 1f64 / (multiplier as f64);
+            digit_value/divisor// fractional value = digit * 1/base^n
+        })
+        .sum()
+    )}
+}
+
+/// Finds the best integer type to hold `value`
+fn calculate_integer_type(value: i128) -> BaseType {
+    match value {
+        0..=2_147_483_647 => BaseType::I32,
+        2_147_483_648..=9_223_372_036_854_775_807 => BaseType::I64,
+        9_223_372_036_854_775_808..=18446744073709551615 => BaseType::U64,
+        ..0 => panic!("negative integer literal value?"),
+        _ => panic!("out of range value to be stored in C")
+    }
+}
+fn calculate_suffix_type(suffix: &[char], has_fractional_part: bool) -> Option<BaseType> {
+    match suffix {
+        ['f'] => Some(BaseType::F32),
+
+        ['l'] |
+        _ if has_fractional_part => Some(BaseType::F64),
+
+        //integer types
+
+        ['u','l','l'] | //ull
+        ['l', 'l', 'u'] |//llu
+        ['u','l'] |//ul
+        ['l', 'u'] //lu
+            if !has_fractional_part => Some(BaseType::U64),//all are u64
+
+        ['u'] if !has_fractional_part => Some(BaseType::U32),//u
+
+        ['l', 'l' ] | //ll
+        ['l'] //l
+            if !has_fractional_part => Some(BaseType::I64),//are i64
+        
+        _ if !has_fractional_part => None,//no suffix, predict type based on data size
+
+        _ => panic!("invalid literal suffix")
+    }
+}
+
+mod dec_parse {
+    use crate::number_literal::typed_value::dec_run;
+
+    pub struct DecParseResult<'a> {
+        pub integer_part: &'a[char],
+        pub decimal_part: &'a[char],
+        pub exponent_part: &'a[char],
+        pub remainder: &'a[char],
+    }
+    /// Parses the whole of a hex number including decimals and exponents
+    pub fn dec_parse(remainder: &[char]) -> DecParseResult {
+        //parse the `123` part of `123.44e10`
+        let (integer_part, remainder) = dec_run(remainder);
+
+        // parse the `44` part of `.44e10`
+        let (decimal_part, remainder) = match remainder.first() {
+            Some('.') => dec_run(&remainder[1..]),
+            _ => (&remainder[0..0], remainder)//probably an exponent
+        };
+
+        let (exponent_part, remainder) = match remainder.first() {
+            Some('e') => dec_run(&remainder[1..]),
+            _ => (&remainder[0..0], remainder)
+        };
+
+        DecParseResult { 
+            integer_part,
+            decimal_part,
+            exponent_part,
+            remainder
+        }
+    }
+}
+
+mod hex_parse {
+    use crate::number_literal::typed_value::{dec_run, hex_run};
+
+    pub struct HexParseResult<'a> {
+        pub integer_part: &'a[char],
+        pub fractional_part: &'a[char],
+        pub exponent_part: &'a[char],
+        pub remainder: &'a[char],
+    }
+    /// Parses the whole of a hex number including decimals and exponents
+    pub fn hex_parse(remainder: &[char]) -> HexParseResult {
+        //parse the `ff` part of `ff.ep10`
+        let (integer_part, remainder) = hex_run(remainder);
+
+        // parse the `e` part of `.ep10`
+        let (decimal_part, remainder) = match remainder.first() {
+            Some('.') => dec_run(&remainder[1..]),
+            _ => (&remainder[0..0], remainder)//probably an exponent
+        };
+
+        let (exponent_part, remainder) = match remainder.first() {
+            Some('e') => dec_run(&remainder[1..]),//dec run since exponent is always in base 10
+            _ => (&remainder[0..0], remainder)
+        };
+
+        HexParseResult { 
+            integer_part,
+            fractional_part: decimal_part,
+            exponent_part,
+            remainder
+        }
+    }
+}
+
+mod bin_parse {
+    use crate::number_literal::typed_value::bin_run;
+
+    pub struct BinParseResult<'a> {
+        pub integer_part: &'a[char],
+        pub remainder: &'a[char],
+    }
+    /// Parses the whole of a binary number including decimals and exponents
+    pub fn bin_parse(remainder: &[char]) -> BinParseResult {
+
+        let (integer_part, remainder) = bin_run(remainder);
+
+        BinParseResult { 
+            integer_part,
+            remainder
+        }
+    }
+}
+
+mod oct_parse {
+    use crate::number_literal::typed_value::oct_run;
+
+    pub struct OctParseResult<'a> {
+        pub integer_part: &'a[char],
+        pub remainder: &'a[char],
+    }
+    /// Parses the whole of an octal number including decimals and exponents
+    pub fn oct_parse(remainder: &[char]) -> OctParseResult {
+
+        let (integer_part, remainder) = oct_run(remainder);
+
+        OctParseResult { 
+            integer_part,
+            remainder
+        }
+    }
+}
+
+/// Parses decimal digits and returns the slice and the remainder
+fn dec_run(digits: &[char]) -> (&[char], &[char]) {
+    let end_idx = digits
+    .iter()
+    .position(|c| match c {
+        '0'..='9' => false,//hex digit, keep going
+        _ => true
+    })
+    .unwrap_or(digits.len());//if all are digits, end_idx = length of digits
+
+    (&digits[0..end_idx], &digits[end_idx..])
+}
+
+/// Parses hex digits and returns the slice and the remainder
+fn hex_run(digits: &[char]) -> (&[char], &[char]) {
+    let end_idx = digits
+    .iter()
+    .position(|c| match c {
+        '0'..='9' |
+        'a' ..='f' => false,//hex digit, keep going
+        _ => true
+    })
+    .unwrap_or(digits.len());//if all are digits, end_idx = length of digits
+
+    (&digits[0..end_idx], &digits[end_idx..])
+}
+/// Parses binary digits and returns the slice and the remainder
+fn bin_run(digits: &[char]) -> (&[char], &[char]) {
+    let end_idx = digits
+    .iter()
+    .position(|c| match c {
+        '0' | '1' => false,//binary digit, keep going
+        _ => true
+    })
+    .unwrap_or(digits.len());//if all are digits, end_idx = length of digits
+
+    (&digits[0..end_idx], &digits[end_idx..])
+}
+/// Parsesn octal digits and returns the slice and the remainder
+fn oct_run(digits: &[char]) -> (&[char], &[char]) {
+    let end_idx = digits
+    .iter()
+    .position(|c| match c {
+        '0' ..='7' => false,//an octal digit, keep going
+        _ => true
+    })
+    .unwrap_or(digits.len());//if all are digits, end_idx = length of digits
+
+    (&digits[0..end_idx], &digits[end_idx..])
+}
