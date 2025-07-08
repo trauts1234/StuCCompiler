@@ -10,6 +10,8 @@ pub enum TypeInfo{
     LONG,
     SHORT,
     VOID,
+    FLOAT,
+    DOUBLE,
 
     VaArg,//varadic arg has a special type
 }
@@ -25,6 +27,8 @@ impl TypeInfo {
             "char" => Some(Self::CHAR),
             "_Bool" => Some(Self::_BOOL),
             "void" => Some(Self::VOID),
+            "float" => Some(Self::FLOAT),
+            "double" => Some(Self::DOUBLE),
             _ => None
         }
     }
@@ -42,6 +46,8 @@ impl Display for TypeInfo {
                 TypeInfo::LONG => "long",
                 TypeInfo::SHORT => "short",
                 TypeInfo::VOID => "void",
+                TypeInfo::FLOAT => "float",
+                TypeInfo::DOUBLE => "double",
                 TypeInfo::VaArg => "...",
             }
         )

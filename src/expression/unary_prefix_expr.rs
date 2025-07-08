@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use colored::Colorize;
 use memory_size::MemorySize;
 
@@ -33,8 +33,8 @@ impl UnaryPrefixExpression {
                     //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
                 } else {
                     result.add_instruction(AsmOperation::MOV {
-                        to: RegOrMem::Reg(Register::acc()),
-                        from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::acc() }),
+                        to: RegOrMem::Reg(GPRegister::acc()),
+                        from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
                         size: PTR_SIZE
                     });//dereference pointer
                 }
@@ -50,7 +50,7 @@ impl UnaryPrefixExpression {
                 result.merge(&operand_asm);
                 result.merge(&cast_asm);//cast to the correct type
 
-                result.add_instruction(AsmOperation::NEG { item: RegOrMem::Reg(Register::acc()), data_type: promoted_type });//negate the promoted value
+                result.add_instruction(AsmOperation::NEG { item: RegOrMem::Reg(GPRegister::acc()), data_type: promoted_type });//negate the promoted value
             },
             UnaryPrefixOperator::UnaryPlus => {
                 result.add_comment("unary +");
@@ -84,7 +84,7 @@ impl UnaryPrefixExpression {
                 let operand_address_storage = stack_data.clone();
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
-                    from: Operand::Reg(Register::acc()),
+                    from: Operand::Reg(GPRegister::acc()),
                     size: PTR_SIZE
                 });
 
@@ -92,21 +92,21 @@ impl UnaryPrefixExpression {
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
 
-                let rhs_reg = RegOrMem::Reg(Register::acc());
+                let rhs_reg = RegOrMem::Reg(GPRegister::acc());
                 //increment self.operand (in acc) as original type, so that it can be stored correctly afterwards
                 result.add_instruction(AsmOperation::ADD { destination: rhs_reg, increment: Operand::Imm(increment_amount), data_type: original_type.clone() });
 
                 //pop &self.operand to RCX
                 result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Reg(Register::secondary()),
+                    to: RegOrMem::Reg(GPRegister::secondary()),
                     from: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
                     size: PTR_SIZE
                 });
 
                 //save the new value of self.operand
                 result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
-                    from: Operand::Reg(Register::acc()),
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+                    from: Operand::Reg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data)
                 });
 
@@ -136,7 +136,7 @@ impl UnaryPrefixExpression {
                 let operand_address_storage = stack_data.clone();
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
-                    from: Operand::Reg(Register::acc()),
+                    from: Operand::Reg(GPRegister::acc()),
                     size: PTR_SIZE
                 });
 
@@ -144,21 +144,21 @@ impl UnaryPrefixExpression {
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
 
-                let rhs_reg = RegOrMem::Reg(Register::acc());
+                let rhs_reg = RegOrMem::Reg(GPRegister::acc());
                 //decrement self.operand (in acc) as original type, so that it can be stored correctly afterwards
                 result.add_instruction(AsmOperation::SUB { destination: rhs_reg, decrement: Operand::Imm(increment_amount), data_type: original_type.clone() });
 
                 //pop &self.operand to RCX
                 result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Reg(Register::secondary()),
+                    to: RegOrMem::Reg(GPRegister::secondary()),
                     from: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
                     size: PTR_SIZE
                 });
 
                 //save the new value of self.operand
                 result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
-                    from: Operand::Reg(Register::acc()),
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+                    from: Operand::Reg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data)
                 });
 
@@ -179,14 +179,14 @@ impl UnaryPrefixExpression {
 
                 //compare the boolean to zero
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Reg(Register::acc()),
+                    lhs: Operand::Reg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: DataType::RAW(BaseType::_BOOL),
                 });
 
                 //set 1 if equal to 0 or vice-versa
                 result.add_instruction(AsmOperation::SETCC {
-                    destination: RegOrMem::Reg(Register::acc()),
+                    destination: RegOrMem::Reg(GPRegister::acc()),
                     comparison: AsmComparison::EQ,//set to 1 if it was previously equal to 0
                 });
             },
@@ -204,7 +204,7 @@ impl UnaryPrefixExpression {
 
                 //set 1 if equal to 0 or vice-versa
                 result.add_instruction(AsmOperation::BitwiseNot {
-                    item: RegOrMem::Reg(Register::acc()),
+                    item: RegOrMem::Reg(GPRegister::acc()),
                     size: promoted_type.memory_size(asm_data)
                 });
             }

@@ -2,7 +2,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -40,8 +40,8 @@ impl BinaryExpression {
                 result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 result.add_instruction(AsmOperation::ADD {
-                    destination: RegOrMem::Reg(Register::acc()),
-                    increment: Operand::Reg(Register::secondary()),
+                    destination: RegOrMem::Reg(GPRegister::acc()),
+                    increment: Operand::Reg(GPRegister::secondary()),
                     data_type: promoted_type
                 });
 
@@ -54,8 +54,8 @@ impl BinaryExpression {
                 result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 result.add_instruction(AsmOperation::SUB {
-                    destination: RegOrMem::Reg(Register::acc()),
-                    decrement: Operand::Reg(Register::secondary()),
+                    destination: RegOrMem::Reg(GPRegister::acc()),
+                    decrement: Operand::Reg(GPRegister::secondary()),
                     data_type: promoted_type
                 });
 
@@ -71,7 +71,7 @@ impl BinaryExpression {
                 assert!(promoted_underlying.is_integer());//floating point multiply??
 
                 result.add_instruction(AsmOperation::MUL {
-                    multiplier: RegOrMem::Reg(Register::secondary()),
+                    multiplier: RegOrMem::Reg(GPRegister::secondary()),
                     data_type: promoted_type
                 });
 
@@ -84,7 +84,7 @@ impl BinaryExpression {
                 unwrap_let!(DataType::RAW(_) = promoted_type);
 
                 result.add_instruction(AsmOperation::DIV {
-                    divisor: RegOrMem::Reg(Register::secondary()),
+                    divisor: RegOrMem::Reg(GPRegister::secondary()),
                     data_type: promoted_type
                 });
             },
@@ -97,12 +97,12 @@ impl BinaryExpression {
                 unwrap_let!(DataType::RAW(_) = promoted_type);
 
                 result.add_instruction(AsmOperation::DIV {
-                    divisor: RegOrMem::Reg(Register::secondary()),
+                    divisor: RegOrMem::Reg(GPRegister::secondary()),
                     data_type: promoted_type
                 });
 
                 //mod is returned in RDX
-                result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::acc()), from: Operand::Reg(Register::_DX), size: promoted_size });
+                result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(GPRegister::acc()), from: Operand::Reg(GPRegister::_DX), size: promoted_size });
             }
 
             comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
@@ -110,8 +110,8 @@ impl BinaryExpression {
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Reg(Register::acc()),
-                    rhs: Operand::Reg(Register::secondary()),
+                    lhs: Operand::Reg(GPRegister::acc()),
+                    rhs: Operand::Reg(GPRegister::secondary()),
                     data_type: promoted_type.clone()
                 });
 
@@ -121,7 +121,7 @@ impl BinaryExpression {
                     .to_asm_comparison(promoted_type.decay_to_primative().is_signed());//take signedness and convert comparison kind to an asm comparison
 
                 //create the correct setcc instruction
-                result.add_instruction(AsmOperation::SETCC { destination: RegOrMem::Reg(Register::acc()), comparison: asm_comparison });
+                result.add_instruction(AsmOperation::SETCC { destination: RegOrMem::Reg(GPRegister::acc()), comparison: asm_comparison });
 
             },
 
@@ -134,8 +134,8 @@ impl BinaryExpression {
                 let instruction = operator.as_boolean_instr().unwrap();
 
                 result.add_instruction(AsmOperation::BitwiseOp {
-                    destination: RegOrMem::Reg(Register::acc()),
-                    secondary: Operand::Reg(Register::secondary()),
+                    destination: RegOrMem::Reg(GPRegister::acc()),
+                    secondary: Operand::Reg(GPRegister::secondary()),
                     operation: instruction,
                     size: MemorySize::from_bytes(1)//1 byte boolean
                 });
@@ -149,8 +149,8 @@ impl BinaryExpression {
                 let instruction = operator.as_bitwise_binary_instr().unwrap();
 
                 result.add_instruction(AsmOperation::BitwiseOp {
-                    destination: RegOrMem::Reg(Register::acc()),
-                    secondary: Operand::Reg(Register::secondary()),
+                    destination: RegOrMem::Reg(GPRegister::acc()),
+                    secondary: Operand::Reg(GPRegister::secondary()),
                     operation: instruction,
                     size: promoted_size
                 });
@@ -171,8 +171,8 @@ impl BinaryExpression {
                 
                 unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
                 result.add_instruction(AsmOperation::SHR {
-                    destination: RegOrMem::Reg(Register::acc()),
-                    amount: Operand::Reg(Register::secondary()),
+                    destination: RegOrMem::Reg(GPRegister::acc()),
+                    amount: Operand::Reg(GPRegister::secondary()),
                     base_type: lhs_base
                 });
             }
@@ -190,8 +190,8 @@ impl BinaryExpression {
                 
                 unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
                 result.add_instruction(AsmOperation::SHL {
-                    destination: RegOrMem::Reg(Register::acc()),
-                    amount: Operand::Reg(Register::secondary()),
+                    destination: RegOrMem::Reg(GPRegister::acc()),
+                    amount: Operand::Reg(GPRegister::secondary()),
                     base_type: lhs_base
                 });
             }
@@ -286,14 +286,14 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
         assert!(promoted_type.memory_size(asm_data).size_bytes() == 8);
         //get the size of value pointed to by rhs
         result.add_instruction(AsmOperation::MOV {
-            to: RegOrMem::Reg(Register::_CX),
+            to: RegOrMem::Reg(GPRegister::_CX),
             from: Operand::Imm(rhs_deref_size.as_imm()),
             size: MemorySize::from_bytes(8),
         });
 
         //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
         result.add_instruction(AsmOperation::MUL {
-            multiplier: RegOrMem::Reg(Register::_CX),
+            multiplier: RegOrMem::Reg(GPRegister::_CX),
             data_type: promoted_type.clone(),
         });
         
@@ -305,7 +305,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     let lhs_temporary_address = stack_data.clone();
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)),
-        from: Operand::Reg(Register::acc()),
+        from: Operand::Reg(GPRegister::acc()),
         size: promoted_size
     });
 
@@ -325,23 +325,23 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
         assert!(promoted_type.memory_size(asm_data).size_bytes() == 8);
         //get the size of value pointed to by rhs
         result.add_instruction(AsmOperation::MOV {
-            to: RegOrMem::Reg(Register::_CX),
+            to: RegOrMem::Reg(GPRegister::_CX),
             from: Operand::Imm(lhs_deref_size.as_imm()),
             size: MemorySize::from_bytes(8),
         });
 
         //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
         result.add_instruction(AsmOperation::MUL {
-            multiplier: RegOrMem::Reg(Register::_CX),
+            multiplier: RegOrMem::Reg(GPRegister::_CX),
             data_type: promoted_type.clone(),
         });
     }
 
     //put RHS in CX 
-    result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::secondary()), from: Operand::Reg(Register::acc()), size: MemorySize::from_bytes(8)});
+    result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(GPRegister::secondary()), from: Operand::Reg(GPRegister::acc()), size: MemorySize::from_bytes(8)});
 
     //read lhs to acc
-    result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(Register::acc()), from: Operand::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)), size: promoted_size });
+    result.add_instruction(AsmOperation::MOV { to: RegOrMem::Reg(GPRegister::acc()), from: Operand::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)), size: promoted_size });
 
     result
 }

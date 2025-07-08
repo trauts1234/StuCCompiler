@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::{GPRegister, MMRegister}, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
 use memory_size::MemorySize;
 
 pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmData) -> Assembly {
@@ -22,42 +22,53 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
     if to_raw == &BaseType::_BOOL {
         //boolean, so I need to cmp 0
         result.add_instruction(AsmOperation::CMP { 
-            lhs: Operand::Reg(Register::acc()),
+            lhs: Operand::Reg(GPRegister::acc()),
             rhs: Operand::Imm(ImmediateValue("0".to_string())),
             data_type: DataType::RAW(from_raw.clone())
         });
         //set to 1 or 0 based on whether that value was 0
         result.add_instruction(AsmOperation::SETCC {
-            destination: RegOrMem::Reg(Register::acc()),
+            destination: RegOrMem::Reg(GPRegister::acc()),
             comparison: AsmComparison::NE,
         });
 
         return result;
     }
 
-    if to_raw.is_integer() && from_raw.is_integer() && to_raw.memory_size(asm_data) <= from_raw.memory_size(asm_data) {
-        return Assembly::make_empty();//casting integer to smaller integer, no change required
-    }
+    match (from_raw.is_integer(), to_raw.is_integer()) {
+        (true, true) => {
+            if to_raw.memory_size(asm_data) <= from_raw.memory_size(asm_data) {
+                return Assembly::make_empty();//casting integer to smaller integer, no change required
+            }
 
-    match (from_raw.memory_size(asm_data).size_bytes(), from_raw.is_unsigned()) {
-        (x, false) => {
-            let data_size = MemorySize::from_bytes(x);
+            match (from_raw.memory_size(asm_data).size_bytes(), from_raw.is_unsigned()) {
+                (x, false) => {
+                    let data_size = MemorySize::from_bytes(x);
 
-            result.add_commented_instruction(AsmOperation::BLANK, format!("casting signed {} integer to i64", data_size));
+                    result.add_comment(format!("casting signed {} integer to i64", data_size));
 
-            result.add_instruction(AsmOperation::SignExtendACC { old_size: data_size});//sign extend rax to i64
+                    result.add_instruction(AsmOperation::SignExtendACC { old_size: data_size});//sign extend rax to i64
 
-            result.merge(&cast_raw_from_acc(&BaseType::I64, to_raw, asm_data));//cast the i64 back down to whatever new_type is
-        }
-        (x, true) => {
-            let data_size = MemorySize::from_bytes(x);
+                    result.merge(&cast_raw_from_acc(&BaseType::I64, to_raw, asm_data));//cast the i64 back down to whatever new_type is
+                }
+                (x, true) => {
+                    let data_size = MemorySize::from_bytes(x);
 
-            result.add_commented_instruction(AsmOperation::BLANK, format!("casting unsigned {} integer to u64", data_size));
-            result.add_instruction(AsmOperation::ZeroExtendACC { old_size: data_size});//zero extend rax to u64
+                    result.add_commented_instruction(AsmOperation::BLANK, format!("casting unsigned {} integer to u64", data_size));
+                    result.add_instruction(AsmOperation::ZeroExtendACC { old_size: data_size});//zero extend rax to u64
 
-            result.merge(&cast_raw_from_acc(&BaseType::U64, to_raw, asm_data));//cast the u64 back down to whatever new_type is
+                    result.merge(&cast_raw_from_acc(&BaseType::U64, to_raw, asm_data));//cast the u64 back down to whatever new_type is
 
-        }
+                }
+            }
+        },
+
+        //integer to float
+        (true, false) => {
+            result.add_commented_instruction(AsmOperation::I64ToF32 { from: RegOrMem::Reg(GPRegister::acc()), to: MMRegister::acc() }, format!("casting GP accumulator to FP accumulator"));
+        },
+
+        _ => panic!()
     }
 
     result

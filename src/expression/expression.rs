@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -223,7 +223,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expres
     let rhs_temporary_address = stack_data.clone();
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::Mem(MemoryOperand::SubFromBP(rhs_temporary_address)),
-        from: Operand::Reg(Register::acc()),
+        from: Operand::Reg(GPRegister::acc()),
         size: rhs_new_size,
     });
 
@@ -236,7 +236,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expres
 
     //read rhs to secondary
     result.add_instruction(AsmOperation::MOV {
-        to: RegOrMem::Reg(Register::secondary()),
+        to: RegOrMem::Reg(GPRegister::secondary()),
         from: Operand::Mem(MemoryOperand::SubFromBP(rhs_temporary_address)),
         size: rhs_new_size,
     });
@@ -261,19 +261,19 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             //store the destination address in a temporary stack variable
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Mem(MemoryOperand::SubFromBP(destination_temporary_storage)),
-                from: Operand::Reg(Register::acc()),
+                from: Operand::Reg(GPRegister::acc()),
                 size: PTR_SIZE,
             });
 
             result.merge(&rhs_addr_asm);//get src address
 
             result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Reg(Register::_SI),
-                from: Operand::Reg(Register::acc()),
+                to: RegOrMem::Reg(GPRegister::_SI),
+                from: Operand::Reg(GPRegister::acc()),
                 size: PTR_SIZE,
             });
             result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Reg(Register::_DI),
+                to: RegOrMem::Reg(GPRegister::_DI),
                 from: Operand::Mem(MemoryOperand::SubFromBP(destination_temporary_storage)),
                 size: PTR_SIZE,
             });
@@ -297,7 +297,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             let lhs_addr_storage = stack_data.clone();
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
-                from: Operand::Reg(Register::acc()),
+                from: Operand::Reg(GPRegister::acc()),
                 size: PTR_SIZE,
             });
 
@@ -313,7 +313,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
                 //get address of the start of the array
                 result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Reg(Register::secondary()),
+                    to: RegOrMem::Reg(GPRegister::secondary()),
                     from: Operand::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
                     size: PTR_SIZE,
                 });
@@ -321,14 +321,14 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 let array_start_offset = MemorySize::from_bytes(i as u64 * array_element_size.size_bytes());//how many bytes from the start of the array is the item
                 //add the index to it: (void*)ndarray + i
                 result.add_instruction(AsmOperation::ADD {
-                    destination: RegOrMem::Reg(Register::secondary()),
+                    destination: RegOrMem::Reg(GPRegister::secondary()),
                     increment: Operand::Imm(array_start_offset.as_imm()),
                     data_type: DataType::RAW(BaseType::U64),
                 });
 
                 result.add_commented_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: Register::secondary() }),
-                    from: Operand::Reg(Register::acc()),
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+                    from: Operand::Reg(GPRegister::acc()),
                     size: array_element_size,
                 }, format!("initialising element {} of array", i));
             }
@@ -348,7 +348,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             let lhs_temporary_address = stack_data.clone();
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)),
-                from: Operand::Reg(Register::acc()),
+                from: Operand::Reg(GPRegister::acc()),
                 size: PTR_SIZE,
             });
             
@@ -362,15 +362,15 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
             //read lhs as address to assign to
             result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Reg(Register::secondary()),
+                to: RegOrMem::Reg(GPRegister::secondary()),
                 from: Operand::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)),
                 size: PTR_SIZE,
             });
 
             //save to memory
             result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Mem(MemoryOperand::MemoryAddress {pointer_reg: Register::secondary()} ),
-                from: Operand::Reg(Register::acc()), 
+                to: RegOrMem::Mem(MemoryOperand::MemoryAddress {pointer_reg: GPRegister::secondary()} ),
+                from: Operand::Reg(GPRegister::acc()), 
                 size: promoted_type.memory_size(asm_data)
             });
         },

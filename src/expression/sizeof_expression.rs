@@ -1,6 +1,6 @@
 use colored::Colorize;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::Register, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}};
 
 use super::expression::Expression;
 
@@ -17,7 +17,7 @@ impl SizeofExpr {
         let size = self.get_result(asm_data);
 
         result.add_instruction(AsmOperation::MOV {
-            to: RegOrMem::Reg(Register::acc()),
+            to: RegOrMem::Reg(GPRegister::acc()),
             from: Operand::Imm(size.as_imm()),
             size: PTR_SIZE,//standard actually says it should be a size_t
         });

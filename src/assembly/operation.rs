@@ -1,4 +1,4 @@
-use crate::{assembly::operand::register::Register, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{assembly::operand::register::{GPRegister, MMRegister}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
 use super::{comparison::AsmComparison, operand::{Operand, RegOrMem, PTR_SIZE}};
@@ -22,6 +22,9 @@ pub enum AsmOperation {
     SignExtendACC {old_size: MemorySize},
     ///zero extends the accumulator to u64 from the old size
     ZeroExtendACC {old_size: MemorySize},
+
+    /// Convert I64 to F32
+    I64ToF32 {from: RegOrMem, to: MMRegister},
 
     ///adds increment to destination
     ADD {destination: RegOrMem, increment: Operand, data_type: DataType},
@@ -92,6 +95,8 @@ impl AsmOperation {
             AsmOperation::SHL { destination, amount, base_type } => instruction_shiftleft(destination, amount, base_type),
             AsmOperation::SHR { destination, amount, base_type } => instruction_shiftright(destination, amount, base_type),
             AsmOperation::BitwiseNot { item, size } => format!("not {}", item.generate_name(*size)),
+
+            AsmOperation::I64ToF32 { from, to } => format!("cvtsi2ss {}, {}", to.generate_name(MemorySize::from_bytes(4)), from.generate_name(MemorySize::from_bytes(8)))
         }
     }
 }
@@ -252,12 +257,13 @@ impl IRDisplay for AsmOperation {
                     label
                 ),
                 
-            AsmOperation::SignExtendACC { old_size } => format!("{} {} from {}", opcode!("sign extend"), Register::acc().display_ir(), old_size),
-            AsmOperation::ZeroExtendACC { old_size } => format!("{} {} from {}", opcode!("zero extend"), Register::acc().display_ir(), old_size),
+            AsmOperation::SignExtendACC { old_size } => format!("{} {} from {}", opcode!("sign extend"), GPRegister::acc().display_ir(), old_size),
+            AsmOperation::ZeroExtendACC { old_size } => format!("{} {} from {}", opcode!("zero extend"), GPRegister::acc().display_ir(), old_size),
+            AsmOperation::I64ToF32 { from, to } => format!("{} = (float){}", to.display_ir(), from.display_ir()),
             AsmOperation::ADD { destination, increment, data_type } => format!("{} += {} ({})", destination.display_ir(), increment.display_ir(), data_type),
             AsmOperation::SUB { destination, decrement, data_type } => format!("{} -= {} ({})", destination.display_ir(), decrement.display_ir(), data_type),
-            AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", Register::acc().display_ir(), multiplier.display_ir(), data_type),
-            AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", Register::acc().display_ir(), divisor.display_ir(), data_type),
+            AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", GPRegister::acc().display_ir(), multiplier.display_ir(), data_type),
+            AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", GPRegister::acc().display_ir(), divisor.display_ir(), data_type),
             AsmOperation::SHL { destination, amount, base_type } => format!("{} <<= {} ({})", destination.display_ir(), amount.display_ir(), base_type),
             AsmOperation::SHR { destination, amount, base_type } => format!("{} >>= {} ({})", destination.display_ir(), amount.display_ir(), base_type),
             AsmOperation::NEG { item, data_type } => format!("{} {} ({})", opcode!("NEG"), item.display_ir(), data_type),

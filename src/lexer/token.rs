@@ -39,6 +39,8 @@ pub enum Token {
     #[token("unsigned", |_| TypeInfo::UNSIGNED)]
     #[token("signed", |_| TypeInfo::SIGNED)]
     #[token("void", |_| TypeInfo::VOID)]
+    #[token("float", |_| TypeInfo::FLOAT)]
+    #[token("double", |_| TypeInfo::DOUBLE)]
     TYPESPECIFIER(TypeInfo),
 
     #[token("auto", |_| StorageDuration::Default)]

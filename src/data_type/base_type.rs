@@ -167,18 +167,24 @@ pub fn new_from_type_list(type_info: &[TypeInfo]) -> BaseType {
         _ => panic!("unknown type")
     };
 
-    let base_type = match (unsigned, size_bytes) {
-        (true, 8) => BaseType::U64,
-        (false, 8) => BaseType::I64,
-        (true, 4) => BaseType::U32,
-        (false, 4) => BaseType::I32,
-        (true, 2) => BaseType::U16,
-        (false, 2) => BaseType::I16,
-        (true, 1) => BaseType::U8,
-        (false, 1) => BaseType::I8,
+    if type_info.contains(&TypeInfo::DOUBLE) {
+        assert!(!unsigned);//can't have unsigned double
+        BaseType::F64
+    } else if type_info.contains(&TypeInfo::FLOAT) {
+        BaseType::F32
+    } else {
+        match (unsigned, size_bytes) {
+            (true, 8) => BaseType::U64,
+            (false, 8) => BaseType::I64,
+            (true, 4) => BaseType::U32,
+            (false, 4) => BaseType::I32,
+            (true, 2) => BaseType::U16,
+            (false, 2) => BaseType::I16,
+            (true, 1) => BaseType::U8,
+            (false, 1) => BaseType::I8,
 
-        (_, _) => panic!("unsupported size"),
-    };
+            (_, _) => panic!("unsupported size"),
+        }
+    }
 
-    base_type
 }

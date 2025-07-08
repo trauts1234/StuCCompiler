@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::Register, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::literal_value::LiteralValue, struct_member_access::StructMemberAccess};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::literal_value::LiteralValue, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
@@ -24,7 +24,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         result.add_comment(format!("reading number literal: {:?}", number.get_value()));
 
         result.add_instruction(AsmOperation::MOV {
-            to: RegOrMem::Reg(Register::acc()),
+            to: RegOrMem::Reg(GPRegister::acc()),
             from: match number.get_value() {
                 LiteralValue::INTEGER(value) => Operand::Imm(ImmediateValue(value.to_string())),
                 LiteralValue::FLOAT { label, ..} => Operand::Mem(MemoryOperand::LabelAccess(label.to_string())),
@@ -51,7 +51,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             result.add_comment(format!("reading variable: {}", var.name));
 
             result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Reg(Register::acc()),
+                to: RegOrMem::Reg(GPRegister::acc()),
                 from: self.asm_data.get_variable(&var.name).location.clone(),
                 size: reg_size,
             });
@@ -63,7 +63,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     fn visit_string_literal(&mut self, string: &crate::string_literal::StringLiteral) -> Self::Output {
         let mut result = Assembly::make_empty();
         result.add_instruction(AsmOperation::LEA {
-            to: RegOrMem::Reg(Register::acc()),
+            to: RegOrMem::Reg(GPRegister::acc()),
             from: Operand::Mem(MemoryOperand::LabelAccess(string.get_label().to_string()))
         });//warning: duplicated code from get address
 
@@ -107,7 +107,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
             //offset the start pointer to the address of the member
             result.add_instruction(AsmOperation::ADD {
-                destination: RegOrMem::Reg(Register::acc()),
+                destination: RegOrMem::Reg(GPRegister::acc()),
                 increment: Operand::Imm(member_offset.as_imm()),
                 data_type: DataType::RAW(BaseType::U64),
             });
@@ -118,15 +118,15 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
             //offset the start pointer to the address of the member
             result.add_instruction(AsmOperation::ADD {
-                destination: RegOrMem::Reg(Register::acc()),
+                destination: RegOrMem::Reg(GPRegister::acc()),
                 increment: Operand::Imm(member_offset.as_imm()),
                 data_type: DataType::RAW(BaseType::U64),
             });
 
             //dereference pointer
             result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Reg(Register::acc()),
-                from: Operand::Mem(MemoryOperand::MemoryAddress{pointer_reg: Register::acc() }),
+                to: RegOrMem::Reg(GPRegister::acc()),
+                from: Operand::Mem(MemoryOperand::MemoryAddress{pointer_reg: GPRegister::acc() }),
                 size: member_decl.data_type.memory_size(self.asm_data),
             });
         }

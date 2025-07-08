@@ -1,6 +1,7 @@
-use std::{arch::x86_64, cmp::{self, Ordering}, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
+use std::{cmp::Ordering, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
 use unwrap_let::unwrap_let;
+use uuid::Uuid;
 use crate::{asm_gen_data::GetStruct, assembly::comparison::ComparisonKind, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
 
 use super::literal_value::LiteralValue;
@@ -418,7 +419,10 @@ impl From<&str> for NumberLiteral {
                 let power = 2i128.pow(integer_value(hex_data.exponent_part, 10).try_into().unwrap());//power on hex is 2^num where num is base 10
                 
                 if let Some(frac) = fractional_part {
-                    todo!("hex float literals")
+                    NumberLiteral {
+                        value: LiteralValue::FLOAT { label: format!("float_{}", Uuid::new_v4().simple()), value: (integer_part as f64 + frac) * (power as f64)},
+                        data_type: calculate_suffix_type(hex_data.remainder, true).unwrap_or(BaseType::F64),
+                    }
                 } else {
                     NumberLiteral {
                         value: LiteralValue::INTEGER(integer_part * power),//just an integer
@@ -455,7 +459,10 @@ impl From<&str> for NumberLiteral {
                 let power = 10i128.pow(integer_value(dec_data.exponent_part, 10).try_into().unwrap());//power on denary is 10^num where num is base 10
                 
                 if let Some(frac) = fractional_part {
-                    todo!("base 10 float literals")
+                    NumberLiteral {
+                        value: LiteralValue::FLOAT { label: format!("float_{}", Uuid::new_v4().simple()), value: (integer_part as f64 + frac) * (power as f64)},
+                        data_type: calculate_suffix_type(dec_data.remainder, true).unwrap_or(BaseType::F64),
+                    }
                 } else {
                     NumberLiteral {
                         value: LiteralValue::INTEGER(integer_part * power),//just an integer
@@ -468,17 +475,6 @@ impl From<&str> for NumberLiteral {
 
     }
 
-}
-
-fn calculate_positive_integer(base: u64, digits: &[char]) -> u64 {
-    assert!(!digits.contains(&'.'));
-
-    digits.iter()
-    .map(|c| c.to_digit(base.try_into().unwrap()).unwrap() as u64)//get each digit as a number
-    .rev()//go from lowest place value digit first
-    .enumerate()
-    .map(|(i, digit)| digit * base.pow(i.try_into().unwrap()))//take into account place value of each digit
-    .sum()//sum each place value
 }
 
 fn powers_iter(base: i128) -> impl Iterator<Item = i128> {

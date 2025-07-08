@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::Register, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::GPRegister, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use memory_size::MemorySize;
 
@@ -144,7 +144,7 @@ impl IterationStatement {
 
                 //compare the result to 0
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Reg(Register::acc()),
+                    lhs: Operand::Reg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: condition_type.clone()
                 });
@@ -186,7 +186,7 @@ impl IterationStatement {
 
                 // compare the result to 0
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Reg(Register::acc()),
+                    lhs: Operand::Reg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: condition_type.clone(),
                 });
