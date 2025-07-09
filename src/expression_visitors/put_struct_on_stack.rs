@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, struct_member_access::StructMemberAccess};
+use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::GPRegister, Operand, GPRegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::expr_visitor::ExprVisitor;
@@ -96,7 +96,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
 
         //increase pointer to index of member
         result.add_instruction(AsmOperation::ADD {
-            destination: RegOrMem::Reg(GPRegister::acc()),
+            destination: GPRegOrMem::Reg(GPRegister::acc()),
             increment: Operand::Imm(member_data.1.as_imm()),
             data_type: DataType::RAW(BaseType::U64),
         });
@@ -123,12 +123,12 @@ fn clone_struct_to_stack(struct_size: MemorySize, resulatant_location: &Operand)
     
     //put destination in RDI
     result.add_instruction(AsmOperation::LEA {
-        to: RegOrMem::Reg(GPRegister::_DI),
+        to: GPRegOrMem::Reg(GPRegister::_DI),
         from: resulatant_location.clone(),
     });
     //put source in RSI
     result.add_instruction(AsmOperation::MOV {
-        to: RegOrMem::Reg(GPRegister::_SI),
+        to: GPRegOrMem::Reg(GPRegister::_SI),
         from: Operand::Reg(GPRegister::acc()),
         size: PTR_SIZE,
     });
@@ -138,7 +138,7 @@ fn clone_struct_to_stack(struct_size: MemorySize, resulatant_location: &Operand)
 
     //point to the cloned struct
     result.add_instruction(AsmOperation::LEA {
-        to: RegOrMem::Reg(GPRegister::acc()),
+        to: GPRegOrMem::Reg(GPRegister::acc()),
         from: resulatant_location.clone(),
     });
 

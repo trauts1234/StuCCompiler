@@ -8,7 +8,7 @@ use register::GPRegister;
 
 use memory_size::MemorySize;
 
-use crate::debugging::IRDisplay;
+use crate::{assembly::operand::register::MMRegister, debugging::IRDisplay};
 
 pub const PTR_SIZE: MemorySize = MemorySize::from_bytes(8);
 
@@ -23,8 +23,14 @@ pub enum Operand {
 }
 
 #[derive(Clone)]
-pub enum RegOrMem {
+pub enum GPRegOrMem {
     Reg(GPRegister),
+    Mem(MemoryOperand),
+}
+
+#[derive(Clone)]
+pub enum MMRegOrMem {
+    Reg(MMRegister),
     Mem(MemoryOperand),
 }
 
@@ -50,20 +56,20 @@ impl Operand {
     }
 }
 
-impl RegOrMem {
+impl GPRegOrMem {
     pub fn generate_name(&self, data_size: MemorySize) -> String {
         match self {
-            RegOrMem::Reg(register) => register.generate_name(data_size),
-            RegOrMem::Mem(memory_operand) => memory_operand.generate_name(),
+            GPRegOrMem::Reg(register) => register.generate_name(data_size),
+            GPRegOrMem::Mem(memory_operand) => memory_operand.generate_name(),
         }
     }
 }
 
-impl IRDisplay for RegOrMem {
+impl IRDisplay for GPRegOrMem {
     fn display_ir(&self) -> String {
         match self {
-            RegOrMem::Reg(register) => register.display_ir(),
-            RegOrMem::Mem(memory_operand) => memory_operand.display_ir(),
+            GPRegOrMem::Reg(register) => register.display_ir(),
+            GPRegOrMem::Mem(memory_operand) => memory_operand.display_ir(),
         }
     }
 }

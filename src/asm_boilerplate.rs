@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::{GPRegister, MMRegister}, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::{GPRegister, MMRegister}, Operand, GPRegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
 use memory_size::MemorySize;
 
 pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmData) -> Assembly {
@@ -19,6 +19,7 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmDat
 
 fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData) -> Assembly {
     let mut result = Assembly::make_empty();
+    println!("from {:?} to {:?}", from_raw, to_raw);
     if to_raw == &BaseType::_BOOL {
         //boolean, so I need to cmp 0
         result.add_instruction(AsmOperation::CMP { 
@@ -28,7 +29,7 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
         });
         //set to 1 or 0 based on whether that value was 0
         result.add_instruction(AsmOperation::SETCC {
-            destination: RegOrMem::Reg(GPRegister::acc()),
+            destination: GPRegOrMem::Reg(GPRegister::acc()),
             comparison: AsmComparison::NE,
         });
 
@@ -65,8 +66,32 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
 
         //integer to float
         (true, false) => {
-            result.add_commented_instruction(AsmOperation::I64ToF32 { from: RegOrMem::Reg(GPRegister::acc()), to: MMRegister::acc() }, format!("casting GP accumulator to FP accumulator"));
+            let casted_from = if from_raw.is_signed() {
+                cast_raw_from_acc(from_raw, &BaseType::I64, asm_data);//cast i__ to i64
+                BaseType::I64
+            } else {
+                cast_raw_from_acc(from_raw, &BaseType::U64, asm_data);//cast u__ to u64
+                BaseType::U64
+            };
+
+            match (casted_from, to_raw) {
+                (BaseType::I64, BaseType::F32) => {
+                    //cast the number to
+                    result.add_commented_instruction(AsmOperation::I64ToF32 { from: GPRegOrMem::Reg(GPRegister::acc()), to: MMRegister::acc() }, format!("casting GP accumulator to FP accumulator"));
+                }
+                _ => panic!("invalid type for float")
+            }
         },
+
+        //float to float cast
+        (false, false) => {
+            match (from_raw.memory_size(asm_data), to_raw.memory_size(asm_data)) {
+                (x, y) if x == y => 
+                    return Assembly::make_empty(),//same size floats, no conversion needed
+
+                _ => panic!()
+            }
+        }
 
         _ => panic!()
     }

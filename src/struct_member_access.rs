@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::GPRegister, Operand, GPRegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 
@@ -54,7 +54,7 @@ impl StructMemberAccess {
 
         //go up by member offset
         result.add_instruction(AsmOperation::ADD {
-            destination: RegOrMem::Reg(GPRegister::acc()),
+            destination: GPRegOrMem::Reg(GPRegister::acc()),
             increment: Operand::Imm(struct_member_offset.as_imm()),
             data_type: DataType::RAW(BaseType::U64)//pointer addition is u64 add
         });

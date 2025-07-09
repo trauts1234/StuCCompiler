@@ -70,7 +70,7 @@ impl NumberLiteral {
                 )
             },
             
-            LiteralValue::FLOAT {value, .. } => {
+            LiteralValue::FLOAT(value) => {
                 match self.data_type {
                     BaseType::F32 => format!("{} dd {:.1}", variable_name, value),
                     BaseType::F64 => format!("{} dq {:.1}", variable_name, value),
@@ -95,6 +95,10 @@ impl NumberLiteral {
             (LiteralValue::INTEGER(val), BaseType::U64) => LiteralValue::INTEGER(val as u64 as i128),
 
             (LiteralValue::INTEGER(val), BaseType::_BOOL) => LiteralValue::INTEGER(if val == 0 {0} else {1}),//booleans are 1 if nonzero
+            (LiteralValue::FLOAT (value), BaseType::_BOOL) => LiteralValue::INTEGER(if value == 0.0 {0} else {1}),
+
+            (LiteralValue::FLOAT(value), BaseType::F32) => LiteralValue::FLOAT(value as f32 as f64),
+            (LiteralValue::FLOAT(value), BaseType::F64) => LiteralValue::FLOAT(value),//already a f64
 
             _ => panic!("tried to cast number literal to unknown data type")
         };
@@ -142,9 +146,9 @@ impl NumberLiteral {
 
         let cmp_result = match (lhs.value, rhs.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => x.cmp(&y),
-            (LiteralValue::INTEGER(x), LiteralValue::FLOAT {value: y, ..}) => cmp_i128_f64(x, y),
-            (LiteralValue::FLOAT {value:x,..}, LiteralValue::INTEGER(y)) => cmp_i128_f64(y, x).reverse(),
-            (LiteralValue::FLOAT {value:x,..}, LiteralValue::FLOAT {value:y,..}) => x.partial_cmp(&y).unwrap(),
+            (LiteralValue::INTEGER(x), LiteralValue::FLOAT(y)) => cmp_i128_f64(x, y),
+            (LiteralValue::FLOAT(x), LiteralValue::INTEGER(y)) => cmp_i128_f64(y, x).reverse(),
+            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => x.partial_cmp(&y).unwrap(),
         };
 
         let result = 
@@ -212,11 +216,13 @@ impl Neg for NumberLiteral {
     fn neg(self) -> Self::Output {
         let mut promoted = self.unary_promote();
 
-        promoted.value = match (&promoted.value, &promoted.data_type) {
+        promoted.value = match (promoted.value.clone(), &promoted.data_type) {
             (LiteralValue::INTEGER(x), BaseType::I32) => LiteralValue::INTEGER((-x) as i32 as i128),
             (LiteralValue::INTEGER(x), BaseType::U32) => LiteralValue::INTEGER((-x) as u32 as i128),
             (LiteralValue::INTEGER(x), BaseType::I64) => LiteralValue::INTEGER((-x) as i64 as i128),
             (LiteralValue::INTEGER(x), BaseType::U64) => LiteralValue::INTEGER((-x) as u64 as i128),
+            (LiteralValue::FLOAT(value), BaseType::F32) => LiteralValue::FLOAT((-value) as f32 as f64),
+            (LiteralValue::FLOAT(value), BaseType::F64) => LiteralValue::FLOAT(-value),
             _ => panic!("invalid promoted type")
         };
 
@@ -390,7 +396,7 @@ impl Display for NumberLiteral {
         write!(f, "{}",
         match self.value {
             LiteralValue::INTEGER(x) => x.to_string().cyan().to_string(),
-            LiteralValue::FLOAT {value, ..} => format!("{:.1}", value).cyan().to_string()
+            LiteralValue::FLOAT(value) => format!("{:.1}", value).cyan().to_string()
         })
     }
 }
@@ -416,16 +422,16 @@ impl From<&str> for NumberLiteral {
                 let hex_data = hex_parse::hex_parse(rem);
                 let integer_part = integer_value(hex_data.integer_part, 16);
                 let fractional_part = fractional_value(hex_data.fractional_part, 16);
-                let power = 2i128.pow(integer_value(hex_data.exponent_part, 10).try_into().unwrap());//power on hex is 2^num where num is base 10
+                let power: i32 = (if hex_data.negative_exponent { -1 } else { 1 } * integer_value(hex_data.exponent_part, 10)).try_into().unwrap();
                 
                 if let Some(frac) = fractional_part {
                     NumberLiteral {
-                        value: LiteralValue::FLOAT { label: format!("float_{}", Uuid::new_v4().simple()), value: (integer_part as f64 + frac) * (power as f64)},
+                        value: LiteralValue::FLOAT((integer_part as f64 + frac) * 2f64.powi(power)),
                         data_type: calculate_suffix_type(hex_data.remainder, true).unwrap_or(BaseType::F64),
                     }
                 } else {
                     NumberLiteral {
-                        value: LiteralValue::INTEGER(integer_part * power),//just an integer
+                        value: LiteralValue::INTEGER(integer_part * 2i128.pow(power.try_into().unwrap())),//just an integer
                         //read the suffix (non-float) or calculate the best type
                         data_type: calculate_suffix_type(hex_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
                     }
@@ -456,18 +462,19 @@ impl From<&str> for NumberLiteral {
                 let dec_data = dec_parse::dec_parse(rem);
                 let integer_part = integer_value(dec_data.integer_part, 10);
                 let fractional_part = fractional_value(dec_data.decimal_part, 10);
-                let power = 10i128.pow(integer_value(dec_data.exponent_part, 10).try_into().unwrap());//power on denary is 10^num where num is base 10
+                let suffix_type = calculate_suffix_type(dec_data.remainder, fractional_part.is_some());
+                let power: i32 = (if dec_data.negative_exponent { -1 } else { 1 } * integer_value(dec_data.exponent_part, 10)).try_into().unwrap();
                 
                 if let Some(frac) = fractional_part {
                     NumberLiteral {
-                        value: LiteralValue::FLOAT { label: format!("float_{}", Uuid::new_v4().simple()), value: (integer_part as f64 + frac) * (power as f64)},
-                        data_type: calculate_suffix_type(dec_data.remainder, true).unwrap_or(BaseType::F64),
+                        value: LiteralValue::FLOAT((integer_part as f64 + frac) * 10f64.powi(power)),
+                        data_type: suffix_type.unwrap_or(BaseType::F64),
                     }
                 } else {
                     NumberLiteral {
-                        value: LiteralValue::INTEGER(integer_part * power),//just an integer
+                        value: LiteralValue::INTEGER(integer_part * 10i128.pow(power.try_into().unwrap())),//just an integer
                         //read the suffix (non-float) or calculate the best type
-                        data_type: calculate_suffix_type(dec_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
+                        data_type: suffix_type.unwrap_or(calculate_integer_type(integer_part)),
                     }
                 }
             }
@@ -553,9 +560,11 @@ mod dec_parse {
         pub decimal_part: &'a[char],
         pub exponent_part: &'a[char],
         pub remainder: &'a[char],
+        pub negative_exponent: bool,
     }
     /// Parses the whole of a hex number including decimals and exponents
     pub fn dec_parse(remainder: &[char]) -> DecParseResult {
+        println!("{:?}", remainder);
         //parse the `123` part of `123.44e10`
         let (integer_part, remainder) = dec_run(remainder);
 
@@ -565,8 +574,12 @@ mod dec_parse {
             _ => (&remainder[0..0], remainder)//probably an exponent
         };
 
-        let (exponent_part, remainder) = match remainder.first() {
-            Some('e') => dec_run(&remainder[1..]),
+        //10e-2
+        let negative_exponent = remainder.get(1).is_some_and(|tok| *tok == '-');
+        let (exponent_part, remainder) = match remainder {
+            ['e', '-', rem @ ..] |
+            ['e', '+', rem @ ..] |
+            ['e', rem @ ..] => dec_run(rem),
             _ => (&remainder[0..0], remainder)
         };
 
@@ -574,7 +587,8 @@ mod dec_parse {
             integer_part,
             decimal_part,
             exponent_part,
-            remainder
+            remainder,
+            negative_exponent
         }
     }
 }
@@ -587,6 +601,7 @@ mod hex_parse {
         pub fractional_part: &'a[char],
         pub exponent_part: &'a[char],
         pub remainder: &'a[char],
+        pub negative_exponent: bool,
     }
     /// Parses the whole of a hex number including decimals and exponents
     pub fn hex_parse(remainder: &[char]) -> HexParseResult {
@@ -599,8 +614,12 @@ mod hex_parse {
             _ => (&remainder[0..0], remainder)//probably an exponent
         };
 
-        let (exponent_part, remainder) = match remainder.first() {
-            Some('e') => dec_run(&remainder[1..]),//dec run since exponent is always in base 10
+        //10e-2
+        let negative_exponent = remainder.get(1).is_some_and(|tok| *tok == '-');
+        let (exponent_part, remainder) = match remainder {
+            ['p', '-', rem @ ..] |
+            ['p', '+', rem @ ..] |
+            ['p', rem @ ..] => dec_run(rem),//hex exponents are still base 10
             _ => (&remainder[0..0], remainder)
         };
 
@@ -608,7 +627,8 @@ mod hex_parse {
             integer_part,
             fractional_part: decimal_part,
             exponent_part,
-            remainder
+            remainder,
+            negative_exponent
         }
     }
 }

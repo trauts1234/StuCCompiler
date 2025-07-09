@@ -227,24 +227,32 @@ pub fn calculate_unary_type_arithmetic(lhs: &DataType) -> DataType {
     match lhs.decay() {
         DataType::POINTER(_) => lhs.clone(),
         DataType::RAW(lhs_base) => {
-            assert!(lhs_base.is_integer());
+            match lhs_base.is_integer() {
+                true => match (lhs_base.get_non_struct_memory_size().size_bytes(), lhs_base.is_unsigned()) {
+                    (0..4, _) |// small enough to be cast to int easily
+                    (4, false)//signed, and both int sized
+                        => DataType::new(BaseType::I32),
+        
+                    (4, true) => DataType::new(BaseType::U32),
+        
+                    (5..8, _) |// small enough to be cast to long long easily
+                    (8, false)//signed, and long long sized
+                        => DataType::new(BaseType::I64),
+        
+                    (8, true) =>  DataType::new(BaseType::U64),
+        
+                    (9.., _) => panic!("integer size too large!")
+        
+                },
 
-            match (lhs_base.get_non_struct_memory_size().size_bytes(), lhs_base.is_unsigned()) {
-                (0..4, _) |// small enough to be cast to int easily
-                (4, false)//signed, and both int sized
-                    => DataType::new(BaseType::I32),
-    
-                (4, true) => DataType::new(BaseType::U32),
-    
-                (5..8, _) |// small enough to be cast to long long easily
-                (8, false)//signed, and long long sized
-                    => DataType::new(BaseType::I64),
-    
-                (8, true) =>  DataType::new(BaseType::U64),
-    
-                (9.., _) => panic!("integer size too large!")
-    
+                false => match lhs_base.get_non_struct_memory_size().size_bytes() {
+                    4 => DataType::new(BaseType::F32),
+                    8 => DataType::new(BaseType::F64),
+                    _ => panic!("unsupported float size")
+                }
             }
+
+            
         },
 
         _ => panic!()//should never happen as decay always returns pointer or raw
