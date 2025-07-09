@@ -17,7 +17,8 @@ pub const PTR_SIZE: MemorySize = MemorySize::from_bytes(8);
  */
 #[derive(Clone, Debug)]
 pub enum Operand {
-    Reg(GPRegister),
+    GPReg(GPRegister),
+    MMReg(MMRegister),
     Mem(MemoryOperand),
     Imm(ImmediateValue),
 }
@@ -45,7 +46,8 @@ pub fn generate_param_reg(param_num: u64) -> GPRegister {
 impl Operand {
     pub fn generate_name(&self, data_size: MemorySize) -> String {
         match self {
-            Operand::Reg(register) => register.generate_name(data_size),
+            Operand::GPReg(register) => register.generate_name(data_size),
+            Operand::MMReg(register) => register.generate_name(data_size),
             Operand::Mem(memory_operand) => memory_operand.generate_name(),
             Operand::Imm(immediate_value) => immediate_value.generate_name(),
         }
@@ -72,7 +74,8 @@ impl IRDisplay for RegOrMem {
 impl IRDisplay for Operand {
     fn display_ir(&self) -> String {
         match self {
-            Operand::Reg(register) => register.display_ir(),
+            Operand::GPReg(register) => register.display_ir(),
+            Operand::MMReg(register) => register.display_ir(),
             Operand::Mem(memory_operand) => memory_operand.display_ir(),
             Operand::Imm(immediate_value) => immediate_value.display_ir(),
         }

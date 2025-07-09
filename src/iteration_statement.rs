@@ -144,7 +144,7 @@ impl IterationStatement {
 
                 //compare the result to 0
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Reg(GPRegister::acc()),
+                    lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: condition_type.clone()
                 });
@@ -186,7 +186,7 @@ impl IterationStatement {
 
                 // compare the result to 0
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Reg(GPRegister::acc()),
+                    lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: condition_type.clone(),
                 });

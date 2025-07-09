@@ -131,7 +131,7 @@ fn clone_struct_to_stack(struct_size: MemorySize, destination: &MemoryOperand) -
     //put source in RSI
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::GPReg(GPRegister::_SI),
-        from: Operand::Reg(GPRegister::acc()),
+        from: Operand::GPReg(GPRegister::acc()),
         size: PTR_SIZE,
     });
 

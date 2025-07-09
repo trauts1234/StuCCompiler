@@ -41,11 +41,11 @@ impl MMRegister {
         }
     }
 
-    pub fn generate_name(&self, data_size: MemorySize) -> &str {
+    pub fn generate_name(&self, data_size: MemorySize) -> String {
         match (self, data_size.size_bits()) {
             (Self::_MM1, 32) | (Self::_MM1, 64) => "xmm1",
             _ => panic!()
-        }
+        }.to_string()
     }
 }
 

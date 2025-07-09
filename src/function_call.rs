@@ -283,7 +283,7 @@ fn push_args_to_stack_backwards(args: &[AllocatedArg], asm_data: &AsmData, stack
 
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::AddToSP(current_sp_offset)),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: alignment_size
                 });
 

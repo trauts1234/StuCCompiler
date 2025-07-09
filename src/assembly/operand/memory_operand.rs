@@ -25,6 +25,15 @@ impl MemoryOperand {
             MemoryOperand::MemoryAddress { pointer_reg } => format!("[{}]", pointer_reg.generate_name(PTR_SIZE)),
         }
     }
+    pub fn generate_sized_name(&self, size: MemorySize) -> String {
+        format!("{} {}", match size.size_bytes() {
+            1 => "BYTE PTR",
+            2 => "WORD PTR",
+            4 => "DWORD PTR",
+            8 => "QWORD PTR",
+            _ => panic!()
+        }, self.generate_name())
+    }
 }
 
 impl IRDisplay for MemoryOperand {

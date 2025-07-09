@@ -46,7 +46,7 @@ impl UnaryPostfixExpression {
                 result.merge(&operand_asm);
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::GPReg(GPRegister::secondary()),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: PTR_SIZE
                 });
 
@@ -58,7 +58,7 @@ impl UnaryPostfixExpression {
                 });
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::GPReg(GPRegister::third()),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data),
                 });
 
@@ -71,7 +71,7 @@ impl UnaryPostfixExpression {
                 //save third to the variable address
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::Reg(GPRegister::third()),
+                    from: Operand::GPReg(GPRegister::third()),
                     size: original_type.memory_size(asm_data),
                 });
 
@@ -97,7 +97,7 @@ impl UnaryPostfixExpression {
                 result.merge(&operand_asm);
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::GPReg(GPRegister::secondary()),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: PTR_SIZE
                 });
 
@@ -109,7 +109,7 @@ impl UnaryPostfixExpression {
                 });
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::GPReg(GPRegister::third()),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data),
                 });
 
@@ -122,7 +122,7 @@ impl UnaryPostfixExpression {
                 //save third to the variable address
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::Reg(GPRegister::third()),
+                    from: Operand::GPReg(GPRegister::third()),
                     size: original_type.memory_size(asm_data),
                 });
 

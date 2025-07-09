@@ -41,7 +41,7 @@ impl BinaryExpression {
 
                 result.add_instruction(AsmOperation::ADD {
                     destination: RegOrMem::GPReg(GPRegister::acc()),
-                    increment: Operand::Reg(GPRegister::secondary()),
+                    increment: Operand::GPReg(GPRegister::secondary()),
                     data_type: promoted_type
                 });
 
@@ -55,7 +55,7 @@ impl BinaryExpression {
 
                 result.add_instruction(AsmOperation::SUB {
                     destination: RegOrMem::GPReg(GPRegister::acc()),
-                    decrement: Operand::Reg(GPRegister::secondary()),
+                    decrement: Operand::GPReg(GPRegister::secondary()),
                     data_type: promoted_type
                 });
 
@@ -102,7 +102,7 @@ impl BinaryExpression {
                 });
 
                 //mod is returned in RDX
-                result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::Reg(GPRegister::_DX), size: promoted_size });
+                result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::GPReg(GPRegister::_DX), size: promoted_size });
             }
 
             comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
@@ -110,8 +110,8 @@ impl BinaryExpression {
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Reg(GPRegister::acc()),
-                    rhs: Operand::Reg(GPRegister::secondary()),
+                    lhs: Operand::GPReg(GPRegister::acc()),
+                    rhs: Operand::GPReg(GPRegister::secondary()),
                     data_type: promoted_type.clone()
                 });
 
@@ -121,7 +121,7 @@ impl BinaryExpression {
                     .to_asm_comparison(promoted_type.decay_to_primative().is_signed());//take signedness and convert comparison kind to an asm comparison
 
                 //create the correct setcc instruction
-                result.add_instruction(AsmOperation::SETCC { destination: RegOrMem::GPReg(GPRegister::acc()), comparison: asm_comparison });
+                result.add_instruction(AsmOperation::SETCC { destination: GPRegister::acc(), comparison: asm_comparison });
 
             },
 
@@ -135,7 +135,7 @@ impl BinaryExpression {
 
                 result.add_instruction(AsmOperation::BitwiseOp {
                     destination: RegOrMem::GPReg(GPRegister::acc()),
-                    secondary: Operand::Reg(GPRegister::secondary()),
+                    secondary: Operand::GPReg(GPRegister::secondary()),
                     operation: instruction,
                     size: MemorySize::from_bytes(1)//1 byte boolean
                 });
@@ -150,7 +150,7 @@ impl BinaryExpression {
 
                 result.add_instruction(AsmOperation::BitwiseOp {
                     destination: RegOrMem::GPReg(GPRegister::acc()),
-                    secondary: Operand::Reg(GPRegister::secondary()),
+                    secondary: Operand::GPReg(GPRegister::secondary()),
                     operation: instruction,
                     size: promoted_size
                 });
@@ -172,7 +172,7 @@ impl BinaryExpression {
                 unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
                 result.add_instruction(AsmOperation::SHR {
                     destination: RegOrMem::GPReg(GPRegister::acc()),
-                    amount: Operand::Reg(GPRegister::secondary()),
+                    amount: Operand::GPReg(GPRegister::secondary()),
                     base_type: lhs_base
                 });
             }
@@ -191,7 +191,7 @@ impl BinaryExpression {
                 unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
                 result.add_instruction(AsmOperation::SHL {
                     destination: RegOrMem::GPReg(GPRegister::acc()),
-                    amount: Operand::Reg(GPRegister::secondary()),
+                    amount: Operand::GPReg(GPRegister::secondary()),
                     base_type: lhs_base
                 });
             }
@@ -305,7 +305,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     let lhs_temporary_address = stack_data.clone();
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)),
-        from: Operand::Reg(GPRegister::acc()),
+        from: Operand::GPReg(GPRegister::acc()),
         size: promoted_size
     });
 
@@ -338,7 +338,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     }
 
     //put RHS in CX 
-    result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::Reg(GPRegister::acc()), size: MemorySize::from_bytes(8)});
+    result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: MemorySize::from_bytes(8)});
 
     //read lhs to acc
     result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)), size: promoted_size });

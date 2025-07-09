@@ -23,13 +23,13 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
     if to_raw == &BaseType::_BOOL {
         //boolean, so I need to cmp 0
         result.add_instruction(AsmOperation::CMP { 
-            lhs: Operand::Reg(GPRegister::acc()),
+            lhs: Operand::GPReg(GPRegister::acc()),
             rhs: Operand::Imm(ImmediateValue("0".to_string())),
             data_type: DataType::RAW(from_raw.clone())
         });
         //set to 1 or 0 based on whether that value was 0
         result.add_instruction(AsmOperation::SETCC {
-            destination: RegOrMem::GPReg(GPRegister::acc()),
+            destination: GPRegister::acc(),
             comparison: AsmComparison::NE,
         });
 

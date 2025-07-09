@@ -86,7 +86,7 @@ impl UnaryPrefixExpression {
                 let operand_address_storage = stack_data.clone();
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: PTR_SIZE
                 });
 
@@ -108,7 +108,7 @@ impl UnaryPrefixExpression {
                 //save the new value of self.operand
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data)
                 });
 
@@ -138,7 +138,7 @@ impl UnaryPrefixExpression {
                 let operand_address_storage = stack_data.clone();
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: PTR_SIZE
                 });
 
@@ -160,7 +160,7 @@ impl UnaryPrefixExpression {
                 //save the new value of self.operand
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data)
                 });
 
@@ -181,14 +181,14 @@ impl UnaryPrefixExpression {
 
                 //compare the boolean to zero
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::Reg(GPRegister::acc()),
+                    lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: DataType::RAW(BaseType::_BOOL),
                 });
 
                 //set 1 if equal to 0 or vice-versa
                 result.add_instruction(AsmOperation::SETCC {
-                    destination: RegOrMem::GPReg(GPRegister::acc()),
+                    destination: GPRegister::acc(),
                     comparison: AsmComparison::EQ,//set to 1 if it was previously equal to 0
                 });
             },

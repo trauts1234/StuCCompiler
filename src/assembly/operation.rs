@@ -14,7 +14,7 @@ pub enum AsmOperation {
     ///compares lhs and rhs, based on their data type
     CMP {lhs: Operand, rhs: Operand, data_type: DataType},
     /// based on the comparison, sets destination to 1 or 0
-    SETCC {destination: RegOrMem, comparison: AsmComparison},
+    SETCC {destination: GPRegister, comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
     JMPCC {label: String, comparison: AsmComparison},
 
@@ -105,28 +105,39 @@ impl AsmOperation {
 
 fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
     match (from, to) {
-        (Operand::Reg(from_reg), RegOrMem::GPReg(to_reg)) => format!("mov {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
-        (Operand::Reg(from_reg), RegOrMem::MMReg(to_reg)) => todo!(),
-        (Operand::Reg(from_reg), RegOrMem::Mem(to_mem)) => format!("mov {}, {}", to_mem.generate_name(), from_reg.generate_name(size)),
-        (Operand::Mem(from_mem), RegOrMem::GPReg(to_reg)) => format!("mov {}, {}", to_reg.generate_name(size), from_mem.generate_name()),
+        (Operand::GPReg(from_reg), RegOrMem::MMReg(to_reg)) => todo!(),
+        (Operand::MMReg(from_reg), RegOrMem::MMReg(to_reg)) => todo!(),
+        (Operand::MMReg(from_reg), RegOrMem::GPReg(to_reg)) => todo!(),
+        (Operand::MMReg(from_reg), RegOrMem::Mem(to_mem)) => todo!(),
         (Operand::Mem(from_mem), RegOrMem::MMReg(to_reg)) => todo!(),
-        (Operand::Imm(imm), RegOrMem::GPReg(to_reg)) => format!("mov {}, {}", to_reg.generate_name(size), imm.generate_name()),
         (Operand::Imm(imm), RegOrMem::MMReg(to_reg)) => todo!(),
         
+        //simple mov commands
+        (Operand::GPReg(_), RegOrMem::GPReg(_))  |
+        (Operand::GPReg(_), RegOrMem::Mem(_)) |
+        (Operand::Mem(_), RegOrMem::GPReg(_)) |
+        (Operand::Imm(_), RegOrMem::GPReg(_)) => format!("mov {}, {}", to.generate_name(size), from.generate_name(size)),
+        
+        //invalid commands
         (Operand::Imm(_), RegOrMem::Mem(_)) => panic!("cannot move an immediate directly to memory"),
         (Operand::Mem(_), RegOrMem::Mem(_)) => panic!("memory-memory mov not supported"),
     }
 }
 
 fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &DataType) -> String {
-    match data_type {
-        DataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
-        DataType::RAW(base) if base.is_integer() => format!("cmp {}, {}", lhs.generate_name(base.get_non_struct_memory_size()), rhs.generate_name(base.get_non_struct_memory_size())),//comparing integers
-        _ => panic!("currently cannot compare this data type")
+    match (lhs, rhs) {
+        (Operand::MMReg(x), y) => todo!(),
+        (x, Operand::MMReg(y)) => todo!(),
+
+        _ => match data_type {
+            DataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
+            DataType::RAW(base) if base.is_integer() => format!("cmp {}, {}", lhs.generate_name(base.get_non_struct_memory_size()), rhs.generate_name(base.get_non_struct_memory_size())),//comparing integers
+            _ => panic!("currently cannot compare this data type")
+        }
     }
 }
 
-fn instruction_setcc(destination: &RegOrMem, comparison: &AsmComparison) -> String {
+fn instruction_setcc(destination: &GPRegister, comparison: &AsmComparison) -> String {
     let reg_name = destination.generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
 
     let comparison_instr = match comparison {

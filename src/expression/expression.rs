@@ -223,7 +223,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expres
     let rhs_temporary_address = stack_data.clone();
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::Mem(MemoryOperand::SubFromBP(rhs_temporary_address)),
-        from: Operand::Reg(GPRegister::acc()),
+        from: Operand::GPReg(GPRegister::acc()),
         size: rhs_new_size,
     });
 
@@ -261,7 +261,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             //store the destination address in a temporary stack variable
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Mem(MemoryOperand::SubFromBP(destination_temporary_storage)),
-                from: Operand::Reg(GPRegister::acc()),
+                from: Operand::GPReg(GPRegister::acc()),
                 size: PTR_SIZE,
             });
 
@@ -269,7 +269,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::GPReg(GPRegister::_SI),
-                from: Operand::Reg(GPRegister::acc()),
+                from: Operand::GPReg(GPRegister::acc()),
                 size: PTR_SIZE,
             });
             result.add_instruction(AsmOperation::MOV {
@@ -297,7 +297,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             let lhs_addr_storage = stack_data.clone();
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
-                from: Operand::Reg(GPRegister::acc()),
+                from: Operand::GPReg(GPRegister::acc()),
                 size: PTR_SIZE,
             });
 
@@ -328,7 +328,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
                 result.add_commented_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: array_element_size,
                 }, format!("initialising element {} of array", i));
             }
@@ -348,7 +348,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             let lhs_temporary_address = stack_data.clone();
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)),
-                from: Operand::Reg(GPRegister::acc()),
+                from: Operand::GPReg(GPRegister::acc()),
                 size: PTR_SIZE,
             });
             
@@ -370,7 +370,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             //save to memory
             result.add_instruction(AsmOperation::MOV {
                 to: RegOrMem::Mem(MemoryOperand::MemoryAddress {pointer_reg: GPRegister::secondary()} ),
-                from: Operand::Reg(GPRegister::acc()), 
+                from: Operand::GPReg(GPRegister::acc()), 
                 size: promoted_type.memory_size(asm_data)
             });
         },

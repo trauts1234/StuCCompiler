@@ -95,7 +95,7 @@ impl FunctionDefinition {
 
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::SubFromBP(*param_offset)),
-                    from: Operand::Reg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: param_size
                 });//store in allocated space
             } else {
@@ -104,7 +104,7 @@ impl FunctionDefinition {
                 //then write to its allocated address on the stack
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::SubFromBP(*param_offset)),
-                    from: Operand::Reg(param_reg),
+                    from: Operand::GPReg(param_reg),
                     size: param_size
                 });
             }
