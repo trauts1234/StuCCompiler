@@ -42,7 +42,7 @@ pub enum AsmOperation {
     SHR {destination: GPRegOrMem, amount: Operand, base_type: BaseType},
 
     ///negates the item, taking into account its data type
-    NEG {item: GPRegOrMem, data_type: DataType},
+    NEG {item: GPRegister, data_type: BaseType},
     ///performs bitwise not to the item
     BitwiseNot {item: GPRegOrMem, size: MemorySize},
 
@@ -174,11 +174,9 @@ fn instruction_sub(destination: &GPRegOrMem, decrement: &Operand, data_type: &Da
     }
 }
 
-fn instruction_neg(destination: &GPRegOrMem, data_type: &DataType) -> String {
-    match data_type {
-        DataType::RAW(base) if base.is_integer() => format!("neg {}", destination.generate_name(base.get_non_struct_memory_size())),
-        _ => panic!("currently cannot negate this data type")
-    }
+fn instruction_neg(destination: &GPRegister, data_type: &BaseType) -> String {
+    assert!(data_type.is_integer());
+    format!("neg {}", destination.generate_name(data_type.get_non_struct_memory_size()))
 }
 
 fn instruction_div(divisor: &GPRegOrMem, data_type: &DataType) -> String {

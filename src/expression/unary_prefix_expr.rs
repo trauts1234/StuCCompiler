@@ -1,6 +1,7 @@
 use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, GPRegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use colored::Colorize;
 use memory_size::MemorySize;
+use unwrap_let::unwrap_let;
 
 #[derive(Clone, Debug)]
 pub struct UnaryPrefixExpression {
@@ -50,7 +51,8 @@ impl UnaryPrefixExpression {
                 result.merge(&operand_asm);
                 result.merge(&cast_asm);//cast to the correct type
 
-                result.add_instruction(AsmOperation::NEG { item: GPRegOrMem::Reg(GPRegister::acc()), data_type: promoted_type });//negate the promoted value
+                unwrap_let!(DataType::RAW(promoted_base) = promoted_type);
+                result.add_instruction(AsmOperation::NEG { item: GPRegister::acc(), data_type: promoted_base });//negate the promoted value
             },
             UnaryPrefixOperator::UnaryPlus => {
                 result.add_comment("unary +");

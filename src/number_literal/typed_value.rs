@@ -88,19 +88,29 @@ impl NumberLiteral {
             (LiteralValue::INTEGER(val), BaseType::I16) => LiteralValue::INTEGER(val as i16 as i128),
             (LiteralValue::INTEGER(val), BaseType::I32) => LiteralValue::INTEGER(val as i32 as i128),
             (LiteralValue::INTEGER(val), BaseType::I64) => LiteralValue::INTEGER(val as i64 as i128),
+            (LiteralValue::INTEGER(val), BaseType::F32) => LiteralValue::FLOAT(val as f32 as f64),
+            (LiteralValue::INTEGER(val), BaseType::F64) => LiteralValue::FLOAT(val as f64),
+
+            (LiteralValue::FLOAT(val), BaseType::I8)=> LiteralValue::INTEGER(val as i8 as i128),
+            (LiteralValue::FLOAT(val), BaseType::I16) => LiteralValue::INTEGER(val as i16 as i128),
+            (LiteralValue::FLOAT(val), BaseType::I32) => LiteralValue::INTEGER(val as i32 as i128),
+            (LiteralValue::FLOAT(val), BaseType::I64) => LiteralValue::INTEGER(val as i64 as i128),
+            (LiteralValue::FLOAT(val), BaseType::F32) => LiteralValue::FLOAT(val as f32 as f64),
+            (LiteralValue::FLOAT(val), BaseType::F64) => LiteralValue::FLOAT(val),
 
             (LiteralValue::INTEGER(val), BaseType::U8)=> LiteralValue::INTEGER(val as u8 as i128),
             (LiteralValue::INTEGER(val), BaseType::U16) => LiteralValue::INTEGER(val as u16 as i128),
             (LiteralValue::INTEGER(val), BaseType::U32) => LiteralValue::INTEGER(val as u32 as i128),
             (LiteralValue::INTEGER(val), BaseType::U64) => LiteralValue::INTEGER(val as u64 as i128),
+            (LiteralValue::FLOAT(val), BaseType::U8)=> LiteralValue::INTEGER(val as u8 as i128),
+            (LiteralValue::FLOAT(val), BaseType::U16) => LiteralValue::INTEGER(val as u16 as i128),
+            (LiteralValue::FLOAT(val), BaseType::U32) => LiteralValue::INTEGER(val as u32 as i128),
+            (LiteralValue::FLOAT(val), BaseType::U64) => LiteralValue::INTEGER(val as u64 as i128),
 
             (LiteralValue::INTEGER(val), BaseType::_BOOL) => LiteralValue::INTEGER(if val == 0 {0} else {1}),//booleans are 1 if nonzero
             (LiteralValue::FLOAT (value), BaseType::_BOOL) => LiteralValue::INTEGER(if value == 0.0 {0} else {1}),
 
-            (LiteralValue::FLOAT(value), BaseType::F32) => LiteralValue::FLOAT(value as f32 as f64),
-            (LiteralValue::FLOAT(value), BaseType::F64) => LiteralValue::FLOAT(value),//already a f64
-
-            _ => panic!("tried to cast number literal to unknown data type")
+            x => panic!("tried to cast number literal to unknown data type: {:?}", x)
         };
 
         NumberLiteral { value: new_value, data_type: new_type.clone() }
@@ -283,7 +293,8 @@ impl Add for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x + y),
-            _ => todo!()
+            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => LiteralValue::FLOAT(x + y),
+            _ => panic!()
         };
 
         l.limit_literal()
@@ -297,7 +308,8 @@ impl Sub for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x - y),
-            _ => todo!()
+            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => LiteralValue::FLOAT(x - y),
+            _ => panic!()
         };
 
         l.limit_literal()
@@ -312,7 +324,8 @@ impl Mul for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x * y),
-            _ => todo!()
+            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => LiteralValue::FLOAT(x * y),
+            _ => panic!()
         };
 
         l.limit_literal()
@@ -327,7 +340,8 @@ impl Div for NumberLiteral {
 
         l.value = match (l.value, r.value) {
             (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x / y),
-            _ => todo!()
+            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => LiteralValue::FLOAT(x / y),
+            _ => panic!()
         };
 
         l.limit_literal()
@@ -420,20 +434,27 @@ impl From<&str> for NumberLiteral {
         match input.to_ascii_lowercase().chars().collect::<Vec<_>>().as_slice() {
             ['0','x', rem @ ..] => {
                 let hex_data = hex_parse::hex_parse(rem);
+
+                let has_exponent = !hex_data.exponent_part.is_empty();
+                let has_fraction = !hex_data.fractional_part.is_empty();
+
                 let integer_part = integer_value(hex_data.integer_part, 16);
                 let fractional_part = fractional_value(hex_data.fractional_part, 16);
-                let power: i32 = (if hex_data.negative_exponent { -1 } else { 1 } * integer_value(hex_data.exponent_part, 10)).try_into().unwrap();
+                let suffix_type = calculate_suffix_type(hex_data.remainder, has_exponent || has_fraction);
                 
-                if let Some(frac) = fractional_part {
+                if has_exponent || has_fraction {
+                    //must be a float?
+                    let power: i32 = (if hex_data.negative_exponent { -1 } else { 1 } * integer_value(hex_data.exponent_part, 10)).try_into().unwrap();
+                    let data_type = suffix_type.unwrap_or(BaseType::F64);
                     NumberLiteral {
-                        value: LiteralValue::FLOAT((integer_part as f64 + frac) * 2f64.powi(power)),
-                        data_type: calculate_suffix_type(hex_data.remainder, true).unwrap_or(BaseType::F64),
-                    }
+                        value: LiteralValue::FLOAT((integer_part as f64 + fractional_part) * 2f64.powi(power)),
+                        data_type: data_type.clone(),
+                    }.cast(&data_type)
                 } else {
                     NumberLiteral {
-                        value: LiteralValue::INTEGER(integer_part * 2i128.pow(power.try_into().unwrap())),//just an integer
+                        value: LiteralValue::INTEGER(integer_part),//just an integer
                         //read the suffix (non-float) or calculate the best type
-                        data_type: calculate_suffix_type(hex_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
+                        data_type: suffix_type.unwrap_or(calculate_integer_type(integer_part)),
                     }
                 }
             },
@@ -460,19 +481,25 @@ impl From<&str> for NumberLiteral {
 
             rem => {
                 let dec_data = dec_parse::dec_parse(rem);
+
+                let has_exponent = !dec_data.exponent_part.is_empty();
+                let has_fraction = !dec_data.decimal_part.is_empty();
+
                 let integer_part = integer_value(dec_data.integer_part, 10);
                 let fractional_part = fractional_value(dec_data.decimal_part, 10);
-                let suffix_type = calculate_suffix_type(dec_data.remainder, fractional_part.is_some());
-                let power: i32 = (if dec_data.negative_exponent { -1 } else { 1 } * integer_value(dec_data.exponent_part, 10)).try_into().unwrap();
+                let suffix_type = calculate_suffix_type(dec_data.remainder, has_exponent || has_fraction);
                 
-                if let Some(frac) = fractional_part {
+                if has_exponent || has_fraction {
+                    //must be a float?
+                    let power: i32 = (if dec_data.negative_exponent { -1 } else { 1 } * integer_value(dec_data.exponent_part, 10)).try_into().unwrap();
+                    let data_type = suffix_type.unwrap_or(BaseType::F64);
                     NumberLiteral {
-                        value: LiteralValue::FLOAT((integer_part as f64 + frac) * 10f64.powi(power)),
-                        data_type: suffix_type.unwrap_or(BaseType::F64),
-                    }
+                        value: LiteralValue::FLOAT((integer_part as f64 + fractional_part) * 10f64.powi(power)),
+                        data_type: data_type.clone(),
+                    }.cast(&data_type)
                 } else {
                     NumberLiteral {
-                        value: LiteralValue::INTEGER(integer_part * 10i128.pow(power.try_into().unwrap())),//just an integer
+                        value: LiteralValue::INTEGER(integer_part),//just an integer
                         //read the suffix (non-float) or calculate the best type
                         data_type: suffix_type.unwrap_or(calculate_integer_type(integer_part)),
                     }
@@ -498,11 +525,11 @@ fn integer_value(integer_digits: &[char], base: u32) -> i128 {
 }
 
 /// Returns `None` if there are no digits
-fn fractional_value(fractional_digits: &[char], base: u32) -> Option<f64> {
+fn fractional_value(fractional_digits: &[char], base: u32) -> f64 {
     if fractional_digits.is_empty() {
-        None
+        0f64
     } 
-    else {Some(
+    else {
         fractional_digits
         .iter()
         .zip(powers_iter(base.into()))
@@ -512,7 +539,7 @@ fn fractional_value(fractional_digits: &[char], base: u32) -> Option<f64> {
             digit_value/divisor// fractional value = digit * 1/base^n
         })
         .sum()
-    )}
+    }
 }
 
 /// Finds the best integer type to hold `value`

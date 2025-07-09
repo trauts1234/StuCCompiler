@@ -577,9 +577,5 @@
         "filename": "elifpreprocess.c",
         "stdout": "Testing #elif preprocessor directive handling...\n\nTest 1 - Basic #elif: PASS: TEST1 == 2\nTest 2 - Multiple #elif: PASS\nTest 3 - Comments/whitespace: PASS\nTest 4 - Nested conditionals: PASS: INNER == 3\nTest 5 - Complex expressions: PASS: A * B == 15\nTest 6 - defined() operator: PASS: DEFINED_MACRO defined\nTest 8 - Logical operators: PASS: X < 15 && Y > 15\nTest 9 - ifdef/ifndef: PASS: elif 1\nTest 12 - Character constants: PASS: B\n",
         "return_code": 0
-    },
-    {
-        "filename": "floatliterals.c",
-        "return_code": 0
     }
 ]

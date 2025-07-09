@@ -187,7 +187,7 @@ pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> Dat
         (_, DataType::POINTER(_)) => rhs.decay(),
 
         (DataType::RAW(lhs_base), DataType::RAW(rhs_base)) => {
-            DataType::RAW(calculate_integer_promoted_type(&lhs_base, &rhs_base))
+            DataType::RAW(calculate_promoted_type(&lhs_base, &rhs_base))
         }
 
         _ => panic!()//this should never happen as decay always returns pointer or raw
@@ -195,28 +195,38 @@ pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> Dat
 
 }
 
-pub fn calculate_integer_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseType {
-    assert!(lhs.is_integer() && rhs.is_integer());
+pub fn calculate_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseType {
 
-    //integer type promotion
-    let biggest_size = lhs.get_non_struct_memory_size().max(rhs.get_non_struct_memory_size());
+    match (lhs, rhs) {
+        (BaseType::F64, _) |
+        (_, BaseType::F64) => BaseType::F64,
 
-    match (biggest_size.size_bytes(), lhs.is_unsigned(), rhs.is_unsigned()) {
-        (0..4, _, _) |// small enough to be cast to int easily
-        (4, false, false)//signed, and both int sized
-            => BaseType::I32,
+        (BaseType::F32, _) |
+        (_, BaseType::F32) => BaseType::F32,
 
-        (4, _, _) => BaseType::U32,
+        _ => {
+            assert!(lhs.is_integer() && rhs.is_integer());
+            //integer type promotion
+            let biggest_size = lhs.get_non_struct_memory_size().max(rhs.get_non_struct_memory_size());
 
-        (5..8, _, _) |// small enough to be cast to long long easily
-        (8, false, false)//signed, and both are long long sized
-            => BaseType::I64,
+            match (biggest_size.size_bytes(), lhs.is_unsigned(), rhs.is_unsigned()) {
+                (0..4, _, _) |// small enough to be cast to int easily
+                (4, false, false)//signed, and both int sized
+                    => BaseType::I32,
 
-        (8, _, _) //64 bit, with one being unsigned
-        => BaseType::U64,
+                (4, _, _) => BaseType::U32,
 
-        (9.., _, _) => panic!("integer size too large!")
+                (5..8, _, _) |// small enough to be cast to long long easily
+                (8, false, false)//signed, and both are long long sized
+                    => BaseType::I64,
 
+                (8, _, _) //64 bit, with one being unsigned
+                => BaseType::U64,
+
+                (9.., _, _) => panic!("integer size too large!")
+
+            }
+        }
     }
 }
 
