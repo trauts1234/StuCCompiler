@@ -23,14 +23,9 @@ pub enum Operand {
 }
 
 #[derive(Clone)]
-pub enum GPRegOrMem {
-    Reg(GPRegister),
-    Mem(MemoryOperand),
-}
-
-#[derive(Clone)]
-pub enum MMRegOrMem {
-    Reg(MMRegister),
+pub enum RegOrMem {
+    GPReg(GPRegister),
+    MMReg(MMRegister),
     Mem(MemoryOperand),
 }
 
@@ -46,6 +41,7 @@ pub fn generate_param_reg(param_num: u64) -> GPRegister {
     }
 }
 
+
 impl Operand {
     pub fn generate_name(&self, data_size: MemorySize) -> String {
         match self {
@@ -55,21 +51,21 @@ impl Operand {
         }
     }
 }
-
-impl GPRegOrMem {
+impl RegOrMem {
     pub fn generate_name(&self, data_size: MemorySize) -> String {
         match self {
-            GPRegOrMem::Reg(register) => register.generate_name(data_size),
-            GPRegOrMem::Mem(memory_operand) => memory_operand.generate_name(),
+            RegOrMem::GPReg(register) => register.generate_name(data_size),
+            RegOrMem::Mem(memory_operand) => memory_operand.generate_name(),
+            _ => panic!()
         }
     }
 }
-
-impl IRDisplay for GPRegOrMem {
+impl IRDisplay for RegOrMem {
     fn display_ir(&self) -> String {
         match self {
-            GPRegOrMem::Reg(register) => register.display_ir(),
-            GPRegOrMem::Mem(memory_operand) => memory_operand.display_ir(),
+            RegOrMem::GPReg(register) => register.display_ir(),
+            RegOrMem::MMReg(register) => register.display_ir(),
+            RegOrMem::Mem(memory_operand) => memory_operand.display_ir(),
         }
     }
 }

@@ -9,7 +9,7 @@ use super::{register::GPRegister, PTR_SIZE};
 pub enum MemoryOperand {
     ///accessing a label, RIP-relative addressed
     LabelAccess(String),
-    MemoryAddress {pointer_reg: GPRegister},//TODO allow simple expressions, like in LEA instruction. maybe this would remove need for AddToSP/SubFromBP variants
+    MemoryAddress {pointer_reg: GPRegister},
     PreviousStackFrame{add_to_rbp: MemorySize},//(remember to add 8 bytes for stack frame and 8 bytes for the return address when creating this enum)
     SubFromBP(MemorySize),
     AddToSP(MemorySize),

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::{GPRegister, MMRegister}, Operand, GPRegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::{GPRegister, MMRegister}, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
 use memory_size::MemorySize;
 
 pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmData) -> Assembly {
@@ -29,7 +29,7 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
         });
         //set to 1 or 0 based on whether that value was 0
         result.add_instruction(AsmOperation::SETCC {
-            destination: GPRegOrMem::Reg(GPRegister::acc()),
+            destination: RegOrMem::GPReg(GPRegister::acc()),
             comparison: AsmComparison::NE,
         });
 
@@ -77,7 +77,7 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
             match (casted_from, to_raw) {
                 (BaseType::I64, BaseType::F32) => {
                     //cast the number to
-                    result.add_commented_instruction(AsmOperation::I64ToF32 { from: GPRegOrMem::Reg(GPRegister::acc()), to: MMRegister::acc() }, format!("casting GP accumulator to FP accumulator"));
+                    result.add_commented_instruction(AsmOperation::I64ToF32 { from: RegOrMem::GPReg(GPRegister::acc()), to: MMRegister::acc() }, format!("casting GP accumulator to FP accumulator"));
                 }
                 _ => panic!("invalid type for float")
             }

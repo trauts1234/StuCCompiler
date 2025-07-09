@@ -1,20 +1,20 @@
-use crate::{assembly::operand::register::{GPRegister, MMRegister}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{assembly::operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
-use super::{comparison::AsmComparison, operand::{Operand, GPRegOrMem, PTR_SIZE}};
+use super::{comparison::AsmComparison, operand::{Operand, RegOrMem, PTR_SIZE}};
 
 
 #[derive(Clone)]
 pub enum AsmOperation {
     ///moves size bytes from -> to
-    MOV {to: GPRegOrMem, from: Operand, size: MemorySize},
+    MOV {to: RegOrMem, from: Operand, size: MemorySize},
     ///references from, puts address in to
-    LEA {to: GPRegOrMem, from: Operand},
+    LEA {to: GPRegister, from: MemoryOperand},
 
     ///compares lhs and rhs, based on their data type
     CMP {lhs: Operand, rhs: Operand, data_type: DataType},
     /// based on the comparison, sets destination to 1 or 0
-    SETCC {destination: GPRegOrMem, comparison: AsmComparison},
+    SETCC {destination: RegOrMem, comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
     JMPCC {label: String, comparison: AsmComparison},
 
@@ -24,30 +24,30 @@ pub enum AsmOperation {
     ZeroExtendACC {old_size: MemorySize},
 
     /// Convert I64 to F32
-    I64ToF32 {from: GPRegOrMem, to: MMRegister},
+    I64ToF32 {from: RegOrMem, to: MMRegister},
     /// Convert F32 to F64
     //F32ToF64 {from: }
 
     ///adds increment to destination
-    ADD {destination: GPRegOrMem, increment: Operand, data_type: DataType},
+    ADD {destination: RegOrMem, increment: Operand, data_type: DataType},
     ///subtracts decrement from destination
-    SUB {destination: GPRegOrMem, decrement: Operand, data_type: DataType},
+    SUB {destination: RegOrMem, decrement: Operand, data_type: DataType},
     ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
-    MUL {multiplier: GPRegOrMem, data_type: DataType},
+    MUL {multiplier: RegOrMem, data_type: DataType},
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
-    DIV {divisor: GPRegOrMem, data_type: DataType},
+    DIV {divisor: RegOrMem, data_type: DataType},
     ///shifts logically left
-    SHL {destination: GPRegOrMem, amount: Operand, base_type: BaseType},
+    SHL {destination: RegOrMem, amount: Operand, base_type: BaseType},
     ///shifts right, (arithmetic or logical based on the signedness of base_type)
-    SHR {destination: GPRegOrMem, amount: Operand, base_type: BaseType},
+    SHR {destination: RegOrMem, amount: Operand, base_type: BaseType},
 
     ///negates the item, taking into account its data type
     NEG {item: GPRegister, data_type: BaseType},
     ///performs bitwise not to the item
-    BitwiseNot {item: GPRegOrMem, size: MemorySize},
+    BitwiseNot {item: RegOrMem, size: MemorySize},
 
     /// applies operation to destination and secondary, saving results to destination
-    BitwiseOp {destination: GPRegOrMem, secondary: Operand, operation: LogicalOperation, size: MemorySize},
+    BitwiseOp {destination: RegOrMem, secondary: Operand, operation: LogicalOperation, size: MemorySize},
 
     Label {name: String},
     CreateStackFrame,
@@ -74,8 +74,8 @@ impl AsmOperation {
      */
     pub fn to_text(&self) -> String {
         match self {
-            AsmOperation::MOV { to, from, size } => format!("mov {}, {}", to.generate_name(*size), from.generate_name(*size)),
-            AsmOperation::LEA { to, from } => format!("lea {}, {}", to.generate_name(PTR_SIZE), from.generate_name(PTR_SIZE)),
+            AsmOperation::MOV { to, from, size } => instruction_mov(to, from, *size),
+            AsmOperation::LEA { to, from } => format!("lea {}, {}", to.generate_name(PTR_SIZE), from.generate_name()),
             AsmOperation::CMP { lhs, rhs, data_type } => instruction_cmp(lhs, rhs, data_type),
             AsmOperation::SETCC { destination, comparison } => instruction_setcc(destination, comparison),
             AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
@@ -103,6 +103,21 @@ impl AsmOperation {
     }
 }
 
+fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
+    match (from, to) {
+        (Operand::Reg(from_reg), RegOrMem::GPReg(to_reg)) => format!("mov {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
+        (Operand::Reg(from_reg), RegOrMem::MMReg(to_reg)) => todo!(),
+        (Operand::Reg(from_reg), RegOrMem::Mem(to_mem)) => format!("mov {}, {}", to_mem.generate_name(), from_reg.generate_name(size)),
+        (Operand::Mem(from_mem), RegOrMem::GPReg(to_reg)) => format!("mov {}, {}", to_reg.generate_name(size), from_mem.generate_name()),
+        (Operand::Mem(from_mem), RegOrMem::MMReg(to_reg)) => todo!(),
+        (Operand::Imm(imm), RegOrMem::GPReg(to_reg)) => format!("mov {}, {}", to_reg.generate_name(size), imm.generate_name()),
+        (Operand::Imm(imm), RegOrMem::MMReg(to_reg)) => todo!(),
+        
+        (Operand::Imm(_), RegOrMem::Mem(_)) => panic!("cannot move an immediate directly to memory"),
+        (Operand::Mem(_), RegOrMem::Mem(_)) => panic!("memory-memory mov not supported"),
+    }
+}
+
 fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &DataType) -> String {
     match data_type {
         DataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
@@ -111,7 +126,7 @@ fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &DataType) -> String
     }
 }
 
-fn instruction_setcc(destination: &GPRegOrMem, comparison: &AsmComparison) -> String {
+fn instruction_setcc(destination: &RegOrMem, comparison: &AsmComparison) -> String {
     let reg_name = destination.generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
 
     let comparison_instr = match comparison {
@@ -157,7 +172,7 @@ fn instruction_zero_extend(original: &MemorySize) -> String {
     }
 }
 
-fn instruction_add(destination: &GPRegOrMem, increment: &Operand, data_type: &DataType) -> String {
+fn instruction_add(destination: &RegOrMem, increment: &Operand, data_type: &DataType) -> String {
     match data_type {
         DataType::POINTER(_) => format!("add {}, {}", destination.generate_name(PTR_SIZE), increment.generate_name(PTR_SIZE)),
         //addition is same for signed and unsigned
@@ -165,7 +180,7 @@ fn instruction_add(destination: &GPRegOrMem, increment: &Operand, data_type: &Da
         _ => panic!("currently cannot add this data type")
     }
 }
-fn instruction_sub(destination: &GPRegOrMem, decrement: &Operand, data_type: &DataType) -> String {
+fn instruction_sub(destination: &RegOrMem, decrement: &Operand, data_type: &DataType) -> String {
     match data_type {
         DataType::POINTER(_) => format!("sub {}, {}", destination.generate_name(PTR_SIZE), decrement.generate_name(PTR_SIZE)),
         //subtraction is same for signed and unsigned
@@ -179,7 +194,7 @@ fn instruction_neg(destination: &GPRegister, data_type: &BaseType) -> String {
     format!("neg {}", destination.generate_name(data_type.get_non_struct_memory_size()))
 }
 
-fn instruction_div(divisor: &GPRegOrMem, data_type: &DataType) -> String {
+fn instruction_div(divisor: &RegOrMem, data_type: &DataType) -> String {
     match data_type {
         DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
         DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
@@ -189,7 +204,7 @@ fn instruction_div(divisor: &GPRegOrMem, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_mul(multiplier: &GPRegOrMem, data_type: &DataType) -> String {
+fn instruction_mul(multiplier: &RegOrMem, data_type: &DataType) -> String {
     match data_type {
         DataType::RAW(base) if base.is_signed() => format!("imul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
         DataType::RAW(base) if base.is_unsigned() => format!("mul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
@@ -199,7 +214,7 @@ fn instruction_mul(multiplier: &GPRegOrMem, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_bitwise(destination: &GPRegOrMem, secondary: &Operand, operation: &LogicalOperation, size: MemorySize) -> String {
+fn instruction_bitwise(destination: &RegOrMem, secondary: &Operand, operation: &LogicalOperation, size: MemorySize) -> String {
     let op_asm = match operation {
         LogicalOperation::AND => "and".to_string(),
         LogicalOperation::OR => "or".to_string(),
@@ -209,12 +224,12 @@ fn instruction_bitwise(destination: &GPRegOrMem, secondary: &Operand, operation:
     format!("{} {}, {}", op_asm, destination.generate_name(size), secondary.generate_name(size))
 }
 
-fn instruction_shiftleft(destination: &GPRegOrMem, amount: &Operand, base_type: &BaseType) -> String {
+fn instruction_shiftleft(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
     let size = base_type.get_non_struct_memory_size();
     format!("shl {}, {}", destination.generate_name(size), amount.generate_name(MemorySize::from_bytes(1)))
 }
 
-fn instruction_shiftright(destination: &GPRegOrMem, amount: &Operand, base_type: &BaseType) -> String {
+fn instruction_shiftright(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
     let size = base_type.get_non_struct_memory_size();
     match base_type {
         //signed shift needs algebraic shift right

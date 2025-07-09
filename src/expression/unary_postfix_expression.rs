@@ -1,7 +1,7 @@
 use colored::Colorize;
 use memory_size::MemorySize;
 
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, GPRegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::recursive_data_type::{calculate_unary_type_arithmetic, DataType}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::recursive_data_type::{calculate_unary_type_arithmetic, DataType}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
 
 use super::{expression::Expression, unary_postfix_operator::UnaryPostfixOperator};
 
@@ -45,32 +45,32 @@ impl UnaryPostfixExpression {
                 let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
                 result.add_instruction(AsmOperation::MOV {
-                    to: GPRegOrMem::Reg(GPRegister::secondary()),
+                    to: RegOrMem::GPReg(GPRegister::secondary()),
                     from: Operand::Reg(GPRegister::acc()),
                     size: PTR_SIZE
                 });
 
                 //put self.operand in acc and third
                 result.add_instruction(AsmOperation::MOV {
-                    to: GPRegOrMem::Reg(GPRegister::acc()),
+                    to: RegOrMem::GPReg(GPRegister::acc()),
                     from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
                     size: original_type.memory_size(asm_data),
                 });
                 result.add_instruction(AsmOperation::MOV {
-                    to: GPRegOrMem::Reg(GPRegister::third()),
+                    to: RegOrMem::GPReg(GPRegister::third()),
                     from: Operand::Reg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data),
                 });
 
                 //increment value in third
                 result.add_instruction(AsmOperation::SUB {
-                    destination: GPRegOrMem::Reg(GPRegister::third()),
+                    destination: RegOrMem::GPReg(GPRegister::third()),
                     decrement: Operand::Imm(increment_amount),
                     data_type: original_type.clone(),
                 });
                 //save third to the variable address
                 result.add_instruction(AsmOperation::MOV {
-                    to: GPRegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
                     from: Operand::Reg(GPRegister::third()),
                     size: original_type.memory_size(asm_data),
                 });
@@ -96,32 +96,32 @@ impl UnaryPostfixExpression {
                 let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
                 result.add_instruction(AsmOperation::MOV {
-                    to: GPRegOrMem::Reg(GPRegister::secondary()),
+                    to: RegOrMem::GPReg(GPRegister::secondary()),
                     from: Operand::Reg(GPRegister::acc()),
                     size: PTR_SIZE
                 });
 
                 //put self.operand in acc and third
                 result.add_instruction(AsmOperation::MOV {
-                    to: GPRegOrMem::Reg(GPRegister::acc()),
+                    to: RegOrMem::GPReg(GPRegister::acc()),
                     from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
                     size: original_type.memory_size(asm_data),
                 });
                 result.add_instruction(AsmOperation::MOV {
-                    to: GPRegOrMem::Reg(GPRegister::third()),
+                    to: RegOrMem::GPReg(GPRegister::third()),
                     from: Operand::Reg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data),
                 });
 
                 //increment value in third
                 result.add_instruction(AsmOperation::ADD {
-                    destination: GPRegOrMem::Reg(GPRegister::third()),
+                    destination: RegOrMem::GPReg(GPRegister::third()),
                     increment: Operand::Imm(increment_amount),
                     data_type: original_type.clone(),
                 });
                 //save third to the variable address
                 result.add_instruction(AsmOperation::MOV {
-                    to: GPRegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
                     from: Operand::Reg(GPRegister::third()),
                     size: original_type.memory_size(asm_data),
                 });

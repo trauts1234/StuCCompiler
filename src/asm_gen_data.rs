@@ -8,7 +8,7 @@ pub trait GetStruct {
 #[derive(Clone)]
 pub struct AddressedDeclaration {
     pub(crate) data_type: DataType,
-    pub(crate) location: Operand
+    pub(crate) location: MemoryOperand
 }
 
 #[derive(Clone)]
@@ -83,7 +83,7 @@ impl AsmData {
             *stack_data += var_size;
             let var_address_offset = stack_data.clone();//increase stack pointer to store extra variable
 
-            let decl = AddressedDeclaration { data_type: var_type.clone(), location: Operand::Mem(MemoryOperand::SubFromBP(var_address_offset.clone())) };//then generate address, as to not overwrite the stack frame
+            let decl = AddressedDeclaration { data_type: var_type.clone(), location: MemoryOperand::SubFromBP(var_address_offset.clone()) };//then generate address, as to not overwrite the stack frame
 
             result.variables.push((name, decl));
         }
@@ -109,7 +109,7 @@ impl AsmData {
             *stack_data += var_size;
             let var_address_offset = stack_data.clone();//increase stack pointer to store extra variable
 
-            let decl = AddressedDeclaration { data_type: var_type.clone(), location: Operand::Mem(MemoryOperand::SubFromBP(var_address_offset.clone())) };//then generate address, as to not overwrite the stack frame
+            let decl = AddressedDeclaration { data_type: var_type.clone(), location: MemoryOperand::SubFromBP(var_address_offset.clone()) };//then generate address, as to not overwrite the stack frame
 
             result.variables.push((name, decl));
         }
@@ -167,5 +167,5 @@ impl GetStruct for GlobalAsmData {
  */
 fn generate_global_variable_decl(data: &(String, DataType)) -> (String, AddressedDeclaration) {
     let (var_name, var_type) = data;
-    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: Operand::Mem(MemoryOperand::LabelAccess(var_name.to_string())) })
+    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: MemoryOperand::LabelAccess(var_name.to_string()) })
 }
