@@ -24,7 +24,7 @@ pub enum GPRegister {
 /// Registers that hold floats
 #[derive(Clone, Copy, Debug)]
 pub enum MMRegister {
-    _MM1
+    _MM0
 }
 
 impl MMRegister {
@@ -32,18 +32,18 @@ impl MMRegister {
      * generates the register for the floating-point accumulator
      */
     pub fn acc() -> Self {
-        Self::_MM1
+        Self::_MM0
     }
 
     fn generate_variant_name(&self) -> &str {
         match self {
-            MMRegister::_MM1 => "_MM1",
+            MMRegister::_MM0 => "_MM1",
         }
     }
 
     pub fn generate_name(&self, data_size: MemorySize) -> String {
         match (self, data_size.size_bits()) {
-            (Self::_MM1, 32) | (Self::_MM1, 64) => "xmm1",
+            (Self::_MM0, 32) | (Self::_MM0, 64) => "xmm1",
             _ => panic!()
         }.to_string()
     }

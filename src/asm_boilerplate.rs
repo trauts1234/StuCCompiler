@@ -66,31 +66,19 @@ fn cast_raw_from_acc(from_raw: &BaseType, to_raw: &BaseType, asm_data: &AsmData)
 
         //integer to float
         (true, false) => {
-            let casted_from = if from_raw.is_signed() {
+            if from_raw.is_signed() {
                 cast_raw_from_acc(from_raw, &BaseType::I64, asm_data);//cast i__ to i64
-                BaseType::I64
             } else {
                 cast_raw_from_acc(from_raw, &BaseType::U64, asm_data);//cast u__ to u64
-                BaseType::U64
             };
 
-            match (casted_from, to_raw) {
-                (BaseType::I64, BaseType::F32) => {
-                    //cast the number to
-                    result.add_commented_instruction(AsmOperation::I64ToF32 { from: RegOrMem::GPReg(GPRegister::acc()), to: MMRegister::acc() }, format!("casting GP accumulator to FP accumulator"));
-                }
-                _ => panic!("invalid type for float")
-            }
+            //cast the number to float/double
+            result.add_commented_instruction(AsmOperation::GP64CastMMX { from: GPRegister::acc(), to: MMRegister::acc(), from_is_signed: from_raw.is_signed(), to_type: to_raw.clone() }, format!("casting GP accumulator to FP accumulator"));
         },
 
         //float to float cast
         (false, false) => {
-            match (from_raw.memory_size(asm_data), to_raw.memory_size(asm_data)) {
-                (x, y) if x == y => 
-                    return Assembly::make_empty(),//same size floats, no conversion needed
-
-                _ => panic!()
-            }
+            result.add_instruction(AsmOperation::MMXCastMMX { from: MMRegister::acc(), to: MMRegister::acc(), from_type: from_raw.clone(), to_type: to_raw.clone() });
         }
 
         _ => panic!()

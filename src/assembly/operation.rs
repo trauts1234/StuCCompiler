@@ -23,10 +23,12 @@ pub enum AsmOperation {
     ///zero extends the accumulator to u64 from the old size
     ZeroExtendACC {old_size: MemorySize},
 
-    /// Convert I64 to F32
-    I64ToF32 {from: RegOrMem, to: MMRegister},
-    /// Convert F32 to F64
-    //F32ToF64 {from: }
+    /// Cast a 64 bit GP register to a MMX float/double
+    GP64CastMMX {from:GPRegister, to:MMRegister, from_is_signed: bool, to_type: BaseType },
+    /// Cast a MMX float/double to 64 bit GP register
+    MMXCastGP64 {from:MMRegister, to:GPRegister, from_type: BaseType, to_is_signed: bool },
+    /// Cast a float to double or vice-versa
+    MMXCastMMX {from:MMRegister, to:MMRegister, from_type: BaseType, to_type: BaseType },
 
     ///adds increment to destination
     ADD {destination: RegOrMem, increment: Operand, data_type: DataType},
@@ -98,19 +100,47 @@ impl AsmOperation {
             AsmOperation::SHR { destination, amount, base_type } => instruction_shiftright(destination, amount, base_type),
             AsmOperation::BitwiseNot { item, size } => format!("not {}", item.generate_name(*size)),
 
-            AsmOperation::I64ToF32 { from, to } => format!("cvtsi2ss {}, {}", to.generate_name(MemorySize::from_bytes(4)), from.generate_name(MemorySize::from_bytes(8)))
+            AsmOperation::MMXCastMMX { from, to, from_type, to_type } => instruction_mmx_cast_mmx(from, to, from_type, to_type),
+            AsmOperation::GP64CastMMX { from, to, from_is_signed, to_type } => instruction_gp64_cast_mmx(from, to, *from_is_signed, to_type),
+            AsmOperation::MMXCastGP64 { from, to, from_type, to_is_signed } => todo!(),
         }
+    }
+}
+
+fn instruction_gp64_cast_mmx(from: &GPRegister, to: &MMRegister, from_is_signed: bool, to_type: &BaseType) -> String {
+    let cast_opcode = match (from_is_signed, to_type) {
+        (true, BaseType::F32) => "cvtsi2ss",//ConVert Signed Integer 2 Signed Single ?
+        (true, BaseType::F64) => "cvtsi2sd",//ConVert Signed Integer 2 Signed Double ?
+
+        (true, x) => panic!("cannot cast i64 to floating type {:?}", x),
+        (false, _) => panic!("cannot currently cast u64 to float/double"),
+    };
+
+    format!(
+        "{} {}, {}",
+        cast_opcode,
+        from.generate_name(MemorySize::from_bits(64)),
+        to.generate_name(to_type.get_non_struct_memory_size())
+    )
+}
+
+fn instruction_mmx_cast_mmx(from: &MMRegister, to: &MMRegister, from_type: &BaseType, to_type: &BaseType) -> String {
+    match (from_type, to_type) {
+        (BaseType::F32, BaseType::F32) => String::new(),
+        (BaseType::F64, BaseType::F64) => String::new(),
+        (BaseType::F32, BaseType::F64) => format!("cvtss2sd {}, {}", from.generate_name(MemorySize::from_bits(32)), to.generate_name(MemorySize::from_bits(64))),
+        (BaseType::F64, BaseType::F32) => format!("cvtsd2ss {}, {}", from.generate_name(MemorySize::from_bits(64)), to.generate_name(MemorySize::from_bits(32))),
+
+        _ => panic!("invalid type combination for float casting")
     }
 }
 
 fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
     match (from, to) {
-        (Operand::GPReg(from_reg), RegOrMem::MMReg(to_reg)) => todo!(),
         (Operand::MMReg(from_reg), RegOrMem::MMReg(to_reg)) => todo!(),
-        (Operand::MMReg(from_reg), RegOrMem::GPReg(to_reg)) => todo!(),
         (Operand::MMReg(from_reg), RegOrMem::Mem(to_mem)) => todo!(),
         (Operand::Mem(from_mem), RegOrMem::MMReg(to_reg)) => todo!(),
-        (Operand::Imm(imm), RegOrMem::MMReg(to_reg)) => todo!(),
+        (Operand::Imm(imm), RegOrMem::MMReg(to_reg)) => todo!("recursively call to move via a GP register? which registers would it clobber"),
         
         //simple mov commands
         (Operand::GPReg(_), RegOrMem::GPReg(_))  |
@@ -119,6 +149,8 @@ fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
         (Operand::Imm(_), RegOrMem::GPReg(_)) => format!("mov {}, {}", to.generate_name(size), from.generate_name(size)),
         
         //invalid commands
+        (Operand::GPReg(_), RegOrMem::MMReg(_)) |
+        (Operand::MMReg(_), RegOrMem::GPReg(_)) => todo!("bitwise mov between gp and mmx registers"),
         (Operand::Imm(_), RegOrMem::Mem(_)) => panic!("cannot move an immediate directly to memory"),
         (Operand::Mem(_), RegOrMem::Mem(_)) => panic!("memory-memory mov not supported"),
     }
@@ -264,28 +296,24 @@ impl IRDisplay for AsmOperation {
             AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to.display_ir(), from.display_ir(), size),
             AsmOperation::LEA { to, from } => format!("{} = {} {}", to.display_ir(), opcode!("LEA"), from.display_ir()),
             AsmOperation::CMP { lhs, rhs, data_type } => 
-                format!("{} {}, {} ({})",
-                    opcode!("CMP"),
-                    lhs.display_ir(),
-                    rhs.display_ir(),
-                    data_type
-                ),
-
+                        format!("{} {}, {} ({})",
+                            opcode!("CMP"),
+                            lhs.display_ir(),
+                            rhs.display_ir(),
+                            data_type
+                        ),
             AsmOperation::SETCC { destination, comparison } => 
-                format!("{} {}",
-                    opcode!(format!("set-{}", comparison.display_ir())),
-                    destination.display_ir()
-                ),
-
+                        format!("{} {}",
+                            opcode!(format!("set-{}", comparison.display_ir())),
+                            destination.display_ir()
+                        ),
             AsmOperation::JMPCC { label, comparison } => 
-                format!("{} {}",
-                    opcode!(format!("jmp-{}", comparison.display_ir())),
-                    label
-                ),
-                
+                        format!("{} {}",
+                            opcode!(format!("jmp-{}", comparison.display_ir())),
+                            label
+                        ),
             AsmOperation::SignExtendACC { old_size } => format!("{} {} from {}", opcode!("sign extend"), GPRegister::acc().display_ir(), old_size),
             AsmOperation::ZeroExtendACC { old_size } => format!("{} {} from {}", opcode!("zero extend"), GPRegister::acc().display_ir(), old_size),
-            AsmOperation::I64ToF32 { from, to } => format!("{} = (float){}", to.display_ir(), from.display_ir()),
             AsmOperation::ADD { destination, increment, data_type } => format!("{} += {} ({})", destination.display_ir(), increment.display_ir(), data_type),
             AsmOperation::SUB { destination, decrement, data_type } => format!("{} -= {} ({})", destination.display_ir(), decrement.display_ir(), data_type),
             AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", GPRegister::acc().display_ir(), multiplier.display_ir(), data_type),
@@ -302,6 +330,10 @@ impl IRDisplay for AsmOperation {
             AsmOperation::MEMCPY { size } => format!("{} {}", opcode!("MEMCPY"), size),
             AsmOperation::CALL { label } => format!("{} {}", opcode!("CALL"), label),
             AsmOperation::BLANK => String::new(),
+
+            AsmOperation::GP64CastMMX { from, to, from_is_signed, to_type } => format!("{} = ({})({}){}", to.display_ir(), to_type, if *from_is_signed {"i64"} else {"u64"}, from.display_ir()),
+            AsmOperation::MMXCastGP64 { from, to, from_type, to_is_signed } => format!("{} = ({})({}){}", to.display_ir(), if *to_is_signed {"i64"} else {"u64"}, from_type, from.display_ir()),
+            AsmOperation::MMXCastMMX { from, to, from_type, to_type } => format!("{} = ({})({}){}", to.display_ir(), to_type, from_type, from.display_ir()),
         }
     }
 }
