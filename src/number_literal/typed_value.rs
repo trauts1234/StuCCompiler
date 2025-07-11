@@ -430,7 +430,7 @@ impl From<&str> for NumberLiteral {
                 let integer_part = integer_value(hex_data.integer_part, 16);
                 let fractional_part = fractional_value(hex_data.fractional_part, 16);
                 
-                if has_exponent || has_fraction {
+                if has_exponent || has_fraction || hex_data.remainder.contains(&'f') {
                     //must be a float?
                     let power: i32 = (if hex_data.negative_exponent { -1 } else { 1 } * integer_value(hex_data.exponent_part, 10)).try_into().unwrap();
 
@@ -458,7 +458,7 @@ impl From<&str> for NumberLiteral {
                 }.limit_literal()
             },
 
-            ['0', rem @ ..] => {
+            ['0', rem @ ..] if rem.iter().all(|c| matches!(c, '0'..='7' | 'u' | 'l')) => {
                 let oct_data = oct_parse::oct_parse(rem);
                 let integer_part = integer_value(oct_data.integer_part, 8);
                 let data_type = calculate_int_suffix_type(oct_data.remainder);
@@ -478,7 +478,7 @@ impl From<&str> for NumberLiteral {
                 let integer_part = integer_value(dec_data.integer_part, 10);
                 let fractional_part = fractional_value(dec_data.decimal_part, 10);
                 
-                if has_exponent || has_fraction {
+                if has_exponent || has_fraction || dec_data.remainder.contains(&'f') {
                     //must be a float?
                     let power: i32 = (if dec_data.negative_exponent { -1 } else { 1 } * integer_value(dec_data.exponent_part, 10)).try_into().unwrap();
 
@@ -545,7 +545,8 @@ fn calculate_integer_type(value: i128) -> IntegerType {
 fn calculate_float_suffix_type(suffix: &[char]) -> FloatType {
     match suffix {
         ['f'] => FloatType::F32,
-        _ => FloatType::F64
+        [] => FloatType::F64,
+        x => panic!("invalid suffix for float literal: {:?}", x)
     }
 }
 /// This is fallible because no suffix -> type calculation
@@ -565,7 +566,7 @@ fn calculate_int_suffix_type(suffix: &[char]) -> Option<IntegerType> {
         
         [] => None,//no suffix, predict type based on data size
 
-        _ => panic!("invalid suffix for integer literal")
+        x => panic!("invalid suffix for integer literal: {:?}", x)
     }
 }
 

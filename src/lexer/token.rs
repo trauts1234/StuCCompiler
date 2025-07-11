@@ -25,7 +25,7 @@ pub enum Token {
 
     })]
     //normal number literals here
-    #[regex(r"\.?[0-9][a-zA-Z0-9'\.]*", |x| NumberLiteral::from(x.slice()), priority=1000)]
+    #[regex(r"\.?[0-9][a-zA-Z0-9\.]*", |x| NumberLiteral::from(x.slice()), priority=1000)]
     NUMBER(NumberLiteral),
 
     #[regex(r"\+\+?|\-|\--|\*|/|=|;|~|\||\|\||&&|\^|&|%|!|>>|<<|>|<|<=|>=|==|!=|\}|\{|\[|\]|\(|\)|,|\.(\.\.)?|:|\?", |x| Punctuator::try_new(x.slice()))]

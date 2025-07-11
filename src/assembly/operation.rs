@@ -45,7 +45,7 @@ pub enum AsmOperation {
     SHR {destination: RegOrMem, amount: Operand, base_type: BaseType},
 
     ///negates the item, taking into account its data type
-    NEG {item: GPRegister, data_type: BaseType},
+    NEG {item: GPRegister, data_type: ScalarType},
     ///performs bitwise not to the item
     BitwiseNot {item: RegOrMem, size: MemorySize},
 
@@ -233,9 +233,12 @@ fn instruction_sub(destination: &RegOrMem, decrement: &Operand, data_type: &Data
     }
 }
 
-fn instruction_neg(destination: &GPRegister, data_type: &BaseType) -> String {
-    assert!(data_type.is_integer());
-    format!("neg {}", destination.generate_name(data_type.get_non_struct_memory_size()))
+fn instruction_neg(destination: &GPRegister, data_type: &ScalarType) -> String {
+    match data_type {
+        ScalarType::Float(FloatType::F32) => format!("xorps {}, [FLOAT_NEGATE]", destination.generate_name(MemorySize::from_bytes(4))),
+        ScalarType::Float(FloatType::F64) => todo!(),
+        ScalarType::Integer(integer_type) => format!("neg {}", destination.generate_name(integer_type.memory_size())),
+    }
 }
 
 fn instruction_div(divisor: &RegOrMem, data_type: &ScalarType) -> String {
