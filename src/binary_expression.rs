@@ -54,7 +54,6 @@ impl BinaryExpression {
                 result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
 
                 result.add_instruction(AsmOperation::SUB {
-                    destination: RegOrMem::GPReg(GPRegister::acc()),
                     decrement: Operand::GPReg(GPRegister::secondary()),
                     data_type: promoted_type
                 });

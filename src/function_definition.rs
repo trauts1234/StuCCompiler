@@ -66,11 +66,7 @@ impl FunctionDefinition {
 
         let code_for_body = self.code.generate_assembly(asm_data, &mut stack_data, global_asm_data);//calculate stack needed for function, while generating asm
         let aligned_stack_usage = aligned_size(stack_data, MemorySize::from_bytes(16));
-        result.add_commented_instruction(AsmOperation::SUB {
-            destination: RegOrMem::GPReg(GPRegister::_SP),
-            decrement: Operand::Imm(aligned_stack_usage.as_imm()),
-            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
-        }, "allocate stack for local variables and alignment");
+        result.add_commented_instruction(AsmOperation::AllocateStack(aligned_stack_usage), "allocate stack for local variables and alignment");
 
         result.add_comment("moving args to memory");
 

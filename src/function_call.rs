@@ -79,11 +79,7 @@ impl FunctionCall {
         let aligned_integer_args_size = aligned_size(stack_required_for_integer_args, MemorySize::from_bytes(16));
         
         //allocate stack for args passed by memory
-        result.add_commented_instruction(AsmOperation::SUB {
-            destination: RegOrMem::GPReg(GPRegister::_SP),
-            decrement: Operand::Imm(aligned_memory_args_size.as_imm()),
-            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
-        }, "allocate memory for memory args");
+        result.add_commented_instruction(AsmOperation::AllocateStack(aligned_memory_args_size), "allocate memory for memory args");
 
         result.merge(&push_args_to_stack_backwards(
             &sorted_args.memory_args,//write memory args to stack
@@ -92,11 +88,7 @@ impl FunctionCall {
         ));
 
         //allocate stack for args to be popped to GP registers
-        result.add_instruction(AsmOperation::SUB {
-            destination: RegOrMem::GPReg(GPRegister::_SP),
-            decrement: Operand::Imm(aligned_integer_args_size.as_imm()),
-            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
-        });
+        result.add_commented_instruction(AsmOperation::AllocateStack(aligned_integer_args_size), "allocate memory for register args");
 
         result.merge(&push_args_to_stack_backwards(
             &sorted_args.integer_args,//write integer args to stack

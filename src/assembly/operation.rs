@@ -33,8 +33,8 @@ pub enum AsmOperation {
 
     ///adds increment to destination
     ADD {destination: RegOrMem, increment: Operand, data_type: DataType},
-    ///subtracts decrement from destination
-    SUB {destination: RegOrMem, decrement: Operand, data_type: DataType},
+    ///subtracts decrement from _AX
+    SUB {decrement: Operand, data_type: DataType},
     ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
     MUL {multiplier: RegOrMem, data_type: DataType},
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
@@ -56,6 +56,10 @@ pub enum AsmOperation {
     CreateStackFrame,
     DestroyStackFrame,
     Return,
+    /// Subtracts MemorySize bytes from RSP
+    AllocateStack(MemorySize),
+    /// adds MemorySize bytes to RSP
+    DeallocateStack(MemorySize),
     ///copies size bytes from the pointer RDI to RSI
     MEMCPY {size: MemorySize},
     ///calls a subroutine
@@ -85,11 +89,13 @@ impl AsmOperation {
             AsmOperation::SignExtendACC { old_size } => instruction_sign_extend(old_size),
             AsmOperation::ZeroExtendACC { old_size } => instruction_zero_extend(old_size),
             AsmOperation::ADD { destination, increment, data_type } => instruction_add(destination, increment, data_type),
-            AsmOperation::SUB { destination, decrement, data_type } => instruction_sub(destination, decrement, data_type),
+            AsmOperation::SUB { decrement, data_type } => instruction_sub(decrement, data_type),
             AsmOperation::NEG { item, data_type } => instruction_neg(item, data_type),
             AsmOperation::CreateStackFrame => "push rbp\nmov rbp, rsp".to_string(),
             AsmOperation::DestroyStackFrame => "mov rsp, rbp\npop rbp".to_string(),
             AsmOperation::Return => "ret".to_string(),
+            AsmOperation::AllocateStack(size) => format!("sub rsp, {}", size.size_bytes()),
+            AsmOperation::DeallocateStack(size) => format!("add rsp, {}", size.size_bytes()),
             AsmOperation::Label { name } => format!("{}:", name),
             AsmOperation::MEMCPY { size } => format!("mov rcx, {}\ncld\nrep movsb", size.size_bytes()),
             AsmOperation::BLANK => String::new(),
@@ -224,11 +230,11 @@ fn instruction_add(destination: &RegOrMem, increment: &Operand, data_type: &Data
         _ => panic!("currently cannot add this data type")
     }
 }
-fn instruction_sub(destination: &RegOrMem, decrement: &Operand, data_type: &DataType) -> String {
+fn instruction_sub(decrement: &Operand, data_type: &DataType) -> String {
     match data_type {
-        DataType::POINTER(_) => format!("sub {}, {}", destination.generate_name(PTR_SIZE), decrement.generate_name(PTR_SIZE)),
+        DataType::POINTER(_) => format!("sub {}, {}", GPRegister::acc().generate_name(PTR_SIZE), decrement.generate_name(PTR_SIZE)),
         //subtraction is same for signed and unsigned
-        DataType::RAW(base) if base.is_integer() => format!("sub {}, {}", destination.generate_name(base.get_non_struct_memory_size()), decrement.generate_name(base.get_non_struct_memory_size())),
+        DataType::RAW(base) if base.is_integer() => format!("sub {}, {}", GPRegister::acc().generate_name(base.get_non_struct_memory_size()), decrement.generate_name(base.get_non_struct_memory_size())),
         _ => panic!("currently cannot sub this data type")
     }
 }
@@ -321,7 +327,7 @@ impl IRDisplay for AsmOperation {
             AsmOperation::SignExtendACC { old_size } => format!("{} {} from {}", opcode!("sign extend"), GPRegister::acc().display_ir(), old_size),
             AsmOperation::ZeroExtendACC { old_size } => format!("{} {} from {}", opcode!("zero extend"), GPRegister::acc().display_ir(), old_size),
             AsmOperation::ADD { destination, increment, data_type } => format!("{} += {} ({})", destination.display_ir(), increment.display_ir(), data_type),
-            AsmOperation::SUB { destination, decrement, data_type } => format!("{} -= {} ({})", destination.display_ir(), decrement.display_ir(), data_type),
+            AsmOperation::SUB { decrement, data_type } => format!("{} -= {} ({})", GPRegister::acc().display_ir(), decrement.display_ir(), data_type),
             AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", GPRegister::acc().display_ir(), multiplier.display_ir(), data_type),
             AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", GPRegister::acc().display_ir(), divisor.display_ir(), data_type),
             AsmOperation::SHL { destination, amount, base_type } => format!("{} <<= {} ({})", destination.display_ir(), amount.display_ir(), base_type),
@@ -333,6 +339,8 @@ impl IRDisplay for AsmOperation {
             AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
             AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),
             AsmOperation::Return => opcode!("RET"),
+            AsmOperation::AllocateStack(size) => format!("{} {} B", opcode!("reserve stack"), size.size_bytes()),
+            AsmOperation::DeallocateStack(size) => format!("{} {} B", opcode!("deallocate stack"), size.size_bytes()),
             AsmOperation::MEMCPY { size } => format!("{} {}", opcode!("MEMCPY"), size),
             AsmOperation::CALL { label } => format!("{} {}", opcode!("CALL"), label),
             AsmOperation::BLANK => String::new(),
