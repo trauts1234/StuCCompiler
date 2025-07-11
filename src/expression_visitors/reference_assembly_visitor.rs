@@ -22,7 +22,6 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         result.add_instruction(AsmOperation::LEA {
-            to: GPRegister::acc(),
             from: self.asm_data.get_variable(&var.name).location.clone(),
         });
 
@@ -33,7 +32,6 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         result.add_instruction(AsmOperation::LEA {
-            to: GPRegister::acc(),
             from: MemoryOperand::LabelAccess(string.get_label().to_string()),
         });
 

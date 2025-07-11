@@ -1,4 +1,4 @@
-use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister, Register}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
@@ -9,8 +9,8 @@ use super::{operand::{Operand, RegOrMem, PTR_SIZE}};
 pub enum AsmOperation {
     ///moves size bytes from -> to
     MOV {to: RegOrMem, from: Operand, size: MemorySize},
-    ///references from, puts address in to
-    LEA {to: GPRegister, from: MemoryOperand},
+    ///references from, puts address in the accumulator
+    LEA {from: MemoryOperand},
 
     ///compares lhs and rhs, based on their data type
     CMP {lhs: Operand, rhs: Operand, data_type: ScalarType},
@@ -78,7 +78,7 @@ impl AsmOperation {
     pub fn to_text(&self) -> String {
         match self {
             AsmOperation::MOV { to, from, size } => instruction_mov(to, from, *size),
-            AsmOperation::LEA { to, from } => format!("lea {}, {}", to.generate_name(PTR_SIZE), from.generate_name()),
+            AsmOperation::LEA { from } => format!("lea {}, {}", GPRegister::acc().generate_name(PTR_SIZE), from.generate_name()),
             AsmOperation::CMP { lhs, rhs, data_type } => instruction_cmp(lhs, rhs, data_type),
             AsmOperation::SETCC { destination, comparison } => instruction_setcc(destination, comparison),
             AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
@@ -300,7 +300,7 @@ impl IRDisplay for AsmOperation {
     fn display_ir(&self) -> String {
         match self {
             AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to.display_ir(), from.display_ir(), size),
-            AsmOperation::LEA { to, from } => format!("{} = {} {}", to.display_ir(), opcode!("LEA"), from.display_ir()),
+            AsmOperation::LEA { from } => format!("{} = {} {}", GPRegister::acc().display_ir(), opcode!("LEA"), from.display_ir()),
             AsmOperation::CMP { lhs, rhs, data_type } => 
                         format!("{} {}, {} ({})",
                             opcode!("CMP"),

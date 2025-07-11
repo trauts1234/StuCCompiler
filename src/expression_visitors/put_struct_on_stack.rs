@@ -122,17 +122,21 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
 fn clone_struct_to_stack(struct_size: MemorySize, destination: &MemoryOperand) -> Assembly {
     let mut result = Assembly::make_empty();
 
-    
-    //put destination in RDI
-    result.add_instruction(AsmOperation::LEA {
-        to: GPRegister::_DI,
-        from: destination.clone(),
-    });
     //put source in RSI
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::GPReg(GPRegister::_SI),
         from: Operand::GPReg(GPRegister::acc()),
         size: PTR_SIZE,
+    });
+    
+    //put destination in RDI
+    result.add_instruction(AsmOperation::LEA {
+        from: destination.clone(),
+    });
+    result.add_instruction(AsmOperation::MOV {
+        to: RegOrMem::GPReg(GPRegister::_DI),
+        from: Operand::GPReg(GPRegister::acc()),
+        size: PTR_SIZE
     });
 
     //clone struct
@@ -140,7 +144,6 @@ fn clone_struct_to_stack(struct_size: MemorySize, destination: &MemoryOperand) -
 
     //point to the cloned struct
     result.add_instruction(AsmOperation::LEA {
-        to: GPRegister::acc(),
         from: destination.clone(),
     });
 
