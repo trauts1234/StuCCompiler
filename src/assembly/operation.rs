@@ -14,8 +14,8 @@ pub enum AsmOperation {
 
     ///compares lhs and rhs, based on their data type
     CMP {lhs: Operand, rhs: Operand, data_type: ScalarType},
-    /// based on the comparison, sets destination to 1 or 0
-    SETCC {destination: GPRegister, comparison: AsmComparison},
+    /// based on the comparison, sets _AX to 1 or 0
+    SETCC {comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
     JMPCC {label: String, comparison: AsmComparison},
 
@@ -84,7 +84,7 @@ impl AsmOperation {
             AsmOperation::MOV { to, from, size } => instruction_mov(to, from, *size),
             AsmOperation::LEA { from } => format!("lea {}, {}", GPRegister::acc().generate_name(PTR_SIZE), from.generate_name()),
             AsmOperation::CMP { lhs, rhs, data_type } => instruction_cmp(lhs, rhs, data_type),
-            AsmOperation::SETCC { destination, comparison } => instruction_setcc(destination, comparison),
+            AsmOperation::SETCC { comparison } => instruction_setcc(comparison),
             AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
             AsmOperation::SignExtendACC { old_size } => instruction_sign_extend(old_size),
             AsmOperation::ZeroExtendACC { old_size } => instruction_zero_extend(old_size),
@@ -176,8 +176,8 @@ fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &ScalarType) -> Stri
             // DataType::RAW(base) if base.is_integer() => format!("cmp {}, {}", lhs.generate_name(base.get_non_struct_memory_size()), rhs.generate_name(base.get_non_struct_memory_size())),//comparing integers
             // _ => panic!("currently cannot compare this data type")
 
-fn instruction_setcc(destination: &GPRegister, comparison: &AsmComparison) -> String {
-    let reg_name = destination.generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
+fn instruction_setcc(comparison: &AsmComparison) -> String {
+    let reg_name = GPRegister::acc().generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
 
     let comparison_instr = match comparison {
         AsmComparison::NE => "setne",
@@ -314,10 +314,10 @@ impl IRDisplay for AsmOperation {
                             rhs.display_ir(),
                             data_type
                         ),
-            AsmOperation::SETCC { destination, comparison } => 
+            AsmOperation::SETCC { comparison } => 
                         format!("{} {}",
                             opcode!(format!("set-{}", comparison.display_ir())),
-                            destination.display_ir()
+                            GPRegister::acc().display_ir()
                         ),
             AsmOperation::JMPCC { label, comparison } => 
                         format!("{} {}",

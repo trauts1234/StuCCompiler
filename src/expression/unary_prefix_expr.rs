@@ -187,7 +187,6 @@ impl UnaryPrefixExpression {
 
                 //set 1 if equal to 0 or vice-versa
                 result.add_instruction(AsmOperation::SETCC {
-                    destination: GPRegister::acc(),
                     comparison: AsmComparison::EQ,//set to 1 if it was previously equal to 0
                 });
             },

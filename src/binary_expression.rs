@@ -125,7 +125,7 @@ impl BinaryExpression {
                     });//take signedness and convert comparison kind to an asm comparison
 
                 //create the correct setcc instruction
-                result.add_instruction(AsmOperation::SETCC { destination: GPRegister::acc(), comparison: asm_comparison });
+                result.add_instruction(AsmOperation::SETCC { comparison: asm_comparison });
 
             },
 

@@ -26,7 +26,6 @@ pub fn cast_raw_from_acc(from_raw: &ScalarType, to_raw: &ScalarType, asm_data: &
         });
         //set to 1 or 0 based on whether that value was 0
         result.add_instruction(AsmOperation::SETCC {
-            destination: GPRegister::acc(),
             comparison: AsmComparison::NE,
         });
 
