@@ -3,6 +3,12 @@ use memory_size::MemorySize;
 
 use crate::{debugging::IRDisplay};
 
+#[derive(Clone, Copy, Debug)]
+pub enum Register {
+    GP(GPRegister),
+    XMM(MMRegister),
+}
+
 /**
  * name of an actual register
  */
@@ -137,5 +143,14 @@ impl IRDisplay for GPRegister {
 impl IRDisplay for MMRegister {
     fn display_ir(&self) -> String {
         self.generate_variant_name().red().to_string()
+    }
+}
+
+impl IRDisplay for Register {
+    fn display_ir(&self) -> String {
+        match self {
+            Register::GP(gpregister) => gpregister.display_ir(),
+            Register::XMM(mmregister) => mmregister.display_ir(),
+        }
     }
 }

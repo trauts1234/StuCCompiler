@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ast_metadata::ASTMetadata, data_type::base_type::BaseType, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::base_type::IntegerType, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 /**
  * stores all the enums in a current scope
@@ -9,13 +9,13 @@ use crate::{ast_metadata::ASTMetadata, data_type::base_type::BaseType, lexer::{k
 pub struct EnumList {
     all_variants: HashMap<String, NumberLiteral>,//converts enum variant name to number literal
 
-    all_enum_names: HashMap<String, BaseType>//converts enum name to the enum's type
+    all_enum_names: HashMap<String, IntegerType>//converts enum name to the enum's type
 }
 
 /**
  * if a new enum is found, scope_data is updated and the data type of the enum is returned
  */
-pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, previous_slice: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<BaseType>> {
+pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, previous_slice: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<IntegerType>> {
 
     let mut curr_queue_idx = previous_slice.clone();
     
@@ -39,7 +39,7 @@ pub fn try_consume_enum_as_type(tokens_queue: &TokenQueue, previous_slice: &mut 
 
             let mut prev_num = -1;//this is a temporary counter, as when custom types are used for enums, this may break
 
-            let data_type = BaseType::I32;
+            let data_type = IntegerType::I32;
 
             while let Some(variant) = try_consume_enum_variant_definition(tokens_queue, &mut inside_variants, &mut prev_num, scope_data) {
                 scope_data.enums.add_variant(variant);
@@ -76,13 +76,13 @@ impl EnumList {
         }
         self.all_variants.insert(var_name, var_num);
     }
-    pub fn add_enum(&mut self, name: String, data_type: BaseType) {
+    pub fn add_enum(&mut self, name: String, data_type: IntegerType) {
         if self.all_enum_names.contains_key(&name) {
             panic!("tried to double define enum: {}", name);
         }
         self.all_enum_names.insert(name, data_type);
     }
-    pub fn get_enum_data_type(&self, enum_name: &str) -> Option<&BaseType> {
+    pub fn get_enum_data_type(&self, enum_name: &str) -> Option<&IntegerType> {
         self.all_enum_names.get(enum_name)
     }
     pub fn try_get_variant(&self, enum_variant: &str) -> Option<&NumberLiteral> {

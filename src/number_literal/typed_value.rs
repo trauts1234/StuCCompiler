@@ -1,21 +1,20 @@
 use std::{cmp::Ordering, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
-use unwrap_let::unwrap_let;
-use uuid::Uuid;
-use crate::{asm_gen_data::GetStruct, assembly::comparison::ComparisonKind, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, expression_visitors::expr_visitor::ExprVisitor};
-
-use super::literal_value::LiteralValue;
+use crate::{assembly::comparison::ComparisonKind, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone)]
-pub struct NumberLiteral {
-    value: LiteralValue,
-    data_type: BaseType
+pub enum NumberLiteral {
+    INTEGER {data: i128, data_type: IntegerType},
+    FLOAT {data: f64, data_type: FloatType},
 }
 
 impl NumberLiteral {
 
-    pub fn get_data_type(&self) -> DataType {
-        DataType::new(self.data_type.clone())
+    pub fn get_data_type(&self) -> ScalarType {
+        match self {
+            NumberLiteral::INTEGER {data_type, ..} => ScalarType::Integer(*data_type),
+            NumberLiteral::FLOAT {data_type, ..} => ScalarType::Float(*data_type),
+        }
     }
 
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
@@ -24,12 +23,12 @@ impl NumberLiteral {
 
     /// promotes the value using unary promotion rules
     pub fn unary_promote(&self) -> Self {
-        unwrap_let!(DataType::RAW(base) = calculate_unary_type_arithmetic(&DataType::RAW(self.data_type.clone())));
+        let base = calculate_unary_type(&self.get_data_type());
         self.cast(&base)
     }
 
     pub fn binary_promote(self, rhs: Self) -> (Self, Self) {
-        unwrap_let!(DataType::RAW(base) = calculate_promoted_type_arithmetic(&DataType::RAW(self.data_type.clone()), &DataType::RAW(rhs.data_type.clone())));
+        let base = calculate_promoted_type(&self.get_data_type(), &rhs.get_data_type());
 
         (
             self.cast(&base),
@@ -37,44 +36,26 @@ impl NumberLiteral {
         )
     }
 
-    pub fn new_from_literal_value(value: LiteralValue) -> NumberLiteral {
-        let data_type = match &value {
-            LiteralValue::INTEGER(x) if *x < 0 => BaseType::I64,
-            _ => BaseType::U64,
-        };
-
-        NumberLiteral{
-            value,
-            data_type
-        }
-    }
-
-    pub fn get_value(&self) -> &LiteralValue {
-        &self.value
-    }
-
     /// Generates the `x db 10` - type commands
-    pub fn generate_data_definition_instruction(&self, struct_info: &dyn GetStruct, variable_name: &str) -> String {
-        let bytes_size = self.data_type.memory_size(struct_info).size_bytes();//pass in blank
+    pub fn generate_data_definition_instruction(&self, variable_name: &str) -> String {
 
-        match self.value {
-            LiteralValue::INTEGER(x) => {
+        match self {
+            Self::INTEGER{data, data_type} => {
                 //store the integer as a list of bytes
                 format!("{} db {}",
                     variable_name,
 
-                    x.to_le_bytes()[..bytes_size as usize].iter()
+                    data.to_le_bytes()[..data_type.memory_size().size_bytes() as usize].iter()
                     .map(|x| x.to_string())
                     .collect::<Vec<String>>()
                     .join(",")
                 )
             },
             
-            LiteralValue::FLOAT(value) => {
-                match self.data_type {
-                    BaseType::F32 => format!("{} dd {:.1}", variable_name, value),
-                    BaseType::F64 => format!("{} dq {:.1}", variable_name, value),
-                    _ => panic!("invalid data type for float literal?")
+            Self::FLOAT{data, data_type} => {
+                match data_type {
+                    FloatType::F32 => format!("{} dd {:.1}", variable_name, data),
+                    FloatType::F64 => format!("{} dq {:.1}", variable_name, data),
                 }
             }
         }
@@ -82,43 +63,52 @@ impl NumberLiteral {
 
     }
 
-    pub fn cast(&self, new_type: &BaseType) -> NumberLiteral {
-        let new_value = match (self.value.clone(), new_type) {
-            (LiteralValue::INTEGER(val), BaseType::I8)=> LiteralValue::INTEGER(val as i8 as i128),
-            (LiteralValue::INTEGER(val), BaseType::I16) => LiteralValue::INTEGER(val as i16 as i128),
-            (LiteralValue::INTEGER(val), BaseType::I32) => LiteralValue::INTEGER(val as i32 as i128),
-            (LiteralValue::INTEGER(val), BaseType::I64) => LiteralValue::INTEGER(val as i64 as i128),
-            (LiteralValue::INTEGER(val), BaseType::F32) => LiteralValue::FLOAT(val as f32 as f64),
-            (LiteralValue::INTEGER(val), BaseType::F64) => LiteralValue::FLOAT(val as f64),
-
-            (LiteralValue::FLOAT(val), BaseType::I8)=> LiteralValue::INTEGER(val as i8 as i128),
-            (LiteralValue::FLOAT(val), BaseType::I16) => LiteralValue::INTEGER(val as i16 as i128),
-            (LiteralValue::FLOAT(val), BaseType::I32) => LiteralValue::INTEGER(val as i32 as i128),
-            (LiteralValue::FLOAT(val), BaseType::I64) => LiteralValue::INTEGER(val as i64 as i128),
-            (LiteralValue::FLOAT(val), BaseType::F32) => LiteralValue::FLOAT(val as f32 as f64),
-            (LiteralValue::FLOAT(val), BaseType::F64) => LiteralValue::FLOAT(val),
-
-            (LiteralValue::INTEGER(val), BaseType::U8)=> LiteralValue::INTEGER(val as u8 as i128),
-            (LiteralValue::INTEGER(val), BaseType::U16) => LiteralValue::INTEGER(val as u16 as i128),
-            (LiteralValue::INTEGER(val), BaseType::U32) => LiteralValue::INTEGER(val as u32 as i128),
-            (LiteralValue::INTEGER(val), BaseType::U64) => LiteralValue::INTEGER(val as u64 as i128),
-            (LiteralValue::FLOAT(val), BaseType::U8)=> LiteralValue::INTEGER(val as u8 as i128),
-            (LiteralValue::FLOAT(val), BaseType::U16) => LiteralValue::INTEGER(val as u16 as i128),
-            (LiteralValue::FLOAT(val), BaseType::U32) => LiteralValue::INTEGER(val as u32 as i128),
-            (LiteralValue::FLOAT(val), BaseType::U64) => LiteralValue::INTEGER(val as u64 as i128),
-
-            (LiteralValue::INTEGER(val), BaseType::_BOOL) => LiteralValue::INTEGER(if val == 0 {0} else {1}),//booleans are 1 if nonzero
-            (LiteralValue::FLOAT (value), BaseType::_BOOL) => LiteralValue::INTEGER(if value == 0.0 {0} else {1}),
-
-            x => panic!("tried to cast number literal to unknown data type: {:?}", x)
-        };
-
-        NumberLiteral { value: new_value, data_type: new_type.clone() }
+    pub fn cast(&self, new_type: &ScalarType) -> NumberLiteral {
+        match (self, new_type) {
+            (NumberLiteral::INTEGER { data, .. }, ScalarType::Integer(int_ty)) => {
+                match int_ty {
+                    IntegerType::I8 => NumberLiteral::INTEGER { data: *data as i8 as i128, data_type: *int_ty },
+                    IntegerType::I16 => NumberLiteral::INTEGER { data: *data as i16 as i128, data_type: *int_ty },
+                    IntegerType::I32 => NumberLiteral::INTEGER { data: *data as i32 as i128, data_type: *int_ty },
+                    IntegerType::I64 => NumberLiteral::INTEGER { data: *data as i64 as i128, data_type: *int_ty },
+                    IntegerType::U8 => NumberLiteral::INTEGER { data: *data as u8 as i128, data_type: *int_ty },
+                    IntegerType::U16 => NumberLiteral::INTEGER { data: *data as u16 as i128, data_type: *int_ty },
+                    IntegerType::U32 => NumberLiteral::INTEGER { data: *data as u32 as i128, data_type: *int_ty },
+                    IntegerType::U64 => NumberLiteral::INTEGER { data: *data as u64 as i128, data_type: *int_ty },
+                    IntegerType::_BOOL => NumberLiteral::INTEGER { data: if *data == 0 { 0 } else { 1 }, data_type: *int_ty },
+                }
+            }
+            (NumberLiteral::INTEGER { data, .. }, ScalarType::Float(float_ty)) => {
+                match float_ty {
+                    FloatType::F32 => NumberLiteral::FLOAT { data: *data as f32 as f64, data_type: *float_ty },
+                    FloatType::F64 => NumberLiteral::FLOAT { data: *data as f64, data_type: *float_ty },
+                }
+            }
+            (NumberLiteral::FLOAT { data, .. }, ScalarType::Integer(int_ty)) => {
+                match int_ty {
+                    IntegerType::I8 => NumberLiteral::INTEGER { data: *data as i8 as i128, data_type: *int_ty },
+                    IntegerType::I16 => NumberLiteral::INTEGER { data: *data as i16 as i128, data_type: *int_ty },
+                    IntegerType::I32 => NumberLiteral::INTEGER { data: *data as i32 as i128, data_type: *int_ty },
+                    IntegerType::I64 => NumberLiteral::INTEGER { data: *data as i64 as i128, data_type: *int_ty },
+                    IntegerType::U8 => NumberLiteral::INTEGER { data: *data as u8 as i128, data_type: *int_ty },
+                    IntegerType::U16 => NumberLiteral::INTEGER { data: *data as u16 as i128, data_type: *int_ty },
+                    IntegerType::U32 => NumberLiteral::INTEGER { data: *data as u32 as i128, data_type: *int_ty },
+                    IntegerType::U64 => NumberLiteral::INTEGER { data: *data as u64 as i128, data_type: *int_ty },
+                    IntegerType::_BOOL => NumberLiteral::INTEGER { data: if *data == 0.0 { 0 } else { 1 }, data_type: *int_ty },
+                }
+            }
+            (NumberLiteral::FLOAT { data, .. }, ScalarType::Float(float_ty)) => {
+                match float_ty {
+                    FloatType::F32 => NumberLiteral::FLOAT { data: *data as f32 as f64, data_type: *float_ty },
+                    FloatType::F64 => NumberLiteral::FLOAT { data: *data, data_type: *float_ty },
+                }
+            }
+        }
     }
 
     ///ensures that the number stored is a valid number for the data type
     pub fn limit_literal(self) -> Self {
-        self.cast(&self.data_type)
+        self.cast(&self.get_data_type())
     }
 
     /// promotes the number literal by applying unary plus to it
@@ -127,79 +117,67 @@ impl NumberLiteral {
     }
 
     pub fn boolean_or(self, other: Self) -> Self {
-        let promoted = self.unary_promote();
-
         match Self::binary_promote(self, other) {
-            (NumberLiteral { value: LiteralValue::INTEGER(0), data_type: _ }, NumberLiteral { value: LiteralValue::INTEGER(0), data_type: _ }) =>
-                Self { value: LiteralValue::INTEGER(0), data_type: promoted.data_type },// 0 | 0 = 0
+            (NumberLiteral::INTEGER{ data:0, ..}, NumberLiteral::INTEGER{data: 0, ..}) => {
+                Self::INTEGER { data: 0, data_type: IntegerType::_BOOL }// 0 | 0 = 0
+            }
+            (NumberLiteral::INTEGER {..}, NumberLiteral::INTEGER {..}) => {
+                Self::INTEGER { data: 1, data_type: IntegerType::_BOOL }
+            }
 
-            _ => Self { value: LiteralValue::INTEGER(1), data_type: promoted.data_type }
+            _ => panic!("unsupported operands to boolean or")
         }
     }
 
     pub fn boolean_and(self, other: Self) -> Self {
-        let promoted = self.unary_promote();
-
         match Self::binary_promote(self, other) {
-            (NumberLiteral { value: LiteralValue::INTEGER(x), data_type: _ }, NumberLiteral { value: LiteralValue::INTEGER(y), data_type: _ })
-            if x != 0 && y != 0 =>
-                Self { value: LiteralValue::INTEGER(1), data_type: promoted.data_type },// 1 | 1 = 1
-
-            _ => {
-                Self { value: LiteralValue::INTEGER(0), data_type: promoted.data_type }
+            (NumberLiteral::INTEGER{ data:x, data_type: l_type}, NumberLiteral::INTEGER{data: y, data_type: r_type})
+            if x != 0 && y != 0 => {
+                assert_eq!(l_type, r_type);
+                Self::INTEGER { data: 1, data_type: l_type }// nonzero & nonzero = 1
             }
+            (NumberLiteral::INTEGER {data_type:l_type,..}, NumberLiteral::INTEGER {data_type:r_type,..}) => {
+                assert_eq!(l_type, r_type);
+                Self::INTEGER { data: 0, data_type: l_type }
+            }
+
+            _ => panic!("unsupported operands to boolean or")
         }
     }
 
     pub fn cmp(self, other: Self, comparison: &ComparisonKind) -> Self {
         let (lhs, rhs) = self.binary_promote(other);
 
-        let cmp_result = match (lhs.value, rhs.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => x.cmp(&y),
-            (LiteralValue::INTEGER(x), LiteralValue::FLOAT(y)) => cmp_i128_f64(x, y),
-            (LiteralValue::FLOAT(x), LiteralValue::INTEGER(y)) => cmp_i128_f64(y, x).reverse(),
-            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => x.partial_cmp(&y).unwrap(),
+        let cmp_result = match (lhs, rhs) {
+            (NumberLiteral::INTEGER{data: x,..}, NumberLiteral::INTEGER{data: y,..}) => x.cmp(&y),
+            (NumberLiteral::INTEGER{data: x,..}, NumberLiteral::FLOAT{data: y,..}) => cmp_i128_f64(x, y),
+            (NumberLiteral::FLOAT{data: x,..}, NumberLiteral::INTEGER{data: y,..}) => cmp_i128_f64(y, x).reverse(),
+            (NumberLiteral::FLOAT{data: x,..}, NumberLiteral::FLOAT{data: y,..}) => x.partial_cmp(&y).unwrap(),
         };
 
-        let result = 
-            match comparison {
-                ComparisonKind::EQ => LiteralValue::INTEGER(cmp_result.is_eq() as i128),
-                ComparisonKind::NE => LiteralValue::INTEGER(cmp_result.is_ne() as i128),
-                ComparisonKind::L => LiteralValue::INTEGER(cmp_result.is_lt() as i128),
-                ComparisonKind::LE => LiteralValue::INTEGER(cmp_result.is_le() as i128),
-                ComparisonKind::G => LiteralValue::INTEGER(cmp_result.is_gt() as i128),
-                ComparisonKind::GE => LiteralValue::INTEGER(cmp_result.is_ge() as i128),
-                ComparisonKind::ALWAYS => panic!("invalid comparison")
-            };
-
-        NumberLiteral {
-            value: result,
-            data_type: BaseType::_BOOL, // Comparisons result in a boolean type
+        match comparison {
+            ComparisonKind::EQ => Self::INTEGER{data: cmp_result.is_eq() as i128, data_type: IntegerType::_BOOL},
+            ComparisonKind::NE => Self::INTEGER{data: cmp_result.is_ne() as i128, data_type: IntegerType::_BOOL},
+            ComparisonKind::L => Self::INTEGER{data: cmp_result.is_lt() as i128, data_type: IntegerType::_BOOL},
+            ComparisonKind::LE => Self::INTEGER{data: cmp_result.is_le() as i128, data_type: IntegerType::_BOOL},
+            ComparisonKind::G => Self::INTEGER{data: cmp_result.is_gt() as i128, data_type: IntegerType::_BOOL},
+            ComparisonKind::GE => Self::INTEGER{data: cmp_result.is_ge() as i128, data_type: IntegerType::_BOOL},
+            ComparisonKind::ALWAYS => panic!("invalid comparison")
         }
     }
 
     pub fn bitwise_not(self) -> Self {
-        let mut promoted = self.unary_promote();//this should also promote boolean to integer, so no boolean not here...
-
-        promoted.value = match promoted.value {
-            
-            LiteralValue::INTEGER(x) => LiteralValue::INTEGER(!x),
-            LiteralValue::FLOAT {..} => panic!("bitwise not is not applicable for floats")
-        };
-
-        promoted.limit_literal()
+        match self.unary_promote() {
+            NumberLiteral::INTEGER { data, data_type } => {
+                NumberLiteral::INTEGER { data: !data, data_type }
+            },
+            _ => panic!("cannot bitwise not this type"),
+        }.limit_literal()
     }
 
     pub fn boolean_not(self) -> Self {
-        let mut as_bool = self.cast(&BaseType::_BOOL);
-
-        as_bool.value = match as_bool.value {
-            LiteralValue::INTEGER(0) => LiteralValue::INTEGER(1),
-            LiteralValue::INTEGER(1) => LiteralValue::INTEGER(0),
-            x => panic!("invalid value for boolean: {:?}", x)
-        };
-
-        as_bool.limit_literal()
+        // a == 0 is the same operation as !a
+        self.cmp(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I64 }, &ComparisonKind::EQ)
     }
 }
 
@@ -213,9 +191,25 @@ fn cmp_i128_f64(x: i128, y: f64) -> Ordering {
     }
 }
 
+impl TryInto<i128> for NumberLiteral {
+    type Error = ();
+
+    fn try_into(self) -> Result<i128, Self::Error> {
+        match self {
+            NumberLiteral::INTEGER { data, ..} => Ok(data),
+            NumberLiteral::FLOAT {..} => Err(()),
+        }
+    }
+}
+
 impl PartialEq for NumberLiteral {
     fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
+        match (self, other) {
+            (NumberLiteral::INTEGER {data: l,..}, NumberLiteral::INTEGER {data:r,..}) if l == r => true,
+            (NumberLiteral::FLOAT {data: l,..}, NumberLiteral::FLOAT {data:r,..}) if l == r => true,
+            _ => false
+
+        }
     }
 }
 
@@ -224,19 +218,10 @@ impl Neg for NumberLiteral {
 
     ///unary negation `-num` for a number.
     fn neg(self) -> Self::Output {
-        let mut promoted = self.unary_promote();
-
-        promoted.value = match (promoted.value.clone(), &promoted.data_type) {
-            (LiteralValue::INTEGER(x), BaseType::I32) => LiteralValue::INTEGER((-x) as i32 as i128),
-            (LiteralValue::INTEGER(x), BaseType::U32) => LiteralValue::INTEGER((-x) as u32 as i128),
-            (LiteralValue::INTEGER(x), BaseType::I64) => LiteralValue::INTEGER((-x) as i64 as i128),
-            (LiteralValue::INTEGER(x), BaseType::U64) => LiteralValue::INTEGER((-x) as u64 as i128),
-            (LiteralValue::FLOAT(value), BaseType::F32) => LiteralValue::FLOAT((-value) as f32 as f64),
-            (LiteralValue::FLOAT(value), BaseType::F64) => LiteralValue::FLOAT(-value),
-            _ => panic!("invalid promoted type")
-        };
-
-        promoted.limit_literal()
+        match self.unary_promote() {
+            Self::INTEGER { data, data_type } => Self::INTEGER { data: -data, data_type },
+            Self::FLOAT { data, data_type } => Self::FLOAT { data: -data, data_type},
+        }.limit_literal()
     }
 }
 
@@ -244,14 +229,13 @@ impl BitOr for NumberLiteral {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x | y),
-            _ => panic!("bitwise or is not applicable for these data types")
-        };
-
-        l.limit_literal()
+        match self.binary_promote(rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::INTEGER { data: l | r, data_type: l_type }
+            }
+            _ => panic!("invalid operands for bitwise or")
+        }
     }
 }
 
@@ -259,14 +243,13 @@ impl BitAnd for NumberLiteral {
     type Output = Self;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x & y),
-            _ => panic!("bitwise and is not applicable for these data types")
-        };
-
-        l.limit_literal()
+        match self.binary_promote(rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::INTEGER { data: l & r, data_type: l_type }
+            }
+            _ => panic!("invalid operands for bitwise and")
+        }
     }
 }
 
@@ -274,14 +257,13 @@ impl BitXor for NumberLiteral {
     type Output = Self;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x ^ y),
-            _ => panic!("bitwise xor is not applicable for these data types")
-        };
-
-        l.limit_literal()
+        match self.binary_promote(rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::INTEGER { data: l ^ r, data_type: l_type }
+            }
+            _ => panic!("invalid operands for bitwise xor")
+        }
     }
 }
 
@@ -289,30 +271,34 @@ impl Add for NumberLiteral {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x + y),
-            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => LiteralValue::FLOAT(x + y),
-            _ => panic!()
-        };
-
-        l.limit_literal()
+        match self.binary_promote(rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::INTEGER { data: l + r, data_type: l_type }.limit_literal()
+            }
+            (NumberLiteral::FLOAT { data: l, data_type: l_type }, NumberLiteral::FLOAT { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::FLOAT { data: l + r, data_type: l_type }.limit_literal()
+            }
+            _ => panic!("invalid operands for add")
+        }
     }
 }
 impl Sub for NumberLiteral {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x - y),
-            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => LiteralValue::FLOAT(x - y),
-            _ => panic!()
-        };
-
-        l.limit_literal()
+        match self.binary_promote(rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::INTEGER { data: l - r, data_type: l_type }.limit_literal()
+            }
+            (NumberLiteral::FLOAT { data: l, data_type: l_type }, NumberLiteral::FLOAT { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::FLOAT { data: l - r, data_type: l_type }.limit_literal()
+            }
+            _ => panic!("invalid operands for subtract")
+        }
     }
 }
 
@@ -320,15 +306,17 @@ impl Mul for NumberLiteral {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x * y),
-            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => LiteralValue::FLOAT(x * y),
-            _ => panic!()
-        };
-
-        l.limit_literal()
+        match self.binary_promote(rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::INTEGER { data: l * r, data_type: l_type }.limit_literal()
+            }
+            (NumberLiteral::FLOAT { data: l, data_type: l_type }, NumberLiteral::FLOAT { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::FLOAT { data: l * r, data_type: l_type }.limit_literal()
+            }
+            _ => panic!("invalid operands for multiply")
+        }
     }
 }
 
@@ -336,15 +324,17 @@ impl Div for NumberLiteral {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);//this should truncate self and rhs, so division should work properly...
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x / y),
-            (LiteralValue::FLOAT(x), LiteralValue::FLOAT(y)) => LiteralValue::FLOAT(x / y),
-            _ => panic!()
-        };
-
-        l.limit_literal()
+        match self.binary_promote(rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::INTEGER { data: l / r, data_type: l_type }.limit_literal()
+            }
+            (NumberLiteral::FLOAT { data: l, data_type: l_type }, NumberLiteral::FLOAT { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::FLOAT { data: l / r, data_type: l_type }.limit_literal()
+            }
+            _ => panic!("invalid operands for divide")
+        }
     }
 }
 
@@ -352,14 +342,13 @@ impl Rem for NumberLiteral {
     type Output = Self;
 
     fn rem(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);//this should truncate self and rhs, so division should work properly...
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x % y),
-            _ => panic!("invalid literal value combination for MOD")
-        };
-
-        l.limit_literal()
+        match self.binary_promote(rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, data_type: r_type }) => {
+                assert_eq!(l_type, r_type);
+                NumberLiteral::INTEGER { data: l % r, data_type: l_type }
+            }
+            _ => panic!("invalid operands for mod")
+        }
     }
 }
 
@@ -367,14 +356,12 @@ impl Shl for NumberLiteral {
     type Output = Self;
 
     fn shl(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);//this should truncate self and rhs, so division should work properly...
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(x << y),
-            _ => panic!("shl is not valid for these data types")
-        };
-
-        l.limit_literal()
+        match (self, rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, ..}) => {
+                NumberLiteral::INTEGER { data: l << r, data_type: l_type }.limit_literal()
+            }
+            _ => panic!("invalid operands for shl")
+        }
     }
 }
 
@@ -382,24 +369,26 @@ impl Shr for NumberLiteral {
     type Output = Self;
     
     fn shr(self, rhs: Self) -> Self::Output {
-        let (mut l, r) = self.binary_promote(rhs);//this should truncate self and rhs, so division should work properly...
-
-        l.value = match (l.value, r.value) {
-            (LiteralValue::INTEGER(x), LiteralValue::INTEGER(y)) => LiteralValue::INTEGER(match l.data_type {
-                BaseType::I8 => (x as i8 >> y) as i128,
-                BaseType::U8 => (x as u8 >> y) as i128,
-                BaseType::I16 => (x as i16 >> y) as i128,
-                BaseType::U16 => (x as u16 >> y) as i128,
-                BaseType::I32 => (x as i32 >> y) as i128,
-                BaseType::U32 => (x as u32 >> y) as i128,
-                BaseType::I64 => (x as i64 >> y) as i128,
-                BaseType::U64 => (x as u64 >> y) as i128,
-                _ => panic!("cannot shift this value"),
-            }),
-            _ => panic!("shl is not valid for these data types")
-        };
-
-        l.limit_literal()
+        
+        match (self, rhs) {
+            (NumberLiteral::INTEGER { data: l, data_type: l_type }, NumberLiteral::INTEGER { data: r, ..}) => {
+                NumberLiteral::INTEGER {
+                    data: match l_type {
+                        IntegerType::I8  => (l as i8 >> r) as i128,
+                        IntegerType::U8  => (l as u8 >> r) as i128,
+                        IntegerType::I16 => (l as i16 >> r) as i128,
+                        IntegerType::U16 => (l as u16 >> r) as i128,
+                        IntegerType::I32 => (l as i32 >> r) as i128,
+                        IntegerType::U32 => (l as u32 >> r) as i128,
+                        IntegerType::I64 => (l as i64 >> r) as i128,
+                        IntegerType::U64 => (l as u64 >> r) as i128,
+                        _ => panic!("cannot shift this value"),
+                    },
+                    data_type: l_type
+                }
+            }
+            _ => panic!("invalid operands for shl")
+        }
     }
 
     
@@ -408,16 +397,16 @@ impl Shr for NumberLiteral {
 impl Display for NumberLiteral {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}",
-        match self.value {
-            LiteralValue::INTEGER(x) => x.to_string().cyan().to_string(),
-            LiteralValue::FLOAT(value) => format!("{:.1}", value).cyan().to_string()
+        match self {
+            Self::INTEGER{data,..} => data.to_string().cyan().to_string(),
+            Self::FLOAT{data,..} => format!("{:.1}", data).cyan().to_string()
         })
     }
 }
 
 impl From<i64> for NumberLiteral {
     fn from(value: i64) -> Self {
-        Self { value: LiteralValue::INTEGER(value.into()), data_type: BaseType::I64 }
+        Self::INTEGER { data: value as i128, data_type: IntegerType::I64 }
     }
 }
 
@@ -440,43 +429,44 @@ impl From<&str> for NumberLiteral {
 
                 let integer_part = integer_value(hex_data.integer_part, 16);
                 let fractional_part = fractional_value(hex_data.fractional_part, 16);
-                let suffix_type = calculate_suffix_type(hex_data.remainder, has_exponent || has_fraction);
                 
                 if has_exponent || has_fraction {
                     //must be a float?
                     let power: i32 = (if hex_data.negative_exponent { -1 } else { 1 } * integer_value(hex_data.exponent_part, 10)).try_into().unwrap();
-                    let data_type = suffix_type.unwrap_or(BaseType::F64);
-                    NumberLiteral {
-                        value: LiteralValue::FLOAT((integer_part as f64 + fractional_part) * 2f64.powi(power)),
-                        data_type: data_type.clone(),
-                    }.cast(&data_type)
+
+                    NumberLiteral::FLOAT{
+                        data: (integer_part as f64 + fractional_part) * 2f64.powi(power),
+                        data_type: calculate_float_suffix_type(hex_data.remainder),
+                    }.limit_literal()
                 } else {
-                    NumberLiteral {
-                        value: LiteralValue::INTEGER(integer_part),//just an integer
-                        //read the suffix (non-float) or calculate the best type
-                        data_type: suffix_type.unwrap_or(calculate_integer_type(integer_part)),
-                    }
+                    let data_type = calculate_int_suffix_type(hex_data.remainder);
+                    NumberLiteral::INTEGER {
+                        data: integer_part,
+                        data_type: data_type.unwrap_or(calculate_integer_type(integer_part))
+                    }.limit_literal()
                 }
             },
 
             ['0', 'b', rem @ ..] => {
                 let bin_data = bin_parse::bin_parse(rem);
                 let integer_part = integer_value(bin_data.integer_part, 2);
+                let data_type = calculate_int_suffix_type(bin_data.remainder);
 
-                NumberLiteral {
-                    value: LiteralValue::INTEGER(integer_part),
-                    data_type: calculate_suffix_type(bin_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
-                }
+                NumberLiteral::INTEGER {
+                    data: integer_part,
+                    data_type: data_type.unwrap_or(calculate_integer_type(integer_part))
+                }.limit_literal()
             },
 
             ['0', rem @ ..] => {
                 let oct_data = oct_parse::oct_parse(rem);
                 let integer_part = integer_value(oct_data.integer_part, 8);
+                let data_type = calculate_int_suffix_type(oct_data.remainder);
 
-                NumberLiteral {
-                    value: LiteralValue::INTEGER(integer_part),
-                    data_type: calculate_suffix_type(oct_data.remainder, false).unwrap_or(calculate_integer_type(integer_part)),
-                }
+                NumberLiteral::INTEGER {
+                    data: integer_part,
+                    data_type: data_type.unwrap_or(calculate_integer_type(integer_part))
+                }.limit_literal()
             },
 
             rem => {
@@ -487,22 +477,21 @@ impl From<&str> for NumberLiteral {
 
                 let integer_part = integer_value(dec_data.integer_part, 10);
                 let fractional_part = fractional_value(dec_data.decimal_part, 10);
-                let suffix_type = calculate_suffix_type(dec_data.remainder, has_exponent || has_fraction);
                 
                 if has_exponent || has_fraction {
                     //must be a float?
                     let power: i32 = (if dec_data.negative_exponent { -1 } else { 1 } * integer_value(dec_data.exponent_part, 10)).try_into().unwrap();
-                    let data_type = suffix_type.unwrap_or(BaseType::F64);
-                    NumberLiteral {
-                        value: LiteralValue::FLOAT((integer_part as f64 + fractional_part) * 10f64.powi(power)),
-                        data_type: data_type.clone(),
-                    }.cast(&data_type)
+
+                    NumberLiteral::FLOAT{
+                        data: (integer_part as f64 + fractional_part) * 10f64.powi(power),
+                        data_type: calculate_float_suffix_type(dec_data.remainder),
+                    }.limit_literal()
                 } else {
-                    NumberLiteral {
-                        value: LiteralValue::INTEGER(integer_part),//just an integer
-                        //read the suffix (non-float) or calculate the best type
-                        data_type: suffix_type.unwrap_or(calculate_integer_type(integer_part)),
-                    }
+                    let data_type = calculate_int_suffix_type(dec_data.remainder);
+                    NumberLiteral::INTEGER {
+                        data: integer_part,
+                        data_type: data_type.unwrap_or(calculate_integer_type(integer_part))
+                    }.limit_literal()
                 }
             }
         }
@@ -543,39 +532,40 @@ fn fractional_value(fractional_digits: &[char], base: u32) -> f64 {
 }
 
 /// Finds the best integer type to hold `value`
-fn calculate_integer_type(value: i128) -> BaseType {
+fn calculate_integer_type(value: i128) -> IntegerType {
     match value {
-        0..=2_147_483_647 => BaseType::I32,
-        2_147_483_648..=9_223_372_036_854_775_807 => BaseType::I64,
-        9_223_372_036_854_775_808..=18446744073709551615 => BaseType::U64,
+        0..=2_147_483_647 => IntegerType::I32,
+        2_147_483_648..=9_223_372_036_854_775_807 => IntegerType::I64,
+        9_223_372_036_854_775_808..=18446744073709551615 => IntegerType::U64,
         ..0 => panic!("negative integer literal value?"),
         _ => panic!("out of range value to be stored in C")
     }
 }
-fn calculate_suffix_type(suffix: &[char], has_fractional_part: bool) -> Option<BaseType> {
+
+fn calculate_float_suffix_type(suffix: &[char]) -> FloatType {
     match suffix {
-        ['f'] => Some(BaseType::F32),
-
-        ['l'] |
-        _ if has_fractional_part => Some(BaseType::F64),
-
-        //integer types
-
+        ['f'] => FloatType::F32,
+        _ => FloatType::F64
+    }
+}
+/// This is fallible because no suffix -> type calculation
+fn calculate_int_suffix_type(suffix: &[char]) -> Option<IntegerType> {
+    match suffix {
         ['u','l','l'] | //ull
         ['l', 'l', 'u'] |//llu
         ['u','l'] |//ul
         ['l', 'u'] //lu
-            if !has_fractional_part => Some(BaseType::U64),//all are u64
+            => Some(IntegerType::U64),//all are u64
 
-        ['u'] if !has_fractional_part => Some(BaseType::U32),//u
+        ['u'] => Some(IntegerType::U32),//u
 
         ['l', 'l' ] | //ll
         ['l'] //l
-            if !has_fractional_part => Some(BaseType::I64),//are i64
+            => Some(IntegerType::I64),//are i64
         
-        _ if !has_fractional_part => None,//no suffix, predict type based on data size
+        [] => None,//no suffix, predict type based on data size
 
-        _ => panic!("invalid literal suffix")
+        _ => panic!("invalid suffix for integer literal")
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_boilerplate::{cast_from_acc, cast_raw_from_acc}, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use colored::Colorize;
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
@@ -172,10 +172,10 @@ impl UnaryPrefixExpression {
             UnaryPrefixOperator::BooleanNot => {
                 result.add_comment("boolean not");
 
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data}).decay_to_primative();
 
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
-                let cast_asm = cast_from_acc(&original_type, &DataType::RAW(BaseType::_BOOL), asm_data);//cast to boolean
+                let cast_asm = cast_raw_from_acc(&original_type, &ScalarType::Integer(IntegerType::_BOOL), asm_data);//cast to boolean
                 result.merge(&operand_asm);
                 result.merge(&cast_asm);//cast to the correct type
 
@@ -183,7 +183,7 @@ impl UnaryPrefixExpression {
                 result.add_instruction(AsmOperation::CMP {
                     lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
-                    data_type: DataType::RAW(BaseType::_BOOL),
+                    data_type: ScalarType::Integer(IntegerType::_BOOL),
                 });
 
                 //set 1 if equal to 0 or vice-versa
@@ -221,7 +221,7 @@ impl UnaryPrefixExpression {
             UnaryPrefixOperator::Reference => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
             UnaryPrefixOperator::Dereference => operand_type.remove_outer_modifier(),
             UnaryPrefixOperator::UnaryPlus | UnaryPrefixOperator::Negate | UnaryPrefixOperator::Increment | UnaryPrefixOperator::Decrement | UnaryPrefixOperator::BitwiseNot => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
-            UnaryPrefixOperator::BooleanNot => DataType::RAW(BaseType::_BOOL),
+            UnaryPrefixOperator::BooleanNot => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),
         }
     }
 

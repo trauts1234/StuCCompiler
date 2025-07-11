@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use logos::{Lexer, Logos};
 
-use crate::{data_type::{base_type::BaseType, storage_type::StorageDuration, type_token::TypeInfo}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::{data_type::{base_type::{IntegerType, ScalarType}, storage_type::StorageDuration, type_token::TypeInfo}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 use super::{keywords::Keyword, punctuator::Punctuator};
 
@@ -21,7 +21,7 @@ pub enum Token {
         let as_string = StringLiteral::use_escape_sequences(&slice[1..slice.len()-1]);//remove the speech marks, then parse escape sequences to string literal
         assert!(as_string.len() == 2);//char and \0
         //TODO multibyte chars can still go in char literals
-        NumberLiteral::from(as_string[0].to_string()).cast(&BaseType::I32)
+        NumberLiteral::from(as_string[0].to_string()).cast(&ScalarType::Integer(IntegerType::I32))
 
     })]
     //normal number literals here

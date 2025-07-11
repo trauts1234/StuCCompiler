@@ -1,7 +1,8 @@
-use crate::{assembly::operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
-use super::{comparison::AsmComparison, operand::{Operand, RegOrMem, PTR_SIZE}};
+use unwrap_let::unwrap_let;
+use super::{operand::{Operand, RegOrMem, PTR_SIZE}};
 
 
 #[derive(Clone)]
@@ -12,7 +13,7 @@ pub enum AsmOperation {
     LEA {to: GPRegister, from: MemoryOperand},
 
     ///compares lhs and rhs, based on their data type
-    CMP {lhs: Operand, rhs: Operand, data_type: DataType},
+    CMP {lhs: Operand, rhs: Operand, data_type: ScalarType},
     /// based on the comparison, sets destination to 1 or 0
     SETCC {destination: GPRegister, comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
@@ -24,11 +25,11 @@ pub enum AsmOperation {
     ZeroExtendACC {old_size: MemorySize},
 
     /// Cast a 64 bit GP register to a MMX float/double
-    GP64CastMMX {from:GPRegister, to:MMRegister, from_is_signed: bool, to_type: BaseType },
+    GP64CastMMX {from:GPRegister, to:MMRegister, from_is_signed: bool, to_type: FloatType },
     /// Cast a MMX float/double to 64 bit GP register
-    MMXCastGP64 {from:MMRegister, to:GPRegister, from_type: BaseType, to_is_signed: bool },
+    MMXCastGP64 {from:MMRegister, to:GPRegister, from_type: FloatType, to_is_signed: bool },
     /// Cast a float to double or vice-versa
-    MMXCastMMX {from:MMRegister, to:MMRegister, from_type: BaseType, to_type: BaseType },
+    MMXCastMMX {from:MMRegister, to:MMRegister, from_type: FloatType, to_type: FloatType },
 
     ///adds increment to destination
     ADD {destination: RegOrMem, increment: Operand, data_type: DataType},
@@ -37,7 +38,7 @@ pub enum AsmOperation {
     ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
     MUL {multiplier: RegOrMem, data_type: DataType},
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
-    DIV {divisor: RegOrMem, data_type: DataType},
+    DIV {divisor: RegOrMem, data_type: ScalarType},
     ///shifts logically left
     SHL {destination: RegOrMem, amount: Operand, base_type: BaseType},
     ///shifts right, (arithmetic or logical based on the signedness of base_type)
@@ -107,10 +108,10 @@ impl AsmOperation {
     }
 }
 
-fn instruction_gp64_cast_mmx(from: &GPRegister, to: &MMRegister, from_is_signed: bool, to_type: &BaseType) -> String {
+fn instruction_gp64_cast_mmx(from: &GPRegister, to: &MMRegister, from_is_signed: bool, to_type: &FloatType) -> String {
     let cast_opcode = match (from_is_signed, to_type) {
-        (true, BaseType::F32) => "cvtsi2ss",//ConVert Signed Integer 2 Signed Single ?
-        (true, BaseType::F64) => "cvtsi2sd",//ConVert Signed Integer 2 Signed Double ?
+        (true, FloatType::F32) => "cvtsi2ss",//ConVert Signed Integer 2 Signed Single ?
+        (true, FloatType::F64) => "cvtsi2sd",//ConVert Signed Integer 2 Signed Double ?
 
         (true, x) => panic!("cannot cast i64 to floating type {:?}", x),
         (false, _) => panic!("cannot currently cast u64 to float/double"),
@@ -120,18 +121,16 @@ fn instruction_gp64_cast_mmx(from: &GPRegister, to: &MMRegister, from_is_signed:
         "{} {}, {}",
         cast_opcode,
         from.generate_name(MemorySize::from_bits(64)),
-        to.generate_name(to_type.get_non_struct_memory_size())
+        to.generate_name(to_type.memory_size())
     )
 }
 
-fn instruction_mmx_cast_mmx(from: &MMRegister, to: &MMRegister, from_type: &BaseType, to_type: &BaseType) -> String {
+fn instruction_mmx_cast_mmx(from: &MMRegister, to: &MMRegister, from_type: &FloatType, to_type: &FloatType) -> String {
     match (from_type, to_type) {
-        (BaseType::F32, BaseType::F32) => String::new(),
-        (BaseType::F64, BaseType::F64) => String::new(),
-        (BaseType::F32, BaseType::F64) => format!("cvtss2sd {}, {}", from.generate_name(MemorySize::from_bits(32)), to.generate_name(MemorySize::from_bits(64))),
-        (BaseType::F64, BaseType::F32) => format!("cvtsd2ss {}, {}", from.generate_name(MemorySize::from_bits(64)), to.generate_name(MemorySize::from_bits(32))),
-
-        _ => panic!("invalid type combination for float casting")
+        (FloatType::F32, FloatType::F32) => String::new(),
+        (FloatType::F64, FloatType::F64) => String::new(),
+        (FloatType::F32, FloatType::F64) => format!("cvtss2sd {}, {}", from.generate_name(MemorySize::from_bits(32)), to.generate_name(MemorySize::from_bits(64))),
+        (FloatType::F64, FloatType::F32) => format!("cvtsd2ss {}, {}", from.generate_name(MemorySize::from_bits(64)), to.generate_name(MemorySize::from_bits(32))),
     }
 }
 
@@ -156,18 +155,20 @@ fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
     }
 }
 
-fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &DataType) -> String {
+fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &ScalarType) -> String {
     match (lhs, rhs) {
         (Operand::MMReg(x), y) => todo!(),
         (x, Operand::MMReg(y)) => todo!(),
 
         _ => match data_type {
-            DataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
-            DataType::RAW(base) if base.is_integer() => format!("cmp {}, {}", lhs.generate_name(base.get_non_struct_memory_size()), rhs.generate_name(base.get_non_struct_memory_size())),//comparing integers
-            _ => panic!("currently cannot compare this data type")
+            ScalarType::Float(_) => panic!("tried to float-compare some integers?"),
+            ScalarType::Integer(integer_type) => format!("cmp {}, {}", lhs.generate_name(integer_type.memory_size()), rhs.generate_name(integer_type.memory_size())),
         }
     }
 }
+// DataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
+            // DataType::RAW(base) if base.is_integer() => format!("cmp {}, {}", lhs.generate_name(base.get_non_struct_memory_size()), rhs.generate_name(base.get_non_struct_memory_size())),//comparing integers
+            // _ => panic!("currently cannot compare this data type")
 
 fn instruction_setcc(destination: &GPRegister, comparison: &AsmComparison) -> String {
     let reg_name = destination.generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
@@ -237,23 +238,25 @@ fn instruction_neg(destination: &GPRegister, data_type: &BaseType) -> String {
     format!("neg {}", destination.generate_name(data_type.get_non_struct_memory_size()))
 }
 
-fn instruction_div(divisor: &RegOrMem, data_type: &DataType) -> String {
+fn instruction_div(divisor: &RegOrMem, data_type: &ScalarType) -> String {
     match data_type {
-        DataType::RAW(BaseType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
-        DataType::RAW(BaseType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
-        DataType::RAW(BaseType::U32) => format!("mov edx, 0\ndiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
-        DataType::RAW(BaseType::U64) => format!("mov rdx, 0\ndiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
+        ScalarType::Integer(IntegerType::I32) => format!("cdq\nidiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
+        ScalarType::Integer(IntegerType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
+        ScalarType::Integer(IntegerType::U32) => format!("mov edx, 0\ndiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
+        ScalarType::Integer(IntegerType::U64) => format!("mov rdx, 0\ndiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
         x => panic!("cannot divide by this type: {}", x)
     }
 }
 
 fn instruction_mul(multiplier: &RegOrMem, data_type: &DataType) -> String {
-    match data_type {
-        DataType::RAW(base) if base.is_signed() => format!("imul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
-        DataType::RAW(base) if base.is_unsigned() => format!("mul {}", multiplier.generate_name(base.get_non_struct_memory_size())),
-        DataType::ARRAY {..} => panic!("cannot multiply an array"),
-        DataType::POINTER(_) => instruction_mul(multiplier, &DataType::RAW(BaseType::U64)),//multiply by pointer is same as u64 multiply
-        _ => panic!("unsupported data type {:?}", data_type)
+    if let DataType::ARRAY {..} = data_type {
+        panic!("cannot multiply an array");
+    }
+    unwrap_let!(ScalarType::Integer(base) = data_type.decay_to_primative());//float not implemented
+    if base.is_unsigned() {
+        format!("mul {}", multiplier.generate_name(base.memory_size()))
+    } else {
+        format!("imul {}", multiplier.generate_name(base.memory_size()))
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, classify_param::ArgType, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, classify_param::ArgType, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 
 #[derive(Clone, Debug)]
@@ -82,7 +82,7 @@ impl FunctionCall {
         result.add_commented_instruction(AsmOperation::SUB {
             destination: RegOrMem::GPReg(GPRegister::_SP),
             decrement: Operand::Imm(aligned_memory_args_size.as_imm()),
-            data_type: DataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
         }, "allocate memory for memory args");
 
         result.merge(&push_args_to_stack_backwards(
@@ -95,7 +95,7 @@ impl FunctionCall {
         result.add_instruction(AsmOperation::SUB {
             destination: RegOrMem::GPReg(GPRegister::_SP),
             decrement: Operand::Imm(aligned_integer_args_size.as_imm()),
-            data_type: DataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
         });
 
         result.merge(&push_args_to_stack_backwards(
@@ -118,7 +118,7 @@ impl FunctionCall {
         result.add_instruction(AsmOperation::ADD {
             destination: RegOrMem::GPReg(GPRegister::_SP),
             increment: Operand::Imm(aligned_integer_args_size.as_imm()),
-            data_type: DataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
         });
 
         //since there are no floating point args, this must be left as 0 to let varadic functions know
@@ -129,7 +129,7 @@ impl FunctionCall {
         result.add_commented_instruction(AsmOperation::ADD {
             destination: RegOrMem::GPReg(GPRegister::_SP),
             increment: Operand::Imm(aligned_memory_args_size.as_imm()),
-            data_type: DataType::RAW(BaseType::U64)
+            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64)))
         }, "deallocate memory args");
 
         result

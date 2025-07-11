@@ -2,7 +2,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -28,7 +28,7 @@ impl BinaryExpression {
 
         let promoted_type = match &self.operator {//I already have a function for this?
             BinaryExpressionOperator::Assign => panic!("assignment already done"),
-            x if x.as_boolean_instr().is_some() => DataType::RAW(BaseType::_BOOL),//is a boolean operator, operands are booleans
+            x if x.as_boolean_instr().is_some() => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),//is a boolean operator, operands are booleans
             _ => calculate_promoted_type_arithmetic(&lhs_type, &rhs_type)//else find a common meeting ground
         };
         let promoted_size = promoted_type.memory_size(asm_data);
@@ -81,11 +81,11 @@ impl BinaryExpression {
 
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
-                unwrap_let!(DataType::RAW(_) = promoted_type);
+                unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_base)) = promoted_type);
 
                 result.add_instruction(AsmOperation::DIV {
                     divisor: RegOrMem::GPReg(GPRegister::secondary()),
-                    data_type: promoted_type
+                    data_type: promoted_base
                 });
             },
 
@@ -94,11 +94,11 @@ impl BinaryExpression {
 
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
-                unwrap_let!(DataType::RAW(_) = promoted_type);
+                unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_base)) = promoted_type);
 
                 result.add_instruction(AsmOperation::DIV {
                     divisor: RegOrMem::GPReg(GPRegister::secondary()),
-                    data_type: promoted_type
+                    data_type: promoted_base
                 });
 
                 //mod is returned in RDX
@@ -109,16 +109,21 @@ impl BinaryExpression {
                 result.add_comment("comparing numbers");
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
 
+                let promoted_base = promoted_type.decay_to_primative();
+
                 result.add_instruction(AsmOperation::CMP {
                     lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::GPReg(GPRegister::secondary()),
-                    data_type: promoted_type.clone()
+                    data_type: promoted_base
                 });
 
                 let asm_comparison = comparison
                     .as_comparator_instr()
                     .unwrap()
-                    .to_asm_comparison(promoted_type.decay_to_primative().is_signed());//take signedness and convert comparison kind to an asm comparison
+                    .to_asm_comparison(match promoted_type.decay_to_primative() {
+                        ScalarType::Float(_) => true,//float is always signed, but either signed or unsigned instructions both work
+                        ScalarType::Integer(integer_type) => !integer_type.is_unsigned(),
+                    });//take signedness and convert comparison kind to an asm comparison
 
                 //create the correct setcc instruction
                 result.add_instruction(AsmOperation::SETCC { destination: GPRegister::acc(), comparison: asm_comparison });
@@ -129,7 +134,7 @@ impl BinaryExpression {
                 //warning: what if either side is not a boolean
                 result.add_comment("applying boolean operator");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &DataType::RAW(BaseType::_BOOL), &self.rhs, &DataType::RAW(BaseType::_BOOL), asm_data, stack_data));//casts too boolean
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))), &self.rhs, &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))), asm_data, stack_data));//casts too boolean
 
                 let instruction = operator.as_boolean_instr().unwrap();
 
@@ -161,7 +166,7 @@ impl BinaryExpression {
                 result.add_comment("bitwise shift right");
                 //lhs and rhs types are calculated individually as they do not influence each other
                 let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type);
-                let rhs_required_type = DataType::RAW(BaseType::U8);//can only shift by u8 in assembly
+                let rhs_required_type = DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U8)));//can only shift by u8 in assembly
 
                 result.merge(&put_lhs_ax_rhs_cx(
                     &self.lhs, &lhs_required_type,
@@ -180,7 +185,7 @@ impl BinaryExpression {
                 result.add_comment("bitwise shift left");
                 //lhs and rhs types are calculated individually as they do not influence each other
                 let lhs_required_type = calculate_unary_type_arithmetic(&lhs_type);
-                let rhs_required_type = DataType::RAW(BaseType::U8);//can only shift by u8 in assembly
+                let rhs_required_type = DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U8)));//can only shift by u8 in assembly
 
                 result.merge(&put_lhs_ax_rhs_cx(
                     &self.lhs, &lhs_required_type,
@@ -231,7 +236,7 @@ impl BinaryExpression {
             BinaryExpressionOperator::CmpEqual |
             BinaryExpressionOperator::CmpNotEqual |
             BinaryExpressionOperator::BooleanOr |
-            BinaryExpressionOperator::BooleanAnd  => DataType::RAW(BaseType::_BOOL),
+            BinaryExpressionOperator::BooleanAnd  => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),
         }
     }
 

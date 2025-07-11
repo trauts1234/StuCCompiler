@@ -3,10 +3,14 @@ use std::fmt::Display;
 use crate::{asm_gen_data::GetStruct, data_type::type_token::TypeInfo, struct_definition::StructIdentifier};
 use memory_size::MemorySize;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BaseType {
-    VOID,
-    VaArg,//varadic arg has a special type as it has no type?
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub enum FloatType {
+    F32,
+    F64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub enum IntegerType {
     _BOOL,
     I8,
     U8,
@@ -16,9 +20,66 @@ pub enum BaseType {
     U32,
     I64,
     U64,
-    F32,
-    F64,
-    STRUCT(StructIdentifier)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ScalarType {
+    Float(FloatType),
+    Integer(IntegerType)
+}
+
+impl IntegerType {
+    pub fn memory_size(&self) -> MemorySize {
+        match self {
+            IntegerType::_BOOL |
+            IntegerType::I8 |
+            IntegerType::U8 => MemorySize::from_bytes(1),
+            IntegerType::I16 |
+            IntegerType::U16 => MemorySize::from_bytes(2),
+            IntegerType::I32 |
+            IntegerType::U32 => MemorySize::from_bytes(4),
+            IntegerType::I64 |
+            IntegerType::U64 => MemorySize::from_bytes(8),
+        }
+    }
+    pub fn is_unsigned(&self) -> bool {
+        match self {
+            Self::I8 | 
+            Self::I16 | 
+            Self::I32 | 
+            Self::I64 => false,
+
+            Self::_BOOL |
+            Self::U8 | 
+            Self::U16 | 
+            Self::U32 | 
+            Self::U64 => true,
+        }
+    }
+}
+impl FloatType {
+    pub fn memory_size(&self) -> MemorySize {
+        match self {
+            FloatType::F32 => MemorySize::from_bytes(4),
+            FloatType::F64 => MemorySize::from_bytes(8),
+        }
+    }
+}
+impl ScalarType {
+    pub fn memory_size(&self) -> MemorySize {
+        match self {
+            ScalarType::Float(float_type) => float_type.memory_size(),
+            ScalarType::Integer(integer_type) => integer_type.memory_size(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BaseType {
+    VOID,
+    VaArg,//varadic arg has a special type as it has no type?
+    Scalar(ScalarType),
+    STRUCT(StructIdentifier),
 }
 
 impl BaseType {
@@ -30,37 +91,16 @@ impl BaseType {
     }
     pub fn is_integer(&self) -> bool {
         match self {
-            BaseType::VOID | BaseType::VaArg | BaseType::STRUCT(_) |
-            BaseType::F32 | BaseType::F64 => false,
-
-            BaseType::_BOOL |
-            BaseType::I8 | 
-            BaseType::U8 | 
-            BaseType::I16 | 
-            BaseType::U16 | 
-            BaseType::I32 | 
-            BaseType::U32 | 
-            BaseType::I64 | 
-            BaseType::U64 => true,
+            BaseType::Scalar(ScalarType::Integer(_)) => true,
+            _ => false
         }
     }
     
     pub fn is_unsigned(&self) -> bool {
         match self {
-            BaseType::VOID | BaseType::VaArg | BaseType::STRUCT(_) => panic!("tried to detect signedness of void or varadic arg"),
-
-            BaseType::I8 | 
-            BaseType::I16 | 
-            BaseType::I32 | 
-            BaseType::I64 |
-            BaseType::F32 |
-            BaseType::F64 => false,
-
-            BaseType::_BOOL |
-            BaseType::U8 | 
-            BaseType::U16 | 
-            BaseType::U32 | 
-            BaseType::U64 => true,
+            BaseType::Scalar(ScalarType::Integer(x)) => x.is_unsigned(),
+            BaseType::Scalar(ScalarType::Float(_)) => false,
+            _ => panic!("can't tell whether this thing is unsigned?")
         }
     }
     pub fn is_signed(&self) -> bool {
@@ -74,43 +114,16 @@ impl BaseType {
 
             BaseType::STRUCT(x) => struct_info.get_struct(x).calculate_size().expect("tried to calculate size of partially declared struct"),
 
-            BaseType::_BOOL |
-            BaseType::I8 |
-            BaseType::U8 => MemorySize::from_bytes(1),
-
-            BaseType::I16 |
-            BaseType::U16 => MemorySize::from_bytes(2),
-
-            BaseType::I32 |
-            BaseType::U32 |
-            BaseType::F32 => MemorySize::from_bytes(4),
-
-            BaseType::I64 |
-            BaseType::U64 |
-            BaseType::F64 => MemorySize::from_bytes(8),
+            BaseType::Scalar(s) => s.memory_size()
         }
     }
     pub fn get_non_struct_memory_size(&self) -> MemorySize {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
-
             BaseType::STRUCT(_) => panic!("tried to calculate size of struct without an asm_data"),
 
-            BaseType::_BOOL |
-            BaseType::I8 |
-            BaseType::U8 => MemorySize::from_bytes(1),
-
-            BaseType::I16 |
-            BaseType::U16 => MemorySize::from_bytes(2),
-
-            BaseType::I32 |
-            BaseType::U32 |
-            BaseType::F32 => MemorySize::from_bytes(4),
-
-            BaseType::I64 |
-            BaseType::U64 |
-            BaseType::F64 => MemorySize::from_bytes(8),
+            BaseType::Scalar(s) => s.memory_size()
         }
     }
 }
@@ -120,18 +133,39 @@ impl Display for BaseType {
         match self {
             BaseType::VOID => write!(f, "void"),
             BaseType::VaArg => write!(f, "varadic"),
-            BaseType::_BOOL => write!(f, "bool"),
-            BaseType::I8 => write!(f, "i8"),
-            BaseType::U8 => write!(f, "u8"),
-            BaseType::I16 => write!(f, "i16"),
-            BaseType::U16 => write!(f, "u16"),
-            BaseType::I32 => write!(f, "i32"),
-            BaseType::U32 => write!(f, "u32"),
-            BaseType::I64 => write!(f, "i64"),
-            BaseType::U64 => write!(f, "u64"),
-            BaseType::F32 => write!(f, "f32"),
-            BaseType::F64 => write!(f, "f64"),
+            BaseType::Scalar(s) => write!(f, "{}", s),
             BaseType::STRUCT(struct_identifier) => write!(f, "{}", struct_identifier),
+        }
+    }
+}
+impl Display for IntegerType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::_BOOL => write!(f, "bool"),
+            Self::I8 => write!(f, "i8"),
+            Self::U8 => write!(f, "u8"),
+            Self::I16 => write!(f, "i16"),
+            Self::U16 => write!(f, "u16"),
+            Self::I32 => write!(f, "i32"),
+            Self::U32 => write!(f, "u32"),
+            Self::I64 => write!(f, "i64"),
+            Self::U64 => write!(f, "u64"),
+        }
+    }
+}
+impl Display for FloatType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::F32 => write!(f, "f32"),
+            Self::F64 => write!(f, "f64"),
+        }
+    }
+}
+impl Display for ScalarType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScalarType::Float(float_type) => write!(f, "{}", float_type),
+            ScalarType::Integer(integer_type) => write!(f, "{}", integer_type),
         }
     }
 }
@@ -149,7 +183,7 @@ pub fn new_from_type_list(type_info: &[TypeInfo]) -> BaseType {
     //boolean
     if type_info.contains(&TypeInfo::_BOOL) {
         assert!(type_info.len() == 1);
-        return BaseType::_BOOL;
+        return BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL));
     }
 
     //int assumed from now on
@@ -169,19 +203,20 @@ pub fn new_from_type_list(type_info: &[TypeInfo]) -> BaseType {
 
     if type_info.contains(&TypeInfo::DOUBLE) {
         assert!(!unsigned);//can't have unsigned double
-        BaseType::F64
+        BaseType::Scalar(ScalarType::Float(FloatType::F64))
     } else if type_info.contains(&TypeInfo::FLOAT) {
-        BaseType::F32
+        assert!(!unsigned);//can't have unsigned float
+        BaseType::Scalar(ScalarType::Float(FloatType::F32))
     } else {
         match (unsigned, size_bytes) {
-            (true, 8) => BaseType::U64,
-            (false, 8) => BaseType::I64,
-            (true, 4) => BaseType::U32,
-            (false, 4) => BaseType::I32,
-            (true, 2) => BaseType::U16,
-            (false, 2) => BaseType::I16,
-            (true, 1) => BaseType::U8,
-            (false, 1) => BaseType::I8,
+            (true, 8) => BaseType::Scalar(ScalarType::Integer(IntegerType::U64)),
+            (false, 8) => BaseType::Scalar(ScalarType::Integer(IntegerType::I64)),
+            (true, 4) => BaseType::Scalar(ScalarType::Integer(IntegerType::U32)),
+            (false, 4) => BaseType::Scalar(ScalarType::Integer(IntegerType::I32)),
+            (true, 2) => BaseType::Scalar(ScalarType::Integer(IntegerType::U16)),
+            (false, 2) => BaseType::Scalar(ScalarType::Integer(IntegerType::I16)),
+            (true, 1) => BaseType::Scalar(ScalarType::Integer(IntegerType::U8)),
+            (false, 1) => BaseType::Scalar(ScalarType::Integer(IntegerType::I8)),
 
             (_, _) => panic!("unsupported size"),
         }

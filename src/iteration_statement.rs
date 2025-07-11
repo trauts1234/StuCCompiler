@@ -1,6 +1,7 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::GPRegister, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay,expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::GPRegister, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use memory_size::MemorySize;
+use unwrap_let::unwrap_let;
 
 /**
  * this handles if statements and other conditionals
@@ -123,7 +124,7 @@ impl IterationStatement {
                 //overwrite asm_data by creating new scope
                 let asm_data = asm_data.clone_for_new_scope(local_scope_data, stack_data);
                 
-                let condition_type = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data});
+                unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data}));
 
                 let loop_increment_label = format!("{}_loop_increment", generic_label);//extra label required for for loops
 
@@ -146,7 +147,7 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::CMP {
                     lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
-                    data_type: condition_type.clone()
+                    data_type: condition_type
                 });
 
                 //if the result is 0, jump to the end of the loop
@@ -177,7 +178,7 @@ impl IterationStatement {
 
             Self::WHILE { condition, body } => {
 
-                let condition_type = condition.accept(&mut GetDataTypeVisitor { asm_data });
+                unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data}));
 
                 result.add_instruction(AsmOperation::Label { name: loop_start_label.to_string() }); // label for loop's start
 
@@ -188,7 +189,7 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::CMP {
                     lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
-                    data_type: condition_type.clone(),
+                    data_type: condition_type,
                 });
 
                 // if the result is 0, jump to the end of the loop

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::BaseType, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, struct_member_access::StructMemberAccess};
+use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 
@@ -83,7 +83,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         result.add_instruction(AsmOperation::ADD {
             destination: RegOrMem::GPReg(GPRegister::acc()),
             increment: Operand::Imm(member_data.1.as_imm()),
-            data_type: DataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
         });
 
         result

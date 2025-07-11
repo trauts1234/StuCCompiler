@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, struct_definition::StructDefinition};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 
@@ -158,9 +158,9 @@ pub fn try_consume_declaration_modifiers(tokens_queue: &TokenQueue, slice: &Toke
                     let array_size_expr = expression::try_consume_whole_expr(tokens_queue, &in_square_brackets, scope_data, struct_label_gen).expect("tried to parse constant expression for the size of an array, but failed to generate an expression");
                     let array_size_constexpr: ConstexprValue = (&array_size_expr).try_into().expect("array size is not a compile-time constant");
 
-                    unwrap_let!(ConstexprValue::NUMBER(arr_len) = array_size_constexpr);
+                    unwrap_let!(ConstexprValue::NUMBER(NumberLiteral::INTEGER{data: arr_len, ..}) = array_size_constexpr);
 
-                    array_modifiers.push(DeclModifier::ARRAY(arr_len.get_value().try_into().unwrap()));
+                    array_modifiers.push(DeclModifier::ARRAY(arr_len.try_into().unwrap()));
                 }
             },
             _ => {break;}
@@ -263,7 +263,7 @@ pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &T
         Some(Token::KEYWORD(Keyword::ENUM)) => {
             let ASTMetadata { remaining_slice, resultant_tree } = try_consume_enum_as_type(tokens_queue, &mut queue_idx.clone(), scope_data).unwrap();
 
-            initial_type.add_complete_type(DataType::RAW(resultant_tree));//enum specifies a type, so no need for "int" and "unsigned" etc.
+            initial_type.add_complete_type(DataType::RAW(BaseType::Scalar(ScalarType::Integer(resultant_tree))));//enum specifies a type, so no need for "int" and "unsigned" etc.
 
             consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type, struct_label_gen)
         }

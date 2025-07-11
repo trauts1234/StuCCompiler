@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration}, debugging::IRDisplay, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::{literal_value::LiteralValue}, parse_data::ParseData};
+use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration}, debugging::IRDisplay, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -11,37 +11,37 @@ impl GlobalVariable {
     pub fn generate_assembly(&self, struct_info: &dyn GetStruct) -> String {
         match (&self.decl.data_type, &self.default_value) {
             //base type is set to a value
-            (DataType::RAW(base_type), ConstexprValue::NUMBER(number_literal)) => {
+            (DataType::RAW(BaseType::Scalar(base_type)), ConstexprValue::NUMBER(number_literal)) => {
                 //cast the number to the variable's type, then generate a constant
-                number_literal.cast(&base_type).generate_data_definition_instruction(struct_info, &self.decl.name)
+                number_literal.cast(&base_type).generate_data_definition_instruction(&self.decl.name)
             },
 
             // array is being set to a string
             (DataType::ARRAY { size, element }, ConstexprValue::STRING(string_literal)) => {
-                assert_eq!(**element, DataType::RAW(BaseType::I8));
+                assert_eq!(**element, DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))));
                 assert_eq!(*size as usize, string_literal.get_num_chars());
                 format!("{} db {}\n", self.decl.name, string_literal.get_comma_separated_bytes())
             }
 
             // unknown size array is being set to a string
             (DataType::UNKNOWNSIZEARRAY { element }, ConstexprValue::STRING(string_literal)) => {
-                assert_eq!(**element, DataType::RAW(BaseType::I8));
+                assert_eq!(**element, DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))));
                 format!("{} db {}\n", self.decl.name, string_literal.get_comma_separated_bytes())
             }
 
             // pointer is being set to string
             // so make the pointer point at the string
             (DataType::POINTER(element), ConstexprValue::STRING(string_literal)) => {
-                assert_eq!(**element, DataType::RAW(BaseType::I8));
+                assert_eq!(**element, DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))));
                 format!("{} dq {}\n", self.decl.name, string_literal.get_label())
             }
 
             //  pointer being set to a pointer...
             (DataType::POINTER(_), ConstexprValue::POINTER { label, offset }) => {
                 format!("{} dq {} + {}\n", self.decl.name, label,
-                match offset.get_value() {
-                    LiteralValue::INTEGER(x) => x,
-                    LiteralValue::FLOAT {..} => panic!("cannot offset a constant pointer by a float")
+                match offset {
+                    NumberLiteral::INTEGER{data, ..} => data,
+                    NumberLiteral::FLOAT {..} => panic!("cannot offset a constant pointer by a float")
                 })
             }
 

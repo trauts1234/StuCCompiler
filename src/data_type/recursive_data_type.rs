@@ -1,7 +1,8 @@
 use std::fmt::{Debug, Display};
 
-use crate::asm_gen_data::GetStruct;
+use crate::{asm_gen_data::GetStruct, data_type::base_type::{FloatType, IntegerType, ScalarType}};
 use memory_size::MemorySize;
+use unwrap_let::unwrap_let;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
 
 
@@ -40,12 +41,13 @@ impl DataType
     /// converts arrays to u64 memory addresses
     /// pointers to u64
     /// any raw type is unaffected
-    pub fn decay_to_primative(&self) -> BaseType {
+    pub fn decay_to_primative(&self) -> ScalarType {
         match self {
-            DataType::UNKNOWNSIZEARRAY { .. } => BaseType::U64,
-            DataType::ARRAY { .. } => BaseType::U64,
-            DataType::POINTER(_) => BaseType::U64,
-            DataType::RAW(base_type) => base_type.clone(),
+            DataType::UNKNOWNSIZEARRAY { .. } => ScalarType::Integer(IntegerType::U64),
+            DataType::ARRAY { .. } => ScalarType::Integer(IntegerType::U64),
+            DataType::POINTER(_) => ScalarType::Integer(IntegerType::U64),
+            DataType::RAW(BaseType::Scalar(s)) => s.clone(),
+            DataType::RAW(bt) => panic!("{:?} base type can't be converted to a primative scalar", bt)
         }
     }
 
@@ -187,7 +189,9 @@ pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> Dat
         (_, DataType::POINTER(_)) => rhs.decay(),
 
         (DataType::RAW(lhs_base), DataType::RAW(rhs_base)) => {
-            DataType::RAW(calculate_promoted_type(&lhs_base, &rhs_base))
+            unwrap_let!(BaseType::Scalar(lhs_scalar) = lhs_base);
+            unwrap_let!(BaseType::Scalar(rhs_scalar) = rhs_base);
+            DataType::RAW(BaseType::Scalar(calculate_promoted_type(&lhs_scalar, &rhs_scalar)))
         }
 
         _ => panic!()//this should never happen as decay always returns pointer or raw
@@ -195,37 +199,36 @@ pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> Dat
 
 }
 
-pub fn calculate_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseType {
+pub fn calculate_promoted_type(lhs: &ScalarType, rhs: &ScalarType) -> ScalarType {
 
     match (lhs, rhs) {
-        (BaseType::F64, _) |
-        (_, BaseType::F64) => BaseType::F64,
+        (ScalarType::Float(FloatType::F64), _) |
+        (_, ScalarType::Float(FloatType::F64)) => ScalarType::Float(FloatType::F64),
 
-        (BaseType::F32, _) |
-        (_, BaseType::F32) => BaseType::F32,
+        (ScalarType::Float(FloatType::F32), _) |
+        (_, ScalarType::Float(FloatType::F32)) => ScalarType::Float(FloatType::F32),
 
-        _ => {
-            assert!(lhs.is_integer() && rhs.is_integer());
+        (ScalarType::Integer(lhs_int), ScalarType::Integer(rhs_int)) => {
             //integer type promotion
-            let biggest_size = lhs.get_non_struct_memory_size().max(rhs.get_non_struct_memory_size());
+            let biggest_size = lhs_int.memory_size().max(rhs_int.memory_size());
 
-            match (biggest_size.size_bytes(), lhs.is_unsigned(), rhs.is_unsigned()) {
+            ScalarType::Integer(match (biggest_size.size_bytes(), lhs_int.is_unsigned(), rhs_int.is_unsigned()) {
                 (0..4, _, _) |// small enough to be cast to int easily
                 (4, false, false)//signed, and both int sized
-                    => BaseType::I32,
+                    => IntegerType::I32,
 
-                (4, _, _) => BaseType::U32,
+                (4, _, _) => IntegerType::U32,
 
                 (5..8, _, _) |// small enough to be cast to long long easily
                 (8, false, false)//signed, and both are long long sized
-                    => BaseType::I64,
+                    => IntegerType::I64,
 
                 (8, _, _) //64 bit, with one being unsigned
-                => BaseType::U64,
+                => IntegerType::U64,
 
                 (9.., _, _) => panic!("integer size too large!")
 
-            }
+            })
         }
     }
 }
@@ -236,35 +239,40 @@ pub fn calculate_promoted_type(lhs: &BaseType, rhs: &BaseType) -> BaseType {
 pub fn calculate_unary_type_arithmetic(lhs: &DataType) -> DataType {
     match lhs.decay() {
         DataType::POINTER(_) => lhs.clone(),
-        DataType::RAW(lhs_base) => {
-            match lhs_base.is_integer() {
-                true => match (lhs_base.get_non_struct_memory_size().size_bytes(), lhs_base.is_unsigned()) {
-                    (0..4, _) |// small enough to be cast to int easily
-                    (4, false)//signed, and both int sized
-                        => DataType::new(BaseType::I32),
         
-                    (4, true) => DataType::new(BaseType::U32),
-        
-                    (5..8, _) |// small enough to be cast to long long easily
-                    (8, false)//signed, and long long sized
-                        => DataType::new(BaseType::I64),
-        
-                    (8, true) =>  DataType::new(BaseType::U64),
-        
-                    (9.., _) => panic!("integer size too large!")
-        
-                },
-
-                false => match lhs_base.get_non_struct_memory_size().size_bytes() {
-                    4 => DataType::new(BaseType::F32),
-                    8 => DataType::new(BaseType::F64),
-                    _ => panic!("unsupported float size")
-                }
-            }
-
-            
-        },
+        DataType::RAW(BaseType::Scalar(x)) => DataType::RAW(BaseType::Scalar(calculate_unary_type(&x))),
 
         _ => panic!()//should never happen as decay always returns pointer or raw
+    }
+}
+
+pub fn calculate_unary_type(lhs: &ScalarType) -> ScalarType {
+    match lhs {
+        ScalarType::Integer(lhs_base) => ScalarType::Integer(
+            match (lhs_base.memory_size().size_bytes(), lhs_base.is_unsigned()) {
+                (0..4, _) |// small enough to be cast to int easily
+                (4, false)//signed, and both int sized
+                    => IntegerType::I32,
+    
+                (4, true) => IntegerType::U32,
+    
+                (5..8, _) |// small enough to be cast to long long easily
+                (8, false)//signed, and long long sized
+                    => IntegerType::I64,
+    
+                (8, true) =>  IntegerType::U64,
+    
+                (9.., _) => panic!("integer size too large!")
+    
+            }
+        ),
+
+        ScalarType::Float(lhs_base) => {
+            match lhs_base.memory_size().size_bytes() {
+                4 => ScalarType::Float(FloatType::F32),
+                8 => ScalarType::Float(FloatType::F64),
+                _ => panic!("unsupported float size")
+            }
+        }
     }
 }

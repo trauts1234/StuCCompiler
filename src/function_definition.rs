@@ -1,5 +1,5 @@
 use memory_size::MemorySize;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{generate_param_reg, immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -69,7 +69,7 @@ impl FunctionDefinition {
         result.add_commented_instruction(AsmOperation::SUB {
             destination: RegOrMem::GPReg(GPRegister::_SP),
             decrement: Operand::Imm(aligned_stack_usage.as_imm()),
-            data_type: DataType::RAW(BaseType::U64),
+            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
         }, "allocate stack for local variables and alignment");
 
         result.add_comment("moving args to memory");

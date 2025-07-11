@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 
-use crate::{compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, expression::expression::try_consume_whole_expr, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::{literal_value::LiteralValue, typed_value::NumberLiteral}, parse_data::ParseData, preprocessor::preprocess_context::PreprocessContext};
+use crate::{compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::base_type::IntegerType, expression::expression::try_consume_whole_expr, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::{ typed_value::NumberLiteral}, parse_data::ParseData, preprocessor::preprocess_context::PreprocessContext};
 
 /// Folds a constant for #if statements
 pub fn fold(tokens: Vec<Token>, ctx: &PreprocessContext) -> ConstexprValue {
@@ -20,7 +20,7 @@ pub fn fold(tokens: Vec<Token>, ctx: &PreprocessContext) -> ConstexprValue {
 pub fn is_true(folded: ConstexprValue) -> bool {
     match folded{
         crate::constexpr_parsing::ConstexprValue::NUMBER(number_literal) => {
-            number_literal != NumberLiteral::new_from_literal_value(LiteralValue::INTEGER(0))
+            number_literal != NumberLiteral::INTEGER{data: 0, data_type: IntegerType::I32}
         }
         crate::constexpr_parsing::ConstexprValue::STRING(string_literal) =>
             panic!("found string when parsing constant: {:?}", string_literal),
@@ -47,9 +47,7 @@ fn fix_defined(mut tokens: Vec<Token>, ctx: &PreprocessContext) -> Vec<Token> {
         };
 
         tokens.insert(idx, Token::NUMBER(
-            NumberLiteral::new_from_literal_value(
-                LiteralValue::INTEGER(if ctx.is_defined(&macro_name) {1} else {0})
-            )
+            NumberLiteral::INTEGER{data: if ctx.is_defined(&macro_name) {1} else {0}, data_type: IntegerType::I32}
         ));
 
         fix_defined(tokens, ctx)//recursively handle any others
