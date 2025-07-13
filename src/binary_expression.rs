@@ -138,7 +138,6 @@ impl BinaryExpression {
                 result.add_instruction(AsmOperation::BitwiseOp {
                     secondary: Operand::GPReg(GPRegister::secondary()),
                     operation: instruction,
-                    size: MemorySize::from_bytes(1)//1 byte boolean
                 });
             },
 
@@ -152,7 +151,6 @@ impl BinaryExpression {
                 result.add_instruction(AsmOperation::BitwiseOp {
                     secondary: Operand::GPReg(GPRegister::secondary()),
                     operation: instruction,
-                    size: promoted_size
                 });
             },
 

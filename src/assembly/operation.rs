@@ -46,11 +46,11 @@ pub enum AsmOperation {
 
     ///negates the accumulator item, taking into account its data type
     NEG {data_type: ScalarType},
-    ///performs bitwise not to the item
-    BitwiseNot {item: RegOrMem, size: MemorySize},
+    ///performs bitwise not to the accumulator
+    BitwiseNot,
 
-    /// applies operation to destination and secondary, saving results to destination
-    BitwiseOp { secondary: Operand, operation: LogicalOperation, size: MemorySize},
+    /// applies operation to destination and secondary, saving results to the accumulator
+    BitwiseOp { secondary: Operand, operation: LogicalOperation},
 
     Label {name: String},
     CreateStackFrame,
@@ -101,11 +101,11 @@ impl AsmOperation {
             AsmOperation::BLANK => String::new(),
             AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type),
             AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type),
-            AsmOperation::BitwiseOp { secondary, operation, size } => instruction_bitwise(secondary, operation, *size),
+            AsmOperation::BitwiseOp { secondary, operation} => instruction_bitwise(secondary, operation),
             AsmOperation::CALL { label } => format!("call {}", label),
             AsmOperation::SHL { amount, base_type } => instruction_shiftleft(amount, base_type),
             AsmOperation::SHR { amount, base_type } => instruction_shiftright(amount, base_type),
-            AsmOperation::BitwiseNot { item, size } => format!("not {}", item.generate_name(*size)),
+            AsmOperation::BitwiseNot => format!("not {}", GPRegister::acc().generate_name(MemorySize::from_bits(64))),//just NOT the whole reg
 
             AsmOperation::MMXCastMMX { from, to, from_type, to_type } => instruction_mmx_cast_mmx(from, to, from_type, to_type),
             AsmOperation::GP64CastMMX { from, to, from_is_signed, to_type } => instruction_gp64_cast_mmx(from, to, *from_is_signed, to_type),
@@ -264,14 +264,21 @@ fn instruction_mul(multiplier: &RegOrMem, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_bitwise( secondary: &Operand, operation: &LogicalOperation, size: MemorySize) -> String {
+fn instruction_bitwise( secondary: &Operand, operation: &LogicalOperation) -> String {
     let op_asm = match operation {
         LogicalOperation::AND => "and".to_string(),
         LogicalOperation::OR => "or".to_string(),
         LogicalOperation::XOR => "xor".to_string()
     };
 
-    format!("{} {}, {}", op_asm, GPRegister::acc().generate_name(size), secondary.generate_name(size))
+    let (primary_name, secondary_name) = match secondary {
+        Operand::GPReg(gpregister) => (GPRegister::acc().generate_name(MemorySize::from_bits(64)), gpregister.generate_name(MemorySize::from_bits(64))),//TODO ensure AX is active
+        Operand::MMReg(mmregister) => panic!(),
+        Operand::Mem(memory_operand) => (GPRegister::acc().generate_name(MemorySize::from_bits(64)), memory_operand.generate_name()),
+        Operand::Imm(immediate_value) => (GPRegister::acc().generate_name(MemorySize::from_bits(64)), immediate_value.generate_name()),
+    };
+
+    format!("{} {}, {}", op_asm, primary_name, secondary_name)
 }
 
 fn instruction_shiftleft(amount: &Operand, base_type: &BaseType) -> String {
@@ -328,8 +335,8 @@ impl IRDisplay for AsmOperation {
             AsmOperation::SHL { amount, base_type } => format!("{} <<= {} ({})", GPRegister::acc().display_ir(), amount.display_ir(), base_type),
             AsmOperation::SHR { amount, base_type } => format!("{} >>= {} ({})", GPRegister::acc().display_ir(), amount.display_ir(), base_type),
             AsmOperation::NEG { data_type } => format!("{} accumulator ({})", opcode!("NEG"), data_type),//TODO pretty printing for "accumulator????"
-            AsmOperation::BitwiseNot { item, size } => format!("{} {} ({})", opcode!("NOT"), item.display_ir(), size),
-            AsmOperation::BitwiseOp { secondary, operation, size } => format!("{} {} {} ({})", GPRegister::acc().display_ir(), operation.display_ir(), secondary.display_ir(), size),
+            AsmOperation::BitwiseNot => format!("{} {}", opcode!("NOT"), "accumulator"),
+            AsmOperation::BitwiseOp { secondary, operation} => format!("{} {} {}", GPRegister::acc().display_ir(), operation.display_ir(), secondary.display_ir()),//this is wrong as it could be MMX
             AsmOperation::Label { name } => format!("{}:", name.red().to_string()),
             AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
             AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),

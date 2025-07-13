@@ -190,7 +190,7 @@ impl UnaryPrefixExpression {
             },
 
             UnaryPrefixOperator::BitwiseNot => {
-                result.add_comment("boolean not");
+                result.add_comment("bitwise not");
                 let promoted_type = self.get_data_type(asm_data);
 
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
@@ -200,11 +200,8 @@ impl UnaryPrefixExpression {
                 result.merge(&operand_asm);
                 result.merge(&cast_asm);//cast to the correct type
 
-                //set 1 if equal to 0 or vice-versa
-                result.add_instruction(AsmOperation::BitwiseNot {
-                    item: RegOrMem::GPReg(GPRegister::acc()),
-                    size: promoted_type.memory_size(asm_data)
-                });
+                //flip accumulator bits
+                result.add_instruction(AsmOperation::BitwiseNot);
             }
         }
 
