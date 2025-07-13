@@ -50,7 +50,7 @@ pub enum AsmOperation {
     BitwiseNot {item: RegOrMem, size: MemorySize},
 
     /// applies operation to destination and secondary, saving results to destination
-    BitwiseOp {destination: RegOrMem, secondary: Operand, operation: LogicalOperation, size: MemorySize},
+    BitwiseOp { secondary: Operand, operation: LogicalOperation, size: MemorySize},
 
     Label {name: String},
     CreateStackFrame,
@@ -101,7 +101,7 @@ impl AsmOperation {
             AsmOperation::BLANK => String::new(),
             AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type),
             AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type),
-            AsmOperation::BitwiseOp { destination, secondary, operation, size } => instruction_bitwise(destination, secondary, operation, *size),
+            AsmOperation::BitwiseOp { secondary, operation, size } => instruction_bitwise(secondary, operation, *size),
             AsmOperation::CALL { label } => format!("call {}", label),
             AsmOperation::SHL { destination, amount, base_type } => instruction_shiftleft(destination, amount, base_type),
             AsmOperation::SHR { destination, amount, base_type } => instruction_shiftright(destination, amount, base_type),
@@ -264,14 +264,14 @@ fn instruction_mul(multiplier: &RegOrMem, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_bitwise(destination: &RegOrMem, secondary: &Operand, operation: &LogicalOperation, size: MemorySize) -> String {
+fn instruction_bitwise( secondary: &Operand, operation: &LogicalOperation, size: MemorySize) -> String {
     let op_asm = match operation {
         LogicalOperation::AND => "and".to_string(),
         LogicalOperation::OR => "or".to_string(),
         LogicalOperation::XOR => "xor".to_string()
     };
 
-    format!("{} {}, {}", op_asm, destination.generate_name(size), secondary.generate_name(size))
+    format!("{} {}, {}", op_asm, GPRegister::acc().generate_name(size), secondary.generate_name(size))
 }
 
 fn instruction_shiftleft(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
@@ -329,7 +329,7 @@ impl IRDisplay for AsmOperation {
             AsmOperation::SHR { destination, amount, base_type } => format!("{} >>= {} ({})", destination.display_ir(), amount.display_ir(), base_type),
             AsmOperation::NEG { data_type } => format!("{} accumulator ({})", opcode!("NEG"), data_type),//TODO pretty printing for "accumulator????"
             AsmOperation::BitwiseNot { item, size } => format!("{} {} ({})", opcode!("NOT"), item.display_ir(), size),
-            AsmOperation::BitwiseOp { destination, secondary, operation, size } => format!("{} {} {} ({})", destination.display_ir(), operation.display_ir(), secondary.display_ir(), size),
+            AsmOperation::BitwiseOp { secondary, operation, size } => format!("{} {} {} ({})", GPRegister::acc().display_ir(), operation.display_ir(), secondary.display_ir(), size),
             AsmOperation::Label { name } => format!("{}:", name.red().to_string()),
             AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
             AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),

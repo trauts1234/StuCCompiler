@@ -136,7 +136,6 @@ impl BinaryExpression {
                 let instruction = operator.as_boolean_instr().unwrap();
 
                 result.add_instruction(AsmOperation::BitwiseOp {
-                    destination: RegOrMem::GPReg(GPRegister::acc()),
                     secondary: Operand::GPReg(GPRegister::secondary()),
                     operation: instruction,
                     size: MemorySize::from_bytes(1)//1 byte boolean
@@ -151,7 +150,6 @@ impl BinaryExpression {
                 let instruction = operator.as_bitwise_binary_instr().unwrap();
 
                 result.add_instruction(AsmOperation::BitwiseOp {
-                    destination: RegOrMem::GPReg(GPRegister::acc()),
                     secondary: Operand::GPReg(GPRegister::secondary()),
                     operation: instruction,
                     size: promoted_size
