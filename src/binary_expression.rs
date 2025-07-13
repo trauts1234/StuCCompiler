@@ -111,7 +111,6 @@ impl BinaryExpression {
                 let promoted_base = promoted_type.decay_to_primative();
 
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::GPReg(GPRegister::secondary()),
                     data_type: promoted_base
                 });

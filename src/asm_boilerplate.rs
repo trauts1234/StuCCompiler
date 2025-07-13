@@ -20,7 +20,6 @@ pub fn cast_raw_from_acc(from_raw: &ScalarType, to_raw: &ScalarType, asm_data: &
     if to_raw == &ScalarType::Integer(IntegerType::_BOOL) {
         //boolean, so I need to cmp 0
         result.add_instruction(AsmOperation::CMP { 
-            lhs: Operand::GPReg(GPRegister::acc()),
             rhs: Operand::Imm(ImmediateValue("0".to_string())),
             data_type: from_raw.clone()
         });

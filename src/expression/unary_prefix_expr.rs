@@ -180,7 +180,6 @@ impl UnaryPrefixExpression {
 
                 //compare the boolean to zero
                 result.add_instruction(AsmOperation::CMP {
-                    lhs: Operand::GPReg(GPRegister::acc()),
                     rhs: Operand::Imm(ImmediateValue("0".to_string())),
                     data_type: ScalarType::Integer(IntegerType::_BOOL),
                 });

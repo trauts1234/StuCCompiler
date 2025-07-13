@@ -12,8 +12,8 @@ pub enum AsmOperation {
     ///references from, puts address in the accumulator
     LEA {from: MemoryOperand},
 
-    ///compares lhs and rhs, based on their data type
-    CMP {lhs: Operand, rhs: Operand, data_type: ScalarType},
+    ///compares the accumulator and rhs, based on their data type
+    CMP {rhs: Operand, data_type: ScalarType},
     /// based on the comparison, sets _AX to 1 or 0
     SETCC {comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
@@ -83,7 +83,7 @@ impl AsmOperation {
         match self {
             AsmOperation::MOV { to, from, size } => instruction_mov(to, from, *size),
             AsmOperation::LEA { from } => format!("lea {}, {}", GPRegister::acc().generate_name(PTR_SIZE), from.generate_name()),
-            AsmOperation::CMP { lhs, rhs, data_type } => instruction_cmp(lhs, rhs, data_type),
+            AsmOperation::CMP { rhs, data_type } => instruction_cmp(rhs, data_type),
             AsmOperation::SETCC { comparison } => instruction_setcc(comparison),
             AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
             AsmOperation::SignExtendACC { old_size } => instruction_sign_extend(old_size),
@@ -161,15 +161,10 @@ fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
     }
 }
 
-fn instruction_cmp(lhs: &Operand, rhs: &Operand, data_type: &ScalarType) -> String {
-    match (lhs, rhs) {
-        (Operand::MMReg(x), y) => todo!(),
-        (x, Operand::MMReg(y)) => todo!(),
-
-        _ => match data_type {
-            ScalarType::Float(_) => panic!("tried to float-compare some integers?"),
-            ScalarType::Integer(integer_type) => format!("cmp {}, {}", lhs.generate_name(integer_type.memory_size()), rhs.generate_name(integer_type.memory_size())),
-        }
+fn instruction_cmp(rhs: &Operand, data_type: &ScalarType) -> String {
+    match data_type {
+        ScalarType::Float(_) => panic!("tried to float-compare some integers?"),
+        ScalarType::Integer(integer_type) => format!("cmp {}, {}", GPRegister::acc().generate_name(integer_type.memory_size()), rhs.generate_name(integer_type.memory_size())),
     }
 }
 // DataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
@@ -307,10 +302,10 @@ impl IRDisplay for AsmOperation {
         match self {
             AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to.display_ir(), from.display_ir(), size),
             AsmOperation::LEA { from } => format!("{} = {} {}", GPRegister::acc().display_ir(), opcode!("LEA"), from.display_ir()),
-            AsmOperation::CMP { lhs, rhs, data_type } => 
+            AsmOperation::CMP { rhs, data_type } => 
                         format!("{} {}, {} ({})",
                             opcode!("CMP"),
-                            lhs.display_ir(),
+                            GPRegister::acc().display_ir(),
                             rhs.display_ir(),
                             data_type
                         ),
