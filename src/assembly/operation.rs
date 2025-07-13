@@ -19,17 +19,8 @@ pub enum AsmOperation {
     ///based on the comparison, conditionally jump to the label
     JMPCC {label: String, comparison: AsmComparison},
 
-    ///sign extends the accumulator to i64 from the old size
-    SignExtendACC {old_size: MemorySize},
-    ///zero extends the accumulator to u64 from the old size
-    ZeroExtendACC {old_size: MemorySize},
-
-    /// Cast a 64 bit GP register to a MMX float/double
-    GP64CastMMX {from:GPRegister, to:MMRegister, from_is_signed: bool, to_type: FloatType },
-    /// Cast a MMX float/double to 64 bit GP register
-    MMXCastGP64 {from:MMRegister, to:GPRegister, from_type: FloatType, to_is_signed: bool },
-    /// Cast a float to double or vice-versa
-    MMXCastMMX {from:MMRegister, to:MMRegister, from_type: FloatType, to_type: FloatType },
+    //casts and moves from -> to
+    CAST {from_type: ScalarType, to_type: ScalarType},
 
     ///adds increment to _AX
     ADD {increment: Operand, data_type: DataType},
@@ -86,8 +77,6 @@ impl AsmOperation {
             AsmOperation::CMP { rhs, data_type } => instruction_cmp(rhs, data_type),
             AsmOperation::SETCC { comparison } => instruction_setcc(comparison),
             AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
-            AsmOperation::SignExtendACC { old_size } => instruction_sign_extend(old_size),
-            AsmOperation::ZeroExtendACC { old_size } => instruction_zero_extend(old_size),
             AsmOperation::ADD { increment, data_type } => instruction_add(increment, data_type),
             AsmOperation::SUB { decrement, data_type } => instruction_sub(decrement, data_type),
             AsmOperation::NEG { data_type } => instruction_neg(data_type),
@@ -107,11 +96,13 @@ impl AsmOperation {
             AsmOperation::SHR { amount, base_type } => instruction_shiftright(amount, base_type),
             AsmOperation::BitwiseNot => format!("not {}", GPRegister::acc().generate_name(MemorySize::from_bits(64))),//just NOT the whole reg
 
-            AsmOperation::MMXCastMMX { from, to, from_type, to_type } => instruction_mmx_cast_mmx(from, to, from_type, to_type),
-            AsmOperation::GP64CastMMX { from, to, from_is_signed, to_type } => instruction_gp64_cast_mmx(from, to, *from_is_signed, to_type),
-            AsmOperation::MMXCastGP64 { from, to, from_type, to_is_signed } => todo!(),
+            AsmOperation::CAST { from_type, to_type } => instruction_cast(from_type, to_type)
         }
     }
+}
+
+fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
+    todo!()
 }
 
 fn instruction_gp64_cast_mmx(from: &GPRegister, to: &MMRegister, from_is_signed: bool, to_type: &FloatType) -> String {
@@ -326,8 +317,6 @@ impl IRDisplay for AsmOperation {
                             opcode!(format!("jmp-{}", comparison.display_ir())),
                             label
                         ),
-            AsmOperation::SignExtendACC { old_size } => format!("{} {} from {}", opcode!("sign extend"), GPRegister::acc().display_ir(), old_size),
-            AsmOperation::ZeroExtendACC { old_size } => format!("{} {} from {}", opcode!("zero extend"), GPRegister::acc().display_ir(), old_size),
             AsmOperation::ADD { increment, data_type } => format!("{} += {} ({})", GPRegister::acc().display_ir(), increment.display_ir(), data_type),
             AsmOperation::SUB { decrement, data_type } => format!("{} -= {} ({})", GPRegister::acc().display_ir(), decrement.display_ir(), data_type),
             AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", GPRegister::acc().display_ir(), multiplier.display_ir(), data_type),
@@ -345,11 +334,8 @@ impl IRDisplay for AsmOperation {
             AsmOperation::DeallocateStack(size) => format!("{} {} B", opcode!("deallocate stack"), size.size_bytes()),
             AsmOperation::MEMCPY { size } => format!("{} {}", opcode!("MEMCPY"), size),
             AsmOperation::CALL { label } => format!("{} {}", opcode!("CALL"), label),
+            AsmOperation::CAST { from_type, to_type } => format!("{} {} = {}({})", opcode!("CAST"), acc!(), from.display_ir(), from_type, to.display_ir(), to_type),
             AsmOperation::BLANK => String::new(),
-
-            AsmOperation::GP64CastMMX { from, to, from_is_signed, to_type } => format!("{} = ({})({}){}", to.display_ir(), to_type, if *from_is_signed {"i64"} else {"u64"}, from.display_ir()),
-            AsmOperation::MMXCastGP64 { from, to, from_type, to_is_signed } => format!("{} = ({})({}){}", to.display_ir(), if *to_is_signed {"i64"} else {"u64"}, from_type, from.display_ir()),
-            AsmOperation::MMXCastMMX { from, to, from_type, to_type } => format!("{} = ({})({}){}", to.display_ir(), to_type, from_type, from.display_ir()),
         }
     }
 }
