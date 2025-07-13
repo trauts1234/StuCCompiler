@@ -31,8 +31,8 @@ pub enum AsmOperation {
     /// Cast a float to double or vice-versa
     MMXCastMMX {from:MMRegister, to:MMRegister, from_type: FloatType, to_type: FloatType },
 
-    ///adds increment to destination
-    ADD {destination: RegOrMem, increment: Operand, data_type: DataType},
+    ///adds increment to _AX
+    ADD {increment: Operand, data_type: DataType},
     ///subtracts decrement from _AX
     SUB {decrement: Operand, data_type: DataType},
     ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
@@ -88,7 +88,7 @@ impl AsmOperation {
             AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
             AsmOperation::SignExtendACC { old_size } => instruction_sign_extend(old_size),
             AsmOperation::ZeroExtendACC { old_size } => instruction_zero_extend(old_size),
-            AsmOperation::ADD { destination, increment, data_type } => instruction_add(destination, increment, data_type),
+            AsmOperation::ADD { increment, data_type } => instruction_add(increment, data_type),
             AsmOperation::SUB { decrement, data_type } => instruction_sub(decrement, data_type),
             AsmOperation::NEG { item, data_type } => instruction_neg(item, data_type),
             AsmOperation::CreateStackFrame => "push rbp\nmov rbp, rsp".to_string(),
@@ -217,11 +217,11 @@ fn instruction_zero_extend(original: &MemorySize) -> String {
     }
 }
 
-fn instruction_add(destination: &RegOrMem, increment: &Operand, data_type: &DataType) -> String {
+fn instruction_add(increment: &Operand, data_type: &DataType) -> String {
     match data_type {
-        DataType::POINTER(_) => format!("add {}, {}", destination.generate_name(PTR_SIZE), increment.generate_name(PTR_SIZE)),
+        DataType::POINTER(_) => format!("add {}, {}", GPRegister::acc().generate_name(PTR_SIZE), increment.generate_name(PTR_SIZE)),
         //addition is same for signed and unsigned
-        DataType::RAW(base) if base.is_integer() => format!("add {}, {}", destination.generate_name(base.get_non_struct_memory_size()), increment.generate_name(base.get_non_struct_memory_size())),
+        DataType::RAW(base) if base.is_integer() => format!("add {}, {}", GPRegister::acc().generate_name(base.get_non_struct_memory_size()), increment.generate_name(base.get_non_struct_memory_size())),
         _ => panic!("currently cannot add this data type")
     }
 }
@@ -321,7 +321,7 @@ impl IRDisplay for AsmOperation {
                         ),
             AsmOperation::SignExtendACC { old_size } => format!("{} {} from {}", opcode!("sign extend"), GPRegister::acc().display_ir(), old_size),
             AsmOperation::ZeroExtendACC { old_size } => format!("{} {} from {}", opcode!("zero extend"), GPRegister::acc().display_ir(), old_size),
-            AsmOperation::ADD { destination, increment, data_type } => format!("{} += {} ({})", destination.display_ir(), increment.display_ir(), data_type),
+            AsmOperation::ADD { increment, data_type } => format!("{} += {} ({})", GPRegister::acc().display_ir(), increment.display_ir(), data_type),
             AsmOperation::SUB { decrement, data_type } => format!("{} -= {} ({})", GPRegister::acc().display_ir(), decrement.display_ir(), data_type),
             AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", GPRegister::acc().display_ir(), multiplier.display_ir(), data_type),
             AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", GPRegister::acc().display_ir(), divisor.display_ir(), data_type),

@@ -308,12 +308,17 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             //}
             for (i, item) in array_init.zero_fill_and_flatten_to_iter(&promoted_type).iter().enumerate() {
 
-                //generate the item
+                //generate the item and store in secondary
                 result.merge(&item.accept(&mut ScalarInAccVisitor{asm_data, stack_data}));
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::GPReg(GPRegister::secondary()),
+                    from: Operand::GPReg(GPRegister::acc()),
+                    size: item.accept(&mut GetDataTypeVisitor {asm_data}).memory_size(asm_data),
+                });
 
                 //get address of the start of the array
                 result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::secondary()),
+                    to: RegOrMem::GPReg(GPRegister::acc()),
                     from: Operand::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
                     size: PTR_SIZE,
                 });
@@ -321,14 +326,13 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 let array_start_offset = MemorySize::from_bytes(i as u64 * array_element_size.size_bytes());//how many bytes from the start of the array is the item
                 //add the index to it: (void*)ndarray + i
                 result.add_instruction(AsmOperation::ADD {
-                    destination: RegOrMem::GPReg(GPRegister::secondary()),
                     increment: Operand::Imm(array_start_offset.as_imm()),
                     data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
                 });
 
                 result.add_commented_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::GPReg(GPRegister::acc()),
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
+                    from: Operand::GPReg(GPRegister::secondary()),
                     size: array_element_size,
                 }, format!("initialising element {} of array", i));
             }

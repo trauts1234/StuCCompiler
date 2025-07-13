@@ -54,7 +54,6 @@ impl StructMemberAccess {
 
         //go up by member offset
         result.add_instruction(AsmOperation::ADD {
-            destination: RegOrMem::GPReg(GPRegister::acc()),
             increment: Operand::Imm(struct_member_offset.as_imm()),
             data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64)))//pointer addition is u64 add
         });

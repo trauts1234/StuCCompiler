@@ -98,7 +98,6 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
 
         //increase pointer to index of member
         result.add_instruction(AsmOperation::ADD {
-            destination: RegOrMem::GPReg(GPRegister::acc()),
             increment: Operand::Imm(member_data.1.as_imm()),
             data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
         });

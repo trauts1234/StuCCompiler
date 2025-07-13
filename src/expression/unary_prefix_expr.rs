@@ -94,9 +94,8 @@ impl UnaryPrefixExpression {
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
 
-                let rhs_reg = RegOrMem::GPReg(GPRegister::acc());
                 //increment self.operand (in acc) as original type, so that it can be stored correctly afterwards
-                result.add_instruction(AsmOperation::ADD { destination: rhs_reg, increment: Operand::Imm(increment_amount), data_type: original_type.clone() });
+                result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(increment_amount), data_type: original_type.clone() });
 
                 //pop &self.operand to RCX
                 result.add_instruction(AsmOperation::MOV {

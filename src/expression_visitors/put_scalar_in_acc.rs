@@ -108,7 +108,6 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
             //offset the start pointer to the address of the member
             result.add_instruction(AsmOperation::ADD {
-                destination: RegOrMem::GPReg(GPRegister::acc()),
                 increment: Operand::Imm(member_offset.as_imm()),
                 data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
             });
@@ -119,7 +118,6 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
             //offset the start pointer to the address of the member
             result.add_instruction(AsmOperation::ADD {
-                destination: RegOrMem::GPReg(GPRegister::acc()),
                 increment: Operand::Imm(member_offset.as_imm()),
                 data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
             });

@@ -119,20 +119,24 @@ impl UnaryPostfixExpression {
                     size: original_type.memory_size(asm_data),
                 });
 
-                //increment value in third
+                //increment value in acc
                 result.add_instruction(AsmOperation::ADD {
-                    destination: RegOrMem::GPReg(GPRegister::third()),
                     increment: Operand::Imm(increment_amount),
                     data_type: original_type.clone(),
                 });
-                //save third to the variable address
+                //save acc to the variable address
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::GPReg(GPRegister::third()),
+                    from: Operand::GPReg(GPRegister::acc()),
                     size: original_type.memory_size(asm_data),
                 });
 
-                //promote the original self.operand in acc
+                //promote the original self.operand
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::GPReg(GPRegister::acc()),
+                    from: Operand::GPReg(GPRegister::third()),
+                    size: original_type.memory_size(asm_data),
+                });
                 let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
                 result.merge(&cast_asm);
 

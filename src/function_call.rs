@@ -107,22 +107,14 @@ impl FunctionCall {
             });
         }
 
-        result.add_instruction(AsmOperation::ADD {
-            destination: RegOrMem::GPReg(GPRegister::_SP),
-            increment: Operand::Imm(aligned_integer_args_size.as_imm()),
-            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
-        });
+        result.add_instruction(AsmOperation::DeallocateStack(aligned_integer_args_size));
 
         //since there are no floating point args, this must be left as 0 to let varadic functions know
         result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_AX), from: Operand::Imm(ImmediateValue("0".to_string())), size: MemorySize::from_bytes(8) });
 
         result.add_instruction(AsmOperation::CALL { label: self.func_name.clone() });
 
-        result.add_commented_instruction(AsmOperation::ADD {
-            destination: RegOrMem::GPReg(GPRegister::_SP),
-            increment: Operand::Imm(aligned_memory_args_size.as_imm()),
-            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64)))
-        }, "deallocate memory args");
+        result.add_commented_instruction(AsmOperation::DeallocateStack(aligned_memory_args_size), "deallocate memory args");
 
         result
     }
