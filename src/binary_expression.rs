@@ -171,7 +171,6 @@ impl BinaryExpression {
                 
                 unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
                 result.add_instruction(AsmOperation::SHR {
-                    destination: RegOrMem::GPReg(GPRegister::acc()),
                     amount: Operand::GPReg(GPRegister::secondary()),
                     base_type: lhs_base
                 });
@@ -190,7 +189,6 @@ impl BinaryExpression {
                 
                 unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
                 result.add_instruction(AsmOperation::SHL {
-                    destination: RegOrMem::GPReg(GPRegister::acc()),
                     amount: Operand::GPReg(GPRegister::secondary()),
                     base_type: lhs_base
                 });

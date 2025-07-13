@@ -1,4 +1,4 @@
-use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister, Register}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
@@ -40,9 +40,9 @@ pub enum AsmOperation {
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
     DIV {divisor: RegOrMem, data_type: ScalarType},
     ///shifts logically left
-    SHL {destination: RegOrMem, amount: Operand, base_type: BaseType},
+    SHL {amount: Operand, base_type: BaseType},
     ///shifts right, (arithmetic or logical based on the signedness of base_type)
-    SHR {destination: RegOrMem, amount: Operand, base_type: BaseType},
+    SHR {amount: Operand, base_type: BaseType},
 
     ///negates the accumulator item, taking into account its data type
     NEG {data_type: ScalarType},
@@ -103,8 +103,8 @@ impl AsmOperation {
             AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type),
             AsmOperation::BitwiseOp { secondary, operation, size } => instruction_bitwise(secondary, operation, *size),
             AsmOperation::CALL { label } => format!("call {}", label),
-            AsmOperation::SHL { destination, amount, base_type } => instruction_shiftleft(destination, amount, base_type),
-            AsmOperation::SHR { destination, amount, base_type } => instruction_shiftright(destination, amount, base_type),
+            AsmOperation::SHL { amount, base_type } => instruction_shiftleft(amount, base_type),
+            AsmOperation::SHR { amount, base_type } => instruction_shiftright(amount, base_type),
             AsmOperation::BitwiseNot { item, size } => format!("not {}", item.generate_name(*size)),
 
             AsmOperation::MMXCastMMX { from, to, from_type, to_type } => instruction_mmx_cast_mmx(from, to, from_type, to_type),
@@ -274,18 +274,18 @@ fn instruction_bitwise( secondary: &Operand, operation: &LogicalOperation, size:
     format!("{} {}, {}", op_asm, GPRegister::acc().generate_name(size), secondary.generate_name(size))
 }
 
-fn instruction_shiftleft(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
+fn instruction_shiftleft(amount: &Operand, base_type: &BaseType) -> String {
     let size = base_type.get_non_struct_memory_size();
-    format!("shl {}, {}", destination.generate_name(size), amount.generate_name(MemorySize::from_bytes(1)))
+    format!("shl {}, {}", GPRegister::acc().generate_name(size), amount.generate_name(MemorySize::from_bytes(1)))
 }
 
-fn instruction_shiftright(destination: &RegOrMem, amount: &Operand, base_type: &BaseType) -> String {
+fn instruction_shiftright(amount: &Operand, base_type: &BaseType) -> String {
     let size = base_type.get_non_struct_memory_size();
     match base_type {
         //signed shift needs algebraic shift right
-        base if base.is_signed() => format!("sar {}, {}", destination.generate_name(size), amount.generate_name(MemorySize::from_bytes(1))),
+        base if base.is_signed() => format!("sar {}, {}", GPRegister::acc().generate_name(size), amount.generate_name(MemorySize::from_bytes(1))),
         //unsigned uses logical shift
-        base if base.is_unsigned() => format!("shr {}, {}", destination.generate_name(size), amount.generate_name(MemorySize::from_bytes(1))),
+        base if base.is_unsigned() => format!("shr {}, {}", GPRegister::acc().generate_name(size), amount.generate_name(MemorySize::from_bytes(1))),
         _ => panic!("cannot shift this type")
     }
 }
@@ -325,8 +325,8 @@ impl IRDisplay for AsmOperation {
             AsmOperation::SUB { decrement, data_type } => format!("{} -= {} ({})", GPRegister::acc().display_ir(), decrement.display_ir(), data_type),
             AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", GPRegister::acc().display_ir(), multiplier.display_ir(), data_type),
             AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", GPRegister::acc().display_ir(), divisor.display_ir(), data_type),
-            AsmOperation::SHL { destination, amount, base_type } => format!("{} <<= {} ({})", destination.display_ir(), amount.display_ir(), base_type),
-            AsmOperation::SHR { destination, amount, base_type } => format!("{} >>= {} ({})", destination.display_ir(), amount.display_ir(), base_type),
+            AsmOperation::SHL { amount, base_type } => format!("{} <<= {} ({})", GPRegister::acc().display_ir(), amount.display_ir(), base_type),
+            AsmOperation::SHR { amount, base_type } => format!("{} >>= {} ({})", GPRegister::acc().display_ir(), amount.display_ir(), base_type),
             AsmOperation::NEG { data_type } => format!("{} accumulator ({})", opcode!("NEG"), data_type),//TODO pretty printing for "accumulator????"
             AsmOperation::BitwiseNot { item, size } => format!("{} {} ({})", opcode!("NOT"), item.display_ir(), size),
             AsmOperation::BitwiseOp { secondary, operation, size } => format!("{} {} {} ({})", GPRegister::acc().display_ir(), operation.display_ir(), secondary.display_ir(), size),
