@@ -44,8 +44,8 @@ pub enum AsmOperation {
     ///shifts right, (arithmetic or logical based on the signedness of base_type)
     SHR {destination: RegOrMem, amount: Operand, base_type: BaseType},
 
-    ///negates the item, taking into account its data type
-    NEG {item: GPRegister, data_type: ScalarType},
+    ///negates the accumulator item, taking into account its data type
+    NEG {data_type: ScalarType},
     ///performs bitwise not to the item
     BitwiseNot {item: RegOrMem, size: MemorySize},
 
@@ -90,7 +90,7 @@ impl AsmOperation {
             AsmOperation::ZeroExtendACC { old_size } => instruction_zero_extend(old_size),
             AsmOperation::ADD { increment, data_type } => instruction_add(increment, data_type),
             AsmOperation::SUB { decrement, data_type } => instruction_sub(decrement, data_type),
-            AsmOperation::NEG { item, data_type } => instruction_neg(item, data_type),
+            AsmOperation::NEG { data_type } => instruction_neg(data_type),
             AsmOperation::CreateStackFrame => "push rbp\nmov rbp, rsp".to_string(),
             AsmOperation::DestroyStackFrame => "mov rsp, rbp\npop rbp".to_string(),
             AsmOperation::Return => "ret".to_string(),
@@ -234,11 +234,11 @@ fn instruction_sub(decrement: &Operand, data_type: &DataType) -> String {
     }
 }
 
-fn instruction_neg(destination: &GPRegister, data_type: &ScalarType) -> String {
+fn instruction_neg(data_type: &ScalarType) -> String {
     match data_type {
-        ScalarType::Float(FloatType::F32) => format!("xorps {}, [FLOAT_NEGATE]", destination.generate_name(MemorySize::from_bytes(4))),
+        ScalarType::Float(FloatType::F32) => format!("xorps {}, [FLOAT_NEGATE]", MMRegister::acc().generate_name(MemorySize::from_bytes(4))),
         ScalarType::Float(FloatType::F64) => todo!(),
-        ScalarType::Integer(integer_type) => format!("neg {}", destination.generate_name(integer_type.memory_size())),
+        ScalarType::Integer(integer_type) => format!("neg {}", GPRegister::acc().generate_name(integer_type.memory_size())),
     }
 }
 
@@ -327,7 +327,7 @@ impl IRDisplay for AsmOperation {
             AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", GPRegister::acc().display_ir(), divisor.display_ir(), data_type),
             AsmOperation::SHL { destination, amount, base_type } => format!("{} <<= {} ({})", destination.display_ir(), amount.display_ir(), base_type),
             AsmOperation::SHR { destination, amount, base_type } => format!("{} >>= {} ({})", destination.display_ir(), amount.display_ir(), base_type),
-            AsmOperation::NEG { item, data_type } => format!("{} {} ({})", opcode!("NEG"), item.display_ir(), data_type),
+            AsmOperation::NEG { data_type } => format!("{} accumulator ({})", opcode!("NEG"), data_type),//TODO pretty printing for "accumulator????"
             AsmOperation::BitwiseNot { item, size } => format!("{} {} ({})", opcode!("NOT"), item.display_ir(), size),
             AsmOperation::BitwiseOp { destination, secondary, operation, size } => format!("{} {} {} ({})", destination.display_ir(), operation.display_ir(), secondary.display_ir(), size),
             AsmOperation::Label { name } => format!("{}:", name.red().to_string()),

@@ -52,7 +52,7 @@ impl UnaryPrefixExpression {
                 result.merge(&cast_asm);//cast to the correct type
 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_base)) = promoted_type);
-                result.add_instruction(AsmOperation::NEG { item: GPRegister::acc(), data_type: promoted_base });//negate the promoted value
+                result.add_instruction(AsmOperation::NEG { data_type: promoted_base });//negate the promoted value
             },
             UnaryPrefixOperator::UnaryPlus => {
                 result.add_comment("unary +");
