@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::{cast_from_acc, cast_raw_from_acc}, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_boilerplate::{cast_from_acc, }, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use colored::Colorize;
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
@@ -173,9 +173,12 @@ impl UnaryPrefixExpression {
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data}).decay_to_primative();
 
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
-                let cast_asm = cast_raw_from_acc(&original_type, &ScalarType::Integer(IntegerType::_BOOL), asm_data);//cast to boolean
                 result.merge(&operand_asm);
-                result.merge(&cast_asm);//cast to the correct type
+                //cast to boolean
+                result.add_instruction(AsmOperation::CAST {
+                    from_type: original_type,
+                    to_type: ScalarType::Integer(IntegerType::_BOOL)
+                });
 
                 //compare the boolean to zero
                 result.add_instruction(AsmOperation::CMP {

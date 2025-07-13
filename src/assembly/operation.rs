@@ -102,7 +102,18 @@ impl AsmOperation {
 }
 
 fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
-    todo!()
+    match (from_type, to_type) {
+        (ScalarType::Integer(lhs), ScalarType::Integer(_)) => {
+            let lhs_original_size = lhs.memory_size();
+            //extend to 64 bits, as truncation is automatic
+            if lhs.is_unsigned() {
+                zero_extend(&lhs_original_size).to_string()
+            } else {
+                sign_extend(&lhs_original_size)
+            }
+        },
+        _ => todo!()
+    }
 }
 
 fn instruction_gp64_cast_mmx(from: &GPRegister, to: &MMRegister, from_is_signed: bool, to_type: &FloatType) -> String {
@@ -190,20 +201,24 @@ fn instruction_jmpcc(comparison: &AsmComparison) -> &str {
     }
 }
 
-fn instruction_sign_extend(original: &MemorySize) -> String {
+/// Writes instructions (newline terminated) to sign extend the accumulator
+fn sign_extend(original: &MemorySize) -> String {
     match original.size_bytes() {
-        1 => format!("cbw\n{}", instruction_sign_extend(&MemorySize::from_bytes(2))),
-        2 => format!("cwde\n{}", instruction_sign_extend(&MemorySize::from_bytes(4))),
+        1 => format!("cbw\n{}", sign_extend(&MemorySize::from_bytes(2))),
+        2 => format!("cwde\n{}", sign_extend(&MemorySize::from_bytes(4))),
         4 => format!("cdqe\n"),
+        8 => String::new(),
         _ => panic!("tried to sign extend unknown size")
     }
 }
 
-fn instruction_zero_extend(original: &MemorySize) -> String {
+/// Writes instructions (newline terminated) to zero extend the accumulator
+fn zero_extend(original: &MemorySize) -> &str {
     match original.size_bytes() {
-        1 => String::from("movzx rax, al\n"),
-        2 => String::from("movzx rax, ax\n"),
-        4 => String::new(), // Writing to EAX automatically zeroes RAX's upper half.
+        1 => "movzx rax, al\n",
+        2 => "movzx rax, ax\n",
+        4 => "",// Writing to EAX automatically zeroes RAX's upper half.
+        8 => "",//already right size
         _ => panic!("tried to zero extend unknown size")
     }
 }
@@ -294,38 +309,43 @@ macro_rules! opcode {
         ($op.yellow().to_string())
     }
 }
+macro_rules! acc {
+    () => {
+        ("acc".red().to_string())
+    };
+}
 
 impl IRDisplay for AsmOperation {
     fn display_ir(&self) -> String {
         match self {
             AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to.display_ir(), from.display_ir(), size),
-            AsmOperation::LEA { from } => format!("{} = {} {}", GPRegister::acc().display_ir(), opcode!("LEA"), from.display_ir()),
+            AsmOperation::LEA { from } => format!("{} = {} {}", acc!(), opcode!("LEA"), from.display_ir()),
             AsmOperation::CMP { rhs, data_type } => 
                         format!("{} {}, {} ({})",
                             opcode!("CMP"),
-                            GPRegister::acc().display_ir(),
+                            acc!(),
                             rhs.display_ir(),
                             data_type
                         ),
             AsmOperation::SETCC { comparison } => 
                         format!("{} {}",
                             opcode!(format!("set-{}", comparison.display_ir())),
-                            GPRegister::acc().display_ir()
+                            acc!()
                         ),
             AsmOperation::JMPCC { label, comparison } => 
                         format!("{} {}",
                             opcode!(format!("jmp-{}", comparison.display_ir())),
                             label
                         ),
-            AsmOperation::ADD { increment, data_type } => format!("{} += {} ({})", GPRegister::acc().display_ir(), increment.display_ir(), data_type),
-            AsmOperation::SUB { decrement, data_type } => format!("{} -= {} ({})", GPRegister::acc().display_ir(), decrement.display_ir(), data_type),
-            AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", GPRegister::acc().display_ir(), multiplier.display_ir(), data_type),
-            AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", GPRegister::acc().display_ir(), divisor.display_ir(), data_type),
-            AsmOperation::SHL { amount, base_type } => format!("{} <<= {} ({})", GPRegister::acc().display_ir(), amount.display_ir(), base_type),
-            AsmOperation::SHR { amount, base_type } => format!("{} >>= {} ({})", GPRegister::acc().display_ir(), amount.display_ir(), base_type),
-            AsmOperation::NEG { data_type } => format!("{} accumulator ({})", opcode!("NEG"), data_type),//TODO pretty printing for "accumulator????"
-            AsmOperation::BitwiseNot => format!("{} {}", opcode!("NOT"), "accumulator"),
-            AsmOperation::BitwiseOp { secondary, operation} => format!("{} {} {}", GPRegister::acc().display_ir(), operation.display_ir(), secondary.display_ir()),//this is wrong as it could be MMX
+            AsmOperation::ADD { increment, data_type } => format!("{} += {} ({})", acc!(), increment.display_ir(), data_type),
+            AsmOperation::SUB { decrement, data_type } => format!("{} -= {} ({})", acc!(), decrement.display_ir(), data_type),
+            AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", acc!(), multiplier.display_ir(), data_type),
+            AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", acc!(), divisor.display_ir(), data_type),
+            AsmOperation::SHL { amount, base_type } => format!("{} <<= {} ({})", acc!(), amount.display_ir(), base_type),
+            AsmOperation::SHR { amount, base_type } => format!("{} >>= {} ({})", acc!(), amount.display_ir(), base_type),
+            AsmOperation::NEG { data_type } => format!("{} {} ({})", opcode!("NEG"), acc!(), data_type),
+            AsmOperation::BitwiseNot => format!("{} {}", opcode!("NOT"), acc!()),
+            AsmOperation::BitwiseOp { secondary, operation} => format!("{} {} {}", acc!(), operation.display_ir(), secondary.display_ir()),
             AsmOperation::Label { name } => format!("{}:", name.red().to_string()),
             AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
             AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),
@@ -334,7 +354,7 @@ impl IRDisplay for AsmOperation {
             AsmOperation::DeallocateStack(size) => format!("{} {} B", opcode!("deallocate stack"), size.size_bytes()),
             AsmOperation::MEMCPY { size } => format!("{} {}", opcode!("MEMCPY"), size),
             AsmOperation::CALL { label } => format!("{} {}", opcode!("CALL"), label),
-            AsmOperation::CAST { from_type, to_type } => format!("{} {} = {}({})", opcode!("CAST"), acc!(), from.display_ir(), from_type, to.display_ir(), to_type),
+            AsmOperation::CAST { from_type, to_type } => format!("{} {} {} -> {}", opcode!("CAST"), acc!(), from_type,  to_type),
             AsmOperation::BLANK => String::new(),
         }
     }
