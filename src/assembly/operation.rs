@@ -103,15 +103,20 @@ impl AsmOperation {
 
 fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
     match (from_type, to_type) {
+        (ScalarType::Integer(lhs), ScalarType::Integer(IntegerType::_BOOL)) => {
+            //boolean, so I need to cmp 0
+            format!("cmp {}, 0\nsetne al", GPRegister::acc().generate_name(lhs.memory_size()))
+        }
         (ScalarType::Integer(lhs), ScalarType::Integer(_)) => {
             let lhs_original_size = lhs.memory_size();
-            //extend to 64 bits, as truncation is automatic
             if lhs.is_unsigned() {
-                zero_extend(&lhs_original_size).to_string()
+                zero_extend(&lhs_original_size).to_string()//extend to 64 bits, as truncation is implicit
             } else {
-                sign_extend(&lhs_original_size)
+                sign_extend(&lhs_original_size)// ''
             }
         },
+
+        (ScalarType::Float(lhs), ScalarType::Integer(IntegerType::_BOOL)) => todo!(),
         _ => todo!()
     }
 }
