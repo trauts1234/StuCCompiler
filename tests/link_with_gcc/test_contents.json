@@ -16,5 +16,8 @@
     },
     {
         "foldername":"global_auto"
+    },
+    {
+        "foldername":"float_literals"
     }
 ]
