@@ -327,7 +327,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 //add the index to it: (void*)ndarray + i
                 result.add_instruction(AsmOperation::ADD {
                     increment: Operand::Imm(array_start_offset.as_imm()),
-                    data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
+                    data_type: ScalarType::Integer(IntegerType::U64),
                 });
 
                 result.add_commented_instruction(AsmOperation::MOV {

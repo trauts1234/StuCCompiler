@@ -23,9 +23,9 @@ pub enum AsmOperation {
     CAST {from_type: ScalarType, to_type: ScalarType},
 
     ///adds increment to _AX
-    ADD {increment: Operand, data_type: DataType},
+    ADD {increment: Operand, data_type: ScalarType},
     ///subtracts decrement from _AX
-    SUB {decrement: Operand, data_type: DataType},
+    SUB {decrement: Operand, data_type: ScalarType},
     ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
     MUL {multiplier: RegOrMem, data_type: DataType},
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
@@ -117,6 +117,19 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
         },
 
         (ScalarType::Float(lhs), ScalarType::Integer(IntegerType::_BOOL)) => todo!(),
+        (ScalarType::Integer(IntegerType::U64), ScalarType::Float(_)) => todo!("this is difficult :("),
+
+        //definitely not u64, so cast to i64 as that should fit anything, then cast to float
+        (ScalarType::Integer(_), ScalarType::Float(FloatType::F32)) => format!("{}\ncvtsi2ss xmm0, rax", instruction_cast(from_type, &ScalarType::Integer(IntegerType::I64))),
+        (ScalarType::Integer(_), ScalarType::Float(FloatType::F64)) => format!("{}\ncvtsi2sd xmm0, rax", instruction_cast(from_type, &ScalarType::Integer(IntegerType::I64))),
+
+        //float-float casts
+        (ScalarType::Float(lhs), ScalarType::Float(rhs)) => match (lhs, rhs) {
+            (FloatType::F32, FloatType::F32) => String::new(),
+            (FloatType::F64, FloatType::F64) => String::new(),
+            (FloatType::F32, FloatType::F64) => format!("cvtss2sd xmm0, xmm0"),
+            (FloatType::F64, FloatType::F32) => format!("cvtsd2ss xmm0, xmm0"),
+        }
         _ => todo!()
     }
 }
@@ -206,48 +219,48 @@ fn instruction_jmpcc(comparison: &AsmComparison) -> &str {
     }
 }
 
-/// Writes instructions (newline terminated) to sign extend the accumulator
+/// Writes instructions to sign extend the accumulator
 fn sign_extend(original: &MemorySize) -> String {
     match original.size_bytes() {
         1 => format!("cbw\n{}", sign_extend(&MemorySize::from_bytes(2))),
         2 => format!("cwde\n{}", sign_extend(&MemorySize::from_bytes(4))),
-        4 => format!("cdqe\n"),
+        4 => format!("cdqe"),
         8 => String::new(),
         _ => panic!("tried to sign extend unknown size")
     }
 }
 
-/// Writes instructions (newline terminated) to zero extend the accumulator
+/// Writes instructions to zero extend the accumulator
 fn zero_extend(original: &MemorySize) -> &str {
     match original.size_bytes() {
-        1 => "movzx rax, al\n",
-        2 => "movzx rax, ax\n",
+        1 => "movzx rax, al",
+        2 => "movzx rax, ax",
         4 => "",// Writing to EAX automatically zeroes RAX's upper half.
         8 => "",//already right size
         _ => panic!("tried to zero extend unknown size")
     }
 }
 
-fn instruction_add(increment: &Operand, data_type: &DataType) -> String {
+fn instruction_add(increment: &Operand, data_type: &ScalarType) -> String {
     match data_type {
-        DataType::POINTER(_) => format!("add {}, {}", GPRegister::acc().generate_name(PTR_SIZE), increment.generate_name(PTR_SIZE)),
         //addition is same for signed and unsigned
-        DataType::RAW(base) if base.is_integer() => format!("add {}, {}", GPRegister::acc().generate_name(base.get_non_struct_memory_size()), increment.generate_name(base.get_non_struct_memory_size())),
+        ScalarType::Integer(base) => format!("add {}, {}", GPRegister::acc().generate_name(base.memory_size()), increment.generate_name(base.memory_size())),
         _ => panic!("currently cannot add this data type")
     }
 }
-fn instruction_sub(decrement: &Operand, data_type: &DataType) -> String {
+fn instruction_sub(decrement: &Operand, data_type: &ScalarType) -> String {
     match data_type {
-        DataType::POINTER(_) => format!("sub {}, {}", GPRegister::acc().generate_name(PTR_SIZE), decrement.generate_name(PTR_SIZE)),
         //subtraction is same for signed and unsigned
-        DataType::RAW(base) if base.is_integer() => format!("sub {}, {}", GPRegister::acc().generate_name(base.get_non_struct_memory_size()), decrement.generate_name(base.get_non_struct_memory_size())),
+        ScalarType::Integer(base) => format!("sub {}, {}", GPRegister::acc().generate_name(base.memory_size()), decrement.generate_name(base.memory_size())),
         _ => panic!("currently cannot sub this data type")
     }
 }
 
 fn instruction_neg(data_type: &ScalarType) -> String {
     match data_type {
-        ScalarType::Float(FloatType::F32) => format!("xorps {}, [FLOAT_NEGATE]", MMRegister::acc().generate_name(MemorySize::from_bytes(4))),
+        ScalarType::Float(FloatType::F32) => {
+            format!("{}\nxorps {}, [FLOAT_NEGATE]\n{}", acc_to_xmm(), MMRegister::acc().generate_name(MemorySize::from_bytes(4)), xmm_to_acc())
+        },
         ScalarType::Float(FloatType::F64) => todo!(),
         ScalarType::Integer(integer_type) => format!("neg {}", GPRegister::acc().generate_name(integer_type.memory_size())),
     }
@@ -308,6 +321,14 @@ fn instruction_shiftright(amount: &Operand, base_type: &BaseType) -> String {
     }
 }
 
+/// Returns an instruction to move RAX to XMM0
+fn acc_to_xmm() -> &'static str {
+    "movq rax, xmm0"
+}
+/// Returns an instruction to move XMM0 to RAX
+fn xmm_to_acc() -> &'static str {
+    "movq xmm0, rax"
+}
 
 macro_rules! opcode {
     ($op:expr) => {

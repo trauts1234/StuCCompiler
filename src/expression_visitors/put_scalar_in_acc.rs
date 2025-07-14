@@ -109,7 +109,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             //offset the start pointer to the address of the member
             result.add_instruction(AsmOperation::ADD {
                 increment: Operand::Imm(member_offset.as_imm()),
-                data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
+                data_type: ScalarType::Integer(IntegerType::U64),
             });
         } else {
             //clone the struct, just in case it is a return value for example
@@ -119,7 +119,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             //offset the start pointer to the address of the member
             result.add_instruction(AsmOperation::ADD {
                 increment: Operand::Imm(member_offset.as_imm()),
-                data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
+                data_type: ScalarType::Integer(IntegerType::U64),
             });
 
             //dereference pointer

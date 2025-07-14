@@ -41,7 +41,7 @@ impl BinaryExpression {
 
                 result.add_instruction(AsmOperation::ADD {
                     increment: Operand::GPReg(GPRegister::secondary()),
-                    data_type: promoted_type
+                    data_type: promoted_type.decay_to_primative()
                 });
 
                 //result is now in AX
@@ -54,7 +54,7 @@ impl BinaryExpression {
 
                 result.add_instruction(AsmOperation::SUB {
                     decrement: Operand::GPReg(GPRegister::secondary()),
-                    data_type: promoted_type
+                    data_type: promoted_type.decay_to_primative()
                 });
 
                 //result is now in AX

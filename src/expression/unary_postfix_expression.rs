@@ -65,7 +65,7 @@ impl UnaryPostfixExpression {
                 //increment value in acc
                 result.add_instruction(AsmOperation::SUB {
                     decrement: Operand::Imm(increment_amount),
-                    data_type: original_type.clone(),
+                    data_type: original_type.decay_to_primative(),
                 });
                 //save acc to the variable address
                 result.add_instruction(AsmOperation::MOV {
@@ -122,7 +122,7 @@ impl UnaryPostfixExpression {
                 //increment value in acc
                 result.add_instruction(AsmOperation::ADD {
                     increment: Operand::Imm(increment_amount),
-                    data_type: original_type.clone(),
+                    data_type: original_type.decay_to_primative(),
                 });
                 //save acc to the variable address
                 result.add_instruction(AsmOperation::MOV {

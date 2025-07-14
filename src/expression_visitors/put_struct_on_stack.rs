@@ -99,7 +99,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         //increase pointer to index of member
         result.add_instruction(AsmOperation::ADD {
             increment: Operand::Imm(member_data.1.as_imm()),
-            data_type: DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64))),
+            data_type: ScalarType::Integer(IntegerType::U64),
         });
 
         result

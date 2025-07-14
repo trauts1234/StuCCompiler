@@ -43,7 +43,9 @@ impl AssemblyFile {
 {}
 {}
 SECTION .rodata
+align 16
 FLOAT_NEGATE dd 0x80000000, 0, 0, 0
+align 16
 DOUBLE_NEGATE dq 0x8000000000000000, 0
 
 {}

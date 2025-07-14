@@ -95,7 +95,7 @@ impl UnaryPrefixExpression {
                 result.merge(&operand_asm);
 
                 //increment self.operand (in acc) as original type, so that it can be stored correctly afterwards
-                result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(increment_amount), data_type: original_type.clone() });
+                result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(increment_amount), data_type: original_type.decay_to_primative() });
 
                 //pop &self.operand to RCX
                 result.add_instruction(AsmOperation::MOV {
@@ -146,7 +146,7 @@ impl UnaryPrefixExpression {
                 result.merge(&operand_asm);
 
                 //decrement self.operand (in acc) as original type, so that it can be stored correctly afterwards
-                result.add_instruction(AsmOperation::SUB {decrement: Operand::Imm(increment_amount), data_type: original_type.clone() });
+                result.add_instruction(AsmOperation::SUB {decrement: Operand::Imm(increment_amount), data_type: original_type.decay_to_primative() });
 
                 //pop &self.operand to RCX
                 result.add_instruction(AsmOperation::MOV {
