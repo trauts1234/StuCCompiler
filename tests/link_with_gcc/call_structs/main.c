@@ -16,6 +16,8 @@ struct z {long int a;int b;long int c;};//does not fit in registers
 
 extern int f6(struct z p1, int p2);
 
+extern int f7(struct y p1);
+
 int main() {
     struct x foo;
     foo.a = 1;
@@ -46,6 +48,9 @@ int main() {
     }
     if(f6(baz, 2)) {
         return 6;
+    }
+    if(f7(bar)) {
+        return 7;
     }
     return 0;
 }

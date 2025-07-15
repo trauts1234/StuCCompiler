@@ -25,3 +25,7 @@ int f5(int p1, int p2, int p3, int p4, int p5, struct y p6, int p7) {
 int f6(struct z p1, int p2){
     return (p1.a == 1 && p1.b == 2 && p1.c == 3 && p2 == 2) ? 0 : 1;
 }
+
+int f7(struct y p1) {
+    return (p1.a == 1 && p1.b == 2 && p1.c == 3) ? 0 : 1;
+}
