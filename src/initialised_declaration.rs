@@ -270,7 +270,7 @@ pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &T
         Some(Token::KEYWORD(Keyword::STRUCT)) => {
             let ASTMetadata { remaining_slice, resultant_tree: struct_name } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut queue_idx.clone(), scope_data, struct_label_gen).unwrap();
 
-            initial_type.add_complete_type(DataType::RAW(BaseType::STRUCT(struct_name)));//struct specifies a whole type so just store that
+            initial_type.add_complete_type(DataType::RAW(BaseType::Struct(struct_name)));//struct specifies a whole type so just store that
 
             consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type, struct_label_gen)//recursively look for more info
         }

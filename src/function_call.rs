@@ -1,4 +1,4 @@
-use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::{align, aligned_size, StackAllocator}};
+use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::{align, aligned_size, StackAllocator}};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 
@@ -39,7 +39,11 @@ impl FunctionCall {
         let location_marked_args: Vec<_> = type_matched_args
             .into_iter()
             .map(|(dtype, expr)| {
-                let dtype = dtype.replace_va_arg(expr.accept(&mut GetDataTypeVisitor {asm_data}).decay());
+                let dtype = dtype.replace_va_arg(match expr.accept(&mut GetDataTypeVisitor {asm_data}).decay() {
+                    DataType::RAW(BaseType::Scalar(ScalarType::Float(_))) => DataType::RAW(BaseType::Scalar(ScalarType::Float(FloatType::F64))),//for some reason, varadic args request promotion to f64
+                    x => calculate_unary_type_arithmetic(&x)//promote the param via C99, §6.5.2.2/6
+                });
+
                 let preferred_location = PreferredParamLocation::param_from_type(&dtype, asm_data);
                 let allocated_location = arg_allocator.allocate(preferred_location);
                 (dtype, expr, allocated_location)
@@ -198,7 +202,7 @@ fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperan
     let param_type = expr.accept(&mut GetDataTypeVisitor{asm_data});
 
     match (&param_type.decay(), &arg_type) {
-        (DataType::RAW(BaseType::STRUCT(_)), _) => {
+        (DataType::RAW(BaseType::Struct(_)), _) => {
             result.add_comment("putting struct arg on stack");
             let struct_clone_asm = expr.accept(&mut CopyStructVisitor{asm_data,stack_data, resultant_location: Operand::Mem(location) });
             result.merge(&struct_clone_asm);

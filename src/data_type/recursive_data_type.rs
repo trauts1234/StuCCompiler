@@ -242,7 +242,9 @@ pub fn calculate_unary_type_arithmetic(lhs: &DataType) -> DataType {
         
         DataType::RAW(BaseType::Scalar(x)) => DataType::RAW(BaseType::Scalar(calculate_unary_type(&x))),
 
-        _ => panic!()//should never happen as decay always returns pointer or raw
+        DataType::RAW(BaseType::Struct(x)) => DataType::RAW(BaseType::Struct(x)),//structs do not need promoting
+
+        x => panic!("what is {:?}", x)//should never happen as decay always returns pointer or raw
     }
 }
 

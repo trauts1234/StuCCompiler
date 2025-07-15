@@ -27,7 +27,7 @@ impl StructMemberAccess {
     pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
         let struct_tree_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
-        unwrap_let!(DataType::RAW(BaseType::STRUCT(struct_name)) = struct_tree_type);
+        unwrap_let!(DataType::RAW(BaseType::Struct(struct_name)) = struct_tree_type);
 
         let (member_decl, _) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get the type of the member
 
@@ -45,7 +45,7 @@ impl StructMemberAccess {
 
         let base_struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 
-        unwrap_let!(DataType::RAW(BaseType::STRUCT(struct_name)) = base_struct_type);
+        unwrap_let!(DataType::RAW(BaseType::Struct(struct_name)) = base_struct_type);
 
         let (_, struct_member_offset) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get offset for the specific member
 

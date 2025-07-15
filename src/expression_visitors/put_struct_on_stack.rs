@@ -45,7 +45,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
         let mut result = Assembly::make_empty();
 
-        if let DataType::RAW(BaseType::STRUCT(struct_name)) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}) {
+        if let DataType::RAW(BaseType::Struct(struct_name)) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}) {
             let struct_type = self.asm_data.get_struct(&struct_name);
             todo!("detect whether the struct is MEMORY or other, then allocate a hidden param or read from registers after function has been called. remember to align the stack")
         } else {
@@ -86,7 +86,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         let member_name = member_access.get_member_name();
-        unwrap_let!(DataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
         //generate struct that I am getting a member of

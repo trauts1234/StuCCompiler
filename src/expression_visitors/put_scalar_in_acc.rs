@@ -91,7 +91,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         let member_name = member_access.get_member_name();
-        unwrap_let!(DataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
 
         let original_struct_definition = self.asm_data.get_struct(&original_struct_name);
         let (member_decl, member_offset) = original_struct_definition.get_member_data(member_name);

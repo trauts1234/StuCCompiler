@@ -68,7 +68,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
 
         let member_name = member_access.get_member_name();
         //get the struct whose member I am getting
-        unwrap_let!(DataType::RAW(BaseType::STRUCT(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
         //get address of the base struct

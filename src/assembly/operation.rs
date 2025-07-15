@@ -120,43 +120,19 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
         (ScalarType::Integer(IntegerType::U64), ScalarType::Float(_)) => todo!("this is difficult :("),
 
         //definitely not u64, so cast to i64 as that should fit anything, then cast to float
-        (ScalarType::Integer(_), ScalarType::Float(FloatType::F32)) => format!("{}\ncvtsi2ss xmm0, rax", instruction_cast(from_type, &ScalarType::Integer(IntegerType::I64))),
-        (ScalarType::Integer(_), ScalarType::Float(FloatType::F64)) => format!("{}\ncvtsi2sd xmm0, rax", instruction_cast(from_type, &ScalarType::Integer(IntegerType::I64))),
+        //don't forget to put the results back in acc
+        (ScalarType::Integer(_), ScalarType::Float(FloatType::F32)) => format!("{}\ncvtsi2ss xmm0, rax\n{}", instruction_cast(from_type, &ScalarType::Integer(IntegerType::I64)), xmm_to_acc()),
+        (ScalarType::Integer(_), ScalarType::Float(FloatType::F64)) => format!("{}\ncvtsi2sd xmm0, rax\n{}", instruction_cast(from_type, &ScalarType::Integer(IntegerType::I64)), xmm_to_acc()),
 
         //float-float casts
         (ScalarType::Float(lhs), ScalarType::Float(rhs)) => match (lhs, rhs) {
             (FloatType::F32, FloatType::F32) => String::new(),
             (FloatType::F64, FloatType::F64) => String::new(),
-            (FloatType::F32, FloatType::F64) => format!("cvtss2sd xmm0, xmm0"),
-            (FloatType::F64, FloatType::F32) => format!("cvtsd2ss xmm0, xmm0"),
+            //don't forget to grab from rax
+            (FloatType::F32, FloatType::F64) => format!("{}\ncvtss2sd xmm0, xmm0\n{}", acc_to_xmm(), xmm_to_acc()),
+            (FloatType::F64, FloatType::F32) => format!("{}\ncvtsd2ss xmm0, xmm0\n{}", acc_to_xmm(), xmm_to_acc()),
         }
         _ => todo!()
-    }
-}
-
-fn instruction_gp64_cast_mmx(from: &GPRegister, to: &MMRegister, from_is_signed: bool, to_type: &FloatType) -> String {
-    let cast_opcode = match (from_is_signed, to_type) {
-        (true, FloatType::F32) => "cvtsi2ss",//ConVert Signed Integer 2 Signed Single ?
-        (true, FloatType::F64) => "cvtsi2sd",//ConVert Signed Integer 2 Signed Double ?
-
-        (true, x) => panic!("cannot cast i64 to floating type {:?}", x),
-        (false, _) => panic!("cannot currently cast u64 to float/double"),
-    };
-
-    format!(
-        "{} {}, {}",
-        cast_opcode,
-        from.generate_name(MemorySize::from_bits(64)),
-        to.generate_name(to_type.memory_size())
-    )
-}
-
-fn instruction_mmx_cast_mmx(from: &MMRegister, to: &MMRegister, from_type: &FloatType, to_type: &FloatType) -> String {
-    match (from_type, to_type) {
-        (FloatType::F32, FloatType::F32) => String::new(),
-        (FloatType::F64, FloatType::F64) => String::new(),
-        (FloatType::F32, FloatType::F64) => format!("cvtss2sd {}, {}", from.generate_name(MemorySize::from_bits(32)), to.generate_name(MemorySize::from_bits(64))),
-        (FloatType::F64, FloatType::F32) => format!("cvtsd2ss {}, {}", from.generate_name(MemorySize::from_bits(64)), to.generate_name(MemorySize::from_bits(32))),
     }
 }
 
@@ -319,7 +295,7 @@ fn instruction_shiftleft(amount: &Operand, base_type: &BaseType) -> String {
 }
 
 fn instruction_shiftright(amount: &Operand, base_type: &BaseType) -> String {
-    let size = base_type.get_non_struct_memory_size();
+    let size = base_type.get_non_struct_memory_size();//TODO this should be integer only???
     match base_type {
         //signed shift needs algebraic shift right
         base if base.is_signed() => format!("sar {}, {}", GPRegister::acc().generate_name(size), amount.generate_name(MemorySize::from_bytes(1))),
@@ -331,11 +307,11 @@ fn instruction_shiftright(amount: &Operand, base_type: &BaseType) -> String {
 
 /// Returns an instruction to move RAX to XMM0
 fn acc_to_xmm() -> &'static str {
-    "movq rax, xmm0"
+    "movq xmm0, rax"
 }
 /// Returns an instruction to move XMM0 to RAX
 fn xmm_to_acc() -> &'static str {
-    "movq xmm0, rax"
+    "movq rax, xmm0"
 }
 
 macro_rules! opcode {

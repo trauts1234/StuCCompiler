@@ -79,7 +79,7 @@ pub enum BaseType {
     VOID,
     VaArg,//varadic arg has a special type as it has no type?
     Scalar(ScalarType),
-    STRUCT(StructIdentifier),
+    Struct(StructIdentifier),
 }
 
 impl BaseType {
@@ -112,7 +112,7 @@ impl BaseType {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
 
-            BaseType::STRUCT(x) => struct_info.get_struct(x).calculate_size().expect("tried to calculate size of partially declared struct"),
+            BaseType::Struct(x) => struct_info.get_struct(x).calculate_size().expect("tried to calculate size of partially declared struct"),
 
             BaseType::Scalar(s) => s.memory_size()
         }
@@ -121,7 +121,7 @@ impl BaseType {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
-            BaseType::STRUCT(_) => panic!("tried to calculate size of struct without an asm_data"),
+            BaseType::Struct(_) => panic!("tried to calculate size of struct without an asm_data"),
 
             BaseType::Scalar(s) => s.memory_size()
         }
@@ -134,7 +134,7 @@ impl Display for BaseType {
             BaseType::VOID => write!(f, "void"),
             BaseType::VaArg => write!(f, "varadic"),
             BaseType::Scalar(s) => write!(f, "{}", s),
-            BaseType::STRUCT(struct_identifier) => write!(f, "{}", struct_identifier),
+            BaseType::Struct(struct_identifier) => write!(f, "{}", struct_identifier),
         }
     }
 }

@@ -34,7 +34,7 @@ impl PreferredParamLocation {
 
     fn param_from_base_type(base_type: &BaseType, asm_data: &AsmData) -> PreferredParamLocation {
         match base_type {
-            BaseType::STRUCT(struct_name) => {
+            BaseType::Struct(struct_name) => {
                 let struct_type = asm_data.get_struct(&struct_name);
 
                 match struct_type.calculate_size().unwrap().size_bytes() {

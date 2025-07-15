@@ -54,7 +54,7 @@ impl ControlFlowChange {
                     match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
                         DataType::ARRAY {..} => panic!("tried to return array from function!"),
                         expr_type => {
-                            if let DataType::RAW(BaseType::STRUCT(struct_name)) = expr_type {
+                            if let DataType::RAW(BaseType::Struct(struct_name)) = expr_type {
                                 todo!("returning struct {:?} from function", struct_name)
                             } else {
                                 let cast_asm = cast_from_acc(&expr_type, asm_data.get_function_return_type(), asm_data);
