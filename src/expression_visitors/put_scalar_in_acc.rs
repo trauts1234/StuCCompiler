@@ -1,6 +1,5 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
-use memory_size::MemorySize;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
 
@@ -25,12 +24,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         result.add_instruction(AsmOperation::MOV {
             to: RegOrMem::GPReg(GPRegister::acc()),
-            from: Operand::Imm(match (number, reg_size.size_bits()) {
-                (NumberLiteral::INTEGER{data, ..},_) => ImmediateValue(data.to_string()),
-                (NumberLiteral::FLOAT  {data, ..}, 32) => ImmediateValue((*data as f32).to_bits().to_string()),//raw bitpattern
-                (NumberLiteral::FLOAT  {data, ..}, 64) => ImmediateValue(data.to_bits().to_string()),//raw bitpattern
-                _ => panic!("cannot convert literal of that size")
-            }),
+            from: Operand::Imm(number.as_imm()),
             size: reg_size,
         });
 

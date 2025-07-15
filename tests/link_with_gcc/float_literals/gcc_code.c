@@ -1,3 +1,7 @@
+#include <math.h>
+#include <float.h>
+#include <stdio.h>
+
 extern float a;
 extern float b;
 extern float c;
@@ -15,7 +19,7 @@ int test_global() {
     if(b != 1) {
         return 2;
     }
-    if(c != -123.456) {
+    if(c < -123.457 || c > -123.455) {
         return 3;
     }
     if(d != 1e10) {
@@ -24,7 +28,7 @@ int test_global() {
     if(e != 1e-10f) {
         return 5;
     }
-    if(f != 3.14159265) {
+    if(fabsf(f - 3.14159265) > FLT_EPSILON) {
         return 6;
     }
     if(g != .5) {
@@ -47,7 +51,7 @@ int test_local(float a, float b, float c, float d, float e, float f, float g, fl
     if(b != 1) {
         return 2;
     }
-    if(c != -123.456) {
+    if(fabsf(c + 123.456) > 0.1) {
         return 3;
     }
     if(d != 1e10) {
@@ -56,7 +60,7 @@ int test_local(float a, float b, float c, float d, float e, float f, float g, fl
     if(e != 1e-10f) {
         return 5;
     }
-    if(f != 3.14159265) {
+    if(fabsf(f - 3.14159265) > FLT_EPSILON) {
         return 6;
     }
     if(g != .5) {

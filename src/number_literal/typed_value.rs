@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
-use crate::{assembly::comparison::ComparisonKind, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{assembly::{comparison::ComparisonKind, operand::immediate::ToImmediate}, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone)]
 pub enum NumberLiteral {
@@ -38,7 +38,6 @@ impl NumberLiteral {
 
     /// Generates the `x db 10` - type commands
     pub fn generate_data_definition_instruction(&self, variable_name: &str) -> String {
-
         match self {
             Self::INTEGER{data, data_type} => {
                 //store the integer as a list of bytes
@@ -52,10 +51,10 @@ impl NumberLiteral {
                 )
             },
             
-            Self::FLOAT{data, data_type} => {
+            Self::FLOAT{data_type, ..} => {
                 match data_type {
-                    FloatType::F32 => format!("{} dd {:.1}", variable_name, data),
-                    FloatType::F64 => format!("{} dq {:.1}", variable_name, data),
+                    FloatType::F32 => format!("{} dd {}", variable_name, self.as_imm().generate_name()),
+                    FloatType::F64 => format!("{} dq {}", variable_name, self.as_imm().generate_name()),
                 }
             }
         }
@@ -399,7 +398,7 @@ impl Display for NumberLiteral {
         write!(f, "{}",
         match self {
             Self::INTEGER{data,..} => data.to_string().cyan().to_string(),
-            Self::FLOAT{data,..} => format!("{:.1}", data).cyan().to_string()
+            Self::FLOAT{data,..} => format!("{:.10}", data).cyan().to_string()
         })
     }
 }
@@ -418,7 +417,6 @@ impl From<String> for NumberLiteral {
 
 
 impl From<&str> for NumberLiteral {
-    //TODO maybe impl From/TryFrom???
     fn from(input: &str) -> NumberLiteral {
         match input.to_ascii_lowercase().chars().collect::<Vec<_>>().as_slice() {
             ['0','x', rem @ ..] => {
@@ -521,11 +519,11 @@ fn fractional_value(fractional_digits: &[char], base: u32) -> f64 {
     else {
         fractional_digits
         .iter()
-        .zip(powers_iter(base.into()))
+        .zip(powers_iter(base.into()).skip(1))//skip the first as the fractional part starts *after* the ones place
         .map(|(digit, multiplier)| {
             let digit_value: f64 = digit.to_digit(base).unwrap().into();
             let divisor: f64 = 1f64 / (multiplier as f64);
-            digit_value/divisor// fractional value = digit * 1/base^n
+            digit_value * divisor// fractional value = digit * 1/base^n
         })
         .sum()
     }
