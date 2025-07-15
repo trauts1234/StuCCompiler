@@ -30,7 +30,6 @@ mod struct_definition;
 mod parse_data;
 mod asm_gen_data;
 mod expression_visitors;
-mod classify_param;
 pub mod assembly;
 pub mod initialised_declaration;
 mod cast_expr;
@@ -39,6 +38,8 @@ pub mod array_initialisation;
 mod number_literal;
 mod debugging;
 mod struct_member_access;
+mod args_handling;
+mod stack_allocation;
 
 struct CompilationOptions {
     c_file: PathBuf,

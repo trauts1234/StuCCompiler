@@ -30,18 +30,6 @@ pub enum RegOrMem {
     Mem(MemoryOperand),
 }
 
-pub fn generate_param_reg(param_num: u64) -> GPRegister {
-    match param_num {
-        0 => GPRegister::_DI,
-        1 => GPRegister::_SI,
-        2 => GPRegister::_DX,
-        3 => GPRegister::_CX,
-        4 => GPRegister::R8,
-        5 => GPRegister::R9,
-        6.. => panic!("this param should be on the stack.")
-    }
-}
-
 
 impl Operand {
     pub fn generate_name(&self, data_size: MemorySize) -> String {

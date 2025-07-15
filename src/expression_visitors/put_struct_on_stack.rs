@@ -4,7 +4,10 @@ use memory_size::MemorySize;
 use super::expr_visitor::ExprVisitor;
 
 
-
+/**
+ * sets RAX to valid pointer to struct
+ * always clones the struct
+ */
 pub struct CopyStructVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
     pub(crate) stack_data: &'a mut MemorySize,
@@ -12,10 +15,6 @@ pub struct CopyStructVisitor<'a>{
 }
 
 
-/**
- * sets RAX to valid pointer to struct
- * always clones the struct
- */
 impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     type Output = Assembly;
 

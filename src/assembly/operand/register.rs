@@ -24,7 +24,14 @@ pub enum GPRegister {
 /// Registers that hold floats
 #[derive(Clone, Copy, Debug)]
 pub enum MMRegister {
-    _MM0
+    _MM0,
+    XMM1,
+    XMM2,
+    XMM3,
+    XMM4,
+    XMM5,
+    XMM6,
+    XMM7,
 }
 
 impl MMRegister {
@@ -37,7 +44,14 @@ impl MMRegister {
 
     fn generate_variant_name(&self) -> &str {
         match self {
-            MMRegister::_MM0 => "_MM1",
+            MMRegister::_MM0 => "XMM1",
+            MMRegister::XMM1 => "XMM1",
+            MMRegister::XMM2 => "XMM2",
+            MMRegister::XMM3 => "XMM3",
+            MMRegister::XMM4 => "XMM4",
+            MMRegister::XMM5 => "XMM5",
+            MMRegister::XMM6 => "XMM6",
+            MMRegister::XMM7 => "XMM7",
         }
     }
 
