@@ -19,5 +19,8 @@
     },
     {
         "foldername":"float_literals"
+    },
+    {
+        "foldername":"called_structs"
     }
 ]
