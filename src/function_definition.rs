@@ -136,3 +136,16 @@ impl ASTDisplay for FunctionDefinition {
         f.dedent();
     }
 }
+
+//Please get rid of this
+pub fn generate_param_reg(param_num: u64) -> GPRegister {
+    match param_num {
+        0 => GPRegister::_DI,
+        1 => GPRegister::_SI,
+        2 => GPRegister::_DX,
+        3 => GPRegister::_CX,
+        4 => GPRegister::R8,
+        5 => GPRegister::R9,
+        6.. => panic!("this param should be on the stack.")
+    }
+}

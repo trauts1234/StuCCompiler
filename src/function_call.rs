@@ -1,5 +1,6 @@
 use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::StackAllocator};
 use memory_size::MemorySize;
+use unwrap_let::unwrap_let;
 
 #[derive(Clone, Debug)]
 pub struct FunctionCall {
@@ -14,11 +15,9 @@ impl FunctionCall {
         visitor.visit_func_call(self)
     }
     
-    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
         //system V ABI
         let mut result = Assembly::make_empty();
-
-        let alignment_size = MemorySize::from_bytes(8);//I think everything is 8 byte aligned here?
 
         result.add_comment(format!("calling function: {}", self.func_name));
 
@@ -35,17 +34,19 @@ impl FunctionCall {
             (param_type, x)
         }).collect();
 
-        let arg_allocator = ArgAllocator::default();
+        let mut arg_allocator = ArgAllocator::default();
         //regenerate the list, allocating registers where possible
         let location_marked_args: Vec<_> = type_matched_args
             .into_iter()
             .map(|(dtype, expr)| {
+                let dtype = dtype.replace_va_arg(expr.accept(&mut GetDataTypeVisitor {asm_data}).decay());
                 let preferred_location = PreferredParamLocation::param_from_type(&dtype, asm_data);
                 let allocated_location = arg_allocator.allocate(preferred_location);
                 (dtype, expr, allocated_location)
             })
             .collect();
 
+        println!("{:?}", location_marked_args.iter().map(|x| &x.0).collect::<Vec<_>>());
         assert!(location_marked_args.iter().all(|x| x.0.decay() == x.0));//none can be array at this point
 
         //maintaining order, split into categories based on location allocated
@@ -64,56 +65,75 @@ impl FunctionCall {
                 let mem_required = dtype.memory_size(asm_data);
                 assert!(mem_required.size_bytes() / reg.len() as u64 <= 8);//ensure there are only 8 bytes or less per register being used
 
-                (dtype, expr, reg, MemoryOperand::SubFromBP(stack_data.allocate(mem_required)))
+                (dtype, expr, reg, MemoryOperand::SubFromBP(StackAllocator::allocate(stack_data, mem_required)))
             })
             .collect();
 
         // this is used to alloc offsets from RSP, so as long as this is made such that SP is aligned, the rest should be?
         let mut stack_used_by_mem_args = MemorySize::default();
-        let memory_args_allocated = memory_args.into_iter()
+        let memory_args_allocated: Vec<_> = memory_args.into_iter()
             .rev()//apply to the args on the top of the stack first
             .map(|(dtype, expr)| {
                 let mem_required = dtype.memory_size(asm_data);
-                let padding_required = align(stack_used_by_mem_args, MemorySize::from_bytes(16));
+                match dtype {
+                    DataType::RAW(BaseType::Scalar(ScalarType::Float(_))) => todo!(),
+                    _ => {}
+                }
+                let padding_required = align(stack_used_by_mem_args, MemorySize::from_bytes(8));
                 stack_used_by_mem_args += padding_required;//align correctly
                 let location = MemoryOperand::AddToSP(stack_used_by_mem_args);
                 stack_used_by_mem_args += mem_required;
                 (dtype, expr, location)
             })
+            .rev()//undo the previous .rev()
             .collect();
 
         //calculate values and put in spill space
-        for (dtype, expr, regs, spill_space) in regs_with_spill_space {
-
+        for (dtype, expr, _, spill_space) in &regs_with_spill_space {
+            let calculate = put_arg_on_stack(expr, dtype.clone(), spill_space.clone(), asm_data, stack_data);
+            result.merge(&calculate);
         }
 
-        result.merge(&push_args_to_stack_backwards(
-            &memory_args_allocated,//write memory args to stack
-            asm_data,
-            stack_data,//writes to [rsp+0] .. [rsp+stack_required_for_memory_args]
-        ));
-
-        result.merge(&push_args_to_stack_backwards(
-            &gp_with_spill_space,//write integer args to stack
-            asm_data,
-            stack_data,//writes to [rsp+0] .. [rsp+stack_required_for_integer_args]
-        ));
-        //pop the register args to registers
-        for i in 0..sorted_args.integer_regs_used {
-            let sp_offset = MemorySize::from_bytes(8*i);//each register arg on the stack is 64 bit, so this gets each one's address in turn
-
-            //read arg to correct register
-            result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::GPReg(generate_param_reg(i)),
-                from: Operand::Mem(MemoryOperand::AddToSP(sp_offset)),
-                size: MemorySize::from_bytes(8),
-            });
+        //alloc stack for the memory args
+        result.add_commented_instruction(AsmOperation::AllocateStack(stack_used_by_mem_args), "allocating stack for memory args");
+        //calculate memory args and put in the correct place
+        for (dtype, expr, location) in memory_args_allocated {
+            let calculate = put_arg_on_stack(expr, dtype, location, asm_data, stack_data);
+            result.merge(&calculate);
         }
 
-        //since there are no floating point args, this must be left as 0 to let varadic functions know
-        result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_AX), from: Operand::Imm(ImmediateValue("0".to_string())), size: MemorySize::from_bytes(8) });
+        //pop data stored on stack into the right registers
+        for (_, _, regs, spill_space) in &regs_with_spill_space {
+
+            for (i, reg) in regs.iter().enumerate() {
+                //for each eightbyte, read further into the arg
+                let eightbyte_offset = MemorySize::from_bytes(8 * (i as u64));
+                unwrap_let!(MemoryOperand::SubFromBP(spill_base) = spill_space);
+                //spill base takes us towards SP, then offset walks us back towards BP
+                let eightbyte_addr = MemoryOperand::SubFromBP(*spill_base - eightbyte_offset);
+                // convert to an operand for assembly
+                let to_location = match reg {
+                    EightByteLocation::GP(gpregister) => RegOrMem::GPReg(*gpregister),
+                    EightByteLocation::XMM(mmregister) => RegOrMem::MMReg(*mmregister),
+                };
+
+                result.add_commented_instruction(AsmOperation::MOV {
+                    to: to_location,
+                    from: Operand::Mem(eightbyte_addr),
+                    size: MemorySize::from_bytes(8),
+                }, format!("moving eightbyte {} into the appropriate register", i));
+            }
+        }
+
+        let fp_args = regs_with_spill_space.iter()
+            .flat_map(|(_, _, x, _)| x)//get each reg recursively
+            .filter(|reg| if let EightByteLocation::XMM(_) = reg {true} else {false})//filter xmm regs only
+            .count();
+        result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_AX), from: Operand::Imm(ImmediateValue(fp_args.to_string())), size: MemorySize::from_bytes(8) });
 
         result.add_instruction(AsmOperation::CALL { label: self.func_name.clone() });
+
+        result.add_commented_instruction(AsmOperation::DeallocateStack(stack_used_by_mem_args), "deallocating stack for memory args");
 
         result
     }
@@ -197,42 +217,33 @@ pub fn aligned_size(current_offset: MemorySize, alignment: MemorySize) -> Memory
     current_offset + align(current_offset, alignment)
 }
 
-fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: &MemoryOperand, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperand, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
     let mut result = Assembly::make_empty();
     //push arg to stack
     let param_type = expr.accept(&mut GetDataTypeVisitor{asm_data});
 
-    //this code is messy:
     match (&param_type.decay(), &arg_type) {
         (DataType::RAW(BaseType::STRUCT(_)), _) => {
             result.add_comment("putting struct arg on stack");
-
-            let struct_stack_required = aligned_size(param_type.memory_size(asm_data), alignment_size);
-
-            //push struct on stack, without allocating since other variables may end up on top of stack_data
-            let struct_clone_asm = expr.accept(&mut CopyStructVisitor{asm_data,stack_data, resultant_location: Operand::Mem(MemoryOperand::AddToSP(current_sp_offset)) });
+            let struct_clone_asm = expr.accept(&mut CopyStructVisitor{asm_data,stack_data, resultant_location: Operand::Mem(location) });
             result.merge(&struct_clone_asm);
-
-            current_sp_offset += struct_stack_required;//go towards sp for next param
 
         },
         (original_type, casted_type) => {
             result.add_comment("putting arg on stack");
             assert!(original_type.memory_size(asm_data).size_bytes() <= 8);
 
-            let arg_expr_asm = arg.arg_tree.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
+            let arg_expr_asm = expr.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
             result.merge(&arg_expr_asm);//put value in acc, using standard stack to calculate it
 
             let arg_cast_asm = cast_from_acc(original_type, casted_type, asm_data);
             result.merge(&arg_cast_asm);
 
             result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Mem(MemoryOperand::AddToSP(current_sp_offset)),
+                to: RegOrMem::Mem(location),
                 from: Operand::GPReg(GPRegister::acc()),
-                size: alignment_size
+                size: casted_type.memory_size(asm_data)//do I need to zero the upper bytes or sth?
             });
-
-            current_sp_offset += alignment_size;//go towards sp for next param
         }
     }
 

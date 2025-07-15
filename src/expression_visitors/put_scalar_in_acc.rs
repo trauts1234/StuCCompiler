@@ -72,7 +72,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     }
 
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        func_call.generate_assembly_scalar_return(self.asm_data, &mut StackAllocator::with_previous_allocations(*self.stack_data))
+        func_call.generate_assembly_scalar_return(self.asm_data, self.stack_data)
     }
 
     fn visit_unary_prefix(&mut self, expr: &UnaryPrefixExpression) -> Self::Output {
