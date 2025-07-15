@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::{cast_from_acc, }, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
 use colored::Colorize;
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
@@ -14,7 +14,7 @@ impl UnaryPrefixExpression {
         visitor.visit_unary_prefix(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
         let mut result = Assembly::make_empty();
 
         match self.operator {
@@ -82,8 +82,8 @@ impl UnaryPrefixExpression {
                 //push &self.operand
                 let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
-                *stack_data += PTR_SIZE;//allocate temporary lhs storage
-                let operand_address_storage = stack_data.clone();
+                //allocate temporary lhs storage
+                let operand_address_storage = stack_data.allocate(PTR_SIZE);
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
                     from: Operand::GPReg(GPRegister::acc()),
@@ -133,8 +133,8 @@ impl UnaryPrefixExpression {
                 //push &self.operand
                 let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
                 result.merge(&operand_asm);
-                *stack_data += PTR_SIZE;//allocate temporary lhs storage
-                let operand_address_storage = stack_data.clone();
+                //allocate temporary lhs storage
+                let operand_address_storage = stack_data.allocate(PTR_SIZE);
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
                     from: Operand::GPReg(GPRegister::acc()),

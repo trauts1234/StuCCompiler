@@ -11,7 +11,7 @@ use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
  */
 pub struct ScalarInAccVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut MemorySize
+    pub(crate) stack_data: &'a mut StackAllocator
 }
 
 impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
@@ -96,8 +96,9 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         let original_struct_definition = self.asm_data.get_struct(&original_struct_name);
         let (member_decl, member_offset) = original_struct_definition.get_member_data(member_name);
 
-        *self.stack_data += original_struct_definition.calculate_size().unwrap();//allocate struct on stack
-        let resultant_struct_location = Operand::Mem(MemoryOperand::SubFromBP(*self.stack_data));
+        //allocate struct on the stack
+        let resultant_struct_location = self.stack_data.allocate(original_struct_definition.calculate_size().unwrap());
+        let resultant_struct_location = Operand::Mem(MemoryOperand::SubFromBP(resultant_struct_location));
 
         result.add_comment(format!("getting struct's member {}", member_name));
 

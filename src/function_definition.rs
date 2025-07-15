@@ -1,5 +1,5 @@
 use memory_size::MemorySize;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_call::aligned_size, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::recursive_data_type::DataType, debugging::ASTDisplay,  function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::{aligned_size, StackAllocator}};
 use unwrap_let::unwrap_let;
 
 /**
@@ -54,7 +54,7 @@ impl FunctionDefinition {
 
     pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
-        let mut stack_data = MemorySize::new();//stack starts as empty in a function
+        let mut stack_data = StackAllocator::default();//stack starts as empty in a function
 
         //clone myself, but add all my local variables, and add my return type
         let asm_data = &AsmData::for_new_function(&global_asm_data, &self.local_scope_data, self.get_return_type(), &mut stack_data);
@@ -65,7 +65,7 @@ impl FunctionDefinition {
         result.add_commented_instruction(AsmOperation::CreateStackFrame, "create stack frame");
 
         let code_for_body = self.code.generate_assembly(asm_data, &mut stack_data, global_asm_data);//calculate stack needed for function, while generating asm
-        let aligned_stack_usage = aligned_size(stack_data, MemorySize::from_bytes(16));
+        let aligned_stack_usage = aligned_size(stack_data.stack_required(), MemorySize::from_bytes(16));
         result.add_commented_instruction(AsmOperation::AllocateStack(aligned_stack_usage), "allocate stack for local variables and alignment");
 
         result.add_comment("moving args to memory");

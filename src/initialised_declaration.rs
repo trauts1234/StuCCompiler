@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::StructDefinition};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 
@@ -45,7 +45,7 @@ impl InitialisedDeclaration {
         })
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
         let mut result = Assembly::make_empty();
 
         if let Some(init) = &self.init_code {

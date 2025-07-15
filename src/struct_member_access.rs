@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 
@@ -34,7 +34,7 @@ impl StructMemberAccess {
         member_decl.data_type.clone()
     }
 
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
         let mut result = Assembly::make_empty();
 
         result.add_comment(format!("getting address of struct's member {}", self.member_name));

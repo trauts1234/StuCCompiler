@@ -2,7 +2,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::MemorySizeExt, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, stack_allocation::StackAllocator};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -16,7 +16,7 @@ impl BinaryExpression {
         visitor.visit_binary_expression(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
         let mut result = Assembly::make_empty();
 
         if self.operator == BinaryExpressionOperator::Assign {
@@ -261,7 +261,7 @@ impl ASTDisplay for BinaryExpression {
     }
 }
 
-fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
     let mut result = Assembly::make_empty();
 
     let lhs_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
@@ -297,8 +297,8 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     }
 
     //save lhs to stack, as preprocessing for it is done
-    *stack_data += promoted_size;//allocate temporary lhs storage
-    let lhs_temporary_address = stack_data.clone();
+    //allocate temporary lhs storage
+    let lhs_temporary_address = stack_data.allocate(promoted_size);
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_temporary_address)),
         from: Operand::GPReg(GPRegister::acc()),

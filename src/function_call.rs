@@ -1,4 +1,4 @@
-use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::StackAllocator};
+use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::{align, StackAllocator}};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 
@@ -15,7 +15,7 @@ impl FunctionCall {
         visitor.visit_func_call(self)
     }
     
-    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
         //system V ABI
         let mut result = Assembly::make_empty();
 
@@ -196,28 +196,7 @@ impl ASTDisplay for FunctionCall {
     }
 }
 
-
-
-/**
- * calculates how much extra memory is needed to make current_offset a multiple of alignment
- */
-pub fn align(current_offset: MemorySize, alignment: MemorySize) -> MemorySize {
-    let bytes_past_last_boundary = current_offset.size_bytes() % alignment.size_bytes();
-
-    MemorySize::from_bytes (
-        (alignment.size_bytes() - bytes_past_last_boundary) % alignment.size_bytes()
-    )
-}
-
-/**
- * calculates the size of current_offset when rounded up to the alignment boundary
- * return value >= current_offset
- */
-pub fn aligned_size(current_offset: MemorySize, alignment: MemorySize) -> MemorySize {
-    current_offset + align(current_offset, alignment)
-}
-
-fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperand, asm_data: &AsmData, stack_data: &mut MemorySize) -> Assembly {
+fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperand, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
     let mut result = Assembly::make_empty();
     //push arg to stack
     let param_type = expr.accept(&mut GetDataTypeVisitor{asm_data});
