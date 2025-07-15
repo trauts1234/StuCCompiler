@@ -95,7 +95,7 @@ fn gp_arg(idx: u64) -> GPRegister {
 }
 fn xmm_arg(idx: u64) -> MMRegister {
     match idx {
-        0 => MMRegister::_MM0,
+        0 => MMRegister::XMM0,
         1 => MMRegister::XMM1,
         2 => MMRegister::XMM2,
         3 => MMRegister::XMM3,

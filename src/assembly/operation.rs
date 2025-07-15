@@ -162,9 +162,17 @@ fn instruction_mmx_cast_mmx(from: &MMRegister, to: &MMRegister, from_type: &Floa
 
 fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
     match (from, to) {
-        (Operand::MMReg(from_reg), RegOrMem::MMReg(to_reg)) => todo!(),
-        (Operand::MMReg(from_reg), RegOrMem::Mem(to_mem)) => todo!(),
-        (Operand::Mem(from_mem), RegOrMem::MMReg(to_reg)) => todo!(),
+        (Operand::MMReg(from_reg), RegOrMem::MMReg(to_reg)) => format!("movaps {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
+        (Operand::MMReg(from_reg), RegOrMem::Mem(to_mem)) => match size.size_bytes() {
+            4 => format!("movss {}, {}", to_mem.generate_name(), from_reg.generate_name(size)),
+            8 => format!("movsd {}, {}", to_mem.generate_name(), from_reg.generate_name(size)),
+            _ => panic!("invalid size for XMM -> RAM move")
+        },
+        (Operand::Mem(from_mem), RegOrMem::MMReg(to_reg)) => match size.size_bytes() {
+            4 => format!("movss {}, {}", to_reg.generate_name(size), from_mem.generate_name()),
+            8 => format!("movsd {}, {}", to_reg.generate_name(size), from_mem.generate_name()),
+            _ => panic!("invalid size for RAM -> XMM move")
+        },
         (Operand::Imm(imm), RegOrMem::MMReg(to_reg)) => todo!("recursively call to move via a GP register? which registers would it clobber"),
         
         //simple mov commands

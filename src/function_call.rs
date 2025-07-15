@@ -1,4 +1,4 @@
-use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::{align, StackAllocator}};
+use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, MemorySizeExt}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::{align, aligned_size, StackAllocator}};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 
@@ -65,7 +65,7 @@ impl FunctionCall {
                 let mem_required = dtype.memory_size(asm_data);
                 assert!(mem_required.size_bytes() / reg.len() as u64 <= 8);//ensure there are only 8 bytes or less per register being used
 
-                (dtype, expr, reg, MemoryOperand::SubFromBP(StackAllocator::allocate(stack_data, mem_required)))
+                (dtype, expr, reg, MemoryOperand::SubFromBP(stack_data.allocate(mem_required)))
             })
             .collect();
 
@@ -75,11 +75,7 @@ impl FunctionCall {
             .rev()//apply to the args on the top of the stack first
             .map(|(dtype, expr)| {
                 let mem_required = dtype.memory_size(asm_data);
-                match dtype {
-                    DataType::RAW(BaseType::Scalar(ScalarType::Float(_))) => todo!(),
-                    _ => {}
-                }
-                let padding_required = align(stack_used_by_mem_args, MemorySize::from_bytes(8));
+                let padding_required = align(stack_used_by_mem_args, MemorySize::from_bytes(8));//even floats only need 8 byte alignment
                 stack_used_by_mem_args += padding_required;//align correctly
                 let location = MemoryOperand::AddToSP(stack_used_by_mem_args);
                 stack_used_by_mem_args += mem_required;
