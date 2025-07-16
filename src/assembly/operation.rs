@@ -51,7 +51,7 @@ pub enum AsmOperation {
     AllocateStack(MemorySize),
     /// adds MemorySize bytes to RSP
     DeallocateStack(MemorySize),
-    ///copies size bytes from the pointer RDI to RSI
+    ///copies `size` bytes from the pointer RSI to RDI
     MEMCPY {size: MemorySize},
     ///calls a subroutine
     CALL {label: String},

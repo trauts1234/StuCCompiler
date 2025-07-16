@@ -50,7 +50,6 @@ impl FunctionCall {
             })
             .collect();
 
-        println!("{:?}", location_marked_args.iter().map(|x| &x.0).collect::<Vec<_>>());
         assert!(location_marked_args.iter().all(|x| x.0.decay() == x.0));//none can be array at this point
 
         //maintaining order, split into categories based on location allocated
@@ -79,10 +78,9 @@ impl FunctionCall {
             .rev()//apply to the args on the top of the stack first
             .map(|(dtype, expr)| {
                 let mem_required = dtype.memory_size(asm_data);
-                let padding_required = align(stack_used_by_mem_args, MemorySize::from_bytes(8));//even floats only need 8 byte alignment
+                let padding_required = aligned_size(stack_used_by_mem_args, MemorySize::from_bytes(8));//even floats only need 8 byte alignment
                 stack_used_by_mem_args += padding_required;//align correctly
                 let location = MemoryOperand::AddToSP(stack_used_by_mem_args);
-                stack_used_by_mem_args += mem_required;
                 (dtype, expr, location)
             })
             .rev()//undo the previous .rev()

@@ -1,5 +1,5 @@
 use memory_size::MemorySize;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::recursive_data_type::DataType, debugging::ASTDisplay,  function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::{aligned_size, StackAllocator}};
+use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::Declaration, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::{aligned_size, StackAllocator}};
 use unwrap_let::unwrap_let;
 
 /**
@@ -70,41 +70,49 @@ impl FunctionDefinition {
 
         result.add_comment("moving args to memory");
 
-        //args on stack are pushed r->l, so work backwards pushing the register values to the stack
-        for param_idx in (0..self.decl.params.len()).rev() {
+        //varadic args not implemented yet
+        assert!(self.decl.params.last().is_none_or(|x| x.data_type != DataType::RAW(BaseType::VaArg)));
+
+        let mut alloc_tracker = ArgAllocator::default();
+        let mut memory_offset_tracker = MemorySize::new();
+        for param_idx in (0..self.decl.params.len()) {
             let param = &self.decl.params[param_idx];//get metadata about param
             let param_size = param.data_type.memory_size(asm_data);//get size of param 
-            unwrap_let!(MemoryOperand::SubFromBP(param_offset) = &asm_data.get_variable(&param.name).location);//get the location of where the param should *end up* since it gets moved from registers to memory
-            
-            if param_idx >= 6 {
-                let below_bp_offset = MemorySize::from_bytes(8);//8 bytes for return addr, as rbp points to the start of the stack frame
-                let arg_offset = MemorySize::from_bytes(8 + (param_idx as u64 - 6) * 8);//first 6 are in registers, each is 8 bytes, +8 as first arg is still +8 extra from bp
-                let arg_bp_offset = below_bp_offset + arg_offset;//how much to *add* to bp to go below the stack frame and get the param 
 
-                let arg_address_operand = Operand::Mem(MemoryOperand::PreviousStackFrame { add_to_rbp: arg_bp_offset });
+            let param_end_location = &asm_data.get_variable(&param.name).location;//get the location of where the param should *end up* since it gets moved to a new location
+            let param_start_location = alloc_tracker.allocate(PreferredParamLocation::param_from_type(&param.data_type, asm_data));
 
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::acc()),
-                    from: arg_address_operand,
-                    size: param_size
-                });//grab data
+            match param_start_location {
+                AllocatedLocation::Regs(eight_byte_locations) => for location in eight_byte_locations {
+                    let from_reg = match location {
+                        EightByteLocation::GP(gpregister) => Operand::GPReg(gpregister),
+                        EightByteLocation::XMM(mmregister) => Operand::MMReg(mmregister),
+                    };
+                    result.add_commented_instruction(AsmOperation::MOV {
+                        to: RegOrMem::Mem(param_end_location.clone()),
+                        from: from_reg,
+                        size: param_size
+                    }, format!("moving reg arg to memory (param no.{})", param_idx));
+                },
+                AllocatedLocation::Memory => {
+                    let skip_stackframe_and_return_addr = MemorySize::from_bytes(16);// +8 to skip stack frame, +8 to skip return address, now points to first memory arg
 
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(*param_offset)),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: param_size
-                });//store in allocated space
-            } else {
-                let param_reg = generate_param_reg(param_idx as u64);
-                //truncate param reg to desired size
-                //then write to its allocated address on the stack
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(*param_offset)),
-                    from: Operand::GPReg(param_reg),
-                    size: param_size
-                });
+                    let arg_address_operand = MemoryOperand::PreviousStackFrame { add_to_rbp: skip_stackframe_and_return_addr + memory_offset_tracker };
+                    memory_offset_tracker += aligned_size(param_size, MemorySize::from_bytes(8));//args are padded, so keep track of the memory address here
+
+                    result.add_commented_instruction(AsmOperation::LEA {
+                        from: arg_address_operand,
+                    }, format!("getting pointer to stack arg (param no.{})", param_idx));//grab pointer to data
+                    result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_SI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
+
+                    result.add_commented_instruction(AsmOperation::LEA {//Hope this doesn't clobber DI
+                        from: param_end_location.clone(),
+                    }, format!("getting pointer to destination (param no.{})", param_idx));//grab pointer to resultant location
+                    result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_DI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
+
+                    result.add_instruction(AsmOperation::MEMCPY { size: param_size });//copy the param
+                },
             }
-
         }
 
         result.merge(&code_for_body);
