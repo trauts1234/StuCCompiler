@@ -87,15 +87,14 @@ impl FunctionDefinition {
             let param_start_location = alloc_tracker.allocate(PreferredParamLocation::param_from_type(&param.data_type, asm_data));
 
             match param_start_location {
-                AllocatedLocation::Regs(eight_byte_locations) => {
-                    reg_args.push((eight_byte_locations, param_size, param_end_location, param_idx));
-                },
-                AllocatedLocation::Memory => {
-                    mem_args.push((param_size, param_end_location, param_idx));
-                },
+                AllocatedLocation::Regs(eight_byte_locations) => 
+                    reg_args.push((eight_byte_locations, param_size, param_end_location, param_idx)),
+                AllocatedLocation::Memory => 
+                    mem_args.push((param_size, param_end_location, param_idx)),
             }
         }
 
+        //go through register args first, as they are very likely to be clobbered if I wait too long...
         for (eight_byte_locations, param_size, param_end_location, param_idx) in reg_args {
             let mut how_far_into_param = MemorySize::new();//when reading multiple regs, I need the results in sequential eightbytes
             for (i,location) in eight_byte_locations.iter().enumerate() {
@@ -117,7 +116,7 @@ impl FunctionDefinition {
                 how_far_into_param += eightbyte_size;//write to next part of struct/union
             }
         }
-
+        // go through memory args last
         for (param_size, param_end_location, param_idx) in mem_args {
             let skip_stackframe_and_return_addr = MemorySize::from_bytes(16);// +8 to skip stack frame, +8 to skip return address, now points to first memory arg
 
@@ -164,18 +163,5 @@ impl ASTDisplay for FunctionDefinition {
         f.indent();
         self.code.display_ast(f);
         f.dedent();
-    }
-}
-
-//Please get rid of this
-pub fn generate_param_reg(param_num: u64) -> GPRegister {
-    match param_num {
-        0 => GPRegister::_DI,
-        1 => GPRegister::_SI,
-        2 => GPRegister::_DX,
-        3 => GPRegister::_CX,
-        4 => GPRegister::R8,
-        5 => GPRegister::R9,
-        6.. => panic!("this param should be on the stack.")
     }
 }
