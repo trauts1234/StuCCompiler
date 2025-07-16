@@ -26,7 +26,7 @@ impl FunctionCall {
             
             let param_type = if i >= self.decl.params.len() {
                 assert!(self.decl.params.last().unwrap().data_type == DataType::new(BaseType::VaArg));//more args than params, so must be varadic
-                x.accept(&mut GetDataTypeVisitor{asm_data}).decay()//type is that of the arg, remembering to decay
+                DataType::new(BaseType::VaArg)//this is handled later
             } else {
                 self.decl.params[i].data_type.clone()//arg gets cast to param type
             };
@@ -78,9 +78,9 @@ impl FunctionCall {
             .rev()//apply to the args on the top of the stack first
             .map(|(dtype, expr)| {
                 let mem_required = dtype.memory_size(asm_data);
-                let padding_required = aligned_size(stack_used_by_mem_args, MemorySize::from_bytes(8));//even floats only need 8 byte alignment
-                stack_used_by_mem_args += padding_required;//align correctly
                 let location = MemoryOperand::AddToSP(stack_used_by_mem_args);
+                stack_used_by_mem_args += mem_required;//step over the param
+                stack_used_by_mem_args += align(stack_used_by_mem_args, MemorySize::from_bytes(8));//align correctly
                 (dtype, expr, location)
             })
             .rev()//undo the previous .rev()

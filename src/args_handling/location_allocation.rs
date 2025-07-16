@@ -3,11 +3,13 @@ use crate::{args_handling::location_classification::{PreferredParamLocation, Str
 const MAX_GP_REGS: u64 = 6;
 const MAX_XMM_REGS: u64 = 8;
 
+#[derive(Debug)]
 pub enum EightByteLocation {
     GP(GPRegister),
     XMM(MMRegister)
 }
 
+#[derive(Debug)]
 pub enum AllocatedLocation {
     /// The vec stores the register locations of each eightbyte of the data
     Regs(Vec<EightByteLocation>),

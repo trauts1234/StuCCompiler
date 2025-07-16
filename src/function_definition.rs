@@ -73,46 +73,68 @@ impl FunctionDefinition {
         //varadic args not implemented yet
         assert!(self.decl.params.last().is_none_or(|x| x.data_type != DataType::RAW(BaseType::VaArg)));
 
+        //calculate where each arg is, and split into lists
+        let mut reg_args = Vec::new();
+        let mut mem_args = Vec::new();
+
         let mut alloc_tracker = ArgAllocator::default();
         let mut memory_offset_tracker = MemorySize::new();
-        for param_idx in (0..self.decl.params.len()) {
+        for param_idx in 0..self.decl.params.len() {
             let param = &self.decl.params[param_idx];//get metadata about param
             let param_size = param.data_type.memory_size(asm_data);//get size of param 
 
-            let param_end_location = &asm_data.get_variable(&param.name).location;//get the location of where the param should *end up* since it gets moved to a new location
+            unwrap_let!(MemoryOperand::SubFromBP(param_end_location) = &asm_data.get_variable(&param.name).location);//get the location of where the param should *end up* since it gets moved to a new location
             let param_start_location = alloc_tracker.allocate(PreferredParamLocation::param_from_type(&param.data_type, asm_data));
 
             match param_start_location {
-                AllocatedLocation::Regs(eight_byte_locations) => for location in eight_byte_locations {
-                    let from_reg = match location {
-                        EightByteLocation::GP(gpregister) => Operand::GPReg(gpregister),
-                        EightByteLocation::XMM(mmregister) => Operand::MMReg(mmregister),
-                    };
-                    result.add_commented_instruction(AsmOperation::MOV {
-                        to: RegOrMem::Mem(param_end_location.clone()),
-                        from: from_reg,
-                        size: param_size
-                    }, format!("moving reg arg to memory (param no.{})", param_idx));
+                AllocatedLocation::Regs(eight_byte_locations) => {
+                    reg_args.push((eight_byte_locations, param_size, param_end_location, param_idx));
                 },
                 AllocatedLocation::Memory => {
-                    let skip_stackframe_and_return_addr = MemorySize::from_bytes(16);// +8 to skip stack frame, +8 to skip return address, now points to first memory arg
-
-                    let arg_address_operand = MemoryOperand::PreviousStackFrame { add_to_rbp: skip_stackframe_and_return_addr + memory_offset_tracker };
-                    memory_offset_tracker += aligned_size(param_size, MemorySize::from_bytes(8));//args are padded, so keep track of the memory address here
-
-                    result.add_commented_instruction(AsmOperation::LEA {
-                        from: arg_address_operand,
-                    }, format!("getting pointer to stack arg (param no.{})", param_idx));//grab pointer to data
-                    result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_SI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
-
-                    result.add_commented_instruction(AsmOperation::LEA {//Hope this doesn't clobber DI
-                        from: param_end_location.clone(),
-                    }, format!("getting pointer to destination (param no.{})", param_idx));//grab pointer to resultant location
-                    result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_DI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
-
-                    result.add_instruction(AsmOperation::MEMCPY { size: param_size });//copy the param
+                    mem_args.push((param_size, param_end_location, param_idx));
                 },
             }
+        }
+
+        for (eight_byte_locations, param_size, param_end_location, param_idx) in reg_args {
+            let mut how_far_into_param = MemorySize::new();//when reading multiple regs, I need the results in sequential eightbytes
+            for (i,location) in eight_byte_locations.iter().enumerate() {
+                //if I am reading eightbytes in the middle of a struct, each eightbyte is obviously 8 bytes
+                //but the last eightbyte could just be a few bits remaining on a struct
+                let eightbyte_size = MemorySize::from_bytes(param_size.size_bytes() - 8*(i as u64))//remainder size = size of struct - eightbytes consumed
+                    .min(MemorySize::from_bytes(8));//but only up to eight bytes, to fit in a register
+
+                let from_reg = match location {
+                    EightByteLocation::GP(gpregister) => Operand::GPReg(*gpregister),
+                    EightByteLocation::XMM(mmregister) => Operand::MMReg(*mmregister),
+                };
+                result.add_commented_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(*param_end_location - how_far_into_param)),
+                    from: from_reg,
+                    size: eightbyte_size
+                }, format!("moving reg arg to memory (param no.{} eightbyte no.{})", param_idx, i));
+
+                how_far_into_param += eightbyte_size;//write to next part of struct/union
+            }
+        }
+
+        for (param_size, param_end_location, param_idx) in mem_args {
+            let skip_stackframe_and_return_addr = MemorySize::from_bytes(16);// +8 to skip stack frame, +8 to skip return address, now points to first memory arg
+
+            let arg_address_operand = MemoryOperand::PreviousStackFrame { add_to_rbp: skip_stackframe_and_return_addr + memory_offset_tracker };
+            memory_offset_tracker += aligned_size(param_size, MemorySize::from_bytes(8));//args are padded, so keep track of the memory address here
+
+            result.add_commented_instruction(AsmOperation::LEA {
+                from: arg_address_operand,
+            }, format!("getting pointer to stack arg (param no.{})", param_idx));//grab pointer to data
+            result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_SI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
+
+            result.add_commented_instruction(AsmOperation::LEA {//Hope this doesn't clobber DI
+                from: MemoryOperand::SubFromBP(*param_end_location),
+            }, format!("getting pointer to destination (param no.{})", param_idx));//grab pointer to resultant location
+            result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_DI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
+
+            result.add_instruction(AsmOperation::MEMCPY { size: param_size });//copy the param
         }
 
         result.merge(&code_for_body);
