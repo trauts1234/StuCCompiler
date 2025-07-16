@@ -52,7 +52,7 @@ impl Expression {
             Expression::BINARYEXPRESSION(x) => x.accept(visitor),
             Expression::STRUCTMEMBERACCESS(x) => x.accept(visitor),
             Expression::CAST(cast_expression) => cast_expression.accept(visitor),
-            Expression::ARRAYLITERAL(_) => panic!("cannot determine data type/assemebly for array literal, try looking for casts or array initialisation instead"),
+            Expression::ARRAYLITERAL(x) => panic!("cannot determine data type/assemebly for array literal, try looking for casts or array initialisation instead\nfor array {:?}", x),
             Expression::SIZEOF(sizeof_expr) => sizeof_expr.accept(visitor),
         }
     }
