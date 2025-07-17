@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::StructDefinition};
+use crate::{asm_gen_data::AsmData, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_qualifier::TypeQualifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::StructDefinition};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 
@@ -233,6 +233,9 @@ impl ConsumedBaseType {
         //overwrite my type
         self.data_type = DataTypeInfo::Full(new_type)
     }
+    fn add_type_qualifier(&mut self, qual: TypeQualifier) {
+        //disregard them now
+    }
 }
 
 pub fn consume_type_specifier(tokens_queue: &TokenQueue, queue_idx: &TokenQueueSlice, scope_data: &mut ParseData,  struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<(DataType, StorageDuration)>> {
@@ -253,6 +256,12 @@ pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &T
             //recursively get other type specifiers
             consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, struct_label_gen)
         },
+
+        Some(Token::TYPEQUALIFIER(qual)) => {
+            initial_type.add_type_qualifier(qual);
+            //recursively get other type specifiers
+            consume_type_specifier_recursive(tokens_queue, &queue_idx.next_clone(), scope_data, initial_type, struct_label_gen)
+        }
 
         Some(Token::STORAGESPECIFIER(storage_dur)) => {
             initial_type.storage_duration = storage_dur;

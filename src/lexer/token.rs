@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use logos::{Lexer, Logos};
 
-use crate::{data_type::{base_type::{IntegerType, ScalarType}, storage_type::StorageDuration, type_token::TypeInfo}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::{data_type::{base_type::{IntegerType, ScalarType}, storage_type::StorageDuration, type_qualifier::TypeQualifier, type_token::TypeInfo}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 use super::{keywords::Keyword, punctuator::Punctuator};
 
@@ -48,6 +48,10 @@ pub enum Token {
     #[token("static", |_| StorageDuration::Static)]
     #[token("extern", |_| StorageDuration::Extern)]
     STORAGESPECIFIER(StorageDuration),
+
+    #[token("const", |_| TypeQualifier::Const)]
+    #[token("volatile", |_| TypeQualifier::Volatile)]
+    TYPEQUALIFIER(TypeQualifier),
 
     #[token("enum", |_| Keyword::ENUM)]
     #[token("struct", |_| Keyword::STRUCT)]
@@ -119,6 +123,7 @@ impl Display for Token {
             Token::STORAGESPECIFIER(x) => x.fmt(f),
             Token::KEYWORD(x) => x.fmt(f),
             Token::IDENTIFIER(x) => x.fmt(f),
+            Token::TYPEQUALIFIER(x) => x.fmt(f),
             Token::NEWLINE => panic!("tried to Display a newline token")
         }
     }
