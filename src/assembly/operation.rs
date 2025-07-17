@@ -27,7 +27,7 @@ pub enum AsmOperation {
     ///subtracts decrement from _AX
     SUB {decrement: Operand, data_type: ScalarType},
     ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
-    MUL {multiplier: RegOrMem, data_type: DataType},
+    MUL {multiplier: RegOrMem, data_type: ScalarType},
     ///divides _AX by the divisor. depending on data type, injects div or idiv commands
     DIV {divisor: RegOrMem, data_type: ScalarType},
     ///shifts logically left
@@ -116,7 +116,11 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
             }
         },
 
+        //float to integer conversions
         (ScalarType::Float(lhs), ScalarType::Integer(IntegerType::_BOOL)) => todo!(),
+        (ScalarType::Float(FloatType::F32), ScalarType::Integer(y)) => format!("{}\ncvtss2si rax, xmm0", acc_to_xmm()),
+        (ScalarType::Float(FloatType::F64), ScalarType::Integer(y)) => format!("{}\ncvtsd2si rax, xmm0", acc_to_xmm()),
+
         (ScalarType::Integer(IntegerType::U64), ScalarType::Float(_)) => todo!("this is difficult :("),
 
         //definitely not u64, so cast to i64 as that should fit anything, then cast to float
@@ -132,7 +136,7 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
             (FloatType::F32, FloatType::F64) => format!("{}\ncvtss2sd xmm0, xmm0\n{}", acc_to_xmm(), xmm_to_acc()),
             (FloatType::F64, FloatType::F32) => format!("{}\ncvtsd2ss xmm0, xmm0\n{}", acc_to_xmm(), xmm_to_acc()),
         }
-        _ => todo!()
+        (lhs, rhs) => todo!("cast {} to {}", lhs, rhs)
     }
 }
 
@@ -149,7 +153,8 @@ fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
             8 => format!("movsd {}, {}", to_reg.generate_name(size), from_mem.generate_name()),
             _ => panic!("invalid size for RAM -> XMM move")
         },
-        (Operand::Imm(imm), RegOrMem::MMReg(to_reg)) => todo!("recursively call to move via a GP register? which registers would it clobber"),
+        //this is truly diabolical - requires stack working, but doesn't clobber any registers
+        (Operand::Imm(imm), RegOrMem::MMReg(to_reg)) => format!("push {}\nmovq {}, [rsp]\nadd rsp, 8", imm.generate_name(), to_reg.generate_name(size)),
         
         //simple mov commands
         (Operand::GPReg(_), RegOrMem::GPReg(_))  |
@@ -157,9 +162,19 @@ fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
         (Operand::Mem(_), RegOrMem::GPReg(_)) |
         (Operand::Imm(_), RegOrMem::GPReg(_)) => format!("mov {}, {}", to.generate_name(size), from.generate_name(size)),
         
+        //gp <--> xmm
+        (Operand::GPReg(from_reg), RegOrMem::MMReg(to_reg)) => match size.size_bytes() {
+            4 => format!("movd {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
+            8 => format!("movq {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
+            _ => panic!()
+        },
+        (Operand::MMReg(from_reg), RegOrMem::GPReg(to_reg)) => match size.size_bytes() {
+            4 => format!("movd {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
+            8 => format!("movq {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
+            _ => panic!()
+        },
+
         //invalid commands
-        (Operand::GPReg(_), RegOrMem::MMReg(_)) |
-        (Operand::MMReg(_), RegOrMem::GPReg(_)) => todo!("bitwise mov between gp and mmx registers"),
         (Operand::Imm(_), RegOrMem::Mem(_)) => panic!("cannot move an immediate directly to memory"),
         (Operand::Mem(_), RegOrMem::Mem(_)) => panic!("memory-memory mov not supported"),
     }
@@ -167,7 +182,10 @@ fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize) -> String {
 
 fn instruction_cmp(rhs: &Operand, data_type: &ScalarType) -> String {
     match data_type {
-        ScalarType::Float(_) => panic!("tried to float-compare some integers?"),
+        //put acc in XMM0, rhs in XMM1, then compare
+        ScalarType::Float(FloatType::F32) => format!("{}\n{}\nucomiss xmm0, xmm1", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), rhs, MemorySize::from_bytes(4))),
+        ScalarType::Float(FloatType::F64) => format!("{}\n{}\nucomisd xmm0, xmm1", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), rhs, MemorySize::from_bytes(8))),
+
         ScalarType::Integer(integer_type) => format!("cmp {}, {}", GPRegister::acc().generate_name(integer_type.memory_size()), rhs.generate_name(integer_type.memory_size())),
     }
 }
@@ -229,23 +247,23 @@ fn instruction_add(increment: &Operand, data_type: &ScalarType) -> String {
     match data_type {
         //addition is same for signed and unsigned
         ScalarType::Integer(base) => format!("add {}, {}", GPRegister::acc().generate_name(base.memory_size()), increment.generate_name(base.memory_size())),
-        _ => panic!("currently cannot add this data type")
+        ScalarType::Float(FloatType::F32) => format!("{}\n{}\naddss xmm0, xmm1\n{}", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), increment, MemorySize::from_bytes(4)), xmm_to_acc()),
+        ScalarType::Float(FloatType::F64) => format!("{}\n{}\naddsd xmm0, xmm1\n{}", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), increment, MemorySize::from_bytes(8)), xmm_to_acc()),
     }
 }
 fn instruction_sub(decrement: &Operand, data_type: &ScalarType) -> String {
     match data_type {
         //subtraction is same for signed and unsigned
         ScalarType::Integer(base) => format!("sub {}, {}", GPRegister::acc().generate_name(base.memory_size()), decrement.generate_name(base.memory_size())),
-        _ => panic!("currently cannot sub this data type")
+        ScalarType::Float(FloatType::F32) => format!("{}\n{}\nsubss xmm0, xmm1\n{}", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), decrement, MemorySize::from_bytes(4)), xmm_to_acc()),
+        ScalarType::Float(FloatType::F64) => format!("{}\n{}\nsubsd xmm0, xmm1\n{}", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), decrement, MemorySize::from_bytes(8)), xmm_to_acc()),
     }
 }
 
 fn instruction_neg(data_type: &ScalarType) -> String {
     match data_type {
-        ScalarType::Float(FloatType::F32) => {
-            format!("{}\nxorps {}, [FLOAT_NEGATE]\n{}", acc_to_xmm(), MMRegister::acc().generate_name(MemorySize::from_bytes(4)), xmm_to_acc())
-        },
-        ScalarType::Float(FloatType::F64) => todo!(),
+        ScalarType::Float(FloatType::F32) => format!("{}\nxorps {}, [FLOAT_NEGATE]\n{}", acc_to_xmm(), MMRegister::acc().generate_name(MemorySize::from_bytes(4)), xmm_to_acc()),
+        ScalarType::Float(FloatType::F64) => format!("{}\nxorps {}, [DOUBLE_NEGATE]\n{}", acc_to_xmm(), MMRegister::acc().generate_name(MemorySize::from_bytes(4)), xmm_to_acc()),
         ScalarType::Integer(integer_type) => format!("neg {}", GPRegister::acc().generate_name(integer_type.memory_size())),
     }
 }
@@ -256,20 +274,25 @@ fn instruction_div(divisor: &RegOrMem, data_type: &ScalarType) -> String {
         ScalarType::Integer(IntegerType::I64) => format!("cqo\nidiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
         ScalarType::Integer(IntegerType::U32) => format!("mov edx, 0\ndiv {}", divisor.generate_name(MemorySize::from_bytes(4))),
         ScalarType::Integer(IntegerType::U64) => format!("mov rdx, 0\ndiv {}", divisor.generate_name(MemorySize::from_bytes(8))),
+
+        ScalarType::Float(FloatType::F32) => format!("{}\n{}\ndivss xmm0, xmm1\n{}", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), &divisor.clone().into(), MemorySize::from_bytes(4)), xmm_to_acc()),
+        ScalarType::Float(FloatType::F64) => format!("{}\n{}\ndivsd xmm0, xmm1\n{}", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), &divisor.clone().into(), MemorySize::from_bytes(8)), xmm_to_acc()),
         x => panic!("cannot divide by this type: {}", x)
     }
 }
 
-fn instruction_mul(multiplier: &RegOrMem, data_type: &DataType) -> String {
-    if let DataType::ARRAY {..} = data_type {
-        panic!("cannot multiply an array");
+fn instruction_mul(multiplier: &RegOrMem, data_type: &ScalarType) -> String {
+    //todo scalar type only
+    match data_type {
+        ScalarType::Integer(base) => if base.is_unsigned() {
+            format!("mul {}", multiplier.generate_name(base.memory_size()))
+        } else {
+            format!("imul {}", multiplier.generate_name(base.memory_size()))
+        },
+        ScalarType::Float(FloatType::F32) => format!("{}\n{}\nmulss xmm0, xmm1\n{}", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), &multiplier.clone().into(), MemorySize::from_bytes(4)), xmm_to_acc()),
+        ScalarType::Float(FloatType::F64) => format!("{}\n{}\nmulsd xmm0, xmm1\n{}", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), &multiplier.clone().into(), MemorySize::from_bytes(8)), xmm_to_acc()),
     }
-    unwrap_let!(ScalarType::Integer(base) = data_type.decay_to_primative());//float not implemented
-    if base.is_unsigned() {
-        format!("mul {}", multiplier.generate_name(base.memory_size()))
-    } else {
-        format!("imul {}", multiplier.generate_name(base.memory_size()))
-    }
+    
 }
 
 fn instruction_bitwise( secondary: &Operand, operation: &LogicalOperation) -> String {

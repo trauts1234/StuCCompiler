@@ -1,0 +1,1 @@
+#  define FLT_TRUE_MIN 1.40129846e-45F

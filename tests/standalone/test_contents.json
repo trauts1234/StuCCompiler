@@ -581,5 +581,9 @@
     {
         "filename":"promotelast.c",
         "stdout":"p2.a=1, p2.b=2, p2.c=3\n"
+    },
+    {
+        "filename":"floattest.c",
+        "return_code":0
     }
 ]

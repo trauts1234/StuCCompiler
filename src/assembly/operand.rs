@@ -30,6 +30,16 @@ pub enum RegOrMem {
     Mem(MemoryOperand),
 }
 
+impl Into<Operand> for RegOrMem {
+    fn into(self) -> Operand {
+        match self {
+            RegOrMem::GPReg(gpregister) => Operand::GPReg(gpregister),
+            RegOrMem::MMReg(mmregister) => Operand::MMReg(mmregister),
+            RegOrMem::Mem(memory_operand) => Operand::Mem(memory_operand),
+        }
+    }
+}
+
 
 impl Operand {
     pub fn generate_name(&self, data_size: MemorySize) -> String {

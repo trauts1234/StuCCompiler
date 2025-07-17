@@ -64,13 +64,10 @@ impl BinaryExpression {
                 result.add_comment("mulitplying numbers");
 
                 result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
-
-                unwrap_let!(DataType::RAW(promoted_underlying) = &promoted_type);
-                assert!(promoted_underlying.is_integer());//floating point multiply??
-
+                unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_underlying)) = &promoted_type);
                 result.add_instruction(AsmOperation::MUL {
                     multiplier: RegOrMem::GPReg(GPRegister::secondary()),
-                    data_type: promoted_type
+                    data_type: promoted_underlying.clone()
                 });
 
             },
@@ -118,7 +115,7 @@ impl BinaryExpression {
                     .as_comparator_instr()
                     .unwrap()
                     .to_asm_comparison(match promoted_type.decay_to_primative() {
-                        ScalarType::Float(_) => true,//float is always signed, but either signed or unsigned instructions both work
+                        ScalarType::Float(_) => false,//float comparisons need unsigned setcc/jmpcc instructions for some reason
                         ScalarType::Integer(integer_type) => !integer_type.is_unsigned(),
                     });//take signedness and convert comparison kind to an asm comparison
 
@@ -290,7 +287,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
         //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
         result.add_instruction(AsmOperation::MUL {
             multiplier: RegOrMem::GPReg(GPRegister::_CX),
-            data_type: promoted_type.clone(),
+            data_type: promoted_type.decay_to_primative(),
         });
         
         //lhs is now in AX
@@ -329,7 +326,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
         //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
         result.add_instruction(AsmOperation::MUL {
             multiplier: RegOrMem::GPReg(GPRegister::_CX),
-            data_type: promoted_type.clone(),
+            data_type: promoted_type.decay_to_primative(),
         });
     }
 

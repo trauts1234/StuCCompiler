@@ -127,7 +127,7 @@ impl AsmData {
         .iter()
         .rev()
         .find(|(n, _)| n == name)
-        .expect("cannot find variable")
+        .expect(&format!("cannot find variable {}", name))
         .1
     }
     pub fn get_function_return_type(&self) -> &DataType {
