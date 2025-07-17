@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_token::TypeInfo}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDeclaration {
@@ -80,7 +80,9 @@ pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQu
 
     //grab all the args
     let mut params = Vec::new();
-    if args_location.get_slice_size() >= 1{//ensure there is text between the brackets
+    let param_list_is_empty = args_location.get_slice_size() == 0;
+    let param_list_is_void = args_location.get_slice_size() == 1 && tokens_queue.peek(&args_location, scope_data).unwrap() == Token::TYPESPECIFIER(TypeInfo::VOID);
+    if !(param_list_is_empty || param_list_is_void) {
         for arg_segment in args_segments {
             params.push(consume_fn_param(tokens_queue, &arg_segment, scope_data, struct_label_gen)?);
         }
