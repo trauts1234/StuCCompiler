@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral, stack_allocation::StackAllocator};
 use colored::Colorize;
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
@@ -76,7 +76,8 @@ impl UnaryPrefixExpression {
                     DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
                     
                     DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
-                    DataType::RAW(_) => ImmediateValue("1".to_string())
+                    DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
+                    _ => panic!("cannot increment this")
                 };
 
                 //push &self.operand
@@ -127,7 +128,8 @@ impl UnaryPrefixExpression {
                     DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
 
                     DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//decrement by number of bytes
-                    DataType::RAW(_) => ImmediateValue("1".to_string())
+                    DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
+                    _ => panic!("cannot decrement this")
                 };
 
                 //push &self.operand
