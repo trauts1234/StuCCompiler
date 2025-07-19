@@ -2,7 +2,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, stack_allocation::StackAllocator};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -189,6 +189,103 @@ impl BinaryExpression {
                 });
             }
 
+            BinaryExpressionOperator::AdditionCombination => {
+                let promoted_type = ();
+                let promoted_size = ();
+                result.add_comment("addition combination (+=)");
+
+                // *a++ += b is not the same as *a++ = *a++ + b because a might be incremented once or twice
+                // so I need a custom implementation
+                let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
+                let rhs_type = self.rhs.accept(&mut GetDataTypeVisitor {asm_data});
+
+                let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                result.merge(&lhs_ptr_asm);//put pointer to lhs in acc
+                //save the pointer
+                let lhs_ptr_temporary_address = stack_data.allocate(PTR_SIZE);
+                result.add_instruction(AsmOperation::MOV {
+                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+                    from: Operand::GPReg(GPRegister::acc()),
+                    size: PTR_SIZE
+                });
+
+                //calculate and cast rhs value
+                let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let rhs_cast_asm = cast_from_acc(&rhs_type, &lhs_type, asm_data);
+                result.merge(&rhs_asm);
+                result.merge(&rhs_cast_asm);//cast to lhs as that will be incremented
+
+                if let DataType::POINTER(_) = lhs_type.decay() {
+                    //you can only add pointer and number here, as per the C standard
+                    let lhs_deref_size = lhs_type.remove_outer_modifier().memory_size(asm_data);
+
+                    result.add_comment(format!("lhs is a pointer. make rhs {} times bigger", lhs_deref_size.size_bytes()));
+
+                    //get the size of value pointed to by rhs
+                    result.add_instruction(AsmOperation::MOV {
+                        to: RegOrMem::GPReg(GPRegister::_CX),
+                        from: Operand::Imm(lhs_deref_size.as_imm()),
+                        size: MemorySize::from_bytes(8),
+                    });
+
+                    //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
+                    result.add_instruction(AsmOperation::MUL {
+                        multiplier: RegOrMem::GPReg(GPRegister::_CX),
+                        data_type: lhs_type.decay_to_primative(),//rhs has been promoted to lhs's type
+                    });
+                }
+
+                //put RHS in secondary
+                result.add_commented_instruction(
+                    AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: MemorySize::from_bytes(8)},
+                    "put RHS in secondary"
+                );
+
+                // put a pointer to lhs to acc
+                result.add_commented_instruction(
+                    AsmOperation::MOV { 
+                        to: RegOrMem::GPReg(GPRegister::acc()),
+                        from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+                        size: PTR_SIZE
+                    },
+                    "put a pointer to lhs in acc"
+                );
+                //dereference the pointer
+                result.add_commented_instruction(
+                    AsmOperation::MOV {
+                    to: RegOrMem::GPReg(GPRegister::acc()), 
+                        from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc()}),
+                        size: lhs_type.memory_size(asm_data)
+                    },
+                    "dereference pointer to lhs"
+                );
+                //increment lhs by rhs
+                result.add_commented_instruction(AsmOperation::ADD {
+                    increment: Operand::GPReg(GPRegister::secondary()),
+                    data_type: lhs_type.decay_to_primative()
+                }, "increment lhs by rhs");
+                //put the addition result in secondary
+                result.add_commented_instruction(
+                    AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: lhs_type.memory_size(asm_data) },
+                    "move the result to secondary"
+                );
+
+                //get a pointer to lhs again
+                result.add_commented_instruction(
+                    AsmOperation::MOV { 
+                        to: RegOrMem::GPReg(GPRegister::acc()),
+                        from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+                        size: PTR_SIZE
+                    },
+                    "get a pointer to lhs again"
+                );
+                //save the results
+                result.add_commented_instruction(
+                    AsmOperation::MOV { to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
+                    "save the results back to lhs"
+                );
+            }
+
             _ => panic!("operator to binary expression is invalid")
         }
 
@@ -211,7 +308,8 @@ impl BinaryExpression {
                 )
             },
 
-            BinaryExpressionOperator::Assign => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
+            BinaryExpressionOperator::Assign |
+            BinaryExpressionOperator::AdditionCombination => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
 
             //bit shifts have lhs promoted, then resultant type is the same as promoted lhs
             BinaryExpressionOperator::BitshiftLeft |
@@ -258,6 +356,7 @@ impl ASTDisplay for BinaryExpression {
     }
 }
 
+/// Puts lhs in AX and rhs in CX, taking into account pointer scaling
 fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
     let mut result = Assembly::make_empty();
 

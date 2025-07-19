@@ -3,6 +3,7 @@ use crate::{assembly::{comparison::ComparisonKind, operation::LogicalOperation},
 #[derive(Clone, Debug, PartialEq)]
 pub enum BinaryExpressionOperator {
     Assign,
+    AdditionCombination,
 
     BooleanOr,
     BooleanAnd,
@@ -62,34 +63,31 @@ impl BinaryExpressionOperator {
             _ => None
         }
     }
-}
 
-impl TryFrom<Punctuator> for BinaryExpressionOperator {
-    type Error = ();
-
-    fn try_from(value: Punctuator) -> Result<Self, Self::Error> {
+    pub fn from_punctuator(value: Punctuator) -> Option<Self> {
         match value {
-            Punctuator::EQUALS => Ok(Self::Assign),
-            Punctuator::PIPEPIPE => Ok(Self::BooleanOr),
-            Punctuator::ANDAND => Ok(Self::BooleanAnd),
-            Punctuator::PLUS => Ok(Self::Add),
-            Punctuator::DASH => Ok(Self::Subtract),
-            Punctuator::ASTERISK => Ok(Self::Multiply),
-            Punctuator::FORWARDSLASH => Ok(Self::Divide),
-            Punctuator::PERCENT => Ok(Self::Mod),
-            Punctuator::Less => Ok(Self::CmpLess),
-            Punctuator::Greater => Ok(Self::CmpGreater),
-            Punctuator::LESSEQUAL => Ok(Self::CmpLessEqual),
-            Punctuator::GREATEREQUAL => Ok(Self::CmpGreaterEqual),
-            Punctuator::DOUBLEEQUALS => Ok(Self::CmpEqual),
-            Punctuator::EXCLAMATIONEQUALS => Ok(Self::CmpNotEqual),
-            Punctuator::Pipe => Ok(Self::BitwiseOr),
-            Punctuator::AMPERSAND => Ok(Self::BitwiseAnd),
-            Punctuator::Hat => Ok(Self::BitwiseXor),
-            Punctuator::GreaterGreater => Ok(Self::BitshiftRight),
-            Punctuator::LessLess => Ok(Self::BitshiftLeft),
+            Punctuator::EQUALS => Some(Self::Assign),
+            Punctuator::PIPEPIPE => Some(Self::BooleanOr),
+            Punctuator::ANDAND => Some(Self::BooleanAnd),
+            Punctuator::PLUS => Some(Self::Add),
+            Punctuator::DASH => Some(Self::Subtract),
+            Punctuator::ASTERISK => Some(Self::Multiply),
+            Punctuator::FORWARDSLASH => Some(Self::Divide),
+            Punctuator::PERCENT => Some(Self::Mod),
+            Punctuator::Less => Some(Self::CmpLess),
+            Punctuator::Greater => Some(Self::CmpGreater),
+            Punctuator::LESSEQUAL => Some(Self::CmpLessEqual),
+            Punctuator::GREATEREQUAL => Some(Self::CmpGreaterEqual),
+            Punctuator::DOUBLEEQUALS => Some(Self::CmpEqual),
+            Punctuator::EXCLAMATIONEQUALS => Some(Self::CmpNotEqual),
+            Punctuator::Pipe => Some(Self::BitwiseOr),
+            Punctuator::AMPERSAND => Some(Self::BitwiseAnd),
+            Punctuator::Hat => Some(Self::BitwiseXor),
+            Punctuator::GreaterGreater => Some(Self::BitshiftRight),
+            Punctuator::LessLess => Some(Self::BitshiftLeft),
+            Punctuator::AdditionCombination => Some(Self::AdditionCombination),
 
-            _ => Err(()),
+            _ => None,
         }
     }
 }
@@ -116,6 +114,7 @@ impl<'a> Into<&'a str> for BinaryExpressionOperator {
             BinaryExpressionOperator::BitwiseXor => "bitwise xor",
             BinaryExpressionOperator::BitshiftRight => "shift right",
             BinaryExpressionOperator::BitshiftLeft => "shift left",
+            Self::AdditionCombination => "increment by",
         }
     }
 }

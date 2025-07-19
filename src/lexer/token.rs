@@ -29,6 +29,7 @@ pub enum Token {
     #[regex(r"\.?[0-9]([eE][+-]|[a-zA-Z0-9\.])*", |x| NumberLiteral::from(x.slice()), priority=1000)]
     NUMBER(NumberLiteral),
 
+    #[token("+=", |_| Punctuator::AdditionCombination)]
     #[regex(r"\+\+?|\-|\--|\*|/|=|;|~|\||\|\||&&|\^|&|%|!|>>|<<|>|<|<=|>=|==|!=|\}|\{|\[|\]|\(|\)|,|\.(\.\.)?|:|\?", |x| Punctuator::try_new(x.slice()))]
     PUNCTUATOR(Punctuator),
 

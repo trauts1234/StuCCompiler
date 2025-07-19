@@ -428,7 +428,7 @@ fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueS
 
     let operator = tokens_queue.peek(&TokenQueueSlice { index: operator_idx, max_index: operator_idx+1 }, &scope_data)//get token in the middle
     .and_then(|x| x.as_punctuator())//try to convert to punctuator
-    .and_then(|x| x.try_into().ok())?;//try to convert to binary expression operator
+    .and_then(|x| BinaryExpressionOperator::from_punctuator(x))?;//try to convert to binary expression operator
 
     Some(BinaryExpression::new(parsed_left, operator, parsed_right))
 }

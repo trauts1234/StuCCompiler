@@ -15,6 +15,8 @@ impl TranslationUnit {
 
         let tokens = preprocess_c_file(filename);
 
+        println!("{:?}", tokens);
+
         let string_literals: HashSet<StringLiteral> = tokens.iter()
             .filter_map(|tok| if let Token::STRING(str_lit) = tok {Some(str_lit)} else {None})//get all strings from the token list
             .cloned()

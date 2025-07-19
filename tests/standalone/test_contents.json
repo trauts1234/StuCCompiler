@@ -585,5 +585,9 @@
     {
         "filename":"floattest.c",
         "return_code":0
+    },
+    {
+        "filename":"plusequals.c",
+        "return_code":0
     }
 ]

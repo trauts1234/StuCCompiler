@@ -580,7 +580,6 @@ mod dec_parse {
     }
     /// Parses the whole of a hex number including decimals and exponents
     pub fn dec_parse(remainder: &[char]) -> DecParseResult {
-        println!("{:?}", remainder);
         //parse the `123` part of `123.44e10`
         let (integer_part, remainder) = dec_run(remainder);
 
