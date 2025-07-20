@@ -251,90 +251,20 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
     match (&promoted_type, rhs) {
         //initialising array to string literal
-        (DataType::ARRAY {..}, Expression::STRINGLITERAL(_)) => {
-            let lhs_addr_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
-            let rhs_addr_asm = rhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
-            result.merge(&lhs_addr_asm);//get dest address
-
-            //allocate temporary storage for destination address
-            let destination_temporary_storage = stack_data.allocate(PTR_SIZE);
-            //store the destination address in a temporary stack variable
-            result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Mem(MemoryOperand::SubFromBP(destination_temporary_storage)),
-                from: Operand::GPReg(GPRegister::acc()),
-                size: PTR_SIZE,
-            });
-
-            result.merge(&rhs_addr_asm);//get src address
-
-            result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::GPReg(GPRegister::_SI),
-                from: Operand::GPReg(GPRegister::acc()),
-                size: PTR_SIZE,
-            });
-            result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::GPReg(GPRegister::_DI),
-                from: Operand::Mem(MemoryOperand::SubFromBP(destination_temporary_storage)),
-                size: PTR_SIZE,
-            });
-
-            result.add_instruction(AsmOperation::MEMCPY { size: promoted_type.memory_size(asm_data) });
+        (DataType::ARRAY {..}, Expression::STRINGLITERAL(string_init)) => {
+            result.merge(&assembly_for_array_assignment(
+                lhs,
+                string_init.zero_fill_and_flatten_to_iter(&promoted_type),
+                &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))),
+                asm_data, stack_data
+            ));
         },
 
         //initialising array to array literal
         (DataType::ARRAY { .. }, Expression::ARRAYLITERAL(array_init)) => {
-
             //convert int x[2][2] to int x[4] for easy assigning of values
             unwrap_let!(DataType::ARRAY { element: array_element_type, .. } = promoted_type.flatten_nested_array());
-            let array_element_size = array_element_type.memory_size(asm_data);
-
-            //get address of destination array
-            let lhs_addr_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
-            result.merge(&lhs_addr_asm);
-
-            //store lhs address on stack
-            let lhs_addr_storage = stack_data.allocate(PTR_SIZE);
-            result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
-                from: Operand::GPReg(GPRegister::acc()),
-                size: PTR_SIZE,
-            });
-
-            //this generates the following c-style code to assign the array literal to the destination array
-            //for 2d arrays, this code reinteprets it as a 1d array, using zero_fill_and_flatten_to_iter which flattens to 1d array
-            //for(int i=0;i<array_size;i++){
-            //  array[i] = array_literal[i];
-            //}
-            for (i, item) in array_init.zero_fill_and_flatten_to_iter(&promoted_type).iter().enumerate() {
-
-                //generate the item and store in secondary
-                result.merge(&item.accept(&mut ScalarInAccVisitor{asm_data, stack_data}));
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::secondary()),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: item.accept(&mut GetDataTypeVisitor {asm_data}).memory_size(asm_data),
-                });
-
-                //get address of the start of the array
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::acc()),
-                    from: Operand::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
-                    size: PTR_SIZE,
-                });
-
-                let array_start_offset = MemorySize::from_bytes(i as u64 * array_element_size.size_bytes());//how many bytes from the start of the array is the item
-                //add the index to it: (void*)ndarray + i
-                result.add_instruction(AsmOperation::ADD {
-                    increment: Operand::Imm(array_start_offset.as_imm()),
-                    data_type: ScalarType::Integer(IntegerType::U64),
-                });
-
-                result.add_commented_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
-                    from: Operand::GPReg(GPRegister::secondary()),
-                    size: array_element_size,
-                }, format!("initialising element {} of array", i));
-            }
+            result.merge(&assembly_for_array_assignment(lhs, array_init.zero_fill_and_flatten_to_iter(&promoted_type), array_element_type.as_ref(), asm_data, stack_data));
         },
 
         (DataType::ARRAY { .. }, x) => panic!("tried to set {:?} to {:?}", lhs, x),
@@ -377,6 +307,61 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 size: promoted_type.memory_size(asm_data)
             });
         },
+    }
+
+    result
+}
+
+fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, array_element_type: &DataType, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+    let mut result = Assembly::make_empty();
+    let array_element_size = array_element_type.memory_size(asm_data);
+
+    //get address of destination array
+    let lhs_addr_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+    result.merge(&lhs_addr_asm);
+
+    //store lhs address on stack
+    let lhs_addr_storage = stack_data.allocate(PTR_SIZE);
+    result.add_instruction(AsmOperation::MOV {
+        to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
+        from: Operand::GPReg(GPRegister::acc()),
+        size: PTR_SIZE,
+    });
+
+    //this generates the following c-style code to assign the array literal to the destination array
+    //for 2d arrays, this code reinteprets it as a 1d array, using zero_fill_and_flatten_to_iter which flattens to 1d array
+    //for(int i=0;i<array_size;i++){
+    //  array[i] = array_literal[i];
+    //}
+    for (i, item) in array_items.iter().enumerate() {
+
+        //generate the item and store in secondary
+        result.merge(&item.accept(&mut ScalarInAccVisitor{asm_data, stack_data}));
+        result.add_instruction(AsmOperation::MOV {
+            to: RegOrMem::GPReg(GPRegister::secondary()),
+            from: Operand::GPReg(GPRegister::acc()),
+            size: item.accept(&mut GetDataTypeVisitor {asm_data}).memory_size(asm_data),
+        });
+
+        //get address of the start of the array
+        result.add_instruction(AsmOperation::MOV {
+            to: RegOrMem::GPReg(GPRegister::acc()),
+            from: Operand::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
+            size: PTR_SIZE,
+        });
+
+        let array_start_offset = MemorySize::from_bytes(i as u64 * array_element_size.size_bytes());//how many bytes from the start of the array is the item
+        //add the index to it: (void*)ndarray + i
+        result.add_instruction(AsmOperation::ADD {
+            increment: Operand::Imm(array_start_offset.as_imm()),
+            data_type: ScalarType::Integer(IntegerType::U64),
+        });
+
+        result.add_commented_instruction(AsmOperation::MOV {
+            to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
+            from: Operand::GPReg(GPRegister::secondary()),
+            size: array_element_size,
+        }, format!("initialising element {} of array", i));
     }
 
     result

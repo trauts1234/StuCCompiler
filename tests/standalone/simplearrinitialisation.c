@@ -143,7 +143,7 @@ int test_nested_scope() {
     return 0;
 }
 
-/*int test_string_initialization() {
+int test_string_initialization() {
     // Test string initialization
     char s1[] = "Hello";
     if (s1[0] != 'H') return 80;
@@ -161,7 +161,7 @@ int test_nested_scope() {
     if (s2[9] != '\0') return 89;
     
     return 0;
-}*/
+}
 
 int test_char_arrays() {
     // Test char array initialization with char constants
@@ -258,8 +258,8 @@ int main() {
     result = test_nested_scope();
     if (result != 0) return result;
     
-    //result = test_string_initialization();
-    //if (result != 0) return result;
+    result = test_string_initialization();
+    if (result != 0) return result;
     
     result = test_char_arrays();
     if (result != 0) return result;

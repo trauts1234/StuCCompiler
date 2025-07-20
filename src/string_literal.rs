@@ -1,8 +1,13 @@
 use std::fmt::Display;
 use std::hash::Hash;
+use unwrap_let::unwrap_let;
 use uuid::Uuid;
 
+use crate::data_type::base_type::IntegerType;
+use crate::data_type::recursive_data_type::DataType;
+use crate::expression::expression::Expression;
 use crate::expression_visitors::expr_visitor::ExprVisitor;
+use crate::number_literal::typed_value::NumberLiteral;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StringLiteral {
@@ -12,6 +17,7 @@ pub struct StringLiteral {
 
 impl StringLiteral {
 
+    /// Includes the zero terminator
     pub fn get_num_chars(&self) -> usize {
         self.text.len()
     }
@@ -58,6 +64,17 @@ impl StringLiteral {
         .chars()
         .map(|x| x as i8)//convert to integers
         .chain(std::iter::once(0))//add null terminator 0
+        .collect()
+    }
+
+    pub fn zero_fill_and_flatten_to_iter(&self, array_data_type: &DataType) -> Vec<Expression> {
+        unwrap_let!(DataType::ARRAY{size, ..} = array_data_type);
+
+        let extra_zeroes = size.checked_sub(self.text.len() as u64).unwrap();
+
+        self.text.iter()
+        .chain(std::iter::repeat_n(&0i8, extra_zeroes as usize))
+        .map(|num| Expression::NUMBERLITERAL(NumberLiteral::INTEGER { data: (*num).into(), data_type: IntegerType::I8 }))
         .collect()
     }
 }

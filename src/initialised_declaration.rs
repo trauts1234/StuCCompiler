@@ -79,12 +79,25 @@ pub fn try_consume_declarator(tokens_queue: &mut TokenQueue, slice: &TokenQueueS
 
     assert!(tokens_queue.peek(&curr_queue_idx, scope_data) != Some(Token::PUNCTUATOR(Punctuator::OPENCURLY)), "found a function, and I can't handle that yet");
 
-    scope_data.add_variable(&var_name,data_type_with_modifiers);//save variable to variable list early, so that I can reference it in the initialisation
-
+    
     curr_queue_idx = remaining_tokens;//tokens have been consumed
-
+    
     //try to match an initialisation expression
-    let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, &var_name, scope_data, struct_label_gen)
+    let initialisation = consume_initialisation(tokens_queue, &mut curr_queue_idx, scope_data, struct_label_gen);
+
+    //fix unknown size arrays int x[] = ... by inferring it from the initialisation
+    let actual_data_type = data_type_with_modifiers.replace_unknown_array(&initialisation);
+    scope_data.add_variable(&var_name, actual_data_type);
+
+    //generate a tree that assigns the default value to the variable
+    let initialisation = initialisation
+        .map(|x|
+            BinaryExpression::new(
+                Expression::VARIABLE(MinimalDataVariable{name: var_name.to_string()}),
+                BinaryExpressionOperator::Assign,
+                x
+            )
+        )
         .map(|x| Expression::BINARYEXPRESSION(x));//wrap as binary expression
 
     Some(ASTMetadata {
@@ -303,7 +316,7 @@ pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &T
  * var_name what the name of the variable we are assigning to is
  * returns a binary expression assigning the new variable to its initial value
  */
-fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, var_name: &str, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<BinaryExpression> {
+fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<Expression> {
     
     if tokens_queue.peek(&curr_queue_idx, &scope_data)? != Token::PUNCTUATOR(Punctuator::EQUALS){
         return None;
@@ -311,12 +324,5 @@ fn consume_initialisation(tokens_queue: &mut TokenQueue, curr_queue_idx: &mut To
 
     tokens_queue.consume(curr_queue_idx, &scope_data).unwrap();//consume the equals sign
 
-    //consume the right hand side of the initialisation
-    //then create an assignment expression to write the value to the variable
-    //this should also work for pointer intitialisation, as that sets the address of the pointer
-    Some(BinaryExpression::new(
-        Expression::VARIABLE(MinimalDataVariable{name: var_name.to_string()}),
-        BinaryExpressionOperator::Assign,
-        expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen).unwrap()
-    ))
+    Some(expression::try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen).unwrap())
 }

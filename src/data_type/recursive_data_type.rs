@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use crate::{asm_gen_data::GetStruct, data_type::base_type::{FloatType, IntegerType, ScalarType}};
+use crate::{asm_gen_data::GetStruct, binary_expression::BinaryExpression, data_type::base_type::{FloatType, IntegerType, ScalarType}, expression::expression::Expression};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
@@ -103,6 +103,32 @@ impl DataType
             to_replace
         } else {
             self.clone()
+        }
+    }
+    /// If I am an unknown size array, work out my size implicitly from the initialisation
+    pub fn replace_unknown_array(self, initialised_value: &Option<Expression>) -> Self {
+        match (self, initialised_value) {
+            (DataType::UNKNOWNSIZEARRAY { .. }, None) => panic!("tried to infer size of unknown array, but there was no initialisation"),
+
+            (DataType::UNKNOWNSIZEARRAY { element }, Some(Expression::ARRAYLITERAL(array_initialisation))) => {
+                // int x[] = {1,2,3};
+                //ensuring that the types of elements in the array initialisation == `element`: trust me
+
+                DataType::ARRAY { size: array_initialisation.calculate_element_count(), element }
+            }
+
+            (DataType::UNKNOWNSIZEARRAY { element }, Some(Expression::STRINGLITERAL(string_initialisaiton))) => {
+                //char x[] = "hello world";
+
+                //ensure the element is char
+                assert_eq!(element.as_ref(), &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))));
+
+                DataType::ARRAY { size: string_initialisaiton.get_num_chars() as u64, element }//size of array = number of chars in the string (including the zero byte)
+            }
+
+            (DataType::UNKNOWNSIZEARRAY { .. }, Some(x)) => panic!("tried to infer size of unknown array, but found an initialisation that does not provide enough information\n{:?}", x),
+
+            (x, _) => x,//already know my data type, no initialisation inference required...
         }
     }
 
