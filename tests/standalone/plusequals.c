@@ -213,11 +213,6 @@ void test_compound_expressions() {
     
     c += ++a;  // a becomes 26, then c += 26
     test_assert(c == 29 && a == 26, "+= with pre-increment");
-    
-    int d = 1;
-    d += d += 2;  // Should be equivalent to d += 2; d += d; which is d = 1+2=3, then d = 3+3=6
-    // Note: This has undefined behavior in some cases, but testing common implementation
-    test_assert(d == 6, "+= chained (implementation dependent)");
 }
 
 // Test different numeric bases and constants
