@@ -40,6 +40,7 @@ mod debugging;
 mod struct_member_access;
 mod args_handling;
 mod stack_allocation;
+pub mod goto_and_labels;
 
 struct CompilationOptions {
     c_file: PathBuf,

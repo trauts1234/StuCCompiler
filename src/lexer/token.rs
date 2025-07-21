@@ -30,7 +30,8 @@ pub enum Token {
     NUMBER(NumberLiteral),
 
     #[token("+=", |_| Punctuator::AdditionCombination)]
-    #[regex(r"\+\+?|\-|\--|\*|/|=|;|~|\||\|\||&&|\^|&|%|!|>>|<<|>|<|<=|>=|==|!=|\}|\{|\[|\]|\(|\)|,|\.(\.\.)?|:|\?", |x| Punctuator::try_new(x.slice()))]
+    #[token(":", |_| Punctuator::COLON)]
+    #[regex(r"\+\+?|\-|\--|\*|/|=|;|~|\||\|\||&&|\^|&|%|!|>>|<<|>|<|<=|>=|==|!=|\}|\{|\[|\]|\(|\)|,|\.(\.\.)?|\?", |x| Punctuator::try_new(x.slice()))]
     PUNCTUATOR(Punctuator),
 
     #[token("int", |_| TypeInfo::INT)]
@@ -63,8 +64,10 @@ pub enum Token {
     #[token("return", |_| Keyword::RETURN)]
     #[token("typedef", |_| Keyword::TYPEDEF)]
     #[token("break", |_| Keyword::BREAK)]
+    #[token("continue", |_| Keyword::CONTINUE)]
     #[token("sizeof", |_| Keyword::SIZEOF)]
     #[token("defined", |_| Keyword::DEFINED)]
+    #[token("goto", |_| Keyword::GOTO)]
     KEYWORD(Keyword),
 
     #[regex(r"[a-zA-Z_]\w*", |x| x.slice().to_string())]

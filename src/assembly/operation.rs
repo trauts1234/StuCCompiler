@@ -1,7 +1,6 @@
 use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
-use unwrap_let::unwrap_let;
 use super::{operand::{Operand, RegOrMem, PTR_SIZE}};
 
 

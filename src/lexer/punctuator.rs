@@ -12,6 +12,7 @@ pub enum Punctuator {
     FORWARDSLASH,
     EQUALS,
     SEMICOLON,
+    COLON,
     Tilde,
 
     Pipe,
@@ -160,6 +161,7 @@ impl Display for Punctuator {
             Punctuator::FORWARDSLASH => "/",
             Punctuator::EQUALS => "=",
             Punctuator::SEMICOLON => ";",
+            Punctuator::COLON => ":",
             Punctuator::Tilde => "~",
             Punctuator::Pipe => "|",
             Punctuator::PIPEPIPE => "||",
