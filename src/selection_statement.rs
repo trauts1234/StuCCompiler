@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::GPRegister, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::StackAllocator, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, register::GPRegister, Operand}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::StackAllocator, statement::Statement};
 use colored::Colorize;
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
@@ -73,8 +73,8 @@ impl SelectionStatement {
         match self {
             Self::IF { condition, if_body, else_body } => {
                 let generic_label = global_asm_data.label_gen_mut().generate_label();
-                let else_label = format!("{}_else", generic_label);//jump for the else branch
-                let if_end_label = format!("{}_end", generic_label);//rendevous point for the if and else branches
+                let else_label = Label::Local(format!("{}_else", generic_label));//jump for the else branch
+                let if_end_label = Label::Local(format!("{}_end", generic_label));//rendevous point for the if and else branches
 
                 let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};//only jump to else branch if it exists
 
@@ -91,7 +91,7 @@ impl SelectionStatement {
 
                 //if the result is 0, jump to the else block or the end of the if statement
                 result.add_instruction(AsmOperation::JMPCC {
-                    label: cond_false_label.to_string(),
+                    label: cond_false_label.clone(),
                     comparison: AsmComparison::EQ,
                 });
 
@@ -103,7 +103,7 @@ impl SelectionStatement {
 
                 //jump to the end of the if/else block
                 result.add_instruction(AsmOperation::JMPCC {
-                    label: if_end_label.to_string(),
+                    label: if_end_label.clone(),
                     comparison: AsmComparison::ALWAYS,//unconditional jump
                 });
 
@@ -113,7 +113,7 @@ impl SelectionStatement {
                     let else_body_asm = else_body.generate_assembly(asm_data, &mut else_body_stack_usage, global_asm_data);
 
                     //start of the else block
-                    result.add_instruction(AsmOperation::Label { name: else_label });//add label
+                    result.add_instruction(AsmOperation::Label(else_label));//add label
                     result.merge(&else_body_asm);//generate the body of the else statement
                 }
 
@@ -121,7 +121,7 @@ impl SelectionStatement {
                 stack_data.merge_from_branching(if_body_stack_usage, else_body_stack_usage);
 
                 //after if/else are complete, jump here
-                result.add_instruction(AsmOperation::Label { name: if_end_label });
+                result.add_instruction(AsmOperation::Label(if_end_label));
 
             }
         }

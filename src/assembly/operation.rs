@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
@@ -16,7 +18,7 @@ pub enum AsmOperation {
     /// based on the comparison, sets _AX to 1 or 0
     SETCC {comparison: AsmComparison},
     ///based on the comparison, conditionally jump to the label
-    JMPCC {label: String, comparison: AsmComparison},
+    JMPCC {label: Label, comparison: AsmComparison},
 
     //casts and moves from -> to
     CAST {from_type: ScalarType, to_type: ScalarType},
@@ -42,7 +44,7 @@ pub enum AsmOperation {
     /// applies operation to destination and secondary, saving results to the accumulator
     BitwiseOp { secondary: Operand, operation: LogicalOperation},
 
-    Label {name: String},
+    Label(Label),
     CreateStackFrame,
     DestroyStackFrame,
     Return,
@@ -65,6 +67,22 @@ pub enum LogicalOperation {
     XOR,
 }
 
+#[derive(Clone)]
+pub enum Label {
+    /// A global label
+    Global(String),
+    /// A local label (attaches to the previous global label)
+    Local(String),
+}
+impl Display for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Label::Global(label) => write!(f, "{}", label),
+            Label::Local(label) => write!(f, ".{}", label),
+        }
+    }
+}
+
 impl AsmOperation {
     /**
      * converts myself into a line of assembly, with no newline
@@ -84,7 +102,7 @@ impl AsmOperation {
             AsmOperation::Return => "ret".to_string(),
             AsmOperation::AllocateStack(size) => format!("sub rsp, {}", size.size_bytes()),
             AsmOperation::DeallocateStack(size) => format!("add rsp, {}", size.size_bytes()),
-            AsmOperation::Label { name } => format!("{}:", name),
+            AsmOperation::Label(label) => format!("{}:", label),
             AsmOperation::MEMCPY { size } => format!("mov rcx, {}\ncld\nrep movsb", size.size_bytes()),
             AsmOperation::BLANK => String::new(),
             AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type),
@@ -365,6 +383,7 @@ impl IRDisplay for AsmOperation {
                             acc!()
                         ),
             AsmOperation::JMPCC { label, comparison } => 
+                        
                         format!("{} {}",
                             opcode!(format!("jmp-{}", comparison.display_ir())),
                             label
@@ -378,7 +397,7 @@ impl IRDisplay for AsmOperation {
             AsmOperation::NEG { data_type } => format!("{} {} ({})", opcode!("NEG"), acc!(), data_type),
             AsmOperation::BitwiseNot => format!("{} {}", opcode!("NOT"), acc!()),
             AsmOperation::BitwiseOp { secondary, operation} => format!("{} {} {}", acc!(), operation.display_ir(), secondary.display_ir()),
-            AsmOperation::Label { name } => format!("{}:", name.red().to_string()),
+            AsmOperation::Label(label) => format!("{}:", label.to_string().red()),
             AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
             AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),
             AsmOperation::Return => opcode!("RET"),

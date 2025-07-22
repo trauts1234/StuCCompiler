@@ -171,6 +171,9 @@ impl FunctionCall {
         };
 
         if let Token::IDENTIFIER(func_name) = tokens_queue.peek(&func_slice, &scope_data)? {
+            //warning: label definition in a bad place will trip this up:
+
+            //label: printf(""); will be interpreted at label()
             let func_decl = scope_data.get_function_declaration(&func_name).expect(&format!("found function call but no corresponding function declaration: {}", func_name));
             Some(FunctionCall {
                 func_name, 

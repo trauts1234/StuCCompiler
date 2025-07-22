@@ -1,4 +1,4 @@
-use crate::{assembly::operand::{memory_operand::MemoryOperand, Operand}, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::{StructDefinition, StructIdentifier}};
+use crate::{assembly::{operand::{memory_operand::MemoryOperand, Operand}, operation::Label}, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::{StructDefinition, StructIdentifier}};
 use memory_size::MemorySize;
 
 pub trait GetStruct {
@@ -16,7 +16,7 @@ pub struct AsmData {
     variables: Vec<(String, AddressedDeclaration)>,
     current_function_return_type: DataType,
     struct_list: Vec<(StructIdentifier, StructDefinition)>,//needs to be ordered since some structs need previously declared structs as members
-    break_label: Option<String>,//which label to jump to on a "break;" statement
+    break_label: Option<Label>,//which label to jump to on a "break;" statement
 }
 
 /// Stores information that is required globally and does not change when entering new scopes, like the list of accessible functions
@@ -115,7 +115,7 @@ impl AsmData {
         result
     }
 
-    pub fn clone_for_new_loop(&self, break_jump_label: String) -> AsmData {
+    pub fn clone_for_new_loop(&self, break_jump_label: Label) -> AsmData {
         let mut result = self.clone();
         result.break_label = Some(break_jump_label);
 
@@ -134,7 +134,7 @@ impl AsmData {
         &self.current_function_return_type
     }
 
-    pub fn get_break_label(&self) -> Option<&String> {
+    pub fn get_break_label(&self) -> Option<&Label> {
         self.break_label.as_ref()
     }
 }

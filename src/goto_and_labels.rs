@@ -1,7 +1,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 
-use crate::{assembly::{assembly::Assembly, comparison::AsmComparison, operation::AsmOperation}, ast_metadata::ASTMetadata, debugging::ASTDisplay, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{assembly::{assembly::Assembly, comparison::AsmComparison, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, debugging::ASTDisplay, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 /// A label in the style `label:`
 /// 
@@ -26,7 +26,7 @@ impl CustomLabel {
     pub fn generate_assembly(&self) -> Assembly {
         let mut result = Assembly::make_empty();
 
-        result.add_commented_instruction(AsmOperation::Label { name: self.0.clone() }, format!("custom label {}", self.0));
+        result.add_commented_instruction(AsmOperation::Label(Label::Local(self.0.clone())), format!("custom label {}", self.0));
 
         result
     }
@@ -49,7 +49,7 @@ impl Goto {
         let mut result = Assembly::make_empty();
 
         result.add_commented_instruction(
-            AsmOperation::JMPCC { label: self.0.clone(), comparison: AsmComparison::ALWAYS },
+            AsmOperation::JMPCC { label: Label::Local(self.0.clone()), comparison: AsmComparison::ALWAYS },
             format!("goto {}", self.0)
         );
 

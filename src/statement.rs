@@ -19,6 +19,11 @@ impl Statement {
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Statement>> {
         let curr_queue_idx = previous_queue_idx.clone();
 
+        //this should be first, because label: could be counted as an expression which would break everything
+        if let Some(ASTMetadata { remaining_slice, resultant_tree }) = CustomLabel::try_consume(tokens_queue, previous_queue_idx, scope_data) {
+            return Some(ASTMetadata { remaining_slice, resultant_tree: Self::LABEL(resultant_tree) })
+        }
+
         if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, &scope_data, struct_label_gen){
             return Some(ASTMetadata{resultant_tree: Self::COMPOUND(resultant_tree), remaining_slice});
         }
@@ -41,10 +46,6 @@ impl Statement {
 
         if let Some(ASTMetadata { remaining_slice, resultant_tree }) = Goto::try_consume(tokens_queue, previous_queue_idx, scope_data) {
             return Some(ASTMetadata { resultant_tree: Self::GOTO(resultant_tree), remaining_slice})
-        }
-
-        if let Some(ASTMetadata { remaining_slice, resultant_tree }) = CustomLabel::try_consume(tokens_queue, previous_queue_idx, scope_data) {
-            return Some(ASTMetadata { remaining_slice, resultant_tree: Self::LABEL(resultant_tree) })
         }
 
         if tokens_queue.peek(&curr_queue_idx, scope_data) == Some(Token::PUNCTUATOR(Punctuator::SEMICOLON)) {

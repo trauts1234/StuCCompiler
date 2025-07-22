@@ -1,5 +1,5 @@
 use memory_size::MemorySize;
-use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::Declaration, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::{aligned_size, StackAllocator}};
+use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::Declaration, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::{aligned_size, StackAllocator}};
 use unwrap_let::unwrap_let;
 
 /**
@@ -60,7 +60,7 @@ impl FunctionDefinition {
         let asm_data = &AsmData::for_new_function(&global_asm_data, &self.local_scope_data, self.get_return_type(), &mut stack_data);
 
         //set label as same as function name
-        result.add_instruction(AsmOperation::Label { name: self.decl.function_name.clone() });
+        result.add_instruction(AsmOperation::Label(Label::Global(self.decl.function_name.clone())));
         //create stack frame
         result.add_commented_instruction(AsmOperation::CreateStackFrame, "create stack frame");
 
