@@ -4,6 +4,7 @@ use crate::{assembly::{comparison::ComparisonKind, operation::LogicalOperation},
 pub enum BinaryExpressionOperator {
     Assign,
     AdditionCombination,
+    SubtractionCombination,
 
     BooleanOr,
     BooleanAnd,
@@ -86,6 +87,7 @@ impl BinaryExpressionOperator {
             Punctuator::GreaterGreater => Some(Self::BitshiftRight),
             Punctuator::LessLess => Some(Self::BitshiftLeft),
             Punctuator::AdditionCombination => Some(Self::AdditionCombination),
+            Punctuator::SubtractionCombination => Some(Self::SubtractionCombination),
 
             _ => None,
         }
@@ -115,6 +117,7 @@ impl<'a> Into<&'a str> for BinaryExpressionOperator {
             BinaryExpressionOperator::BitshiftRight => "shift right",
             BinaryExpressionOperator::BitshiftLeft => "shift left",
             Self::AdditionCombination => "increment by",
+            Self::SubtractionCombination => "subtract by",
         }
     }
 }

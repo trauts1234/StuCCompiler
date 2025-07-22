@@ -43,6 +43,7 @@ pub enum Punctuator {
 
     /// +=
     AdditionCombination,
+    SubtractionCombination,
 
     FULLSTOP,
     ELIPSIS,
@@ -117,7 +118,9 @@ impl Punctuator {
             Self::ANDAND => Some(11),
             Self::PIPEPIPE => Some(12),
 
-            Self::EQUALS | Self::AdditionCombination => Some(14),
+            Self::EQUALS |
+            Self::AdditionCombination |
+            Self::SubtractionCombination => Some(14),
             _ => None
         }
     }
@@ -186,6 +189,7 @@ impl Display for Punctuator {
             Punctuator::CLOSESQUARE => "]",
             Punctuator::COMMA => ",",
             Punctuator::AdditionCombination => "+=",
+            Punctuator::SubtractionCombination => "-=",
             Punctuator::FULLSTOP => ".",
             Punctuator::ELIPSIS => "...",
         })

@@ -30,6 +30,7 @@ pub enum Token {
     NUMBER(NumberLiteral),
 
     #[token("+=", |_| Punctuator::AdditionCombination)]
+    #[token("-=", |_| Punctuator::SubtractionCombination)]
     #[token(":", |_| Punctuator::COLON)]
     #[regex(r"\+\+?|\-|\--|\*|/|=|;|~|\||\|\||&&|\^|&|%|!|>>|<<|>|<|<=|>=|==|!=|\}|\{|\[|\]|\(|\)|,|\.(\.\.)?|\?", |x| Punctuator::try_new(x.slice()))]
     PUNCTUATOR(Punctuator),

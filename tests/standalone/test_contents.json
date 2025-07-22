@@ -594,5 +594,9 @@
         "filename":"goto.c",
         "stdout":"",
         "return_code":0
+    },
+    {
+        "filename":"subtractioncombination.c",
+        "return_code":0
     }
 ]
