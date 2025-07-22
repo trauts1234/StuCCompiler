@@ -589,5 +589,10 @@
     {
         "filename":"plusequals.c",
         "return_code":0
+    },
+    {
+        "filename":"goto.c",
+        "stdout":"",
+        "return_code":0
     }
 ]
