@@ -45,6 +45,12 @@ impl StringLiteral {
             text: Self::use_escape_sequences(inside_speechmarks)
         })
     }
+    pub fn new_from_raw(inside_speechmarks: impl Iterator<Item=char>) -> Self {
+        StringLiteral {
+            label: format!("string_{}", Uuid::new_v4().simple()),
+            text: inside_speechmarks.map(|x| x as i8).collect()
+        }
+    }
 
     pub fn use_escape_sequences(text: &str) -> Vec<i8> {
         text

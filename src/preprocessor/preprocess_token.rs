@@ -1,12 +1,17 @@
 use logos::{ Logos};
 
-use crate::lexer::token::Token;
+use crate::lexer::token::{consume_comment, Token};
 
+pub struct LineNumbered {
+    pub line_num: i32,
+    pub data: PreprocessToken
+}
 
 #[derive(Clone, Logos, Debug)]
-#[logos(skip "[ \\t\n]+")]
-pub enum PreprocessToken {
-    #[regex("#[ \\t]*include[ \\t]*<[^>]+>\n", |x| {
+#[logos(skip "[ \\t]+")]
+pub enum PreprocessLine {
+
+    #[regex("include[ \\t]*<[^>]+>\n", |x| {
         let slice = x.slice();
         let start_idx = slice.find("<").unwrap() + 1;
         let end_idx = slice.rfind(">").unwrap();
@@ -14,7 +19,7 @@ pub enum PreprocessToken {
     })]
     IncludeLib(String),
 
-    #[regex("#[ \\t]*include[ \\t]*\"[^\"]+\".*\n", |x| {
+    #[regex("include[ \\t]*\"[^\"]+\".*\n", |x| {
         let slice = x.slice();
         let start_idx = slice.find("\"").unwrap() + 1;
         let end_idx = slice.rfind("\"").unwrap();
@@ -22,7 +27,7 @@ pub enum PreprocessToken {
     })]
     IncludeFile(String),
 
-    #[regex("#[ \\t]*ifdef.+\n", |x| {
+    #[regex("ifdef.+\n", |x| {
         x.slice()
         .split_once("ifdef").unwrap()
         .1
@@ -31,7 +36,7 @@ pub enum PreprocessToken {
     })]
     IfDef(String),
 
-    #[regex("#[ \\t]*ifndef.+\n", |x| {
+    #[regex("ifndef.+\n", |x| {
         x.slice()
         .split_once("ifndef").unwrap()
         .1
@@ -40,10 +45,10 @@ pub enum PreprocessToken {
     })]
     IfNDef(String),
 
-    #[regex("#[ \\t]*if", Token::parse_logical_line, priority=10)]
+    #[regex("if", Token::parse_logical_line, priority=10)]
     If(Vec<Token>),
 
-    #[regex("#[ \\t]*pragma.+\n", |x| {
+    #[regex("pragma.+\n", |x| {
         x.slice()
         .split_once("pragma").unwrap()
         .1
@@ -52,16 +57,18 @@ pub enum PreprocessToken {
     })]
     Pragma(String),
 
-    #[regex("#[ \\t]*endif.*\n")]
+     #[regex(r"/\*", consume_comment)]//skip multiline comments
+
+    #[regex("endif.*\n")]
     Endif,
 
-    #[regex("#[ \\t]*else.*\n",)]
+    #[regex("else.*\n",)]
     Else,
 
-    #[regex("#[ \\t]*elif", Token::parse_logical_line)]
+    #[regex("elif", Token::parse_logical_line)]
     Elif(Vec<Token>),
 
-    #[regex("#[ \\t]*define[ \\t]+\\w*", |lex| {
+    #[regex("define[ \\t]+\\w*", |lex| {
         let macro_name = lex.slice()
             .split_once("define").expect("could not find 'define' in a #define macro")
             .1
@@ -74,7 +81,7 @@ pub enum PreprocessToken {
     })]
     DefineToken((String, Vec<Token>)),// #define x y
 
-    #[regex("#[ \\t]*undef.+\n", |x| {// #  undef token  \n
+    #[regex("undef.+\n", |x| {// #  undef token  \n
         x.slice()
         .split_once("undef")
         .unwrap()
@@ -84,8 +91,25 @@ pub enum PreprocessToken {
     })]
     Undef(String),
 
-    #[regex("#[ \\t]*error.+\n", |lex| {lex.slice().to_string()})]
+    #[regex("error.+\n", |lex| {lex.slice().to_string()})]
     Error(String),
+
+    #[token("\n")]
+    NullDirective
+}
+
+#[derive(Clone, Logos, Debug)]
+#[logos(skip "[ \\t\n]+")]
+pub enum PreprocessToken {
+    
+    #[token("#", |lex| {
+        let mut pl_lex = lex.clone().morph::<PreprocessLine>();
+        let result = pl_lex.next().unwrap();
+        *lex  = pl_lex.morph();
+
+        result
+    })]
+    Preprocessor(PreprocessLine),
 
     #[regex("[^#]", |lex| {
         let start_idx = lex.span().start;
@@ -101,17 +125,23 @@ impl PreprocessToken {
     /// Note: requires trailing newline
     /// 
     /// This still works if comments are present
-    pub fn parse(data: &str) -> Vec<Self> {
+    pub fn parse(data: &str) -> Vec<LineNumbered> {
         assert!(data.ends_with("\n"));
+        let total_line_count = line_count(data);
         let mut iterator = Self::lexer(data);
         let mut result = Vec::new();
 
         while let Some(next) = iterator.next() {
+            println!("{} {:?}", total_line_count - line_count(iterator.remainder()), next.clone().unwrap());
             match next {
-                Ok(x) => result.push(x),
+                Ok(x) => result.push(LineNumbered {
+                    line_num: total_line_count - line_count(iterator.remainder()),//total lines - lines remaining = line number
+                    data: x
+                }),
+
                 Err(_) => {
                     let rem = iterator.remainder();
-                    println!("result: {:?}", result);
+                    //println!("result: {:?}", result);
                     panic!("error when collecting preprocessor lines. remainder: {}{}", iterator.slice(), &rem[..usize::min(100, rem.len())]);
                 }
             }
@@ -119,4 +149,9 @@ impl PreprocessToken {
 
         result
     }
+}
+
+/// Note dhat this does not count the last empty line of a file for some reason
+fn line_count(data: &str) -> i32 {
+    data.lines().count().try_into().unwrap()
 }

@@ -145,7 +145,7 @@ enum CommentHandling {
     CommentAsterisk,
 }
 
-fn consume_comment<'a, L>(lex: &mut Lexer<'a, L>) -> logos::Skip
+pub fn consume_comment<'a, L>(lex: &mut Lexer<'a, L>) -> logos::Skip
 where L: Clone, L: Logos<'a, Extras = (), Source = str, Error = ()>
 {
 

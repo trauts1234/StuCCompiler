@@ -598,5 +598,9 @@
     {
         "filename":"subtractioncombination.c",
         "return_code":0
+    },
+    {
+        "filename":"fileandlinemacros.c",
+        "return_code":0
     }
 ]
