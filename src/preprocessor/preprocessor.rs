@@ -1,6 +1,6 @@
 use std::{fs, path::{Path, PathBuf}};
 
-use crate::{lexer::token::Token, preprocessor::{preprocess_constant_fold::{fold, is_true, sub_definitions}, preprocess_context::ScanType, preprocess_token::{LineNumbered, PreprocessLine, PreprocessToken}}};
+use crate::{lexer::token::Token, number_literal::typed_value::NumberLiteral, preprocessor::{preprocess_constant_fold::{fold, is_true, sub_definitions}, preprocess_context::ScanType, preprocess_token::{LineNumbered, PreprocessLine, PreprocessToken}}};
 
 use super::preprocess_context::PreprocessContext;
 
@@ -59,6 +59,17 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
                 PreprocessLine::NullDirective => {},//this does nothing
                 PreprocessLine::IncludeLib(_) |
                 PreprocessLine::IncludeFile(_) => panic!("you need to substitute includes before handling preprocessor commands"),
+
+                PreprocessLine::LineDirective((new_line, new_file)) => {
+                    match new_line {
+                        NumberLiteral::INTEGER { data, .. } => ctx.override_line_number(data.try_into().unwrap()),
+                        _ => panic!("found float when trying to set line number with #line")
+                    }
+                    if let Some(new_filename) = new_file {
+                        println!("new filename {:?}", new_filename);
+                        ctx.override_filename(new_filename);
+                    }
+                }
 
                 PreprocessLine::Error(err) => {
                     if ctx.get_scan_type() == ScanType::NORMAL {

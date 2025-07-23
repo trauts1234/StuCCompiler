@@ -7,6 +7,8 @@ pub struct PreprocessContext {
     selection_depth: i32,//how many if statements deep this is
     scan_type: ScanType,//am I skipping code inside a failed #if statement?
     line_counter: i32,
+    line_override: Option<i32>,
+    /// Should be used only for the __FILE__ macro as it can be overwritten
     file_name: StringLiteral,
 }
 
@@ -17,6 +19,7 @@ impl PreprocessContext {
             selection_depth:0,
             scan_type: ScanType::NORMAL,
             line_counter:1,
+            line_override: None,
             file_name: StringLiteral::new_from_raw(filename.chars())
         }
     }
@@ -42,7 +45,10 @@ impl PreprocessContext {
     }
     pub fn get_definition(&self, name: &str) -> Option<Vec<Token>> {
         match name {
-            "__LINE__" => Some(vec![Token::NUMBER(NumberLiteral::INTEGER { data: self.line_counter.into(), data_type: IntegerType::I32 })]),
+            "__LINE__" => {
+                let data: i128 = self.line_override.unwrap_or(self.line_counter).into();
+                Some(vec![Token::NUMBER(NumberLiteral::INTEGER { data, data_type: IntegerType::I32 })])
+            }
             "__FILE__" => Some(vec![Token::STRING(self.file_name.clone())]),
             _ => self.defined.get(name).cloned()
         }
@@ -56,6 +62,12 @@ impl PreprocessContext {
     }
     pub fn dec_selection_depth(&mut self) {
         self.selection_depth -= 1;
+    }
+    pub fn override_filename(&mut self, new_filename: StringLiteral) {
+        self.file_name = new_filename;
+    }
+    pub fn override_line_number(&mut self, new_line: i32) {
+        self.line_override = Some(new_line);
     }
     pub fn set_line_number(&mut self, line: i32) {
         self.line_counter = line;

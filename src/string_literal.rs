@@ -46,9 +46,13 @@ impl StringLiteral {
         })
     }
     pub fn new_from_raw(inside_speechmarks: impl Iterator<Item=char>) -> Self {
+        let mut text: Vec<i8> = inside_speechmarks.map(|x| x as i8).collect();
+        if !text.ends_with(&[0]) {
+            text.push(0);//add null terminator
+        }
         StringLiteral {
             label: format!("string_{}", Uuid::new_v4().simple()),
-            text: inside_speechmarks.map(|x| x as i8).collect()
+            text
         }
     }
 

@@ -1,6 +1,6 @@
 use logos::{ Logos};
 
-use crate::lexer::token::{consume_comment, Token};
+use crate::{lexer::token::{consume_comment, Token}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 pub struct LineNumbered {
     pub line_num: i32,
@@ -57,7 +57,7 @@ pub enum PreprocessLine {
     })]
     Pragma(String),
 
-     #[regex(r"/\*", consume_comment)]//skip multiline comments
+    #[regex(r"/\*", consume_comment)]//skip multiline comments
 
     #[regex("endif.*\n")]
     Endif,
@@ -93,6 +93,16 @@ pub enum PreprocessLine {
 
     #[regex("error.+\n", |lex| {lex.slice().to_string()})]
     Error(String),
+
+    #[regex("line", |lex| {
+        let text = Token::parse_logical_line(lex);
+        match &text[..] {
+            [Token::NUMBER(new_line_number)] => (new_line_number.clone(), None),
+            [Token::NUMBER(new_line_number), Token::STRING(new_filename)] => (new_line_number.clone(), Some(new_filename.clone())),
+            x => panic!("invalid tokens after #line: {:?}", &x)
+        }
+    })]
+    LineDirective((NumberLiteral, Option<StringLiteral>)),
 
     #[token("\n")]
     NullDirective
@@ -132,7 +142,6 @@ impl PreprocessToken {
         let mut result = Vec::new();
 
         while let Some(next) = iterator.next() {
-            println!("{} {:?}", total_line_count - line_count(iterator.remainder()), next.clone().unwrap());
             match next {
                 Ok(x) => result.push(LineNumbered {
                     line_num: total_line_count - line_count(iterator.remainder()),//total lines - lines remaining = line number

@@ -601,7 +601,7 @@
     },
     {
         "filename":"fileandlinemacros.c",
-        "stdout":"fileandlinemacros.c",
+        "stdout":"fileandlinemacros.chello world.c",
         "return_code":0
     }
 ]
