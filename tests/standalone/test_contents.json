@@ -601,6 +601,7 @@
     },
     {
         "filename":"fileandlinemacros.c",
+        "stdout":"fileandlinemacros.c",
         "return_code":0
     }
 ]

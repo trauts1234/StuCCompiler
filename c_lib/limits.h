@@ -1,26 +1,26 @@
-#define SCHAR_MAX __SCHAR_MAX__
-#define SHRT_MAX __SHRT_MAX__
-#define INT_MAX __INT_MAX__
-#define LONG_MAX __LONG_MAX__
+#define SCHAR_MAX 127
+#define SHRT_MAX 32767
+#define INT_MAX 2147483647
+#define LONG_MAX 9223372036854775807L
 
-#define SCHAR_MIN (-__SCHAR_MAX__-1)
-#define SHRT_MIN (-__SHRT_MAX__ -1)
-#define INT_MIN (-__INT_MAX__ -1)
-#define LONG_MIN (-__LONG_MAX__ -1L)
+#define SCHAR_MIN (-127-1)
+#define SHRT_MIN (-32767 -1)
+#define INT_MIN (-2147483647 -1)
+#define LONG_MIN (-9223372036854775807L -1L)
 
-#define UCHAR_MAX (__SCHAR_MAX__*2 +1)
-#define USHRT_MAX (__SHRT_MAX__ * 2 + 1)
+#define UCHAR_MAX (127*2 +1)
+#define USHRT_MAX (32767 * 2 + 1)
 
-#define UINT_MAX (__INT_MAX__ *2U +1U)
-#define ULONG_MAX (__LONG_MAX__ *2UL+1UL)
+#define UINT_MAX (2147483647 *2U +1U)
+#define ULONG_MAX (9223372036854775807L *2UL+1UL)
 
 #ifndef MB_LEN_MAX
 #define MB_LEN_MAX 1
 #endif
 
-#define CHAR_BIT __CHAR_BIT__
+#define CHAR_BIT 8
 
-#define LLONG_MAX __LONG_LONG_MAX__
-#define LLONG_MIN (-__LONG_LONG_MAX__-1LL)
-#define ULLONG_MAX (__LONG_LONG_MAX__*2ULL+1ULL)
+#define LLONG_MAX 9223372036854775807LL
+#define LLONG_MIN (-9223372036854775807LL-1LL)
+#define ULLONG_MAX (9223372036854775807LL*2ULL+1ULL)
 

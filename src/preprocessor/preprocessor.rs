@@ -5,17 +5,6 @@ use crate::{lexer::token::Token, preprocessor::{preprocess_constant_fold::{fold,
 use super::preprocess_context::PreprocessContext;
 
 const INCLUDE_FOLDERS: &[&str] = &["c_lib"];//local custom version of glibc 
-//TODO put these somewhere sensible
-const DEFAULT_DEFINES: &str = 
-"
-#define __CHAR_BIT__      8
-#define __SCHAR_MAX__     127
-#define __SHRT_MAX__      32767
-#define __INT_MAX__       2147483647
-#define __LONG_MAX__      9223372036854775807L
-#define __LONG_LONG_MAX__ 9223372036854775807LL
-#define __PTRDIFF_TYPE__ long int
-#define __SIZE_TYPE__ long unsigned int";
 
 pub fn preprocess_c_file(filename: &Path) -> Vec<Token> {
     let initial_tokens = read_tokenise(filename);
@@ -26,8 +15,7 @@ pub fn preprocess_c_file(filename: &Path) -> Vec<Token> {
 }
 
 fn read_tokenise(path: &Path) -> Vec<LineNumbered> {
-    let text = format!("{}\n{}\n",
-        DEFAULT_DEFINES,
+    let text = format!("{}\n",
         fs::read_to_string(path).expect(&format!("failed to open file {:?}", path))
     )
     .replace("\r\n", "\n")//fix weird newlines
