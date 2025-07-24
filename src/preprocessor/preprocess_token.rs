@@ -1,6 +1,6 @@
 use logos::{ Logos};
 
-use crate::{lexer::token::{consume_comment, Token}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::{lexer::token::{consume_comment, consume_whitespace, Token}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 pub struct LineNumbered {
     pub line_num: i32,
@@ -27,21 +27,19 @@ pub enum PreprocessLine {
     })]
     IncludeFile(String),
 
-    #[regex("ifdef.+\n", |x| {
-        x.slice()
-        .split_once("ifdef").unwrap()
-        .1
-        .trim()
-        .to_string()
+    #[regex("ifdef", |x| {
+        consume_whitespace(x);
+        let macro_name = x.remainder().split_once("\n").unwrap().0;
+        x.bump(macro_name.len() + 1);//skip the macro name and newline
+        macro_name.to_string()
     })]
     IfDef(String),
 
-    #[regex("ifndef.+\n", |x| {
-        x.slice()
-        .split_once("ifndef").unwrap()
-        .1
-        .trim()
-        .to_string()
+    #[regex("ifndef", |x| {
+        consume_whitespace(x);
+        let macro_name = x.remainder().split_once("\n").unwrap().0;
+        x.bump(macro_name.len() + 1);//skip the macro name and newline
+        macro_name.to_string()
     })]
     IfNDef(String),
 
@@ -69,6 +67,7 @@ pub enum PreprocessLine {
     Elif(Vec<Token>),
 
     #[regex("define[ \\t]+\\w*", |lex| {
+        //TODO what about #define/*bob */foo bar
         let macro_name = lex.slice()
             .split_once("define").expect("could not find 'define' in a #define macro")
             .1
@@ -81,13 +80,11 @@ pub enum PreprocessLine {
     })]
     DefineToken((String, Vec<Token>)),// #define x y
 
-    #[regex("undef.+\n", |x| {// #  undef token  \n
-        x.slice()
-        .split_once("undef")
-        .unwrap()
-        .1
-        .trim()
-        .to_string()
+    #[regex("undef", |x| {// #  undef token  \n
+        consume_whitespace(x);
+        let macro_name = x.remainder().split_once("\n").unwrap().0;
+        x.bump(macro_name.len() + 1);//skip the macro name and newline
+        macro_name.to_string()
     })]
     Undef(String),
 

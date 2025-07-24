@@ -134,6 +134,24 @@ impl Display for Token {
     }
 }
 
+/// Consumes whitespace or comments as required
+pub fn consume_whitespace<'a, L>(lex: &mut Lexer<'a, L>)
+where L: Clone, L: Logos<'a, Extras = (), Source = str, Error = ()> {
+    //consume all whitespace
+    loop {
+        let stripped = lex.remainder().trim_start();
+        let stripped_char_count = lex.remainder().len() - stripped.len();
+        if stripped_char_count != 0 {
+            lex.bump(stripped_char_count);
+        } else if lex.remainder().starts_with("/*") {
+            lex.bump(2);
+            consume_comment(lex);
+        } else {
+            break;//no .bump, so all done
+        }
+    }
+}
+
 #[derive(Debug, Logos, Clone)]
 enum CommentHandling {
     #[token(r"*/", priority=2)]

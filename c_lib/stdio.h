@@ -1,5 +1,7 @@
 #include <FILE.h>
 
+#define EOF (-1)
+
 /* Standard streams.  */
 extern FILE *stdin;		/* Standard input stream.  */
 extern FILE *stdout;		/* Standard output stream.  */
