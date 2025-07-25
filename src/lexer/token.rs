@@ -7,7 +7,7 @@ use crate::{data_type::{base_type::{IntegerType, ScalarType}, storage_type::Stor
 use super::{keywords::Keyword, punctuator::Punctuator};
 
 #[derive(Debug, Clone, PartialEq, Logos)]
-#[logos(skip "[ \t]")]
+#[logos(skip " ")]
 pub enum Token {
     #[regex(r#""((\\.)|[^"\\])*""#, |x| {//match a string including
         let slice = x.slice();
@@ -76,8 +76,6 @@ pub enum Token {
 
     /// This variant should never appear
     #[token("\n")]//newline signals end of parsing this line
-    #[regex("//.*\n")]//single line comment completes the line also
-    #[regex(r"/\*", consume_comment)]//skip multiline comments
     NEWLINE
 }
 
@@ -132,57 +130,4 @@ impl Display for Token {
             Token::NEWLINE => panic!("tried to Display a newline token")
         }
     }
-}
-
-/// Consumes whitespace or comments as required
-pub fn consume_whitespace<'a, L>(lex: &mut Lexer<'a, L>)
-where L: Clone, L: Logos<'a, Extras = (), Source = str, Error = ()> {
-    //consume all whitespace
-    loop {
-        let stripped = lex.remainder().trim_start();
-        let stripped_char_count = lex.remainder().len() - stripped.len();
-        if stripped_char_count != 0 {
-            lex.bump(stripped_char_count);
-        } else if lex.remainder().starts_with("/*") {
-            lex.bump(2);
-            consume_comment(lex);
-        } else {
-            break;//no .bump, so all done
-        }
-    }
-}
-
-#[derive(Debug, Logos, Clone)]
-enum CommentHandling {
-    #[token(r"*/", priority=2)]
-    CommentEnd,
-    #[regex(r"[^\*]", priority=1)]
-    CommentText,
-
-    #[token("*", priority=1)]
-    CommentAsterisk,
-}
-
-pub fn consume_comment<'a, L>(lex: &mut Lexer<'a, L>) -> logos::Skip
-where L: Clone, L: Logos<'a, Extras = (), Source = str, Error = ()>
-{
-
-    let new_lex: Lexer<'a, L>= {
-        let mut comment_lex: Lexer<'_, CommentHandling> = lex.clone().morph::<CommentHandling>();
-        loop {
-            match comment_lex.next() {
-                Some(Ok(CommentHandling::CommentEnd)) => {
-                    //comment is complete
-                    break comment_lex.morph();
-                },
-                Some(Ok(_)) => {},
-                Some(Err(_)) => panic!("error parsing comment"),
-                None => panic!("unclosed multiline comment")
-            }
-        }
-    };
-
-    *lex = new_lex;
-    
-    logos::Skip
 }

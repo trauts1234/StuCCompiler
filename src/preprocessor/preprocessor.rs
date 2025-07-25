@@ -11,6 +11,8 @@ pub fn preprocess_c_file(filename: &Path) -> Vec<Token> {
 
     let include_handled = handle_includes(initial_tokens, 10);
 
+    println!("{:?}", include_handled);
+
     handle_preprocessor_commands(include_handled, filename.file_name().unwrap().to_str().unwrap())
 }
 
@@ -21,6 +23,8 @@ fn read_tokenise(path: &Path) -> Vec<LineNumbered> {
     .replace("\r\n", "\n")//fix weird newlines
     .replace("\t", " ")//make all whitespace a space character or newline
     .replace("\\\n", "");//remove \ newline, a feature in c
+
+    let text = remove_comments(&text.chars().collect::<Vec<_>>()[..]);
 
     PreprocessToken::parse(&text)
 }
@@ -176,4 +180,71 @@ fn find_first_working_path(folders: &[&str], filename: &str) -> Option<PathBuf> 
     }
 
     None
+}
+
+fn remove_comments(data: &[char]) -> String {
+    enum State {
+        Normal,
+        CharLit,
+        StringLit,
+        LineComment,
+        MultilineComment,
+    }
+    let mut state = State::Normal;
+    let mut result = String::new();
+
+    for i in 0..data.len() {
+        let curr = data[i];
+        let prev = if let Some(prev_idx) = i.checked_sub(1) {Some(data[prev_idx])} else {None};
+
+        match (&state, prev, curr) {
+            (State::Normal, _, '"') => {
+                state = State::StringLit//start of string literal
+            }
+            (State::Normal, _, '\'') => {
+                state = State::CharLit//start of char literal
+            }
+            (State::Normal, Some('/'), '/') => {
+                state = State::LineComment;// start of single line comment
+                assert_eq!(result.pop(), Some('/'));//remove the first / that was accidentally added
+                continue;
+            }
+            (State::Normal, Some('/'), '*') => {
+                state = State::MultilineComment;//start of multiline comment
+                assert_eq!(result.pop(), Some('/'));//remove the first / that was accidentally added
+                continue;
+            }
+            (State::Normal, _, _) => {}//normal character
+
+            (State::LineComment, _, '\n') => {
+                state = State::Normal//end of single line comment - keep the newline though
+            }
+            (State::LineComment, _, _) => continue,//skip character in comment
+
+            (State::MultilineComment, Some('*'), '/') => {
+                state = State::Normal;//end of multiline comment
+                result.push(' ');//push whitespace to ensure that multiline comment becomes a whitespace character of some sort
+                continue;//don't push the '/'
+            }
+            //(State::MultilineComment, _, '\n') => {}//newlines in multiline comments are preserved
+            (State::MultilineComment, _, _) => continue,//skip character in comment
+
+            (State::CharLit, Some('\\'), _) => {}//escaped charcacter, take it
+            (State::CharLit, _, '\'') => {
+                state = State::Normal//not escaped quote mark ends char literal
+            }
+            (State::CharLit, _, _) => {}//other character, take it
+
+            (State::StringLit, Some('\\'), _) => {}//escaped character, take it
+            (State::StringLit, _, '"') => {
+                state = State::Normal//not escaped speech mark ends string literal
+            }
+            (State::StringLit, _, _) => {}//other character, take it
+        }
+
+        //match done, push the character
+        result.push(curr);
+    }
+
+    result
 }

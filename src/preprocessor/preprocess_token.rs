@@ -1,17 +1,25 @@
+use std::fmt::Debug;
+
 use logos::{ Logos};
 
-use crate::{lexer::token::{consume_comment, consume_whitespace, Token}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::{lexer::token::{Token}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 pub struct LineNumbered {
     pub line_num: i32,
     pub data: PreprocessToken
 }
 
+impl Debug for LineNumbered {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}: {:?}", self.line_num, self.data)
+    }
+}
+
 #[derive(Clone, Logos, Debug)]
-#[logos(skip "[ \\t]+")]
+#[logos(skip " ")]
 pub enum PreprocessLine {
 
-    #[regex("include[ \\t]*<[^>]+>\n", |x| {
+    #[regex("include *<[^>]+>\n", |x| {
         let slice = x.slice();
         let start_idx = slice.find("<").unwrap() + 1;
         let end_idx = slice.rfind(">").unwrap();
@@ -19,7 +27,7 @@ pub enum PreprocessLine {
     })]
     IncludeLib(String),
 
-    #[regex("include[ \\t]*\"[^\"]+\".*\n", |x| {
+    #[regex("include *\"[^\"]+\".*\n", |x| {
         let slice = x.slice();
         let start_idx = slice.find("\"").unwrap() + 1;
         let end_idx = slice.rfind("\"").unwrap();
@@ -27,16 +35,14 @@ pub enum PreprocessLine {
     })]
     IncludeFile(String),
 
-    #[regex("ifdef", |x| {
-        consume_whitespace(x);
+    #[regex("ifdef +", |x| {
         let macro_name = x.remainder().split_once("\n").unwrap().0;
         x.bump(macro_name.len() + 1);//skip the macro name and newline
         macro_name.to_string()
     })]
     IfDef(String),
 
-    #[regex("ifndef", |x| {
-        consume_whitespace(x);
+    #[regex("ifndef +", |x| {
         let macro_name = x.remainder().split_once("\n").unwrap().0;
         x.bump(macro_name.len() + 1);//skip the macro name and newline
         macro_name.to_string()
@@ -55,8 +61,6 @@ pub enum PreprocessLine {
     })]
     Pragma(String),
 
-    #[regex(r"/\*", consume_comment)]//skip multiline comments
-
     #[regex("endif.*\n")]
     Endif,
 
@@ -66,7 +70,7 @@ pub enum PreprocessLine {
     #[regex("elif", Token::parse_logical_line)]
     Elif(Vec<Token>),
 
-    #[regex("define[ \\t]+\\w*", |lex| {
+    #[regex("define +\\w*", |lex| {
         //TODO what about #define/*bob */foo bar
         let macro_name = lex.slice()
             .split_once("define").expect("could not find 'define' in a #define macro")
@@ -80,8 +84,7 @@ pub enum PreprocessLine {
     })]
     DefineToken((String, Vec<Token>)),// #define x y
 
-    #[regex("undef", |x| {// #  undef token  \n
-        consume_whitespace(x);
+    #[regex("undef +", |x| {// #  undef token  \n
         let macro_name = x.remainder().split_once("\n").unwrap().0;
         x.bump(macro_name.len() + 1);//skip the macro name and newline
         macro_name.to_string()
@@ -106,7 +109,7 @@ pub enum PreprocessLine {
 }
 
 #[derive(Clone, Logos, Debug)]
-#[logos(skip "[ \\t\n]+")]
+#[logos(skip "[ \n]")]
 pub enum PreprocessToken {
     
     #[token("#", |lex| {
@@ -157,7 +160,7 @@ impl PreprocessToken {
     }
 }
 
-/// Note dhat this does not count the last empty line of a file for some reason
+/// Note that this does not count the last empty line of a file for some reason
 fn line_count(data: &str) -> i32 {
     data.lines().count().try_into().unwrap()
 }
