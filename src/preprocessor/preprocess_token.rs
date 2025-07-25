@@ -1,8 +1,8 @@
-use std::fmt::Debug;
+use std::{collections::VecDeque, fmt::Debug};
 
-use logos::{ Logos};
+use logos::{ Lexer, Logos};
 
-use crate::{lexer::token::{Token}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::{lexer::{punctuator::Punctuator, token::Token}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 pub struct LineNumbered {
     pub line_num: i32,
@@ -12,6 +12,40 @@ pub struct LineNumbered {
 impl Debug for LineNumbered {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{}: {:?}", self.line_num, self.data)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MacroFunction {
+    params: Vec<String>,
+    body: Vec<Token>
+}
+
+impl MacroFunction {
+    pub fn new_from(lex: &mut Lexer<PreprocessToken>) -> (String, Self) {
+        let mut tokens_after = VecDeque::from(Token::parse_logical_line(lex));
+        let mut result = Self::default();
+
+        let macro_name = lex.slice()
+            .split_once("define").expect("could not find 'define' in a #define macro")
+            .1
+            .trim_end_matches("(")//remove the open bracket
+            .trim()//get the x part of #define x(y) foo
+            .to_string();
+
+        'param_gather: loop {
+            let next = tokens_after.pop_front().unwrap();
+            match next {
+                Token::PUNCTUATOR(Punctuator::CLOSECURLY) => break 'param_gather,
+                Token::IDENTIFIER(param_name) => result.params.push(param_name),
+                Token::PUNCTUATOR(Punctuator::COMMA) => {}
+                _ => panic!("invalid token when parsing params of a macro function")
+            }
+        }
+
+        result.body = tokens_after.into();
+
+        (macro_name, result)
     }
 }
 
@@ -71,7 +105,6 @@ pub enum PreprocessToken {
     Elif(Vec<Token>),
 
     #[regex("#[ \n]*define +\\w*", |lex| {
-        //TODO what about #define/*bob */foo bar
         let macro_name = lex.slice()
             .split_once("define").expect("could not find 'define' in a #define macro")
             .1
@@ -83,6 +116,11 @@ pub enum PreprocessToken {
         (macro_name, macro_definition)
     })]
     DefineToken((String, Vec<Token>)),// #define x y
+
+    #[regex("#[ \n]*define +\\w+\\(", |lex| {
+        MacroFunction::new_from(lex)
+    })]
+    DefineMacro((String, MacroFunction)),
 
     #[regex("#[ \n]*undef +", |x| {// #  undef token  \n
         let macro_name = x.remainder().split_once("\n").unwrap().0;

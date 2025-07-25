@@ -79,7 +79,9 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
             }
 
             PreprocessToken::IfDef(x) => {
-                let defined = ctx.is_defined(&x);
+                let defined = 
+                    ctx.get_definition(&x).is_some() ||
+                    ctx.get_macro_func(&x).is_some();
                 ctx.inc_selection_depth();
                 if !defined && ctx.get_scan_type() == ScanType::NORMAL {
                     // Was previously scanning, but this conditional failed
@@ -87,7 +89,9 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
                 }
             },
             PreprocessToken::IfNDef(x) => {
-                let defined = ctx.is_defined(&x);
+                let defined = 
+                    ctx.get_definition(&x).is_some() ||
+                    ctx.get_macro_func(&x).is_some();
                 ctx.inc_selection_depth();
                 if defined && ctx.get_scan_type() == ScanType::NORMAL {
                     // Was previously scanning, but this conditional failed
@@ -148,6 +152,11 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
                     ctx.define(name, value);
                 }
             },
+            PreprocessToken::DefineMacro((name, func)) => {
+                if ctx.get_scan_type() == ScanType::NORMAL {
+                    ctx.define_func(name, func);
+                }
+            }
             PreprocessToken::Undef(ident) => {
                 if ctx.get_scan_type() == ScanType::NORMAL {
                     ctx.undefine(&ident);

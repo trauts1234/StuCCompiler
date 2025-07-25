@@ -47,7 +47,10 @@ fn fix_defined(mut tokens: Vec<Token>, ctx: &PreprocessContext) -> Vec<Token> {
         };
 
         tokens.insert(idx, Token::NUMBER(
-            NumberLiteral::INTEGER{data: if ctx.is_defined(&macro_name) {1} else {0}, data_type: IntegerType::I32}
+            NumberLiteral::INTEGER {
+                data: if ctx.get_definition(&macro_name).is_some() || ctx.get_macro_func(&macro_name).is_some() {1} else {0},
+                data_type: IntegerType::I32
+            }
         ));
 
         fix_defined(tokens, ctx)//recursively handle any others
@@ -58,38 +61,34 @@ fn fix_defined(mut tokens: Vec<Token>, ctx: &PreprocessContext) -> Vec<Token> {
 
 /// Substitutes definitions for macros, except ones with the name `excluded_ident`
 pub fn sub_definitions(mut tokens: Vec<Token>, ctx: &PreprocessContext, excluded_ident: &Vec<String>) -> Vec<Token> {
-    if let Some((i, macro_name, definition)) = tokens.iter()
-        .enumerate()
-        .filter_map(|(i, tok)| 
-            if let Some((macro_name, macro_definition)) = is_replacable_macro(tok, ctx, excluded_ident) {
-                Some((i, macro_name, macro_definition))
-            } else {None}
-        )
-        .map(|(i, m, d)| (i, m.clone(), d))
-        .next()
-    {
-        //recursively handle the definition
-        let mut definition_exclusions = excluded_ident.clone();
-        definition_exclusions.push(macro_name.clone());
-        let definition = sub_definitions(definition, ctx, &definition_exclusions);
+    let mut i = 0;
+    loop {
+        if i >= tokens.len() { break }//reached end of tokens
+        match tokens[i].clone() {
 
-        let after = tokens.split_off(i+1);//get code after the match
-        assert_eq!(tokens.pop(), Some(Token::IDENTIFIER(macro_name)));//pop the macro name
-        tokens.extend(definition);//push the definition
-        tokens.extend(sub_definitions(after, ctx, excluded_ident));//preprocess the remainder
+            Token::IDENTIFIER(macro_name) if is_replacable_macro(&macro_name, ctx, excluded_ident).is_some() => {
+                //simple macro
+                let definition = ctx.get_definition(&macro_name).unwrap();//get replacement
+                let mut definition_exclusions =  excluded_ident.clone();
+                definition_exclusions.push(macro_name);
+                let definition = sub_definitions(definition, ctx, &definition_exclusions);//recursively substitute the replacement
+                let definition_length = definition.len();
+                tokens.splice(i..=i, definition);//replace the macro name with the definition
+                i += definition_length;//skip over it as it has already had definitions substituted
+            }
+
+
+            _ => {i+=1}//skip over this token
+        }
     }
 
     tokens
 }
 
-fn is_replacable_macro(token: &Token, ctx: &PreprocessContext, excluded_identifiers: &Vec<String>) -> Option<(String, Vec<Token>)> {
-    if let Token::IDENTIFIER(ident) = token {
-        let definition = ctx.get_definition(ident)?;
-        if excluded_identifiers.contains(ident) {
-            return None;//excluded
-        }
-        Some((ident.to_string(), definition))//identifier maps to a macro
-    } else {
-        None//not and identifier
+fn is_replacable_macro(ident: &String, ctx: &PreprocessContext, excluded_identifiers: &Vec<String>) -> Option<Vec<Token>> {
+    let definition = ctx.get_definition(ident)?;
+    if excluded_identifiers.contains(ident) {
+        return None;//excluded
     }
+    Some(definition)//identifier maps to a macro
 }
