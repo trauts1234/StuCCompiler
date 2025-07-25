@@ -1,6 +1,6 @@
 use std::{fs, path::{Path, PathBuf}};
 
-use crate::{lexer::token::Token, number_literal::typed_value::NumberLiteral, preprocessor::{preprocess_constant_fold::{fold, is_true, sub_definitions}, preprocess_context::ScanType, preprocess_token::{LineNumbered, PreprocessLine, PreprocessToken}}};
+use crate::{lexer::token::Token, number_literal::typed_value::NumberLiteral, preprocessor::{preprocess_constant_fold::{fold, is_true, sub_definitions}, preprocess_context::ScanType, preprocess_token::{LineNumbered, PreprocessToken}}};
 
 use super::preprocess_context::PreprocessContext;
 
@@ -36,11 +36,11 @@ fn handle_includes(tokens: Vec<LineNumbered>, include_limit: i32) -> Vec<LineNum
     .into_iter()
     .flat_map(|tok| -> Box<dyn Iterator<Item = LineNumbered>> {
         match tok.data {
-            PreprocessToken::Preprocessor(PreprocessLine::IncludeFile(path)) => {
+            PreprocessToken::IncludeFile(path) => {
                 let path = PathBuf::try_from(path).unwrap();
                 Box::new(handle_includes(read_tokenise(&path), include_limit-1).into_iter())
             },
-            PreprocessToken::Preprocessor(PreprocessLine::IncludeLib(include_filename)) => {
+            PreprocessToken::IncludeLib(include_filename) => {
                 let path = find_first_working_path(INCLUDE_FOLDERS, &include_filename).expect("couldn't find a folder that had that header");
                 Box::new(handle_includes(read_tokenise(&path), include_limit-1).into_iter())
             },
@@ -57,102 +57,100 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
     for tok in tokens {
         ctx.set_line_number(tok.line_num);
         match tok.data {
-            PreprocessToken::Preprocessor(preprocess) => match preprocess {
-                PreprocessLine::NullDirective => {},//this does nothing
-                PreprocessLine::IncludeLib(_) |
-                PreprocessLine::IncludeFile(_) => panic!("you need to substitute includes before handling preprocessor commands"),
+            PreprocessToken::NullDirective => {},//this does nothing
+            PreprocessToken::IncludeLib(_) |
+            PreprocessToken::IncludeFile(_) => panic!("you need to substitute includes before handling preprocessor commands"),
 
-                PreprocessLine::LineDirective((new_line, new_file)) => {
-                    match new_line {
-                        NumberLiteral::INTEGER { data, .. } => ctx.override_line_number(data.try_into().unwrap()),
-                        _ => panic!("found float when trying to set line number with #line")
-                    }
-                    if let Some(new_filename) = new_file {
-                        println!("new filename {:?}", new_filename);
-                        ctx.override_filename(new_filename);
-                    }
+            PreprocessToken::LineDirective((new_line, new_file)) => {
+                match new_line {
+                    NumberLiteral::INTEGER { data, .. } => ctx.override_line_number(data.try_into().unwrap()),
+                    _ => panic!("found float when trying to set line number with #line")
                 }
-
-                PreprocessLine::Error(err) => {
-                    if ctx.get_scan_type() == ScanType::NORMAL {
-                        panic!("encountered {}", err);
-                    }
+                if let Some(new_filename) = new_file {
+                    println!("new filename {:?}", new_filename);
+                    ctx.override_filename(new_filename);
                 }
+            }
 
-                PreprocessLine::IfDef(x) => {
-                    let defined = ctx.is_defined(&x);
-                    ctx.inc_selection_depth();
-                    if !defined && ctx.get_scan_type() == ScanType::NORMAL {
-                        // Was previously scanning, but this conditional failed
-                        ctx.set_scan_type(ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()));
-                    }
-                },
-                PreprocessLine::IfNDef(x) => {
-                    let defined = ctx.is_defined(&x);
-                    ctx.inc_selection_depth();
-                    if defined && ctx.get_scan_type() == ScanType::NORMAL {
-                        // Was previously scanning, but this conditional failed
-                        ctx.set_scan_type(ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()));
-                    }
-                },
+            PreprocessToken::Error(err) => {
+                if ctx.get_scan_type() == ScanType::NORMAL {
+                    panic!("encountered {}", err);
+                }
+            }
 
-                PreprocessLine::If(condition_tokens) => {
-                    let condition: bool = is_true(fold(condition_tokens, &ctx));
-                    ctx.inc_selection_depth();
-                    if !condition && ctx.get_scan_type() == ScanType::NORMAL {
-                        // Was previously scanning, but this conditional failed
-                        ctx.set_scan_type(ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()));
-                    }
-                },
-                PreprocessLine::Pragma(_) => todo!(),
-                PreprocessLine::Endif => {
-                    ctx.dec_selection_depth();
+            PreprocessToken::IfDef(x) => {
+                let defined = ctx.is_defined(&x);
+                ctx.inc_selection_depth();
+                if !defined && ctx.get_scan_type() == ScanType::NORMAL {
+                    // Was previously scanning, but this conditional failed
+                    ctx.set_scan_type(ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()));
+                }
+            },
+            PreprocessToken::IfNDef(x) => {
+                let defined = ctx.is_defined(&x);
+                ctx.inc_selection_depth();
+                if defined && ctx.get_scan_type() == ScanType::NORMAL {
+                    // Was previously scanning, but this conditional failed
+                    ctx.set_scan_type(ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()));
+                }
+            },
 
-                    match ctx.get_scan_type() {
-                        //skipping in a previous scope, now i'm back to normal
-                        ScanType::FINDINGTRUEBRANCH(dep) |
-                        ScanType::SKIPPINGBRANCH(dep) if ctx.selection_depth() < dep => {
-                            ctx.set_scan_type(ScanType::NORMAL);
-                        }
+            PreprocessToken::If(condition_tokens) => {
+                let condition: bool = is_true(fold(condition_tokens, &ctx));
+                ctx.inc_selection_depth();
+                if !condition && ctx.get_scan_type() == ScanType::NORMAL {
+                    // Was previously scanning, but this conditional failed
+                    ctx.set_scan_type(ScanType::FINDINGTRUEBRANCH(ctx.selection_depth()));
+                }
+            },
+            PreprocessToken::Pragma(_) => todo!(),
+            PreprocessToken::Endif => {
+                ctx.dec_selection_depth();
 
-                        // Normal, or skipping in an outer scope, so I don't have to change anything
-                        _ => {}
+                match ctx.get_scan_type() {
+                    //skipping in a previous scope, now i'm back to normal
+                    ScanType::FINDINGTRUEBRANCH(dep) |
+                    ScanType::SKIPPINGBRANCH(dep) if ctx.selection_depth() < dep => {
+                        ctx.set_scan_type(ScanType::NORMAL);
                     }
-                },
 
-                PreprocessLine::Else => {
-                    ctx.set_scan_type(match ctx.get_scan_type() {
-                        ScanType::NORMAL => ScanType::SKIPPINGBRANCH(ctx.selection_depth()),//because I was in a taken branch, the else is not taken, so skip until out of it
-                        ScanType::FINDINGTRUEBRANCH(dep) if dep == ctx.selection_depth() => ScanType::NORMAL,//because I was looking for a branch at the current level and else is a catch-all, take it
-                        
-                        x => x// if already skipping, continue to do so. if finding true branch in outer scope, leave it be
-                    })
-                },
-                PreprocessLine::Elif(condition_tokens) => {
-                    let condition: bool = is_true(fold(condition_tokens, &ctx));
-                    match ctx.get_scan_type() {
-                        ScanType::NORMAL => {
-                            //was previously on taken branch, now skip all branches at this depth
-                            ctx.set_scan_type(ScanType::SKIPPINGBRANCH(ctx.selection_depth()));
-                        }
+                    // Normal, or skipping in an outer scope, so I don't have to change anything
+                    _ => {}
+                }
+            },
 
-                        ScanType::FINDINGTRUEBRANCH(dep) if dep == ctx.selection_depth() && condition => {
-                            // Was previously looking for a true branch, and this one is it
-                            ctx.set_scan_type(ScanType::NORMAL);
-                        }
+            PreprocessToken::Else => {
+                ctx.set_scan_type(match ctx.get_scan_type() {
+                    ScanType::NORMAL => ScanType::SKIPPINGBRANCH(ctx.selection_depth()),//because I was in a taken branch, the else is not taken, so skip until out of it
+                    ScanType::FINDINGTRUEBRANCH(dep) if dep == ctx.selection_depth() => ScanType::NORMAL,//because I was looking for a branch at the current level and else is a catch-all, take it
+                    
+                    x => x// if already skipping, continue to do so. if finding true branch in outer scope, leave it be
+                })
+            },
+            PreprocessToken::Elif(condition_tokens) => {
+                let condition: bool = is_true(fold(condition_tokens, &ctx));
+                match ctx.get_scan_type() {
+                    ScanType::NORMAL => {
+                        //was previously on taken branch, now skip all branches at this depth
+                        ctx.set_scan_type(ScanType::SKIPPINGBRANCH(ctx.selection_depth()));
+                    }
 
-                        _ => {}//either continue trying to find a true branch or continue skipping depending on conditions
+                    ScanType::FINDINGTRUEBRANCH(dep) if dep == ctx.selection_depth() && condition => {
+                        // Was previously looking for a true branch, and this one is it
+                        ctx.set_scan_type(ScanType::NORMAL);
                     }
-                },
-                PreprocessLine::DefineToken((name, value)) => {
-                    if ctx.get_scan_type() == ScanType::NORMAL {
-                        ctx.define(name, value);
-                    }
-                },
-                PreprocessLine::Undef(ident) => {
-                    if ctx.get_scan_type() == ScanType::NORMAL {
-                        ctx.undefine(&ident);
-                    }
+
+                    _ => {}//either continue trying to find a true branch or continue skipping depending on conditions
+                }
+            },
+            PreprocessToken::DefineToken((name, value)) => {
+                if ctx.get_scan_type() == ScanType::NORMAL {
+                    ctx.define(name, value);
+                }
+            },
+            PreprocessToken::Undef(ident) => {
+                if ctx.get_scan_type() == ScanType::NORMAL {
+                    ctx.undefine(&ident);
                 }
             }
             

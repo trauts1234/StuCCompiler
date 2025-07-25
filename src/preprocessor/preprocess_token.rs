@@ -16,10 +16,10 @@ impl Debug for LineNumbered {
 }
 
 #[derive(Clone, Logos, Debug)]
-#[logos(skip " ")]
-pub enum PreprocessLine {
-
-    #[regex("include *<[^>]+>\n", |x| {
+#[logos(skip "[ \n]")]
+pub enum PreprocessToken {
+    
+    #[regex("#[ \n]*include *<[^>]+>\n", |x| {
         let slice = x.slice();
         let start_idx = slice.find("<").unwrap() + 1;
         let end_idx = slice.rfind(">").unwrap();
@@ -27,7 +27,7 @@ pub enum PreprocessLine {
     })]
     IncludeLib(String),
 
-    #[regex("include *\"[^\"]+\".*\n", |x| {
+    #[regex("#[ \n]*include *\"[^\"]+\".*\n", |x| {
         let slice = x.slice();
         let start_idx = slice.find("\"").unwrap() + 1;
         let end_idx = slice.rfind("\"").unwrap();
@@ -35,24 +35,24 @@ pub enum PreprocessLine {
     })]
     IncludeFile(String),
 
-    #[regex("ifdef +", |x| {
+    #[regex("#[ \n]*ifdef +", |x| {
         let macro_name = x.remainder().split_once("\n").unwrap().0;
         x.bump(macro_name.len() + 1);//skip the macro name and newline
         macro_name.to_string()
     })]
     IfDef(String),
 
-    #[regex("ifndef +", |x| {
+    #[regex("#[ \n]*ifndef +", |x| {
         let macro_name = x.remainder().split_once("\n").unwrap().0;
         x.bump(macro_name.len() + 1);//skip the macro name and newline
         macro_name.to_string()
     })]
     IfNDef(String),
 
-    #[regex("if", Token::parse_logical_line, priority=10)]
+    #[regex("#[ \n]*if", Token::parse_logical_line, priority=10)]
     If(Vec<Token>),
 
-    #[regex("pragma.+\n", |x| {
+    #[regex("#[ \n]*pragma.+\n", |x| {
         x.slice()
         .split_once("pragma").unwrap()
         .1
@@ -61,16 +61,16 @@ pub enum PreprocessLine {
     })]
     Pragma(String),
 
-    #[regex("endif.*\n")]
+    #[regex("#[ \n]*endif.*\n")]
     Endif,
 
-    #[regex("else.*\n",)]
+    #[regex("#[ \n]*else.*\n",)]
     Else,
 
-    #[regex("elif", Token::parse_logical_line)]
+    #[regex("#[ \n]*elif", Token::parse_logical_line)]
     Elif(Vec<Token>),
 
-    #[regex("define +\\w*", |lex| {
+    #[regex("#[ \n]*define +\\w*", |lex| {
         //TODO what about #define/*bob */foo bar
         let macro_name = lex.slice()
             .split_once("define").expect("could not find 'define' in a #define macro")
@@ -84,17 +84,17 @@ pub enum PreprocessLine {
     })]
     DefineToken((String, Vec<Token>)),// #define x y
 
-    #[regex("undef +", |x| {// #  undef token  \n
+    #[regex("#[ \n]*undef +", |x| {// #  undef token  \n
         let macro_name = x.remainder().split_once("\n").unwrap().0;
         x.bump(macro_name.len() + 1);//skip the macro name and newline
         macro_name.to_string()
     })]
     Undef(String),
 
-    #[regex("error.+\n", |lex| {lex.slice().to_string()})]
+    #[regex("#[ \n]*error.+\n", |lex| {lex.slice().to_string()})]
     Error(String),
 
-    #[regex("line", |lex| {
+    #[regex("#[ \n]*line", |lex| {
         let text = Token::parse_logical_line(lex);
         match &text[..] {
             [Token::NUMBER(new_line_number)] => (new_line_number.clone(), None),
@@ -104,22 +104,8 @@ pub enum PreprocessLine {
     })]
     LineDirective((NumberLiteral, Option<StringLiteral>)),
 
-    #[token("\n")]
-    NullDirective
-}
-
-#[derive(Clone, Logos, Debug)]
-#[logos(skip "[ \n]")]
-pub enum PreprocessToken {
-    
-    #[token("#", |lex| {
-        let mut pl_lex = lex.clone().morph::<PreprocessLine>();
-        let result = pl_lex.next().unwrap();
-        *lex  = pl_lex.morph();
-
-        result
-    })]
-    Preprocessor(PreprocessLine),
+    #[regex("#[ ]*\n")]
+    NullDirective,
 
     #[regex("[^#]", |lex| {
         let start_idx = lex.span().start;
@@ -150,8 +136,7 @@ impl PreprocessToken {
 
                 Err(_) => {
                     let rem = iterator.remainder();
-                    //println!("result: {:?}", result);
-                    panic!("error when collecting preprocessor lines. remainder: {}{}", iterator.slice(), &rem[..usize::min(100, rem.len())]);
+                    panic!("error when collecting preprocessor lines. remainder: {:?}{:?}", iterator.slice(), &rem[..usize::min(100, rem.len())]);
                 }
             }
         }
