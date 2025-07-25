@@ -11,8 +11,6 @@ pub fn preprocess_c_file(filename: &Path) -> Vec<Token> {
 
     let include_handled = handle_includes(initial_tokens, 10);
 
-    println!("{:?}", include_handled);
-
     handle_preprocessor_commands(include_handled, filename.file_name().unwrap().to_str().unwrap())
 }
 
@@ -226,7 +224,7 @@ fn remove_comments(data: &[char]) -> String {
                 result.push(' ');//push whitespace to ensure that multiline comment becomes a whitespace character of some sort
                 continue;//don't push the '/'
             }
-            //(State::MultilineComment, _, '\n') => {}//newlines in multiline comments are preserved
+            (State::MultilineComment, _, '\n') => {}//newlines in multiline comments are preserved - note that this causes problems
             (State::MultilineComment, _, _) => continue,//skip character in comment
 
             (State::CharLit, Some('\\'), _) => {}//escaped charcacter, take it
