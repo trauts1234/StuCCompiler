@@ -23,16 +23,17 @@ pub struct MacroFunction {
 
 impl MacroFunction {
     pub fn new_from(lex: &mut Lexer<PreprocessToken>) -> (String, Self) {
-        let mut tokens_after = VecDeque::from(Token::parse_logical_line(lex));
-        let mut result = Self::default();
-
+        
         let macro_name = lex.slice()
             .split_once("define").expect("could not find 'define' in a #define macro")
             .1
             .trim_end_matches("(")//remove the open bracket
             .trim()//get the x part of #define x(y) foo
             .to_string();
-
+    
+        let mut tokens_after = VecDeque::from(Token::parse_logical_line(lex));
+        let mut result = Self::default();
+        
         'param_gather: loop {
             let next = tokens_after.pop_front().unwrap();
             match next {
