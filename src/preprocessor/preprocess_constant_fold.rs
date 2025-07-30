@@ -1,13 +1,15 @@
+use std::collections::HashMap;
+
 use unwrap_let::unwrap_let;
 
-use crate::{compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::base_type::IntegerType, expression::expression::try_consume_whole_expr, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::{ typed_value::NumberLiteral}, parse_data::ParseData, preprocessor::preprocess_context::PreprocessContext};
+use crate::{compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::base_type::IntegerType, expression::expression::try_consume_whole_expr, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, preprocessor::{preprocess_context::PreprocessContext, preprocess_token::MacroFunction}};
 
 /// Folds a constant for #if statements
 pub fn fold(tokens: Vec<Token>, ctx: &PreprocessContext) -> ConstexprValue {
     //replace defined(x) with 1 or 0
     let tokens = fix_defined(tokens, ctx);
     //replace the remaining macros
-    let tokens = sub_definitions(tokens, ctx, &Vec::new());
+    let tokens = sub_definitions(tokens, ctx, &Vec::new(), &HashMap::new());
     let tokens = TokenQueue::new(tokens);
     let slice = TokenQueueSlice::new();
 
@@ -60,31 +62,65 @@ fn fix_defined(mut tokens: Vec<Token>, ctx: &PreprocessContext) -> Vec<Token> {
 }
 
 /// Substitutes definitions for macros, except ones with the name `excluded_ident`
-pub fn sub_definitions(mut tokens: Vec<Token>, ctx: &PreprocessContext, excluded_ident: &Vec<String>) -> Vec<Token> {
-    let mut i = 0;
+/// 
+/// TODO perhaps an `outer variables` param that contains substitutable parameters, to substitute macro function params
+pub fn sub_definitions(tokens: Vec<Token>, ctx: &PreprocessContext, excluded_ident: &Vec<String>, substitutions: &HashMap<String, Vec<Token>>) -> Vec<Token> {
+    let queue = TokenQueue::new(tokens);
+    let mut rem = TokenQueueSlice::new();
+    let mut result = Vec::new();
     loop {
-        if i >= tokens.len() { break }//reached end of tokens
-        match tokens[i].clone() {
+        if queue.no_remaining_tokens(&rem) { break }//reached end of tokens
+        match queue.consume(&mut rem, &ParseData::make_empty()).unwrap() {
 
             Token::IDENTIFIER(macro_name) if ctx.get_definition(&macro_name).is_some() && !excluded_ident.contains(&macro_name) => {
                 //simple macro
                 let definition = ctx.get_definition(&macro_name).unwrap();//get replacement
                 let mut definition_exclusions =  excluded_ident.clone();
                 definition_exclusions.push(macro_name);
-                let definition = sub_definitions(definition, ctx, &definition_exclusions);//recursively substitute the replacement
-                let definition_length = definition.len();
-                tokens.splice(i..=i, definition);//replace the macro name with the definition
-                i += definition_length;//skip over it as it has already had definitions substituted
+                let definition = sub_definitions(definition, ctx, &definition_exclusions, substitutions);//recursively substitute the replacement
+                result.extend(definition);//add the replacement
             }
 
             Token::IDENTIFIER(macro_name) if ctx.get_macro_func(&macro_name).is_some() && !excluded_ident.contains(&macro_name) => {
-                todo!()
+                //get the definition
+                let MacroFunction {body, params} = ctx.get_macro_func(&macro_name).unwrap();
+                //find the end of the param list
+                let close_bracket = queue.find_matching_close_bracket(rem.index);
+                //consume the "("
+                assert_eq!(queue.consume(&mut rem, &ParseData::make_empty()).unwrap(), Token::PUNCTUATOR(Punctuator::OPENCURLY));
+
+                //get the args
+                let args_slice = TokenQueueSlice{index:rem.index, max_index: close_bracket};
+                let args = queue.split_outside_parentheses(&args_slice, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
+                
+                let mut param_substitutions = substitutions.clone();//start with existing substitutions
+                for (param, arg) in params.into_iter().zip(args.into_iter()) {
+                    //get the param and match it to the arg
+                    println!("substituting {:?} for {:?}", param, &queue.tokens[arg.index..arg.max_index]);
+                    param_substitutions.insert(param, queue.tokens[arg.index..arg.max_index].to_vec());
+                }
+
+                let mut definition_exclusions =  excluded_ident.clone();
+                definition_exclusions.push(macro_name);
+
+                let body = sub_definitions(body, ctx, &definition_exclusions, &param_substitutions);
+                result.extend(body);
+
+                //consume the close bracket
+                rem.index = close_bracket;//skip the already-handled param list
+                assert_eq!(queue.consume(&mut rem, &ParseData::make_empty()).unwrap(), Token::PUNCTUATOR(Punctuator::CLOSECURLY));
+            }
+
+            Token::IDENTIFIER(sub_name) if substitutions.contains_key(&sub_name) => {
+                //TODO perhaps this has priority over macros?
+                //substitute the definition
+                result.extend(substitutions.get(&sub_name).unwrap().iter().cloned());
             }
 
 
-            _ => {i+=1}//skip over this token
+            x => {result.push(x);}//normal token
         }
     }
-
-    tokens
+ 
+    result
 }

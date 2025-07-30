@@ -1,4 +1,4 @@
-use std::{fs, path::{Path, PathBuf}};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}};
 
 use crate::{lexer::token::Token, number_literal::typed_value::NumberLiteral, preprocessor::{preprocess_constant_fold::{fold, is_true, sub_definitions}, preprocess_context::ScanType, preprocess_token::{LineNumbered, PreprocessToken}}};
 
@@ -165,7 +165,7 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
             
             PreprocessToken::LineOfCode(line) => {
                 if ctx.get_scan_type() == ScanType::NORMAL {
-                    result.extend(sub_definitions(line, &ctx, &Vec::new()));
+                    result.extend(sub_definitions(line, &ctx, &Vec::new(), &HashMap::new()));
                 }
             },
         }

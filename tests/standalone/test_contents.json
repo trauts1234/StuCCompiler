@@ -603,5 +603,9 @@
         "filename":"fileandlinemacros.c",
         "stdout":"fileandlinemacros.chello world.c",
         "return_code":0
+    },
+    {
+        "filename":"simplefunctionmacro.c",
+        "return_code":2
     }
 ]

@@ -153,7 +153,6 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
             (FloatType::F32, FloatType::F64) => format!("{}\ncvtss2sd xmm0, xmm0\n{}", acc_to_xmm(), xmm_to_acc()),
             (FloatType::F64, FloatType::F32) => format!("{}\ncvtsd2ss xmm0, xmm0\n{}", acc_to_xmm(), xmm_to_acc()),
         }
-        (lhs, rhs) => todo!("cast {} to {}", lhs, rhs)
     }
 }
 

@@ -17,8 +17,8 @@ impl Debug for LineNumbered {
 
 #[derive(Debug, Clone, Default)]
 pub struct MacroFunction {
-    params: Vec<String>,
-    body: Vec<Token>
+    pub params: Vec<String>,
+    pub body: Vec<Token>
 }
 
 impl MacroFunction {
