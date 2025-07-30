@@ -2,7 +2,7 @@ use std::{collections::VecDeque, fmt::Debug};
 
 use logos::{ Lexer, Logos};
 
-use crate::{lexer::{punctuator::Punctuator, token::Token}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
+use crate::lexer::{punctuator::Punctuator, token::Token};
 
 pub struct LineNumbered {
     pub line_num: i32,
@@ -134,14 +134,9 @@ pub enum PreprocessToken {
     Error(String),
 
     #[regex("#[ \n]*line", |lex| {
-        let text = Token::parse_logical_line(lex);
-        match &text[..] {
-            [Token::NUMBER(new_line_number)] => (new_line_number.clone(), None),
-            [Token::NUMBER(new_line_number), Token::STRING(new_filename)] => (new_line_number.clone(), Some(new_filename.clone())),
-            x => panic!("invalid tokens after #line: {:?}", &x)
-        }
+        Token::parse_logical_line(lex)
     })]
-    LineDirective((NumberLiteral, Option<StringLiteral>)),
+    LineDirective(Vec<Token>),
 
     #[regex("#[ ]*\n")]
     NullDirective,

@@ -1,5 +1,7 @@
 use std::{collections::HashMap, fs, path::{Path, PathBuf}};
 
+use unwrap_let::unwrap_let;
+
 use crate::{lexer::token::Token, number_literal::typed_value::NumberLiteral, preprocessor::{preprocess_constant_fold::{fold, is_true, sub_definitions}, preprocess_context::ScanType, preprocess_token::{LineNumbered, PreprocessToken}}};
 
 use super::preprocess_context::PreprocessContext;
@@ -61,14 +63,16 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
             PreprocessToken::IncludeLib(_) |
             PreprocessToken::IncludeFile(_) => panic!("you need to substitute includes before handling preprocessor commands"),
 
-            PreprocessToken::LineDirective((new_line, new_file)) => {
-                match new_line {
-                    NumberLiteral::INTEGER { data, .. } => ctx.override_line_number(data.try_into().unwrap()),
-                    _ => panic!("found float when trying to set line number with #line")
-                }
-                if let Some(new_filename) = new_file {
-                    println!("new filename {:?}", new_filename);
-                    ctx.override_filename(new_filename);
+            PreprocessToken::LineDirective(text) => {
+                //sub macros
+                let text = sub_definitions(text, &ctx, &Vec::new(), &HashMap::new());
+
+                assert!(matches!(text.len(), 1..=2));
+                unwrap_let!(Token::NUMBER(NumberLiteral::INTEGER { data:new_line,.. }) = text[0]);
+                ctx.override_line_number(new_line.try_into().unwrap());
+
+                if let Some(Token::STRING(new_filename)) = text.get(1) {
+                    ctx.override_filename(new_filename.clone());
                 }
             }
 

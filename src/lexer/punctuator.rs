@@ -40,6 +40,7 @@ pub enum Punctuator {
     OPENSQUARE,
     CLOSESQUARE,
     COMMA,
+    QuestionMark,
 
     /// +=
     AdditionCombination,
@@ -93,6 +94,7 @@ impl Punctuator {
 
             "." => Some(Self::FULLSTOP),
             "..." => Some(Self::ELIPSIS),
+            //some are missing here as they are handled by logos
             _ => None
         }
     }
@@ -188,6 +190,7 @@ impl Display for Punctuator {
             Punctuator::OPENSQUARE => "[",
             Punctuator::CLOSESQUARE => "]",
             Punctuator::COMMA => ",",
+            Punctuator::QuestionMark => "?",
             Punctuator::AdditionCombination => "+=",
             Punctuator::SubtractionCombination => "-=",
             Punctuator::FULLSTOP => ".",

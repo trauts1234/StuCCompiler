@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use crate::{asm_gen_data::GetStruct, binary_expression::BinaryExpression, data_type::base_type::{FloatType, IntegerType, ScalarType}, expression::expression::Expression};
+use crate::{asm_gen_data::GetStruct, data_type::base_type::{FloatType, IntegerType, ScalarType}, expression::expression::Expression};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
