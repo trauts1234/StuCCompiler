@@ -2,7 +2,7 @@
  * tests using the test suite from https://github.com/fujitsu/compiler-test-suite/tree/main
  */
 
-use std::{fs, path::PathBuf, process::{Command, Stdio}, str::FromStr};
+use std::{fs::{self, OpenOptions}, io::Write, path::PathBuf, process::{Command, Stdio}, str::FromStr};
 
 use unwrap_let::unwrap_let;
 
@@ -10,12 +10,36 @@ use crate::compile;
 
 use super::file_tools::{find_c_files, find_folders};
 
+struct PassedTests {
+    paths: Vec<PathBuf>
+}
+impl PassedTests {
+    pub fn new(file_text: String) -> Self {
+        let mut paths = Vec::new();
+        for line in file_text.lines() {
+            paths.push(line.try_into().unwrap());
+        }
+        Self{paths}
+    }
+    pub fn previously_passed(&self, path: &PathBuf) -> bool {
+        self.paths.contains(path)
+    }
+}
+
 #[test]
 // #[ignore = "not yet implemented"]
 fn test_all() {
     let test_folder = PathBuf::from_str("tests/fujitsu_testsuite").unwrap();
 
     let output_filename = test_folder.join("test_output.out");
+
+    let success_paths_filename = test_folder.join("successful_tests.txt");
+    let previous_passes = PassedTests::new(fs::read_to_string(success_paths_filename.clone()).unwrap());//keeps track of previously passed tests
+    //write filenames of new passes
+    let mut new_passes = OpenOptions::new()
+        .append(true)
+        .open(success_paths_filename)
+        .unwrap();
 
     for subfolder_path in find_folders(&test_folder) {
         for c_file_path in find_c_files(&subfolder_path) {
@@ -46,6 +70,7 @@ fn test_all() {
                 .expect("Failed to run test case");
     
             println!("testing results for {:?}", c_file_path.file_name().unwrap());
+            println!("previously passed this test: {}", previous_passes.previously_passed(&c_file_path));
 
             //if I have some results to compare, check them
             if let Some((return_code, stdout_text)) = expected_output {
@@ -53,6 +78,12 @@ fn test_all() {
                 assert_eq!(binary_command.status.code().expect("binary was terminated by OS signal?"), return_code);
                 //check stdout
                 assert_eq!(String::from_utf8_lossy(&binary_command.stdout).trim_end_matches("\n"), stdout_text);
+            }
+
+            if !previous_passes.previously_passed(&c_file_path) {
+                //yay! I passed a new test
+                new_passes.write_all(format!("{}\n", c_file_path.display()).as_bytes()).unwrap();
+                new_passes.flush().unwrap();//just in case I inevetably crash
             }
     
         }
