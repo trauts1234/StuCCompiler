@@ -68,9 +68,9 @@ fn test_all() {
             let binary_command = binary_process
                 .wait_with_output()
                 .expect("Failed to run test case");
-    
-            println!("testing results for {:?}", c_file_path.file_name().unwrap());
-            println!("previously passed this test: {}", previous_passes.previously_passed(&c_file_path));
+
+            let prev_passed_msg = if previous_passes.previously_passed(&c_file_path) {"(previously passed)"} else {""};
+            println!("testing results for {:?} {}", c_file_path.file_name().unwrap(), prev_passed_msg);
 
             //if I have some results to compare, check them
             if let Some((return_code, stdout_text)) = expected_output {
