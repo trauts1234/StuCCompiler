@@ -55,6 +55,7 @@ impl PreprocessContext {
                 Some(vec![Token::NUMBER(NumberLiteral::INTEGER { data, data_type: IntegerType::I32 })])
             }
             "__FILE__" => Some(vec![Token::STRING(self.file_name.clone())]),
+            "__STDC_VERSION__" => Some(vec![Token::NUMBER(NumberLiteral::INTEGER { data: 201710, data_type: IntegerType::I64 })]),
             _ => self.defined.get(name).cloned()
         }
     }
