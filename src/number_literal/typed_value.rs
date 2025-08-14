@@ -144,25 +144,27 @@ impl NumberLiteral {
         }
     }
 
-    pub fn cmp(self, other: Self, comparison: &ComparisonKind) -> Self {
+    pub fn cmp(self, other: Self, comparison: &ComparisonKind) -> bool {
         let (lhs, rhs) = self.binary_promote(other);
 
-        let cmp_result = match (lhs, rhs) {
+        let comparison_value = match (lhs, rhs) {
             (NumberLiteral::INTEGER{data: x,..}, NumberLiteral::INTEGER{data: y,..}) => x.cmp(&y),
             (NumberLiteral::INTEGER{data: x,..}, NumberLiteral::FLOAT{data: y,..}) => cmp_i128_f64(x, y),
             (NumberLiteral::FLOAT{data: x,..}, NumberLiteral::INTEGER{data: y,..}) => cmp_i128_f64(y, x).reverse(),
             (NumberLiteral::FLOAT{data: x,..}, NumberLiteral::FLOAT{data: y,..}) => x.partial_cmp(&y).unwrap(),
         };
 
-        match comparison {
-            ComparisonKind::EQ => Self::INTEGER{data: cmp_result.is_eq() as i128, data_type: IntegerType::_BOOL},
-            ComparisonKind::NE => Self::INTEGER{data: cmp_result.is_ne() as i128, data_type: IntegerType::_BOOL},
-            ComparisonKind::L => Self::INTEGER{data: cmp_result.is_lt() as i128, data_type: IntegerType::_BOOL},
-            ComparisonKind::LE => Self::INTEGER{data: cmp_result.is_le() as i128, data_type: IntegerType::_BOOL},
-            ComparisonKind::G => Self::INTEGER{data: cmp_result.is_gt() as i128, data_type: IntegerType::_BOOL},
-            ComparisonKind::GE => Self::INTEGER{data: cmp_result.is_ge() as i128, data_type: IntegerType::_BOOL},
+        let cmp_result = match comparison {
+            ComparisonKind::EQ => comparison_value.is_eq(),
+            ComparisonKind::NE => comparison_value.is_ne(),
+            ComparisonKind::L => comparison_value.is_lt(),
+            ComparisonKind::LE => comparison_value.is_le(),
+            ComparisonKind::G => comparison_value.is_gt(),
+            ComparisonKind::GE => comparison_value.is_ge(),
             ComparisonKind::ALWAYS => panic!("invalid comparison")
-        }
+        };
+
+        cmp_result
     }
 
     pub fn bitwise_not(self) -> Self {
@@ -176,7 +178,10 @@ impl NumberLiteral {
 
     pub fn boolean_not(self) -> Self {
         // a == 0 is the same operation as !a
-        self.cmp(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I64 }, &ComparisonKind::EQ)
+        Self::INTEGER {
+            data: self.cmp(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I64 }, &ComparisonKind::EQ) as i128,
+            data_type: IntegerType::_BOOL
+        }
     }
 }
 

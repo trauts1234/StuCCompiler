@@ -26,7 +26,7 @@ impl ArrayInitialisation {
             });
         }
 
-        let items = tokens_queue.split_outside_parentheses(&curr_queue_idx, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
+        let items = tokens_queue.split_outside_parentheses(&curr_queue_idx, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all_brackets());
 
         let mut parsed = Vec::new();
 

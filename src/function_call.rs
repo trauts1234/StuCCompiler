@@ -155,7 +155,7 @@ impl FunctionCall {
             max_index: curr_queue_idx.max_index-1
         };
 
-        let args_slices = tokens_queue.split_outside_parentheses(&all_args_slice, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
+        let args_slices = tokens_queue.split_outside_parentheses(&all_args_slice, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all_brackets());
 
         let mut args = Vec::new();
 

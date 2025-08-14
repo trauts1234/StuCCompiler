@@ -16,14 +16,18 @@ pub struct TokenSearchType {
     pub(crate) skip_in_curly_brackets: bool,
     pub(crate) skip_in_square_brackets: bool,
     pub(crate) skip_in_squiggly_brackets: bool,
+    /// Skip B in "A ? B : C"
+    /// 
+    /// This may break stuff if labels or structs with bit fields are encountered
+    pub(crate) skip_in_ternary_true_branch: bool,
 }
 
 impl TokenSearchType {
     pub fn skip_nothing() -> TokenSearchType {
-        TokenSearchType { skip_in_curly_brackets: false, skip_in_square_brackets: false, skip_in_squiggly_brackets: false }
+        TokenSearchType { skip_in_curly_brackets: false, skip_in_square_brackets: false, skip_in_squiggly_brackets: false, skip_in_ternary_true_branch:false }
     }
-    pub fn skip_all() -> TokenSearchType {
-        TokenSearchType { skip_in_curly_brackets: true, skip_in_square_brackets: true, skip_in_squiggly_brackets: true }
+    pub fn skip_all_brackets() -> TokenSearchType {
+        TokenSearchType { skip_in_curly_brackets: true, skip_in_square_brackets: true, skip_in_squiggly_brackets: true, skip_in_ternary_true_branch: false }
     }
 
     /// returns true if the bracket is the start of a portion that needs to be skipped according to the search type
@@ -32,6 +36,7 @@ impl TokenSearchType {
             Punctuator::OPENCURLY if self.skip_in_curly_brackets => true,
             Punctuator::OPENSQUARE if self.skip_in_square_brackets => true,
             Punctuator::OPENSQUIGGLY if self.skip_in_squiggly_brackets => true,
+            Punctuator::QuestionMark if self.skip_in_ternary_true_branch => true,
             _ => false
         }
     }
@@ -42,6 +47,7 @@ impl TokenSearchType {
             Punctuator::CLOSECURLY if self.skip_in_curly_brackets => true,
             Punctuator::CLOSESQUARE if self.skip_in_square_brackets => true,
             Punctuator::CLOSESQUIGGLY if self.skip_in_squiggly_brackets => true,
+            Punctuator::COLON if self.skip_in_ternary_true_branch => true,
             _ => false
         }
     }
@@ -132,7 +138,7 @@ impl TokenQueue {
      * tries to find where a closure is first true within the slice
      * returns a slice from the matched token to the end of the input slice
      */
-    pub fn find_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Option<TokenQueueSlice> 
+    pub fn find_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Option<usize> 
     where Matcher: Fn(&Token) -> bool
     {
         let mut bracket_depth = 0;//how many sets of brackets I am in
@@ -166,7 +172,7 @@ impl TokenQueue {
                 }
 
                 tok if bracket_depth == 0 && predicate(&tok) => {//outside of brackets, matching the predicate, and bracket depth was not just changed
-                    return Some(TokenQueueSlice{index: i, max_index: slice.max_index});
+                    return Some(i);
                 }
                 
                 _ => {}
@@ -177,7 +183,7 @@ impl TokenQueue {
     }
 
     /**
-     * returns a list of zero size slices, that have an index of each token matching the predicate
+     * returns a list has indexes of each token matching the predicate
      */
     pub fn split_by_closure_matches<Matcher>(&self, slice: &TokenQueueSlice, scan_backwards: bool, predicate: Matcher, exclusions: &TokenSearchType) -> Vec<usize> 
     where Matcher: Fn(&Token) -> bool
@@ -211,7 +217,7 @@ impl TokenQueue {
      * splits the section of the token queue within bounds by the index specified
      * does not include the split index in either slice
      */
-    pub fn split_to_slices(&self, split_location: usize, bounds: &TokenQueueSlice) -> (TokenQueueSlice, TokenQueueSlice) {
+    pub fn split_at(&self, split_location: usize, bounds: &TokenQueueSlice) -> (TokenQueueSlice, TokenQueueSlice) {
         (
             TokenQueueSlice{
                 index: bounds.index, max_index: split_location

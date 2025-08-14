@@ -138,13 +138,13 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
 
     curr_queue_idx.index = remaining_slice.index;//consume it and let the calling function know
 
-    let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all()).unwrap();
+    let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all_brackets()).unwrap();
 
-    let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
+    let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx};
 
-    let declarator_segments = tokens_queue.split_outside_parentheses(&all_declarators_segment, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
+    let declarator_segments = tokens_queue.split_outside_parentheses(&all_declarators_segment, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all_brackets());
 
-    curr_queue_idx.index = semicolon_idx.index + 1;
+    curr_queue_idx.index = semicolon_idx + 1;
 
     declarator_segments
     .iter()//go through each comma separated declaration

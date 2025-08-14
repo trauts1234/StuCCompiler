@@ -111,6 +111,10 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
     fn visit_sizeof(&mut self, _: &crate::expression::sizeof_expression::SizeofExpr) -> Self::Output {
         panic!("sizeof never returns a struct")
     }
+    
+    fn visit_ternary(&mut self, ternary: &crate::expression::ternary::TernaryExpr) -> Self::Output {
+        todo!()
+    }
 }
 
 /**

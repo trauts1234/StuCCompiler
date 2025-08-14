@@ -23,11 +23,11 @@ impl InitialisedDeclaration {
         let mut curr_queue_idx = remaining_slice.clone();
 
         //find semicolon
-        let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all())?;
+        let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all_brackets())?;
         //find where all the declarators are (the x=2,y part in int x=2,y;)
-        let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx.index};
+        let all_declarators_segment = TokenQueueSlice{index:curr_queue_idx.index, max_index:semicolon_idx};
         //split each declarator
-        let declarator_segments = tokens_queue.split_outside_parentheses(&all_declarators_segment, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
+        let declarator_segments = tokens_queue.split_outside_parentheses(&all_declarators_segment, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all_brackets());
 
         for declarator_segment in declarator_segments {
             //try and consume the declarator
@@ -36,7 +36,7 @@ impl InitialisedDeclaration {
             }
         }
 
-        curr_queue_idx = TokenQueueSlice{index: semicolon_idx.index + 1, max_index: curr_queue_idx.max_index};//consume the semicolon
+        curr_queue_idx = TokenQueueSlice{index: semicolon_idx + 1, max_index: curr_queue_idx.max_index};//consume the semicolon
 
         Some(ASTMetadata {
             resultant_tree: declarations,

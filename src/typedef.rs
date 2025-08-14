@@ -13,7 +13,7 @@ impl Typedef {
         }
         //after here do not return none, as it must be a typedef
 
-        let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all()).unwrap().index;
+        let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all_brackets()).unwrap();
 
         //slice in which the data type is specified
         let type_slice = TokenQueueSlice {

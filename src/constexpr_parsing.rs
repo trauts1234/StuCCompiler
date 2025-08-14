@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, debugging::IRDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, expression::unary_prefix_expr::UnaryPrefixExpression};
+use crate::{assembly::comparison::ComparisonKind, binary_expression::BinaryExpression, data_type::base_type::IntegerType, debugging::IRDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::Expression, ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral};
 
 #[derive(Debug)]
 pub enum ConstexprValue {
@@ -25,6 +25,7 @@ impl TryFrom<&Expression> for ConstexprValue {
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.clone().try_into(),
             Expression::CAST(cast_expression) => todo!(),
             Expression::SIZEOF(sizeof_expr) => Err(format!("no asm_data in constant folding, so cannot evaluate sizeof")),//sizeof
+            Expression::TERNARYEXPRESSION(ternary) => ternary.clone().try_into(),
         }
     }
 }
@@ -74,11 +75,35 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
             (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BooleanOr, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l.boolean_or(r))),
             (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BooleanAnd, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l.boolean_and(r))),
 
-            (ConstexprValue::NUMBER(l), op, ConstexprValue::NUMBER(r)) if op.as_comparator_instr().is_some() => Ok(ConstexprValue::NUMBER(l.cmp(r, &op.as_comparator_instr().unwrap()))),
+            (ConstexprValue::NUMBER(l), op, ConstexprValue::NUMBER(r)) if op.as_comparator_instr().is_some() =>
+                Ok(ConstexprValue::NUMBER(NumberLiteral::INTEGER{
+                    data: l.cmp(r, &op.as_comparator_instr().unwrap()) as i128,
+                    data_type: IntegerType::_BOOL
+                })),
             
-
             _ => todo!("constexpr folding of binary operator {:?}", value.operator())
         }
+    }
+}
+
+impl TryFrom<TernaryExpr> for ConstexprValue {
+    type Error = String;
+
+    fn try_from(value: TernaryExpr) -> Result<Self, Self::Error> {
+        let true_branch: ConstexprValue = value.true_branch().try_into()?;
+        let false_branch: ConstexprValue = value.false_branch().try_into()?;
+        let condition: ConstexprValue = value.condition().try_into()?;
+
+        let condition_true = match condition {
+            ConstexprValue::NUMBER(num) => num.cmp(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I32 }, &ComparisonKind::NE),
+            _ => todo!("compare this data type")
+        };
+
+        Ok(if condition_true {
+            true_branch
+        } else {
+            false_branch
+        })
     }
 }
 

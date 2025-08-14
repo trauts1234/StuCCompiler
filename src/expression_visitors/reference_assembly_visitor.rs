@@ -1,6 +1,5 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
+use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
-use memory_size::MemorySize;
 
 /**
  * puts the address of the visited Expression in RAX
@@ -92,5 +91,9 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
     
     fn visit_sizeof(&mut self, _: &crate::expression::sizeof_expression::SizeofExpr) -> Self::Output {
         panic!("cannot get address of a sizeof");
+    }
+    
+    fn visit_ternary(&mut self, _: &crate::expression::ternary::TernaryExpr) -> Self::Output {
+        panic!("cannot get address of a ternary operator")
     }
 }

@@ -1,4 +1,4 @@
-use crate::{binary_expression::BinaryExpression, cast_expr::CastExpression, declaration::MinimalDataVariable, expression::{sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_prefix_expr::UnaryPrefixExpression}, function_call::FunctionCall, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
+use crate::{binary_expression::BinaryExpression, cast_expr::CastExpression, declaration::MinimalDataVariable, expression::{sizeof_expression::SizeofExpr, ternary::TernaryExpr, unary_postfix_expression::UnaryPostfixExpression, unary_prefix_expr::UnaryPrefixExpression}, function_call::FunctionCall, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
 
 
 //a test to see if a visitor pattern would be useful
@@ -15,5 +15,5 @@ pub trait ExprVisitor {
     fn visit_struct_member_access(&mut self, expr: &StructMemberAccess) -> Self::Output;
     fn visit_cast_expr(&mut self, expr: &CastExpression) -> Self::Output;
     fn visit_sizeof(&mut self, sizeof: &SizeofExpr) -> Self::Output;
-
+    fn visit_ternary(&mut self, ternary: &TernaryExpr) -> Self::Output;
 }

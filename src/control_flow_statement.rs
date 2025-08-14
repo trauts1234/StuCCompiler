@@ -19,11 +19,11 @@ impl ControlFlowChange {
             Keyword::RETURN => {
 
                 //try to find semicolon at end of return statement
-                let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all())?;
+                let semicolon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all_brackets())?;
 
                 let return_value_slice = TokenQueueSlice{//between return statement and ; non inclusive
                     index: curr_queue_idx.index, 
-                    max_index: semicolon_idx.index
+                    max_index: semicolon_idx
                 };
 
                 let return_value = match return_value_slice.get_slice_size() {
@@ -31,7 +31,7 @@ impl ControlFlowChange {
                     1.. => Some(expression::try_consume_whole_expr(tokens_queue, &return_value_slice, scope_data, struct_label_gen).unwrap())
                 };
 
-                Some(ASTMetadata { resultant_tree: Self::RETURN(return_value), remaining_slice: semicolon_idx.next_clone() })
+                Some(ASTMetadata { resultant_tree: Self::RETURN(return_value), remaining_slice: TokenQueueSlice { index: semicolon_idx, max_index: curr_queue_idx.max_index } })
             }
             Keyword::BREAK => {
                 assert!(tokens_queue.consume(&mut curr_queue_idx, scope_data) == Some(Token::PUNCTUATOR(Punctuator::SEMICOLON)));

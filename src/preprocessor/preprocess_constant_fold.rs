@@ -13,6 +13,8 @@ pub fn fold(tokens: Vec<Token>, ctx: &PreprocessContext) -> ConstexprValue {
     let tokens = TokenQueue::new(tokens);
     let slice = TokenQueueSlice::new();
 
+    println!("{:?}", tokens.tokens);
+
     let resultant_tree = try_consume_whole_expr(&tokens, &slice, &mut ParseData::make_empty(), &mut LabelGenerator::default()).unwrap();
 
     (&resultant_tree).try_into().unwrap()
@@ -91,7 +93,7 @@ pub fn sub_definitions(tokens: Vec<Token>, ctx: &PreprocessContext, excluded_ide
 
                 //get the args
                 let args_slice = TokenQueueSlice{index:rem.index, max_index: close_bracket};
-                let args = queue.split_outside_parentheses(&args_slice, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
+                let args = queue.split_outside_parentheses(&args_slice, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all_brackets());
                 
                 let mut param_substitutions = substitutions.clone();//start with existing substitutions
                 for (param, arg) in params.into_iter().zip(args.into_iter()) {

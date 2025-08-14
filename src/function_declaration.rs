@@ -76,7 +76,7 @@ pub fn consume_decl_only(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQu
 
     tokens_queue.consume(&mut curr_queue_idx, &scope_data).unwrap();//consume the open bracket
 
-    let args_segments = tokens_queue.split_outside_parentheses(&args_location, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all());
+    let args_segments = tokens_queue.split_outside_parentheses(&args_location, |x| *x == Token::PUNCTUATOR(Punctuator::COMMA), &TokenSearchType::skip_all_brackets());
 
     //grab all the args
     let mut params = Vec::new();

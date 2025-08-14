@@ -400,41 +400,6 @@ impl BinaryExpression {
         result
     }
 
-    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        match self.operator {
-            BinaryExpressionOperator::BitwiseOr |
-            BinaryExpressionOperator::BitwiseAnd |
-            BinaryExpressionOperator::BitwiseXor |
-            BinaryExpressionOperator::Add |
-            BinaryExpressionOperator::Subtract |
-            BinaryExpressionOperator::Multiply | 
-            BinaryExpressionOperator::Divide | 
-            BinaryExpressionOperator::Mod => {
-                calculate_promoted_type_arithmetic(//calculate type when data types:
-                    &self.lhs.accept(&mut GetDataTypeVisitor { asm_data }),//type of lhs
-                    &self.rhs.accept(&mut GetDataTypeVisitor { asm_data }),//type of rhs
-                )
-            },
-
-            BinaryExpressionOperator::Assign |
-            BinaryExpressionOperator::AdditionCombination |
-            BinaryExpressionOperator::SubtractionCombination => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
-
-            //bit shifts have lhs promoted, then resultant type is the same as promoted lhs
-            BinaryExpressionOperator::BitshiftLeft |
-            BinaryExpressionOperator::BitshiftRight => calculate_unary_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data})),
-
-            BinaryExpressionOperator::CmpLess |
-            BinaryExpressionOperator::CmpGreater |
-            BinaryExpressionOperator::CmpGreaterEqual |
-            BinaryExpressionOperator::CmpLessEqual |
-            BinaryExpressionOperator::CmpEqual |
-            BinaryExpressionOperator::CmpNotEqual |
-            BinaryExpressionOperator::BooleanOr |
-            BinaryExpressionOperator::BooleanAnd  => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),
-        }
-    }
-
     pub fn new(lhs: Expression, operator: BinaryExpressionOperator, rhs: Expression) -> BinaryExpression {
         BinaryExpression {
             lhs: Box::new(lhs),

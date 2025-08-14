@@ -27,7 +27,7 @@ impl ScopeStatements {
         let squiggly_close_idx = tokens_queue.find_matching_close_bracket(curr_queue_idx.index-1);//-1 since it has already been consumed
         
         //split to current tokens, and any after the slice
-        let (mut curr_queue_idx, remaining_slice_after_scope) = tokens_queue.split_to_slices(squiggly_close_idx, &curr_queue_idx);
+        let (mut curr_queue_idx, remaining_slice_after_scope) = tokens_queue.split_at(squiggly_close_idx, &curr_queue_idx);
 
         //greedily consume as many statements as possible
         while let Some(ASTMetadata{resultant_tree, remaining_slice}) = StatementOrDeclaration::try_consume(tokens_queue, &curr_queue_idx, &mut inner_scope_data, struct_label_gen) {

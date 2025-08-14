@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -16,6 +16,7 @@ pub enum Expression {
     UNARYPREFIX(UnaryPrefixExpression),
     UNARYSUFFIX(UnaryPostfixExpression),
     BINARYEXPRESSION(BinaryExpression),
+    TERNARYEXPRESSION(TernaryExpr),
     CAST(CastExpression),
     SIZEOF(SizeofExpr)
 }
@@ -26,16 +27,16 @@ impl Expression {
      * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
      */
     pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Expression>> {
-        let semicolon_idx = tokens_queue.find_closure_matches(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all())?;
+        let semicolon_idx = tokens_queue.find_closure_matches(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all_brackets())?;
         //define the slice that we are going to try and parse
         let attempt_slice = TokenQueueSlice {
             index: previous_queue_idx.index,
-            max_index: semicolon_idx.index
+            max_index: semicolon_idx
         };
 
         match try_consume_whole_expr(tokens_queue, &attempt_slice, scope_data, struct_label_gen) {
             Some(expr) => {
-                Some(ASTMetadata{resultant_tree: expr, remaining_slice: semicolon_idx.next_clone()})
+                Some(ASTMetadata{resultant_tree: expr, remaining_slice: TokenQueueSlice { index: semicolon_idx, max_index: previous_queue_idx.max_index }})
             },
             None => None
         }
@@ -54,6 +55,7 @@ impl Expression {
             Expression::CAST(cast_expression) => cast_expression.accept(visitor),
             Expression::ARRAYLITERAL(x) => panic!("cannot determine data type/assemebly for array literal, try looking for casts or array initialisation instead\nfor array {:?}", x),
             Expression::SIZEOF(sizeof_expr) => sizeof_expr.accept(visitor),
+            Expression::TERNARYEXPRESSION(x) => x.accept(visitor),
         }
     }
 }
@@ -165,6 +167,11 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                             return Some(Expression::SIZEOF(sizeof_expr));
                         }
                     }
+
+                    if precedence_required == 13 {
+                        //parse ternary conditional
+                        //if let Some(idx)
+                    }
                 }
 
                 //make a closure that detects operators that match what we want
@@ -178,7 +185,8 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                 let exclusions = TokenSearchType{
                     skip_in_curly_brackets: true,
                     skip_in_square_brackets: true,
-                    skip_in_squiggly_brackets: false
+                    skip_in_squiggly_brackets: false,
+                    skip_in_ternary_true_branch: false
                 };
 
                 let operator_indexes = tokens_queue.split_by_closure_matches(&curr_queue_idx, associative_direction, operator_matching_closure, &exclusions);
@@ -405,7 +413,7 @@ fn try_parse_unary_suffix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQ
  */
 fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: usize, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<BinaryExpression> {
     //split to before and after the operator
-    let (left_part, right_part) = tokens_queue.split_to_slices(operator_idx, curr_queue_idx);
+    let (left_part, right_part) = tokens_queue.split_at(operator_idx, curr_queue_idx);
 
     //try and parse the left and right hand sides, propogating errors
     let parsed_left = try_consume_whole_expr(tokens_queue, &left_part, scope_data, struct_label_gen)?;
@@ -513,7 +521,7 @@ fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope
     }
 
     //match closure, as no nested brackets allowed in cast type
-    let close_curly_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::CLOSECURLY), &TokenSearchType::skip_nothing())?.index;
+    let close_curly_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::CLOSECURLY), &TokenSearchType::skip_nothing())?;
 
     //split the token slice like: ( dtype ) expr  ->  dtype, expr
     let new_type_slice = TokenQueueSlice {
@@ -534,6 +542,14 @@ fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope
     Some(CastExpression::new(new_type, base_expr))
 }
 
+fn try_parse_ternary(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<TernaryExpr> {
+    let question_idx = tokens_queue.find_closure_matches(expr_slice, false, |x| *x == Token::PUNCTUATOR(Punctuator::QuestionMark), &TokenSearchType::skip_nothing())?;
+
+    let condition = try_consume_whole_expr(tokens_queue, &TokenQueueSlice { index: expr_slice.index, max_index: question_idx }, scope_data, struct_label_gen).unwrap();
+
+    todo!()
+}
+
 impl ASTDisplay for Expression {
     fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
         match self {
@@ -548,6 +564,7 @@ impl ASTDisplay for Expression {
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.display_ast(f),
             Expression::CAST(cast_expression) => cast_expression.display_ast(f),
             Expression::SIZEOF(sizeof_expr) => sizeof_expr.display_ast(f),
+            Expression::TERNARYEXPRESSION(ternary) => todo!()
         }
     }
 }
