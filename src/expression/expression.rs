@@ -36,7 +36,7 @@ impl Expression {
 
         match try_consume_whole_expr(tokens_queue, &attempt_slice, scope_data, struct_label_gen) {
             Some(expr) => {
-                Some(ASTMetadata{resultant_tree: expr, remaining_slice: TokenQueueSlice { index: semicolon_idx, max_index: previous_queue_idx.max_index }})
+                Some(ASTMetadata{resultant_tree: expr, remaining_slice: TokenQueueSlice { index: semicolon_idx+1, max_index: previous_queue_idx.max_index }})
             },
             None => None
         }

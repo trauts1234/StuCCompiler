@@ -31,7 +31,7 @@ impl ControlFlowChange {
                     1.. => Some(expression::try_consume_whole_expr(tokens_queue, &return_value_slice, scope_data, struct_label_gen).unwrap())
                 };
 
-                Some(ASTMetadata { resultant_tree: Self::RETURN(return_value), remaining_slice: TokenQueueSlice { index: semicolon_idx, max_index: curr_queue_idx.max_index } })
+                Some(ASTMetadata { resultant_tree: Self::RETURN(return_value), remaining_slice: TokenQueueSlice { index: semicolon_idx+1, max_index: curr_queue_idx.max_index } })
             }
             Keyword::BREAK => {
                 assert!(tokens_queue.consume(&mut curr_queue_idx, scope_data) == Some(Token::PUNCTUATOR(Punctuator::SEMICOLON)));
