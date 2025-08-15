@@ -77,7 +77,7 @@ impl SelectionStatement {
 
                 let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};//only jump to else branch if it exists
 
-                let condition_asm = condition.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let condition_asm = condition.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&condition_asm);//generate the condition to acc
                 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.accept(&mut GetDataTypeVisitor {asm_data}));

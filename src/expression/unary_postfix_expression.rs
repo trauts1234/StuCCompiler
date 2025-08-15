@@ -1,7 +1,7 @@
 use colored::Colorize;
 use memory_size::MemorySize;
 
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral, stack_allocation::StackAllocator};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral, stack_allocation::StackAllocator};
 
 use super::{expression::Expression, unary_postfix_operator::UnaryPostfixOperator};
 
@@ -24,7 +24,7 @@ impl UnaryPostfixExpression {
         }
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         match self.operator {
@@ -43,7 +43,7 @@ impl UnaryPostfixExpression {
                 };
 
                 //put address of operand in secondary
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::GPReg(GPRegister::secondary()),
@@ -101,7 +101,7 @@ impl UnaryPostfixExpression {
                 };
 
                 //put address of operand in secondary
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
                 result.add_instruction(AsmOperation::MOV {
                     to: RegOrMem::GPReg(GPRegister::secondary()),

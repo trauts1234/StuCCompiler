@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
+use crate::{asm_gen_data::{AsmData, GetStruct, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
 use unwrap_let::unwrap_let;
 
 #[derive(Clone, Debug)]
@@ -33,14 +33,14 @@ impl StructMemberAccess {
         member_decl.data_type.clone()
     }
 
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         result.add_comment(format!("getting address of struct's member {}", self.member_name));
         //put tree's address in acc
         //add the member offset
 
-        let base_struct_address_asm = self.struct_tree.accept(&mut ReferenceVisitor {asm_data, stack_data});//assembly to get address of struct
+        let base_struct_address_asm = self.struct_tree.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});//assembly to get address of struct
 
         let base_struct_type = self.struct_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
 

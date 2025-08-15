@@ -15,7 +15,7 @@ impl FunctionCall {
         visitor.visit_func_call(self)
     }
     
-    pub fn generate_assembly_scalar_return(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+    pub fn generate_assembly_scalar_return(&self, visitor: &mut ScalarInAccVisitor) -> Assembly {
         //system V ABI
         let mut result = Assembly::make_empty();
 
@@ -39,12 +39,12 @@ impl FunctionCall {
         let location_marked_args: Vec<_> = type_matched_args
             .into_iter()
             .map(|(dtype, expr)| {
-                let dtype = dtype.replace_va_arg(match expr.accept(&mut GetDataTypeVisitor {asm_data}).decay() {
+                let dtype = dtype.replace_va_arg(match expr.accept(&mut GetDataTypeVisitor {asm_data: visitor.asm_data}).decay() {
                     DataType::RAW(BaseType::Scalar(ScalarType::Float(_))) => DataType::RAW(BaseType::Scalar(ScalarType::Float(FloatType::F64))),//for some reason, varadic args request promotion to f64
                     x => calculate_unary_type_arithmetic(&x)//promote the param via C99, §6.5.2.2/6
                 });
 
-                let preferred_location = PreferredParamLocation::param_from_type(&dtype, asm_data);
+                let preferred_location = PreferredParamLocation::param_from_type(&dtype, visitor.asm_data);
                 let allocated_location = arg_allocator.allocate(preferred_location);
                 (dtype, expr, allocated_location)
             })
@@ -65,10 +65,10 @@ impl FunctionCall {
         //allocate memory, ensuring memory args are allocated on top of everything else
         let regs_with_spill_space: Vec<_> = reg_args.into_iter()
             .map(|(dtype, expr, reg)| {
-                let mem_required = dtype.memory_size(asm_data);
+                let mem_required = dtype.memory_size(visitor.asm_data);
                 assert!(mem_required.size_bytes() / reg.len() as u64 <= 8);//ensure there are only 8 bytes or less per register being used
 
-                (dtype, expr, reg, MemoryOperand::SubFromBP(stack_data.allocate(mem_required)))
+                (dtype, expr, reg, MemoryOperand::SubFromBP(visitor.stack_data.allocate(mem_required)))
             })
             .collect();
 
@@ -77,7 +77,7 @@ impl FunctionCall {
         let memory_args_allocated: Vec<_> = memory_args.into_iter()
             .rev()//apply to the args on the top of the stack first
             .map(|(dtype, expr)| {
-                let mem_required = dtype.memory_size(asm_data);
+                let mem_required = dtype.memory_size(visitor.asm_data);
                 let location = MemoryOperand::AddToSP(stack_used_by_mem_args);
                 stack_used_by_mem_args += mem_required;//step over the param
                 stack_used_by_mem_args += align(stack_used_by_mem_args, MemorySize::from_bytes(8));//align correctly
@@ -88,7 +88,7 @@ impl FunctionCall {
 
         //calculate values and put in spill space
         for (dtype, expr, _, spill_space) in &regs_with_spill_space {
-            let calculate = put_arg_on_stack(expr, dtype.clone(), spill_space.clone(), asm_data, stack_data);
+            let calculate = put_arg_on_stack(expr, dtype.clone(), spill_space.clone(), visitor.asm_data, visitor.stack_data, visitor.global_asm_data);
             result.merge(&calculate);
         }
 
@@ -96,7 +96,7 @@ impl FunctionCall {
         result.add_commented_instruction(AsmOperation::AllocateStack(stack_used_by_mem_args), "allocating stack for memory args");
         //calculate memory args and put in the correct place
         for (dtype, expr, location) in memory_args_allocated {
-            let calculate = put_arg_on_stack(expr, dtype, location, asm_data, stack_data);
+            let calculate = put_arg_on_stack(expr, dtype, location, visitor.asm_data, visitor.stack_data, visitor.global_asm_data);
             result.merge(&calculate);
         }
 
@@ -197,7 +197,7 @@ impl ASTDisplay for FunctionCall {
     }
 }
 
-fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperand, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperand, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data:&mut crate::asm_gen_data::GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
     //push arg to stack
     let param_type = expr.accept(&mut GetDataTypeVisitor{asm_data});
@@ -205,7 +205,7 @@ fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperan
     match (&param_type.decay(), &arg_type) {
         (DataType::RAW(BaseType::Struct(_)), _) => {
             result.add_comment("putting struct arg on stack");
-            let struct_clone_asm = expr.accept(&mut CopyStructVisitor{asm_data,stack_data, resultant_location: Operand::Mem(location) });
+            let struct_clone_asm = expr.accept(&mut CopyStructVisitor{asm_data, stack_data, global_asm_data, resultant_location: Operand::Mem(location) });
             result.merge(&struct_clone_asm);
 
         },
@@ -213,7 +213,7 @@ fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperan
             result.add_comment("putting arg on stack");
             assert!(original_type.memory_size(asm_data).size_bytes() <= 8);
 
-            let arg_expr_asm = expr.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
+            let arg_expr_asm = expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
             result.merge(&arg_expr_asm);//put value in acc, using standard stack to calculate it
 
             let arg_cast_asm = cast_from_acc(original_type, casted_type, asm_data);

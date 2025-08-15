@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStruct, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
@@ -10,7 +10,8 @@ use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
  */
 pub struct ScalarInAccVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut StackAllocator
+    pub(crate) stack_data: &'a mut StackAllocator,
+    pub(crate) global_asm_data: &'a mut GlobalAsmData
 }
 
 impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
@@ -39,7 +40,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         if let DataType::ARRAY {..} = my_type {//is array
             //getting an array, decays to a pointer
             result.add_comment(format!("decaying array {} to pointer", var.name));
-            let addr_asm = var.accept(&mut ReferenceVisitor{asm_data: self.asm_data, stack_data: self.stack_data});
+            let addr_asm = var.accept(&mut ReferenceVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
             result.merge(&addr_asm);
 
         } else {
@@ -66,19 +67,19 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     }
 
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        func_call.generate_assembly_scalar_return(self.asm_data, self.stack_data)
+        func_call.generate_assembly_scalar_return(self)
     }
 
     fn visit_unary_prefix(&mut self, expr: &UnaryPrefixExpression) -> Self::Output {
-        expr.generate_assembly(self.asm_data, self.stack_data)
+        expr.generate_assembly(self.asm_data, self.stack_data, self.global_asm_data)
     }
 
     fn visit_unary_postfix(&mut self, expr: &crate::expression::unary_postfix_expression::UnaryPostfixExpression) -> Self::Output {
-        expr.generate_assembly(self.asm_data, self.stack_data)
+        expr.generate_assembly(self.asm_data, self.stack_data, self.global_asm_data)
     }
 
     fn visit_binary_expression(&mut self, expr: &crate::binary_expression::BinaryExpression) -> Self::Output {
-        expr.generate_assembly(self.asm_data, self.stack_data)
+        expr.generate_assembly(self.asm_data, self.stack_data, self.global_asm_data)
     }
 
     fn visit_struct_member_access(&mut self, member_access: &StructMemberAccess) -> Self::Output {
@@ -98,7 +99,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         if let DataType::ARRAY { .. } = member_decl.data_type {
             //get pointer to struct
-            let struct_addr_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data});
+            let struct_addr_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
             result.merge(&struct_addr_asm);
 
             //offset the start pointer to the address of the member
@@ -108,7 +109,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             });
         } else {
             //clone the struct, just in case it is a return value for example
-            let struct_clone_asm = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: resultant_struct_location});
+            let struct_clone_asm = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location: resultant_struct_location});
             result.merge(&struct_clone_asm);//generate struct that I am getting member of
 
             //offset the start pointer to the address of the member
@@ -147,6 +148,57 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     }
     
     fn visit_ternary(&mut self, ternary: &crate::expression::ternary::TernaryExpr) -> Self::Output {
-        todo!()
+        let mut result = Assembly::make_empty();
+
+        let generic_label = self.global_asm_data.label_gen_mut().generate_label();
+        let else_label = Label::Local(format!("{}_else", generic_label));//jump for the else branch
+        let if_end_label = Label::Local(format!("{}_end", generic_label));//rendevous point for the if and else branches
+
+        let cond_false_label = &else_label;//only jump to else branch if it exists
+
+        let condition_asm = ternary.condition().accept(&mut ScalarInAccVisitor {asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
+        result.merge(&condition_asm);//generate the condition to acc
+        
+        unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = ternary.condition().accept(&mut GetDataTypeVisitor {asm_data: self.asm_data}));
+
+        //compare the result to 0
+        result.add_instruction(AsmOperation::CMP {
+            rhs: Operand::Imm(ImmediateValue("0".to_string())),
+            data_type: condition_type
+        });
+
+        //if the result is 0, jump to the else block or the end of the if statement
+        result.add_instruction(AsmOperation::JMPCC {
+            label: cond_false_label.clone(),
+            comparison: AsmComparison::EQ,
+        });
+
+        //both branches are mutually exclusive so I only need enough stack for *one* of the branches to run
+        let (mut if_body_stack_usage, mut else_body_stack_usage) = self.stack_data.split_for_branching();
+
+        //generate the body of the if statement
+        let if_body_asm = ternary.true_branch().accept(&mut ScalarInAccVisitor {asm_data: self.asm_data, stack_data: &mut if_body_stack_usage, global_asm_data: self.global_asm_data});
+        result.merge(&if_body_asm);
+
+        //jump to the end of the if/else block
+        result.add_instruction(AsmOperation::JMPCC {
+            label: if_end_label.clone(),
+            comparison: AsmComparison::ALWAYS,//unconditional jump
+        });
+
+        let else_body_asm = ternary.false_branch().accept(&mut ScalarInAccVisitor {asm_data: self.asm_data, stack_data: &mut else_body_stack_usage, global_asm_data: self.global_asm_data});
+
+        //start of the else block
+        result.add_instruction(AsmOperation::Label(else_label));//add label
+        result.merge(&else_body_asm);//generate the body of the else statement
+
+        //stack required is the largest between the if and else branches
+        self.stack_data.merge_from_branching(if_body_stack_usage, else_body_stack_usage);
+
+        //after if/else are complete, jump here
+        result.add_instruction(AsmOperation::Label(if_end_label));
+
+        result
+
     }
 }

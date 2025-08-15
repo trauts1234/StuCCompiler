@@ -38,7 +38,7 @@ impl StatementOrDeclaration {
                 //no intermediate newline as generate_assembly puts in a trailing newline
                 decl
                 .iter()
-                .map(|x| x.generate_assembly(asm_data, stack_data))//generate assembly
+                .map(|x| x.generate_assembly(asm_data, stack_data, global_asm_data))//generate assembly
                 .fold(Assembly::make_empty(), |mut acc, x| {
                     acc.merge(&x);
                     acc

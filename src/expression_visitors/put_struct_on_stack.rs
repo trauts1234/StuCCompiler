@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
+use crate::{asm_gen_data::{AsmData, GetStruct, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::expr_visitor::ExprVisitor;
@@ -11,6 +11,7 @@ use super::expr_visitor::ExprVisitor;
 pub struct CopyStructVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
     pub(crate) stack_data: &'a mut StackAllocator,
+    pub(crate) global_asm_data: &'a mut GlobalAsmData,
     pub(crate) resultant_location: Operand,
 }
 
@@ -27,7 +28,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
 
         result.add_comment(format!("cloning struct {}", var.name));
         //put pointer to variable in RAX
-        let from_addr_asm = var.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data});
+        let from_addr_asm = var.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
         result.merge(&from_addr_asm);
 
         let variable_size = var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
@@ -62,7 +63,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         let mut result = Assembly::make_empty();
         assert!(*expr.get_operator() == UnaryPrefixOperator::Dereference);// unary prefix can only return a struct when it is a dereference operation
         
-        let expr_addr_asm = expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data});
+        let expr_addr_asm = expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
         result.merge(&expr_addr_asm);
 
         let dereferenced_size = expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
@@ -90,7 +91,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
         //generate struct that I am getting a member of
-        let generate_struct_base = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, resultant_location: self.resultant_location.clone()});
+        let generate_struct_base = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location: self.resultant_location.clone()});
         result.merge(&generate_struct_base);
 
         result.add_comment(format!("increasing pointer to get index of member struct {}", member_data.0.name));

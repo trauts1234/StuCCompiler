@@ -1,4 +1,6 @@
-use crate::{data_type::recursive_data_type::DataType, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
+use colored::Colorize;
+
+use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
 
 //TODO: a?b:c syntax parsing
 //then generate assembly for it
@@ -11,12 +13,15 @@ pub struct TernaryExpr {
 }
 
 impl TernaryExpr {
+    pub fn new(condition: Expression, true_branch: Expression, false_branch: Expression) -> Self {
+        Self {
+            condition: Box::new(condition),
+            true_branch: Box::new(true_branch),
+            false_branch: Box::new(false_branch)
+        }
+    }
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         visitor.visit_ternary(self)
-    }
-
-    pub fn get_data_type(&self) -> DataType {
-        todo!()
     }
     pub fn true_branch(&self) -> &Expression {
         &self.true_branch
@@ -26,5 +31,29 @@ impl TernaryExpr {
     }
     pub fn condition(&self) -> &Expression {
         &self.condition
+    }
+}
+
+impl ASTDisplay for TernaryExpr {
+    fn display_ast(&self, f: &mut crate::debugging::TreeDisplayInfo) {
+        f.write(&"ternary expression".red().to_string());
+        f.indent();
+
+        f.write(&"condition".green().to_string());
+        f.indent();
+        self.condition.display_ast(f);
+        f.dedent();
+        
+        f.write(&"true branch".red().to_string());
+        f.indent();
+        self.true_branch.display_ast(f);
+        f.dedent();
+
+        f.write(&"false branch".red().to_string());
+        f.indent();
+        self.false_branch.display_ast(f);
+        f.dedent();
+
+        f.dedent();
     }
 }

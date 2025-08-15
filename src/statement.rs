@@ -64,10 +64,10 @@ impl Statement {
                 scope.generate_assembly(asm_data, stack_data, global_asm_data)
             }
             Self::CONTROLFLOW(command) => {
-                command.generate_assembly(asm_data, stack_data)
+                command.generate_assembly(asm_data, stack_data, global_asm_data)
             }
             Self::EXPRESSION(expr) => {
-                expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data})
+                expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data})
             }
             Self::SELECTION(selection) => selection.generate_assembly(asm_data, stack_data, global_asm_data),
             

@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -170,7 +170,9 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
 
                     if precedence_required == 13 {
                         //parse ternary conditional
-                        //if let Some(idx)
+                        if let Some(ternary) = try_parse_ternary(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                            return Some(Expression::TERNARYEXPRESSION(ternary));
+                        }
                     }
                 }
 
@@ -216,12 +218,12 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
  * used in binary expressions, where you need both sides in registers
  * does NOT work for assignment expressions
  */
-pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expression, rhs_new_type: &DataType, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expression, rhs_new_type: &DataType, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
 
     //put rhs in on the stack
     let rhs_new_size = rhs_new_type.memory_size(asm_data);
-    let rhs_asm = rhs.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
+    let rhs_asm = rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
     let rhs_type = rhs.accept(&mut GetDataTypeVisitor{asm_data});
     let rhs_cast_asm = cast_from_acc(&rhs_type, &rhs_new_type, asm_data);
     result.merge(&rhs_asm);
@@ -236,7 +238,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expres
     });
 
     //put lhs in ACC
-    let lhs_asm = lhs.accept(&mut ScalarInAccVisitor{asm_data, stack_data});
+    let lhs_asm = lhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
     let lhs_type = lhs.accept(&mut GetDataTypeVisitor{asm_data});
     let lhs_cast_asm = cast_from_acc(&lhs_type, lhs_new_type, asm_data);
     result.merge(&lhs_asm);
@@ -252,7 +254,7 @@ pub fn put_lhs_ax_rhs_cx(lhs: &Expression, lhs_new_type: &DataType, rhs: &Expres
     result
 }
 
-pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
 
     let promoted_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
@@ -264,7 +266,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 lhs,
                 string_init.zero_fill_and_flatten_to_iter(&promoted_type),
                 &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))),
-                asm_data, stack_data
+                asm_data, stack_data, global_asm_data
             ));
         },
 
@@ -272,7 +274,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
         (DataType::ARRAY { .. }, Expression::ARRAYLITERAL(array_init)) => {
             //convert int x[2][2] to int x[4] for easy assigning of values
             unwrap_let!(DataType::ARRAY { element: array_element_type, .. } = promoted_type.flatten_nested_array());
-            result.merge(&assembly_for_array_assignment(lhs, array_init.zero_fill_and_flatten_to_iter(&promoted_type), array_element_type.as_ref(), asm_data, stack_data));
+            result.merge(&assembly_for_array_assignment(lhs, array_init.zero_fill_and_flatten_to_iter(&promoted_type), array_element_type.as_ref(), asm_data, stack_data, global_asm_data));
         },
 
         (DataType::ARRAY { .. }, x) => panic!("tried to set {:?} to {:?}", lhs, x),
@@ -282,7 +284,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             //maybe more special cases for struct assignment etc
 
             //put address of lvalue on stack
-            let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+            let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
             result.merge(&lhs_asm);
 
             //allocate temporary lhs storage
@@ -294,7 +296,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             });
             
             //put the value to assign in acc, and cast to correct type
-            let rhs_asm = rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+            let rhs_asm = rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
             let rhs_cast_asm = cast_from_acc(&rhs.accept(&mut GetDataTypeVisitor{asm_data}), &promoted_type, asm_data);
             result.merge(&rhs_asm);
             result.merge(&rhs_cast_asm);
@@ -320,12 +322,12 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
     result
 }
 
-fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, array_element_type: &DataType, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, array_element_type: &DataType, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
     let array_element_size = array_element_type.memory_size(asm_data);
 
     //get address of destination array
-    let lhs_addr_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+    let lhs_addr_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
     result.merge(&lhs_addr_asm);
 
     //store lhs address on stack
@@ -344,7 +346,7 @@ fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, 
     for (i, item) in array_items.iter().enumerate() {
 
         //generate the item and store in secondary
-        result.merge(&item.accept(&mut ScalarInAccVisitor{asm_data, stack_data}));
+        result.merge(&item.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data}));
         result.add_instruction(AsmOperation::MOV {
             to: RegOrMem::GPReg(GPRegister::secondary()),
             from: Operand::GPReg(GPRegister::acc()),
@@ -543,11 +545,24 @@ fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope
 }
 
 fn try_parse_ternary(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<TernaryExpr> {
-    let question_idx = tokens_queue.find_closure_matches(expr_slice, false, |x| *x == Token::PUNCTUATOR(Punctuator::QuestionMark), &TokenSearchType::skip_nothing())?;
+    let mut curr_queue_idx = expr_slice.clone();
 
-    let condition = try_consume_whole_expr(tokens_queue, &TokenQueueSlice { index: expr_slice.index, max_index: question_idx }, scope_data, struct_label_gen).unwrap();
+    let question_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::QuestionMark), &TokenSearchType::skip_nothing())?;
+    let condition = TokenQueueSlice { index: curr_queue_idx.index, max_index: question_idx };
+    curr_queue_idx.index = question_idx + 1;//skip over the condition
 
-    todo!()
+    //skip EVERYTHING including the true branch in case of nested ternary expressions
+    let skip_all = TokenSearchType { skip_in_curly_brackets: true, skip_in_square_brackets: true, skip_in_squiggly_brackets: true, skip_in_ternary_true_branch: true };
+    let colon_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::COLON), &skip_all).unwrap();
+
+    let true_branch = TokenQueueSlice { index: curr_queue_idx.index, max_index: colon_idx };
+    let false_branch = TokenQueueSlice {index: colon_idx+1, max_index: curr_queue_idx.max_index};
+
+    Some(TernaryExpr::new(
+        try_consume_whole_expr(tokens_queue, &condition, scope_data, struct_label_gen).unwrap(),
+        try_consume_whole_expr(tokens_queue, &true_branch, scope_data, struct_label_gen).unwrap(),
+        try_consume_whole_expr(tokens_queue, &false_branch, scope_data, struct_label_gen).unwrap()
+    ))
 }
 
 impl ASTDisplay for Expression {
@@ -564,7 +579,7 @@ impl ASTDisplay for Expression {
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.display_ast(f),
             Expression::CAST(cast_expression) => cast_expression.display_ast(f),
             Expression::SIZEOF(sizeof_expr) => sizeof_expr.display_ast(f),
-            Expression::TERNARYEXPRESSION(ternary) => todo!()
+            Expression::TERNARYEXPRESSION(ternary) => ternary.display_ast(f),
         }
     }
 }

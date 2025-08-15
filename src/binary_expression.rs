@@ -2,7 +2,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -16,11 +16,11 @@ impl BinaryExpression {
         visitor.visit_binary_expression(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         if self.operator == BinaryExpressionOperator::Assign {
-            return generate_assembly_for_assignment(&self.lhs, &self.rhs, asm_data, stack_data);
+            return generate_assembly_for_assignment(&self.lhs, &self.rhs, asm_data, stack_data, global_asm_data);
         }
 
         let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
@@ -37,7 +37,7 @@ impl BinaryExpression {
             BinaryExpressionOperator::Add => {
                 result.add_comment(format!("adding {} numbers", promoted_size));
 
-                result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data, global_asm_data));
 
                 result.add_instruction(AsmOperation::ADD {
                     increment: Operand::GPReg(GPRegister::secondary()),
@@ -50,7 +50,7 @@ impl BinaryExpression {
             BinaryExpressionOperator::Subtract => {
                 result.add_comment(format!("subtracting {} numbers", promoted_size));
 
-                result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&apply_pointer_scaling(&self.lhs, &self.rhs, &promoted_type, asm_data, stack_data, global_asm_data));
 
                 result.add_instruction(AsmOperation::SUB {
                     decrement: Operand::GPReg(GPRegister::secondary()),
@@ -63,7 +63,7 @@ impl BinaryExpression {
             BinaryExpressionOperator::Multiply => {
                 result.add_comment("mulitplying numbers");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data, global_asm_data));
                 unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_underlying)) = &promoted_type);
                 result.add_instruction(AsmOperation::MUL {
                     multiplier: RegOrMem::GPReg(GPRegister::secondary()),
@@ -74,7 +74,7 @@ impl BinaryExpression {
             BinaryExpressionOperator::Divide => {
                 result.add_comment("dividing numbers");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data, global_asm_data));
 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_base)) = promoted_type);
 
@@ -87,7 +87,7 @@ impl BinaryExpression {
             BinaryExpressionOperator::Mod => {
                 result.add_comment("calculating modulus");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data, global_asm_data));
 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_base)) = promoted_type);
 
@@ -102,7 +102,7 @@ impl BinaryExpression {
 
             comparison if comparison.as_comparator_instr().is_some() => { // >, <, ==, >=, <=
                 result.add_comment("comparing numbers");
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data, global_asm_data));
 
                 let promoted_base = promoted_type.decay_to_primative();
 
@@ -128,7 +128,7 @@ impl BinaryExpression {
                 //warning: what if either side is not a boolean
                 result.add_comment("applying boolean operator");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))), &self.rhs, &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))), asm_data, stack_data));//casts too boolean
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))), &self.rhs, &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))), asm_data, stack_data, global_asm_data));//casts too boolean
 
                 let instruction = operator.as_boolean_instr().unwrap();
 
@@ -141,7 +141,7 @@ impl BinaryExpression {
             operator if operator.as_bitwise_binary_instr().is_some() => {
                 result.add_comment("applying bitwise operator");
 
-                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data));
+                result.merge(&put_lhs_ax_rhs_cx(&self.lhs, &promoted_type, &self.rhs, &promoted_type, asm_data, stack_data, global_asm_data));
 
                 let instruction = operator.as_bitwise_binary_instr().unwrap();
 
@@ -161,7 +161,7 @@ impl BinaryExpression {
                 result.merge(&put_lhs_ax_rhs_cx(
                     &self.lhs, &lhs_required_type,
                     &self.rhs, &rhs_required_type,
-                    asm_data, stack_data
+                    asm_data, stack_data, global_asm_data
                 ));
                 
                 unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
@@ -179,7 +179,7 @@ impl BinaryExpression {
                 result.merge(&put_lhs_ax_rhs_cx(
                     &self.lhs, &lhs_required_type,
                     &self.rhs, &rhs_required_type,
-                    asm_data, stack_data
+                    asm_data, stack_data, global_asm_data
                 ));
                 
                 unwrap_let!(DataType::RAW(lhs_base) = lhs_required_type);
@@ -199,7 +199,7 @@ impl BinaryExpression {
                 let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
                 let rhs_type = self.rhs.accept(&mut GetDataTypeVisitor {asm_data});
 
-                let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&lhs_ptr_asm);//put pointer to lhs in acc
                 //save the pointer
                 let lhs_ptr_temporary_address = stack_data.allocate(PTR_SIZE);
@@ -210,7 +210,7 @@ impl BinaryExpression {
                 });
 
                 //calculate and cast rhs value
-                let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 let rhs_cast_asm = cast_from_acc(&rhs_type, &lhs_type, asm_data);
                 result.merge(&rhs_asm);
                 result.merge(&rhs_cast_asm);//cast to lhs as that will be incremented
@@ -301,7 +301,7 @@ impl BinaryExpression {
                 let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
                 let rhs_type = self.rhs.accept(&mut GetDataTypeVisitor {asm_data});
 
-                let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&lhs_ptr_asm);//put pointer to lhs in acc
                 //save the pointer
                 let lhs_ptr_temporary_address = stack_data.allocate(PTR_SIZE);
@@ -312,7 +312,7 @@ impl BinaryExpression {
                 });
 
                 //calculate and cast rhs value
-                let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 let rhs_cast_asm = cast_from_acc(&rhs_type, &lhs_type, asm_data);
                 result.merge(&rhs_asm);
                 result.merge(&rhs_cast_asm);//cast to lhs as that will be incremented
@@ -431,14 +431,14 @@ impl ASTDisplay for BinaryExpression {
 }
 
 /// Puts lhs in AX and rhs in CX, taking into account pointer scaling
-fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
 
     let lhs_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
     let rhs_type = rhs.accept(&mut GetDataTypeVisitor {asm_data});
     let promoted_size = promoted_type.memory_size(asm_data);
 
-    let lhs_asm = lhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+    let lhs_asm = lhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
     let lhs_cast_asm = cast_from_acc(&lhs_type, &promoted_type, asm_data);
     result.merge(&lhs_asm);//put lhs in acc
     result.merge(&lhs_cast_asm);//cast to the correct type
@@ -476,7 +476,7 @@ fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &Dat
     });
 
     //calculate and cast rhs value
-    let rhs_asm = rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+    let rhs_asm = rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
     let rhs_cast_asm = cast_from_acc(&rhs_type, &promoted_type, asm_data);
     result.merge(&rhs_asm);
     result.merge(&rhs_cast_asm);

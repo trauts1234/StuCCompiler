@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStruct}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
+use crate::{asm_gen_data::{AsmData, GetStruct, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
 use unwrap_let::unwrap_let;
 
 /**
@@ -6,7 +6,8 @@ use unwrap_let::unwrap_let;
  */
 pub struct ReferenceVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut StackAllocator
+    pub(crate) stack_data: &'a mut StackAllocator,
+    pub(crate) global_asm_data: &'a mut GlobalAsmData
 }
 
 impl<'a> ExprVisitor for ReferenceVisitor<'a> {
@@ -46,7 +47,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         //&*x == x
         assert!(*expr.get_operator() == UnaryPrefixOperator::Dereference);//must be address of a dereference
 
-        let operand_asm = expr.get_operand().accept(&mut ScalarInAccVisitor{asm_data: self.asm_data, stack_data: self.stack_data});
+        let operand_asm = expr.get_operand().accept(&mut ScalarInAccVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
 
         result.add_comment("getting address of a dereference");
         result.merge(&operand_asm);
@@ -71,7 +72,7 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
         //get address of the base struct
-        let original_struct_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data: self.asm_data, stack_data: self.stack_data});
+        let original_struct_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
         result.merge(&original_struct_asm);
 
         result.add_comment(format!("increasing pointer to get address of member {}", member_data.0.name));

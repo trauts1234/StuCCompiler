@@ -138,7 +138,7 @@ impl IterationStatement {
 
                 result.add_instruction(AsmOperation::Label(loop_start_label.clone()));//label for loop's start
 
-                let condition_asm = condition.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data});
+                let condition_asm = condition.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data, global_asm_data});
 
                 result.merge(&condition_asm);//generate the condition
 
@@ -161,7 +161,7 @@ impl IterationStatement {
                 result.add_instruction(AsmOperation::Label(loop_increment_label));//add label to jump to incrementing the loop
 
                 if let Some(inc) = increment {//if there is an increment
-                    let increment_asm = inc.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data});
+                    let increment_asm = inc.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data, global_asm_data});
                     result.merge(&increment_asm);//apply the increment
                 }
 
@@ -180,7 +180,7 @@ impl IterationStatement {
 
                 result.add_instruction(AsmOperation::Label(loop_start_label.clone())); // label for loop's start
 
-                let condition_asm = condition.accept(&mut ScalarInAccVisitor { asm_data, stack_data });
+                let condition_asm = condition.accept(&mut ScalarInAccVisitor { asm_data, stack_data, global_asm_data });
                 result.merge(&condition_asm); // generate the condition
 
                 // compare the result to 0

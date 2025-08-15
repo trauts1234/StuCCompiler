@@ -149,32 +149,40 @@ impl TokenQueue {
         let range: Box<dyn Iterator<Item = _>> = if scan_backwards {Box::new((min_index..max_index).rev())} else {Box::new(min_index..max_index)};
 
         for i in range {
-            match &self.tokens[i] {
-                Token::PUNCTUATOR(Punctuator::OPENCURLY) if exclusions.skip_in_curly_brackets => {
-                    bracket_depth += 1;//I should avoid being in brackets if that flag is set
-                }
+            let tok = &self.tokens[i];
+
+            //leave brackets if they are found
+            match tok {    
                 Token::PUNCTUATOR(Punctuator::CLOSECURLY) if exclusions.skip_in_curly_brackets => {
                     bracket_depth -= 1;
-                }
-
-                Token::PUNCTUATOR(Punctuator::OPENSQUARE) if exclusions.skip_in_square_brackets => {
-                    bracket_depth += 1;
                 }
                 Token::PUNCTUATOR(Punctuator::CLOSESQUARE) if exclusions.skip_in_square_brackets => {
                     bracket_depth -= 1;
                 }
-
-                Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
-                    bracket_depth += 1;
-                }
                 Token::PUNCTUATOR(Punctuator::CLOSESQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
                     bracket_depth -= 1;
                 }
-
-                tok if bracket_depth == 0 && predicate(&tok) => {//outside of brackets, matching the predicate, and bracket depth was not just changed
-                    return Some(i);
-                }
                 
+                _ => {}
+            }
+
+            //outside of brackets and the predicate matches
+            //this has to be between the match statements so that I can match bracket tokens
+            if bracket_depth == 0 && predicate(&self.tokens[i]) {
+                return Some(i);
+            }
+
+            //enter brackets if found
+            match tok {
+                Token::PUNCTUATOR(Punctuator::OPENCURLY) if exclusions.skip_in_curly_brackets => {
+                    bracket_depth += 1;//I should avoid being in brackets if that flag is set
+                }
+                Token::PUNCTUATOR(Punctuator::OPENSQUARE) if exclusions.skip_in_square_brackets => {
+                    bracket_depth += 1;
+                }
+                Token::PUNCTUATOR(Punctuator::OPENSQUIGGLY) if exclusions.skip_in_squiggly_brackets => {
+                    bracket_depth += 1;
+                }
                 _ => {}
             }
         }

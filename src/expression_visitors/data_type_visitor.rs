@@ -80,6 +80,9 @@ impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
     }
     
     fn visit_ternary(&mut self, ternary: &crate::expression::ternary::TernaryExpr) -> Self::Output {
-        todo!()
+        calculate_promoted_type_arithmetic(
+            &ternary.true_branch().accept(&mut GetDataTypeVisitor { asm_data: self.asm_data }),
+            &ternary.false_branch().accept(&mut GetDataTypeVisitor { asm_data: self.asm_data })
+        )
     }
 }

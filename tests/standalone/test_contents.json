@@ -607,5 +607,9 @@
     {
         "filename":"simplefunctionmacro.c",
         "return_code":2
+    },
+    {
+        "filename":"ternary.c",
+        "return_code":0
     }
 ]

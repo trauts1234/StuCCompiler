@@ -1,6 +1,5 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral, stack_allocation::StackAllocator};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral, stack_allocation::StackAllocator};
 use colored::Colorize;
-use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 
 #[derive(Clone, Debug)]
@@ -14,20 +13,20 @@ impl UnaryPrefixExpression {
         visitor.visit_unary_prefix(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         match self.operator {
             UnaryPrefixOperator::Reference => {
                 result.add_comment("getting address of something");
                 //put address of the right hand side in acc
-                let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_ref_asm);
             },
             UnaryPrefixOperator::Dereference => {
                 result.add_comment("dereferencing pointer");
                 // put the address pointed to in rax
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
 
                 if let DataType::ARRAY {..} = self.get_data_type(asm_data) {
@@ -46,7 +45,7 @@ impl UnaryPrefixExpression {
                 let promoted_type = self.get_data_type(asm_data);
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
                 result.merge(&operand_asm);
                 result.merge(&cast_asm);//cast to the correct type
@@ -60,7 +59,7 @@ impl UnaryPrefixExpression {
                 let promoted_type = self.get_data_type(asm_data);
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
                 result.merge(&operand_asm);
                 result.merge(&cast_asm);//promote the type
@@ -81,7 +80,7 @@ impl UnaryPrefixExpression {
                 };
 
                 //push &self.operand
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
                 //allocate temporary lhs storage
                 let operand_address_storage = stack_data.allocate(PTR_SIZE);
@@ -92,7 +91,7 @@ impl UnaryPrefixExpression {
                 });
 
                 //put self.operand in acc
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
 
                 //increment self.operand (in acc) as original type, so that it can be stored correctly afterwards
@@ -133,7 +132,7 @@ impl UnaryPrefixExpression {
                 };
 
                 //push &self.operand
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
                 //allocate temporary lhs storage
                 let operand_address_storage = stack_data.allocate(PTR_SIZE);
@@ -144,7 +143,7 @@ impl UnaryPrefixExpression {
                 });
 
                 //put self.operand in acc
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
 
                 //decrement self.operand (in acc) as original type, so that it can be stored correctly afterwards
@@ -174,7 +173,7 @@ impl UnaryPrefixExpression {
 
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data}).decay_to_primative();
 
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
                 //cast to boolean
                 result.add_instruction(AsmOperation::CAST {
@@ -200,7 +199,7 @@ impl UnaryPrefixExpression {
 
                 let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
 
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data});
+                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to boolean
                 result.merge(&operand_asm);
                 result.merge(&cast_asm);//cast to the correct type
