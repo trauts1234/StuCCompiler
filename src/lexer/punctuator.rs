@@ -23,6 +23,8 @@ pub enum Punctuator {
     AMPERSAND,
     PERCENT,
     Exclamation,
+    Hash,
+    HashHash,
 
     Greater,
     GreaterGreater,
@@ -131,7 +133,7 @@ impl Punctuator {
      * returns Some(precedence number)
      * if it can't: None
      */
-    //TODO maybe mobe to expression operator themselves
+    //TODO maybe move to expression operator themselves
     pub fn as_unary_prefix_precedence(&self) -> Option<i32> {
         match self {
             Self::ASTERISK |//dereference
@@ -195,6 +197,8 @@ impl Display for Punctuator {
             Punctuator::SubtractionCombination => "-=",
             Punctuator::FULLSTOP => ".",
             Punctuator::ELIPSIS => "...",
+            Punctuator::Hash => "#",
+            Punctuator::HashHash => "##",
         })
     }
 }

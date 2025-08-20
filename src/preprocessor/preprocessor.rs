@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::{Path, PathBuf}};
+use std::{collections::{HashMap, VecDeque}, fs, path::{Path, PathBuf}};
 
 use unwrap_let::unwrap_let;
 
@@ -55,8 +55,12 @@ fn handle_includes(tokens: Vec<LineNumbered>, include_limit: i32) -> Vec<LineNum
 fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Vec<Token> {
     let mut ctx = PreprocessContext::new(filename);
     let mut result = Vec::new();
+    let mut result_buffer = Vec::new();//while parsing sequential lines (not separated by preprocess directives) store them here before they get flushed
+    let mut tokens: VecDeque<_> = tokens.into();
 
-    for tok in tokens {
+    while let Some(tok) = tokens.pop_front() {
+        let next_tok = tokens.get(0);
+
         ctx.set_line_number(tok.line_num);
         match tok.data {
             PreprocessToken::NullDirective => {},//this does nothing
@@ -169,7 +173,16 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
             
             PreprocessToken::LineOfCode(line) => {
                 if ctx.get_scan_type() == ScanType::NORMAL {
-                    result.extend(sub_definitions(line, &ctx, &Vec::new(), &HashMap::new()));
+                    // TODO some macros are called over multiple lines, which means I need a buffer of lines until there is a #xyz then flush the buffer
+                    result_buffer.extend(line);
+
+                    if let Some(LineNumbered {data: PreprocessToken::LineOfCode(_), ..}) = &next_tok {
+                        //next line of code is a valid line of code, don't flush buffer yet
+                    } else {
+                        //preprocess directive or EOF next, flush buffer
+                        result.extend(sub_definitions(result_buffer, &ctx, &Vec::new(), &HashMap::new()));//apply preprocessor, save to result
+                        result_buffer = Vec::new();//empty the buffer
+                    }
                 }
             },
         }

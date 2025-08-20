@@ -33,6 +33,8 @@ pub enum Token {
     #[token("-=", |_| Punctuator::SubtractionCombination)]
     #[token(":", |_| Punctuator::COLON)]
     #[token("?", |_| Punctuator::QuestionMark)]
+    #[token("#", |_| Punctuator::Hash)]
+    #[token("##", |_| Punctuator::HashHash)]
     #[regex(r"\+\+?|\-|\--|\*|/|=|;|~|\||\|\||&&|\^|&|%|!|>>|<<|>|<|<=|>=|==|!=|\}|\{|\[|\]|\(|\)|,|\.(\.\.)?", |x| Punctuator::try_new(x.slice()))]
     PUNCTUATOR(Punctuator),
 
