@@ -42,35 +42,21 @@ mod args_handling;
 mod stack_allocation;
 pub mod goto_and_labels;
 
-struct CompilationOptions {
-    c_file: PathBuf,
-    link_with: Vec<PathBuf>,
-    out_file: PathBuf
-}
-
 fn main() {
-    let mut options = CompilationOptions{c_file: PathBuf::from_str("test.c").unwrap(), out_file: PathBuf::from_str("a.out").unwrap(), link_with: Vec::new()};
+    let mut input_path = PathBuf::from("test.c");
+    let mut output_path = PathBuf::from("a.out");
+    let mut do_linking = true;
 
     let args_vec = env::args().collect::<Vec<String>>();
     let mut args = args_vec.iter().skip(1);
 
     while let Some(arg) = args.next() {
-        if arg.starts_with("-o") {
-            if arg == "-o" {
-                options.out_file = PathBuf::from_str(args.next().unwrap()).unwrap();
-            } else {
-                options.out_file = PathBuf::from_str(&arg[2..]).unwrap();
-            }
-        } else {
-            let file_path = PathBuf::from_str(arg).unwrap();
-            match arg.split_once(".").unwrap().1 {
-                "c" => options.c_file = file_path,
-                "o" => options.link_with.push(file_path),
-                _ => panic!()
-            }
+        match arg.as_str() {
+            "-c" => {do_linking = false},
+            "-o" => {output_path = PathBuf::from(args.next().unwrap())},
+            x => {input_path = PathBuf::from(x)}
         }
     }
 
-    let link_with: Vec<&Path> = options.link_with.iter().map(|p| p.as_path()).collect();
-    compile::compile(&options.c_file, &options.out_file, &link_with).unwrap();
+    compile::compile(&input_path, &output_path, &[], do_linking).unwrap();
 }

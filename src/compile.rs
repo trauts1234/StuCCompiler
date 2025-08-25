@@ -3,7 +3,7 @@ use std::{path::Path, process::Command};
 use crate::{compilation_error::CompilationError, debugging::{ASTDisplay, IRDisplay, TreeDisplayInfo}, translation_unit::TranslationUnit};
 
 
-pub fn compile(input_path: &Path, output_name: &Path, link_with: &[&Path]) -> Result<(),CompilationError> {
+pub fn compile(input_path: &Path, output_name: &Path, link_with: &[&Path], do_linking: bool) -> Result<(),CompilationError> {
     println!("compiling {:?}", input_path.to_str());
     let assembly_filename = output_name.with_extension("asm");
     let object_filename = output_name.with_extension("o");
@@ -37,25 +37,31 @@ pub fn compile(input_path: &Path, output_name: &Path, link_with: &[&Path]) -> Re
     }
 
     //link
-    let ld_status = Command::new("ld")
-        .arg("-o")
-        .arg(binary_filename)//link to the binary file name using:
+    let ld_status = if do_linking {
+            Some(
+            Command::new("ld")
+            .arg("-o")
+            .arg(binary_filename)//link to the binary file name using:
 
-        .arg("/usr/lib/x86_64-linux-gnu/crt1.o")//link c runtime
-        .arg("/usr/lib/x86_64-linux-gnu/crti.o")//..
-        .args(link_with)//link with other requested binaries
+            .arg("/usr/lib/x86_64-linux-gnu/crt1.o")//link c runtime
+            .arg("/usr/lib/x86_64-linux-gnu/crti.o")//..
+            .args(link_with)//link with other requested binaries
 
-        .arg(object_filename)//link my code with the library
-        .arg("-lc")//link with libc
-        .arg("/usr/lib/x86_64-linux-gnu/crtn.o")//c runtime termination
+            .arg(object_filename)//link my code with the library
+            .arg("-lc")//link with libc
+            .arg("/usr/lib/x86_64-linux-gnu/crtn.o")//c runtime termination
 
-        .arg("--dynamic-linker")
-        .arg("/lib64/ld-linux-x86-64.so.2")//add a dynamic linker?
-        
-        .status();
+            .arg("--dynamic-linker")
+            .arg("/lib64/ld-linux-x86-64.so.2")//add a dynamic linker?
+            
+            .status()
+            )
+        } else {None};
 
     match ld_status {
-        Ok(status) if status.success() => {},
+        Some(Ok(status)) if status.success() => {},
+        None => {},
+
         _ => {
             return Err(CompilationError::ASMLINK("Linker failed to link binary".to_string()));
         }

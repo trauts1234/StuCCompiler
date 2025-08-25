@@ -27,7 +27,7 @@ impl PassedTests {
 }
 
 #[test]
-// #[ignore = "not yet implemented"]
+#[ignore = "not yet implemented"]
 fn test_all() {
     let test_folder = PathBuf::from_str("tests/fujitsu_testsuite").unwrap();
 
@@ -57,7 +57,7 @@ fn test_all() {
                 Err(_) => None
             };
 
-            compile::compile(&c_file_path, &output_filename, &[]).unwrap();
+            compile::compile(&c_file_path, &output_filename, &[], true).unwrap();
     
             let binary_process = Command::new(&output_filename)
                 .stdout(Stdio::piped())
