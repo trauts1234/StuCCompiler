@@ -68,6 +68,7 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
             PreprocessToken::IncludeFile(_) => panic!("you need to substitute includes before handling preprocessor commands"),
 
             PreprocessToken::LineDirective(text) => {
+                let text = text.into_iter().map(|x| (x, tok.line_num)).collect();
                 //sub macros
                 let text = sub_definitions(text, &ctx, &Vec::new(), &HashMap::new());
 
@@ -88,7 +89,7 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
 
             PreprocessToken::IfDef(x) => {
                 let defined = 
-                    ctx.get_definition(&x).is_some() ||
+                    ctx.get_definition(&x, ctx.get_line_number()).is_some() ||
                     ctx.get_macro_func(&x).is_some();
                 ctx.inc_selection_depth();
                 if !defined && ctx.get_scan_type() == ScanType::NORMAL {
@@ -98,7 +99,7 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
             },
             PreprocessToken::IfNDef(x) => {
                 let defined = 
-                    ctx.get_definition(&x).is_some() ||
+                    ctx.get_definition(&x, ctx.get_line_number()).is_some() ||
                     ctx.get_macro_func(&x).is_some();
                 ctx.inc_selection_depth();
                 if defined && ctx.get_scan_type() == ScanType::NORMAL {
@@ -174,7 +175,10 @@ fn handle_preprocessor_commands(tokens: Vec<LineNumbered>, filename: &str) -> Ve
             PreprocessToken::LineOfCode(line) => {
                 if ctx.get_scan_type() == ScanType::NORMAL {
                     // TODO some macros are called over multiple lines, which means I need a buffer of lines until there is a #xyz then flush the buffer
-                    result_buffer.extend(line);
+                    result_buffer.extend(
+                        line.into_iter()
+                        .map(|tok| (tok, ctx.get_line_number()))//add line counters
+                    );
 
                     if let Some(LineNumbered {data: PreprocessToken::LineOfCode(_), ..}) = &next_tok {
                         //next line of code is a valid line of code, don't flush buffer yet

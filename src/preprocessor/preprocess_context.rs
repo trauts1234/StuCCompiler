@@ -48,16 +48,20 @@ impl PreprocessContext {
         self.defined_macro_functions.insert(name, func);
     }
 
-    pub fn get_definition(&self, name: &str) -> Option<Vec<Token>> {
+    pub fn get_definition(&self, name: &str, line_number: i32) -> Option<Vec<Token>> {
         match name {
             "__LINE__" => {
-                let data: i128 = self.line_override.unwrap_or(self.line_counter).into();
+                let data: i128 = self.line_override.unwrap_or(line_number).into();
                 Some(vec![Token::NUMBER(NumberLiteral::INTEGER { data, data_type: IntegerType::I32 })])
             }
             "__FILE__" => Some(vec![Token::STRING(self.file_name.clone())]),
             "__STDC_VERSION__" => Some(vec![Token::NUMBER(NumberLiteral::INTEGER { data: 201710, data_type: IntegerType::I64 })]),
             _ => self.defined.get(name).cloned()
         }
+    }
+    pub fn has_definition(&self, name: &str) -> bool {
+        //substitutes a line number 0 as this is not required
+        self.get_definition(name, 0).is_some()
     }
     pub fn get_macro_func(&self, name: &str) -> Option<MacroFunction> {
         self.defined_macro_functions.get(name).cloned()
@@ -80,6 +84,10 @@ impl PreprocessContext {
     }
     pub fn set_line_number(&mut self, line: i32) {
         self.line_counter = line;
+    }
+    /// Returns the line number, without being overriden
+    pub fn get_line_number(&self) -> i32 {
+        self.line_counter
     }
 }
 

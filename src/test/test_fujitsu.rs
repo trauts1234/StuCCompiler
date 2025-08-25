@@ -27,7 +27,7 @@ impl PassedTests {
 }
 
 #[test]
-#[ignore = "not yet implemented"]
+// #[ignore = "not yet implemented"]
 fn test_all() {
     let test_folder = PathBuf::from_str("tests/fujitsu_testsuite").unwrap();
 
