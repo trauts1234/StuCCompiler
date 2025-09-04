@@ -21,7 +21,7 @@ pub enum PreferredParamLocation {
 
 impl PreferredParamLocation {
 
-    pub fn param_from_type(data_type: &DataType, asm_data: &AsmData) -> PreferredParamLocation {
+    pub fn param_from_type(data_type: &DataType, asm_data: &dyn GetStructUnion) -> PreferredParamLocation {
         match data_type {
             DataType::UNKNOWNSIZEARRAY { .. } |
             DataType::ARRAY {..} => PreferredParamLocation::InGP,//decays to a pointer, which is integer
@@ -32,7 +32,7 @@ impl PreferredParamLocation {
         }
     }
 
-    fn param_from_base_type(base_type: &BaseType, asm_data: &AsmData) -> PreferredParamLocation {
+    fn param_from_base_type(base_type: &BaseType, asm_data: &dyn GetStructUnion) -> PreferredParamLocation {
         match base_type {
             BaseType::Struct(struct_name) => {
                 let struct_type = asm_data.get_struct(&struct_name);

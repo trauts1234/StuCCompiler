@@ -6,7 +6,7 @@ use crate::{debugging::IRDisplay};
 /**
  * name of an actual register
  */
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GPRegister {
     _AX,
     _BX,
@@ -22,7 +22,7 @@ pub enum GPRegister {
 }
 
 /// Registers that hold floats
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MMRegister {
     XMM0,
     XMM1,

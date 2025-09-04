@@ -1,4 +1,4 @@
-use crate::{assembly::{operand::memory_operand::MemoryOperand, operation::Label}, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::{StructDefinition, StructIdentifier}, union_definition::{UnionDefinition, UnionIdentifier}};
+use crate::{args_handling::location_allocation::{AbiArgs, ReturnLocation}, assembly::{operand::memory_operand::MemoryOperand, operation::Label}, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::{StructDefinition, StructIdentifier}, union_definition::{UnionDefinition, UnionIdentifier}};
 
 pub trait GetStructUnion {
     fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition;
@@ -14,7 +14,8 @@ pub struct AddressedDeclaration {
 #[derive(Clone)]
 pub struct AsmData {
     variables: Vec<(String, AddressedDeclaration)>,
-    current_function_return_type: DataType,
+    return_type: DataType,
+    return_location: ReturnLocation,
     struct_list: Vec<(StructIdentifier, StructDefinition)>,//needs to be ordered since some structs need previously declared structs as members
     union_list: Vec<(UnionIdentifier, UnionDefinition)>,
     break_label: Option<Label>,//which label to jump to on a "break;" statement
@@ -71,10 +72,11 @@ impl GlobalAsmData {
 }
 
 impl AsmData {
-    pub fn for_new_function(global_asm_data: &GlobalAsmData, parse_data: &ParseData, current_function_return_type: DataType, stack_data: &mut StackAllocator) -> AsmData {
+    pub fn for_new_function(global_asm_data: &GlobalAsmData, parse_data: &ParseData, current_function_return_type: DataType, current_function_return_addr: ReturnLocation, stack_data: &mut StackAllocator) -> AsmData {
         let mut result = Self {
             variables: global_asm_data.global_variables.clone(),
-            current_function_return_type,
+            return_type: current_function_return_type,
+            return_location: current_function_return_addr,
             struct_list: global_asm_data.global_structs.clone(),
             union_list: global_asm_data.global_unions.clone(),
             break_label: None,
@@ -138,7 +140,7 @@ impl AsmData {
         .1
     }
     pub fn get_function_return_type(&self) -> &DataType {
-        &self.current_function_return_type
+        &self.return_type
     }
 
     pub fn get_break_label(&self) -> Option<&Label> {

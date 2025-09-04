@@ -1,20 +1,49 @@
-use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, assembly::operand::register::{GPRegister, MMRegister}};
+use memory_size::MemorySize;
+
+use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, assembly::operand::register::{GPRegister, MMRegister}, data_type::recursive_data_type::DataType, declaration::Declaration};
 
 const MAX_GP_REGS: u64 = 6;
 const MAX_XMM_REGS: u64 = 8;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EightByteLocation {
     GP(GPRegister),
     XMM(MMRegister)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AllocatedLocation {
     /// The vec stores the register locations of each eightbyte of the data
     Regs(Vec<EightByteLocation>),
-    /// This variant deliberately does not specify where in memory, to allow the calling code to handle this
+    /// add to RSP for the address of it
     Memory,
+}
+
+#[derive(Clone)]
+pub enum ReturnLocation {
+    InRegs(Vec<EightByteLocation>),
+    // pointer to the return data is stored at [rbp-pointer_bp_offset]
+    InMemory {pointer_bp_offset: MemorySize}
+}
+
+/// Stores where the args should be as per the ABI
+#[derive(Clone)]
+pub struct AbiArgs {
+    return_loc: ReturnLocation,
+    params_loc: Vec<AllocatedLocation> 
+}
+impl AbiArgs {
+    pub fn generate(args: &[Declaration], return_type: &DataType) -> Self {
+        let return_loc = match return_type {
+
+        }
+    }
+    pub fn return_location(&self) -> &ReturnLocation {
+        &self.return_loc
+    }
+    pub fn param_location(&self, param_num: usize) -> &AllocatedLocation {
+        &self.params_loc[param_num]
+    }
 }
 
 pub struct ArgAllocator {
