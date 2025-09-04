@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{asm_gen_data::GetStruct, data_type::type_token::TypeInfo, struct_definition::StructIdentifier};
+use crate::{asm_gen_data::GetStructUnion, data_type::type_token::TypeInfo, struct_definition::StructIdentifier, union_definition::UnionIdentifier};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
@@ -80,6 +80,7 @@ pub enum BaseType {
     VaArg,//varadic arg has a special type as it has no type?
     Scalar(ScalarType),
     Struct(StructIdentifier),
+    Union(UnionIdentifier),
 }
 
 impl BaseType {
@@ -107,12 +108,13 @@ impl BaseType {
         !self.is_unsigned()
     }
 
-    pub fn memory_size(&self, struct_info: &dyn GetStruct) -> MemorySize {
+    pub fn memory_size(&self, struct_info: &dyn GetStructUnion) -> MemorySize {
         match self {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
 
             BaseType::Struct(x) => struct_info.get_struct(x).calculate_size().expect("tried to calculate size of partially declared struct"),
+            BaseType::Union(x) => struct_info.get_union(x).calculate_size(struct_info).expect("tried to calculate size of partially declared union"),
 
             BaseType::Scalar(s) => s.memory_size()
         }
@@ -122,6 +124,7 @@ impl BaseType {
             BaseType::VOID => panic!("tried to get size of void"),
             BaseType::VaArg => panic!("tried to get size of varadic arg"),
             BaseType::Struct(_) => panic!("tried to calculate size of struct without an asm_data"),
+            BaseType::Union(_) => panic!("tried to calculate size of union withouat an asm_data"),
 
             BaseType::Scalar(s) => s.memory_size()
         }
@@ -135,6 +138,7 @@ impl Display for BaseType {
             BaseType::VaArg => write!(f, "varadic"),
             BaseType::Scalar(s) => write!(f, "{}", s),
             BaseType::Struct(struct_identifier) => write!(f, "{}", struct_identifier),
+            BaseType::Union(union_identifier) => write!(f, "{}", union_identifier),
         }
     }
 }

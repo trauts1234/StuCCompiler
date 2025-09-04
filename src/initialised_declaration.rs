@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_qualifier::TypeQualifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::StructDefinition};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_qualifier::TypeQualifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::StructDefinition, union_definition::UnionDefinition};
 use unwrap_let::unwrap_let;
 
 /**
@@ -292,6 +292,13 @@ pub fn consume_type_specifier_recursive(tokens_queue: &TokenQueue, queue_idx: &T
             let ASTMetadata { remaining_slice, resultant_tree: struct_name } = StructDefinition::try_consume_struct_as_type(tokens_queue, &mut queue_idx.clone(), scope_data, struct_label_gen).unwrap();
 
             initial_type.add_complete_type(DataType::RAW(BaseType::Struct(struct_name)));//struct specifies a whole type so just store that
+
+            consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type, struct_label_gen)//recursively look for more info
+        }
+        Some(Token::KEYWORD(Keyword::UNION)) => {
+            let ASTMetadata { remaining_slice, resultant_tree: struct_name } = UnionDefinition::try_consume_union_as_type(tokens_queue, &mut queue_idx.clone(), scope_data, struct_label_gen).unwrap();
+
+            initial_type.add_complete_type(DataType::RAW(BaseType::Union(struct_name)));//struct specifies a whole type so just store that
 
             consume_type_specifier_recursive(tokens_queue, &remaining_slice, scope_data, initial_type, struct_label_gen)//recursively look for more info
         }

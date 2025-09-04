@@ -61,6 +61,7 @@ pub enum Token {
 
     #[token("enum", |_| Keyword::ENUM)]
     #[token("struct", |_| Keyword::STRUCT)]
+    #[token("union", |_| Keyword::UNION)]
     #[token("if", |_| Keyword::IF)]
     #[token("else", |_| Keyword::ELSE)]
     #[token("for", |_| Keyword::FOR)]

@@ -2,7 +2,7 @@
 
 use memory_size::MemorySize;
 
-use crate::{asm_gen_data::{AsmData, GetStruct}, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, declaration::Declaration};
+use crate::{asm_gen_data::{AsmData, GetStructUnion}, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, declaration::Declaration};
 
 #[derive(PartialEq, Clone)]
 pub enum StructEightbytePreferredLocation {

@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use crate::{asm_gen_data::GetStruct, data_type::base_type::{FloatType, IntegerType, ScalarType}, expression::expression::Expression};
+use crate::{asm_gen_data::GetStructUnion, data_type::base_type::{FloatType, IntegerType, ScalarType}, expression::expression::Expression};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
@@ -148,7 +148,7 @@ impl DataType
         }
     }
 
-    pub fn memory_size(&self, struct_info: &dyn GetStruct) -> MemorySize {
+    pub fn memory_size(&self, struct_info: &dyn GetStructUnion) -> MemorySize {
         match self {
             DataType::UNKNOWNSIZEARRAY { .. } => panic!("cannot find size of unknow size array. perhaps this should return an Option???"),
             DataType::ARRAY { size, element } => MemorySize::from_bytes(size * &element.memory_size(struct_info).size_bytes()),

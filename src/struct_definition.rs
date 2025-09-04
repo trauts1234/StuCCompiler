@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::GetStructUnion, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -27,7 +27,7 @@ impl UnpaddedStructDefinition {
     /**
      * returns padded members, and the overall size of the struct
      */
-    pub fn pad_members(&self, struct_info: &dyn GetStruct) -> StructDefinition {
+    pub fn pad_members(&self, struct_info: &dyn GetStructUnion) -> StructDefinition {
         let mut current_offset = MemorySize::new();
 
         let mut result = Vec::new();
@@ -105,7 +105,7 @@ impl StructDefinition {
 
                 let mut members = Vec::new();
                 while inside_variants.get_slice_size() > 0 {
-                    let mut new_member = try_consume_struct_member(tokens_queue, &mut inside_variants, scope_data, struct_label_gen);
+                    let mut new_member = try_consume_member(tokens_queue, &mut inside_variants, scope_data, struct_label_gen);
                     members.append(&mut new_member);
                 }
 
@@ -130,7 +130,9 @@ impl StructDefinition {
 }
 
 ///in struct definitions, this will consume the `int a,b;` part of `struct {int a,b;char c;}`
-fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Vec<Declaration> {
+/// 
+/// Can also be used for unions
+pub fn try_consume_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Vec<Declaration> {
 
     //consume the base type
     let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen).unwrap();
@@ -157,7 +159,7 @@ fn try_consume_struct_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut Tok
 
 }
 
-fn calculate_alignment(data_type: &DataType, struct_info: &dyn GetStruct) -> MemorySize {
+fn calculate_alignment(data_type: &DataType, struct_info: &dyn GetStructUnion) -> MemorySize {
     if let DataType::ARRAY {..} = data_type {
         calculate_alignment(&data_type.remove_outer_modifier(), struct_info) //array of x should align to a boundary of sizeof x, but call myself recursively to handle 2d arrays
     } else {

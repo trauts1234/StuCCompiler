@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::GetStruct, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration}, debugging::IRDisplay, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{asm_gen_data::GetStructUnion, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration}, debugging::IRDisplay, declaration::Declaration, expression::expression::try_consume_whole_expr, initialised_declaration::{ consume_type_specifier, try_consume_declaration_modifiers}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 
 pub struct GlobalVariable {
@@ -8,7 +8,7 @@ pub struct GlobalVariable {
 }
 
 impl GlobalVariable {
-    pub fn generate_assembly(&self, struct_info: &dyn GetStruct) -> String {
+    pub fn generate_assembly(&self, struct_info: &dyn GetStructUnion) -> String {
         match (&self.decl.data_type, &self.default_value) {
             //base type is set to a value
             (DataType::RAW(BaseType::Scalar(base_type)), ConstexprValue::NUMBER(number_literal)) => {

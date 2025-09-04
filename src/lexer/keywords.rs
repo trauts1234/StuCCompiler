@@ -5,6 +5,7 @@ use std::fmt::Display;
 pub enum Keyword {
     ENUM,
     STRUCT,
+    UNION,
     IF,
     ELSE,
     FOR,
@@ -24,6 +25,7 @@ impl Display for Keyword {
             match self {
                 Keyword::ENUM => "enum",
                 Keyword::STRUCT => "struct",
+                Keyword::UNION => "union",
                 Keyword::IF => "if",
                 Keyword::ELSE => "else",
                 Keyword::FOR => "for",

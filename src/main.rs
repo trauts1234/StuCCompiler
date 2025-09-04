@@ -1,4 +1,4 @@
-use std::{env, path::{Path, PathBuf}, str::FromStr};
+use std::{env, path::PathBuf};
 
 mod compound_statement;
 mod statement;
@@ -41,6 +41,7 @@ mod struct_member_access;
 mod args_handling;
 mod stack_allocation;
 pub mod goto_and_labels;
+pub mod union_definition;
 
 fn main() {
     let mut input_path = PathBuf::from("test.c");

@@ -1,8 +1,8 @@
-use crate::{assembly::{operand::{memory_operand::MemoryOperand, Operand}, operation::Label}, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::{StructDefinition, StructIdentifier}};
-use memory_size::MemorySize;
+use crate::{assembly::{operand::memory_operand::MemoryOperand, operation::Label}, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::{StructDefinition, StructIdentifier}, union_definition::{UnionDefinition, UnionIdentifier}};
 
-pub trait GetStruct {
+pub trait GetStructUnion {
     fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition;
+    fn get_union(&self, name: &UnionIdentifier) -> &UnionDefinition;
 }
 
 #[derive(Clone)]
@@ -16,6 +16,7 @@ pub struct AsmData {
     variables: Vec<(String, AddressedDeclaration)>,
     current_function_return_type: DataType,
     struct_list: Vec<(StructIdentifier, StructDefinition)>,//needs to be ordered since some structs need previously declared structs as members
+    union_list: Vec<(UnionIdentifier, UnionDefinition)>,
     break_label: Option<Label>,//which label to jump to on a "break;" statement
 }
 
@@ -28,6 +29,7 @@ pub struct GlobalAsmData {
     global_variables: Vec<(String, AddressedDeclaration)>,
     /// all structs declared at a global scope
     global_structs: Vec<(StructIdentifier, StructDefinition)>,
+    global_unions: Vec<(UnionIdentifier, UnionDefinition)>,
 }
 
 impl GlobalAsmData {
@@ -42,10 +44,14 @@ impl GlobalAsmData {
             function_decls: global_parse_data.func_declarations_as_vec(),
             label_gen: LabelGenerator::default(),
             global_variables,
-            global_structs: Vec::new()
+            global_structs: Vec::new(),
+            global_unions: Vec::new(),
         };
         for (name, unpadded) in global_parse_data.get_all_structs() {
             partial_result.global_structs.push((name.clone(), unpadded.pad_members(&partial_result)));
+        }
+        for (name, unpadded) in global_parse_data.get_all_unions() {
+            partial_result.global_unions.push((name.clone(), unpadded.clone()));
         }
 
         partial_result
@@ -70,6 +76,7 @@ impl AsmData {
             variables: global_asm_data.global_variables.clone(),
             current_function_return_type,
             struct_list: global_asm_data.global_structs.clone(),
+            union_list: global_asm_data.global_unions.clone(),
             break_label: None,
         };
 
@@ -139,7 +146,7 @@ impl AsmData {
     }
 }
 
-impl GetStruct for AsmData {
+impl GetStructUnion for AsmData {
     fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition {
         &self.struct_list
         .iter()
@@ -148,10 +155,27 @@ impl GetStruct for AsmData {
         .unwrap()
         .1
     }
+    
+    fn get_union(&self, name: &UnionIdentifier) -> &UnionDefinition {
+        &self.union_list
+        .iter()
+        .rev()
+        .find(|(n,_)| n == name)
+        .unwrap()
+        .1
+    }
 }
-impl GetStruct for GlobalAsmData {
+impl GetStructUnion for GlobalAsmData {
     fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition {
         &self.global_structs
+        .iter()
+        .find(|(n,_)| n == name)
+        .unwrap()
+        .1
+    }
+    
+    fn get_union(&self, name: &UnionIdentifier) -> &UnionDefinition {
+        &self.global_unions
         .iter()
         .find(|(n,_)| n == name)
         .unwrap()

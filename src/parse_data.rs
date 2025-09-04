@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 
-use crate::{compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::{StructIdentifier, UnpaddedStructDefinition}};
+use crate::{compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::{StructIdentifier, UnpaddedStructDefinition}, union_definition::{UnionDefinition, UnionIdentifier}};
 
 #[derive(Debug)]
 pub struct ParseData {
@@ -9,6 +9,7 @@ pub struct ParseData {
     typedefs: HashMap<String, DataType>,
     function_decls: Vec<FunctionDeclaration>,
     structs: Vec<(StructIdentifier, UnpaddedStructDefinition)>,//defined and declared structs
+    unions: Vec<(UnionIdentifier, UnionDefinition)>,
 
     local_symbol_table: Vec<(String, DataType)>,//this is filled slowly, so do not read from it
 }
@@ -20,6 +21,7 @@ impl ParseData {
             typedefs: HashMap::new(),
             function_decls: Vec::new(),
             structs: Vec::new(),
+            unions: Vec::new(),
             local_symbol_table: Vec::new(),
         }
     }
@@ -33,6 +35,7 @@ impl ParseData {
             typedefs: self.typedefs.clone(),
             function_decls: self.function_decls.clone(),
             structs: self.structs.clone(),
+            unions: self.unions.clone(),
             local_symbol_table: Vec::new(),
         }
     }
@@ -121,8 +124,65 @@ impl ParseData {
         }
     }
 
+    /// saves the struct definition under the name specified
+    /// returns an identifier for the struct added
+    /// if the struct was previously *declared*, it is overwritten with new contents
+    pub fn add_union(&mut self, name: &Option<String>, new_definition: &UnionDefinition, label_generator: &mut LabelGenerator) -> UnionIdentifier {
+
+        let defined_union_finder =
+            self.unions
+            .iter()
+            .rev()//search from newest to oldest
+            .find(|(ident,data)|
+                //find a union where the name is the same
+                ident.name == *name &&
+                //and has defined members
+                data.ordered_members.is_some()
+            )
+            .cloned();
+
+        let declared_union_finder = 
+            self.unions
+            .iter_mut()
+            .rev()//search from newest to oldest
+            .find(|(ident,data)|
+                //find a union where the name is the same
+                ident.name == *name &&
+                //and does not have defined members (is previously declared)
+                data.ordered_members.is_none()
+            );
+        
+        match (declared_union_finder, &defined_union_finder, new_definition.ordered_members.is_some()) {
+            (Some(decl), _, _) => {
+                //found declared union, overwrite data with new definition(could still be null btw)
+                decl.1 = new_definition.clone();
+
+                decl.0.clone()//return the declaration identifier
+            },
+            (None, _, true) | //defined an undeclared union
+            (None, None, false) // declared an undeclared union
+            => {
+                let identifier = UnionIdentifier {
+                    name: name.clone(),
+                    id: label_generator.generate_label_number(),
+                };
+                self.unions.push((identifier.clone(), new_definition.clone()));//add new union, overwriting if it was declared etc.
+    
+                identifier//return the new identifier
+            },
+            (None, Some(define), false) => {
+                //I declared an already-defined union
+
+                define.0.clone()
+            },
+        }
+    }
+
     pub fn get_all_structs(&self) -> &[(StructIdentifier, UnpaddedStructDefinition)] {
         &self.structs
+    }
+    pub fn get_all_unions(&self) -> &[(UnionIdentifier, UnionDefinition)] {
+        &self.unions
     }
 
     pub fn add_typedef(&mut self, name: String, new_type: DataType) {
