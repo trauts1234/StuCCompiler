@@ -17,12 +17,52 @@ pub enum AllocatedLocation {
     Memory,
 }
 
-#[derive(Default)]
 pub struct ArgAllocator {
     integer_regs_used: u64,
     float_regs_used: u64,
 }
 impl ArgAllocator {
+    /// Since some return values are passed via hidden pointer...
+    pub fn new(func_return_preferred_location: PreferredParamLocation) -> (Self, AllocatedLocation) {
+        let mut result = Self {
+            integer_regs_used: 0,
+            float_regs_used: 0,
+        };
+
+
+        let ret_location = match func_return_preferred_location {
+            //single GP returns in RAX
+            PreferredParamLocation::InGP => AllocatedLocation::Regs(vec![EightByteLocation::GP(GPRegister::_AX)]),
+            //caller needs to reserve stack, and put a hidden pointer in the first param
+            PreferredParamLocation::InMemory => {
+                result.allocate(PreferredParamLocation::InGP)
+            },
+            //single XMM returns in XMM0
+            PreferredParamLocation::InMMX => AllocatedLocation::Regs(vec![EightByteLocation::XMM(MMRegister::XMM0)]),
+            //struct in 2 parts returns in 2 appropriate return registers
+            PreferredParamLocation::Struct { l, r } => {
+                let return_gp = [GPRegister::_AX, GPRegister::_DX];
+                let return_xmm = [MMRegister::XMM0, MMRegister::XMM1];
+                let mut allocated = Vec::new();
+                //allocate each eightbyte based on *return location*
+                for eightbyte in [l, r] {
+                    match eightbyte {
+                        StructEightbytePreferredLocation::InGP => {
+                            allocated.push(EightByteLocation::GP(return_gp[result.integer_regs_used as usize]));
+                            result.integer_regs_used += 1;
+                        },
+                        StructEightbytePreferredLocation::InMMX => {
+                            allocated.push(EightByteLocation::XMM(return_xmm[result.float_regs_used as usize]));
+                            result.float_regs_used += 1;
+                        },
+                    }
+                }
+                AllocatedLocation::Regs(allocated)
+            }
+        };
+
+        (result, ret_location)
+    } 
     /**
      * Allocates registers for params
      */

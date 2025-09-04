@@ -77,7 +77,7 @@ impl FunctionDefinition {
         let mut reg_args = Vec::new();
         let mut mem_args = Vec::new();
 
-        let mut alloc_tracker = ArgAllocator::default();
+        let (mut alloc_tracker, return_location) = ArgAllocator::new(PreferredParamLocation::param_from_type(&self.get_return_type(), asm_data));
         let mut memory_offset_tracker = MemorySize::new();
         for param_idx in 0..self.decl.params.len() {
             let param = &self.decl.params[param_idx];//get metadata about param

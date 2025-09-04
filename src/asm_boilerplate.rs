@@ -12,6 +12,7 @@ pub fn cast_from_acc(original: &DataType, new_type: &DataType, asm_data: &AsmDat
 
         (_, _) => {
             let mut asm = Assembly::make_empty();
+            println!("cast {:?} to {:?}", original, new_type);
             asm.add_instruction(AsmOperation::CAST { from_type: original.decay_to_primative(), to_type: new_type.decay_to_primative() });
             asm
         }
