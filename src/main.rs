@@ -37,7 +37,7 @@ mod typedef;
 pub mod array_initialisation;
 mod number_literal;
 mod debugging;
-mod struct_member_access;
+mod member_access;
 mod args_handling;
 mod stack_allocation;
 pub mod goto_and_labels;

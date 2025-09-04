@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, member_access::MemberAccess};
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
@@ -82,11 +82,11 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
         expr.generate_assembly(self.asm_data, self.stack_data, self.global_asm_data)
     }
 
-    fn visit_struct_member_access(&mut self, member_access: &StructMemberAccess) -> Self::Output {
+    fn visit_member_access(&mut self, member_access: &MemberAccess) -> Self::Output {
         let mut result = Assembly::make_empty();
 
         let member_name = member_access.get_member_name();
-        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
 
         let original_struct_definition = self.asm_data.get_struct(&original_struct_name);
         let (member_decl, member_offset) = original_struct_definition.get_member_data(member_name);
@@ -99,7 +99,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
 
         if let DataType::ARRAY { .. } = member_decl.data_type {
             //get pointer to struct
-            let struct_addr_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
+            let struct_addr_asm = member_access.get_base_tree().accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
             result.merge(&struct_addr_asm);
 
             //offset the start pointer to the address of the member
@@ -109,7 +109,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             });
         } else {
             //clone the struct, just in case it is a return value for example
-            let struct_clone_asm = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location: resultant_struct_location});
+            let struct_clone_asm = member_access.get_base_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location: resultant_struct_location});
             result.merge(&struct_clone_asm);//generate struct that I am getting member of
 
             //offset the start pointer to the address of the member

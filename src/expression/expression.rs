@@ -1,6 +1,6 @@
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, stack_allocation::StackAllocator, string_literal::StringLiteral, member_access::MemberAccess};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -8,7 +8,7 @@ use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_express
 pub enum Expression {
     NUMBERLITERAL(NumberLiteral),
     VARIABLE(MinimalDataVariable),
-    STRUCTMEMBERACCESS(StructMemberAccess),
+    STRUCTMEMBERACCESS(MemberAccess),
     STRINGLITERAL(StringLiteral),//TODO merge with array initialisation
     ARRAYLITERAL(ArrayInitialisation),
     FUNCCALL(FunctionCall),
@@ -459,7 +459,7 @@ fn try_parse_array_index(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueS
     None
 }
 
-fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<StructMemberAccess> {
+fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<MemberAccess> {
 
     let mut curr_queue_idx = expr_slice.clone();
 
@@ -480,7 +480,7 @@ fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSli
         //the first part must return a struct
         let struct_tree = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen)?;
 
-        return Some(StructMemberAccess::new(struct_tree, member_name));
+        return Some(MemberAccess::new(struct_tree, member_name));
     }
     
     None//failed to find correct identifiers

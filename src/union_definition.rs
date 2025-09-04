@@ -30,6 +30,15 @@ impl UnionDefinition {
             .max()
         )
     }
+
+    pub fn get_member_data(&self, member_name: &str) -> Declaration {
+        self.ordered_members.as_ref().expect("looking for member in struct with no members")
+        .iter()
+        .find(|decl| decl.name == member_name)//find correctly named member
+        .expect(&format!("couldn't find struct member {}", member_name))
+        .clone()
+    }
+
     pub fn try_consume_union_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData, label_generator: &mut LabelGenerator) -> Option<ASTMetadata<UnionIdentifier>> {
         let mut curr_queue_idx = previous_slice.clone();
 

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
+use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, member_access::MemberAccess};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::expr_visitor::ExprVisitor;
@@ -82,16 +82,16 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         panic!("tried to put struct on stack but found binary expression");
     }
 
-    fn visit_struct_member_access(&mut self, member_access: &StructMemberAccess) -> Self::Output {
+    fn visit_member_access(&mut self, member_access: &MemberAccess) -> Self::Output {
         //this function handles getting struct members that are also structs themselves
         let mut result = Assembly::make_empty();
 
         let member_name = member_access.get_member_name();
-        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
         //generate struct that I am getting a member of
-        let generate_struct_base = member_access.get_base_struct_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location: self.resultant_location.clone()});
+        let generate_struct_base = member_access.get_base_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location: self.resultant_location.clone()});
         result.merge(&generate_struct_base);
 
         result.add_comment(format!("increasing pointer to get index of member struct {}", member_data.0.name));

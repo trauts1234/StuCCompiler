@@ -1,5 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, stack_allocation::StackAllocator, struct_member_access::StructMemberAccess};
-use unwrap_let::unwrap_let;
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::memory_operand::MemoryOperand, operation::AsmOperation}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}, stack_allocation::StackAllocator, member_access::MemberAccess};
 
 /**
  * puts the address of the visited Expression in RAX
@@ -63,27 +62,8 @@ impl<'a> ExprVisitor for ReferenceVisitor<'a> {
         panic!("tried to get address of binary expression")
     }
 
-    fn visit_struct_member_access(&mut self, member_access: &StructMemberAccess) -> Self::Output {
-        let mut result = Assembly::make_empty();
-
-        let member_name = member_access.get_member_name();
-        //get the struct whose member I am getting
-        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_struct_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
-        let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
-
-        //get address of the base struct
-        let original_struct_asm = member_access.get_base_struct_tree().accept(&mut ReferenceVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
-        result.merge(&original_struct_asm);
-
-        result.add_comment(format!("increasing pointer to get address of member {}", member_data.0.name));
-
-        //increase pointer to index of member
-        result.add_instruction(AsmOperation::ADD {
-            increment: Operand::Imm(member_data.1.as_imm()),
-            data_type: ScalarType::Integer(IntegerType::U64),
-        });
-
-        result
+    fn visit_member_access(&mut self, member_access: &MemberAccess) -> Self::Output {
+        member_access.put_addr_in_acc(self.asm_data, self.stack_data, self.global_asm_data)
     }
     
     fn visit_cast_expr(&mut self, _: &crate::cast_expr::CastExpression) -> Self::Output {

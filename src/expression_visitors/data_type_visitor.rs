@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::AsmData, binary_expression::BinaryExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, declaration::MinimalDataVariable, expression::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::expr_visitor::ExprVisitor, function_call::FunctionCall, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, struct_member_access::StructMemberAccess};
+use crate::{asm_gen_data::AsmData, binary_expression::BinaryExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, declaration::MinimalDataVariable, expression::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::expr_visitor::ExprVisitor, function_call::FunctionCall, number_literal::typed_value::NumberLiteral, string_literal::StringLiteral, member_access::MemberAccess};
 
 pub struct GetDataTypeVisitor<'a>{
     pub(crate) asm_data: &'a AsmData
@@ -67,7 +67,7 @@ impl<'a> ExprVisitor for GetDataTypeVisitor<'a> {
         }
     }
 
-    fn visit_struct_member_access(&mut self, expr: &StructMemberAccess) -> Self::Output {
+    fn visit_member_access(&mut self, expr: &MemberAccess) -> Self::Output {
         expr.get_data_type(self.asm_data)
     }
     
