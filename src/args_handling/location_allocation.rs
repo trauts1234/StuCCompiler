@@ -1,6 +1,6 @@
 use memory_size::MemorySize;
 
-use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, asm_gen_data::GetStructUnion, assembly::operand::register::{GPRegister, MMRegister}, data_type::recursive_data_type::DataType};
+use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, asm_gen_data::GetStructUnion, assembly::operand::register::{GPRegister, MMRegister}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
 
 const MAX_GP_REGS: u64 = 6;
 const MAX_XMM_REGS: u64 = 8;
@@ -23,7 +23,8 @@ pub enum AllocatedLocation {
 pub enum ReturnLocation {
     InRegs(Vec<EightByteLocation>),
     // pointer to the return data is stored at [rbp-pointer_bp_offset]
-    InMemory {pointer_bp_offset: MemorySize}
+    InMemory {pointer_bp_offset: MemorySize},
+    ReturnsVoid,
 }
 
 
@@ -32,22 +33,28 @@ where ArgIter: IntoIterator<Item = &'a DataType>
 {
     let mut arg_alloc = ArgAllocator::default();
 
-    let return_loc = match PreferredParamLocation::param_from_type(return_type, get_struct_union) {
-        //scalar - just return in the correct register
-        PreferredParamLocation::InGP => ReturnLocation::InRegs(vec![EightByteLocation::GP(GPRegister::_AX)]),
-        PreferredParamLocation::InMMX => ReturnLocation::InRegs(vec![EightByteLocation::XMM(MMRegister::XMM0)]),
-        //multi-register - use the correct register pair
-        PreferredParamLocation::Struct { l, r } => ReturnLocation::InRegs(match (l, r) {
-            (StructEightbytePreferredLocation::InGP, StructEightbytePreferredLocation::InGP) => vec![EightByteLocation::GP(GPRegister::_AX), EightByteLocation::GP(GPRegister::_DX)],
-            (StructEightbytePreferredLocation::InGP, StructEightbytePreferredLocation::InMMX) => vec![EightByteLocation::GP(GPRegister::_AX), EightByteLocation::XMM(MMRegister::XMM0)],
-            (StructEightbytePreferredLocation::InMMX, StructEightbytePreferredLocation::InGP) => vec![EightByteLocation::XMM(MMRegister::XMM0), EightByteLocation::GP(GPRegister::_AX)],
-            (StructEightbytePreferredLocation::InMMX, StructEightbytePreferredLocation::InMMX) => vec![EightByteLocation::XMM(MMRegister::XMM0), EightByteLocation::XMM(MMRegister::XMM1)],
-        }),
-        // here it is more tricky
-        PreferredParamLocation::InMemory => {
-            arg_alloc.integer_regs_used += 1;//first register is a hidden pointer
-            todo!()
-        },
+    let return_loc = 
+    if *return_type == DataType::RAW(BaseType::VOID) {
+        ReturnLocation::ReturnsVoid// to prevent param_from_type from crashing
+    } else {
+        //calculate where the return value should go
+        match PreferredParamLocation::param_from_type(return_type, get_struct_union) {
+            //scalar - just return in the correct register
+            PreferredParamLocation::InGP => ReturnLocation::InRegs(vec![EightByteLocation::GP(GPRegister::_AX)]),
+            PreferredParamLocation::InMMX => ReturnLocation::InRegs(vec![EightByteLocation::XMM(MMRegister::XMM0)]),
+            //multi-register - use the correct register pair
+            PreferredParamLocation::Struct { l, r } => ReturnLocation::InRegs(match (l, r) {
+                (StructEightbytePreferredLocation::InGP, StructEightbytePreferredLocation::InGP) => vec![EightByteLocation::GP(GPRegister::_AX), EightByteLocation::GP(GPRegister::_DX)],
+                (StructEightbytePreferredLocation::InGP, StructEightbytePreferredLocation::InMMX) => vec![EightByteLocation::GP(GPRegister::_AX), EightByteLocation::XMM(MMRegister::XMM0)],
+                (StructEightbytePreferredLocation::InMMX, StructEightbytePreferredLocation::InGP) => vec![EightByteLocation::XMM(MMRegister::XMM0), EightByteLocation::GP(GPRegister::_AX)],
+                (StructEightbytePreferredLocation::InMMX, StructEightbytePreferredLocation::InMMX) => vec![EightByteLocation::XMM(MMRegister::XMM0), EightByteLocation::XMM(MMRegister::XMM1)],
+            }),
+            // here it is more tricky
+            PreferredParamLocation::InMemory => {
+                arg_alloc.integer_regs_used += 1;//first register is a hidden pointer
+                todo!()
+            },
+        }
     };
 
     let params_loc = 

@@ -55,7 +55,7 @@ impl FunctionDefinition {
     pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
         let mut stack_data = StackAllocator::default();//stack starts as empty in a function
-        let (return_location, args_locations) = generate_param_and_return_locations(&self.decl.params, &self.get_return_type(), global_asm_data);
+        let (return_location, args_locations) = generate_param_and_return_locations(self.decl.params.iter().map(|decl| &decl.data_type), &self.get_return_type(), global_asm_data);
 
         //clone myself, but add all my local variables, and add my return type
         let asm_data = &AsmData::for_new_function(&global_asm_data, &self.local_scope_data, self.get_return_type(), return_location, &mut stack_data);

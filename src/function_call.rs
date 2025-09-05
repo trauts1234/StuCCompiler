@@ -47,7 +47,7 @@ impl FunctionCall {
         //maintaining order, split into categories based on location allocated
         let mut memory_args = Vec::new();
         let mut reg_args = Vec::new();
-        for (dtype, expr, location) in location_marked_args {
+        for ((dtype, expr), location) in type_matched_args.iter().zip(params_locations.iter()) {
             match location {
                 AllocatedLocation::Regs(regs) => reg_args.push((dtype, expr, regs)),
                 AllocatedLocation::Memory => memory_args.push((dtype, expr)),
@@ -80,7 +80,7 @@ impl FunctionCall {
 
         //calculate values and put in spill space
         for (dtype, expr, _, spill_space) in &regs_with_spill_space {
-            let calculate = put_arg_on_stack(expr, dtype.clone(), spill_space.clone(), visitor.asm_data, visitor.stack_data, visitor.global_asm_data);
+            let calculate = put_arg_on_stack(expr, (*dtype).clone(), spill_space.clone(), visitor.asm_data, visitor.stack_data, visitor.global_asm_data);
             result.merge(&calculate);
         }
 
@@ -88,7 +88,7 @@ impl FunctionCall {
         result.add_commented_instruction(AsmOperation::AllocateStack(stack_used_by_mem_args), "allocating stack for memory args");
         //calculate memory args and put in the correct place
         for (dtype, expr, location) in memory_args_allocated {
-            let calculate = put_arg_on_stack(expr, dtype, location, visitor.asm_data, visitor.stack_data, visitor.global_asm_data);
+            let calculate = put_arg_on_stack(expr, dtype.clone(), location, visitor.asm_data, visitor.stack_data, visitor.global_asm_data);
             result.merge(&calculate);
         }
 
@@ -116,7 +116,7 @@ impl FunctionCall {
         }
 
         let fp_args = regs_with_spill_space.iter()
-            .flat_map(|(_, _, x, _)| x)//get each reg recursively
+            .flat_map(|(_, _, x, _)| x.iter())//get each reg recursively
             .filter(|reg| if let EightByteLocation::XMM(_) = reg {true} else {false})//filter xmm regs only
             .count();
         result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_AX), from: Operand::Imm(ImmediateValue(fp_args.to_string())), size: MemorySize::from_bytes(8) });

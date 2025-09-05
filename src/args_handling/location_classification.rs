@@ -21,6 +21,9 @@ pub enum PreferredParamLocation {
 
 impl PreferredParamLocation {
 
+    /// Calculates where a param *should* be stored, assuming enough registers are present
+    /// 
+    /// Do not pass VOID, as it will `panic!`
     pub fn param_from_type(data_type: &DataType, get_struct_union: &dyn GetStructUnion) -> PreferredParamLocation {
         match data_type {
             DataType::UNKNOWNSIZEARRAY { .. } |
