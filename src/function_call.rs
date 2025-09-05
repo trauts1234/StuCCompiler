@@ -21,7 +21,7 @@ impl FunctionCall {
 
         result.add_comment(format!("calling function: {}", self.func_name));
 
-        let has_va_args = self.decl.params.last().unwrap().data_type == DataType::new(BaseType::VaArg);
+        let has_va_args = self.decl.params.last().is_some_and(|x| x.data_type == DataType::new(BaseType::VaArg));
 
         //attach type to each of the args
         let type_matched_args: Vec<_> = self.args.iter()
