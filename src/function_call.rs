@@ -21,12 +21,14 @@ impl FunctionCall {
 
         result.add_comment(format!("calling function: {}", self.func_name));
 
+        let has_va_args = self.decl.params.last().unwrap().data_type == DataType::new(BaseType::VaArg);
+
         //attach type to each of the args
         let type_matched_args: Vec<_> = self.args.iter()
             .enumerate()
             .map(|(i, expr)|{
-                let param_type = if i >= self.decl.params.len() {
-                    assert!(self.decl.params.last().unwrap().data_type == DataType::new(BaseType::VaArg));//more args than params, so must be varadic
+                let last_param_or_after = i >= (self.decl.params.len()-1);
+                let param_type = if has_va_args && last_param_or_after{
                     //promotion of the arg is required, subject to some funny rules
                     match expr.accept(&mut GetDataTypeVisitor {asm_data: visitor.asm_data}).decay() {
                         DataType::RAW(BaseType::Scalar(ScalarType::Float(_))) => DataType::RAW(BaseType::Scalar(ScalarType::Float(FloatType::F64))),//for some reason, varadic args request promotion to f64
