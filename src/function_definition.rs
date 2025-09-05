@@ -1,5 +1,5 @@
 use memory_size::MemorySize;
-use crate::{args_handling::{location_allocation::{AbiArgs, AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::{aligned_size, StackAllocator}};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::{aligned_size, StackAllocator}};
 use unwrap_let::unwrap_let;
 
 /**
@@ -55,10 +55,10 @@ impl FunctionDefinition {
     pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
         let mut stack_data = StackAllocator::default();//stack starts as empty in a function
-        let param_locations = AbiArgs::generate();
+        let (return_location, args_locations) = generate_param_and_return_locations(&self.decl.params, &self.get_return_type(), global_asm_data);
 
         //clone myself, but add all my local variables, and add my return type
-        let asm_data = &AsmData::for_new_function(&global_asm_data, &self.local_scope_data, self.get_return_type(), &mut stack_data);
+        let asm_data = &AsmData::for_new_function(&global_asm_data, &self.local_scope_data, self.get_return_type(), return_location, &mut stack_data);
 
         //set label as same as function name
         result.add_instruction(AsmOperation::Label(Label::Global(self.decl.function_name.clone())));
@@ -78,14 +78,13 @@ impl FunctionDefinition {
         let mut reg_args = Vec::new();
         let mut mem_args = Vec::new();
 
-        let (mut alloc_tracker, return_location) = ArgAllocator::new(PreferredParamLocation::param_from_type(&self.get_return_type(), asm_data));
         let mut memory_offset_tracker = MemorySize::new();
         for param_idx in 0..self.decl.params.len() {
             let param = &self.decl.params[param_idx];//get metadata about param
-            let param_size = param.data_type.memory_size(asm_data);//get size of param 
+            let param_size = param.data_type.memory_size(asm_data);//get size of param
 
+            let param_start_location = &args_locations[param_idx];
             unwrap_let!(MemoryOperand::SubFromBP(param_end_location) = &asm_data.get_variable(&param.name).location);//get the location of where the param should *end up* since it gets moved to a new location
-            let param_start_location = alloc_tracker.allocate(PreferredParamLocation::param_from_type(&param.data_type, asm_data));
 
             match param_start_location {
                 AllocatedLocation::Regs(eight_byte_locations) => 

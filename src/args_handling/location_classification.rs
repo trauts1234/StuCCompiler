@@ -2,7 +2,7 @@
 
 use memory_size::MemorySize;
 
-use crate::{asm_gen_data::{AsmData, GetStructUnion}, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, declaration::Declaration};
+use crate::{asm_gen_data::GetStructUnion, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, declaration::Declaration};
 
 #[derive(PartialEq, Clone)]
 pub enum StructEightbytePreferredLocation {
@@ -21,39 +21,39 @@ pub enum PreferredParamLocation {
 
 impl PreferredParamLocation {
 
-    pub fn param_from_type(data_type: &DataType, asm_data: &dyn GetStructUnion) -> PreferredParamLocation {
+    pub fn param_from_type(data_type: &DataType, get_struct_union: &dyn GetStructUnion) -> PreferredParamLocation {
         match data_type {
             DataType::UNKNOWNSIZEARRAY { .. } |
             DataType::ARRAY {..} => PreferredParamLocation::InGP,//decays to a pointer, which is integer
 
             DataType::POINTER(_) => PreferredParamLocation::InGP,// pointer can be passed as an integer type
             DataType::RAW(base_type) => 
-                Self::param_from_base_type(base_type, asm_data),
+                Self::param_from_base_type(base_type, get_struct_union),
         }
     }
 
-    fn param_from_base_type(base_type: &BaseType, asm_data: &dyn GetStructUnion) -> PreferredParamLocation {
+    fn param_from_base_type(base_type: &BaseType, get_struct_union: &dyn GetStructUnion) -> PreferredParamLocation {
         match base_type {
             BaseType::Struct(struct_name) => {
-                let struct_type = asm_data.get_struct(&struct_name);
+                let struct_type = get_struct_union.get_struct(&struct_name);
 
                 match struct_type.calculate_size().unwrap().size_bytes() {
                     ..=16 => {
                         let args_iter = struct_type.get_all_members().as_ref().expect("tried to pass a struct as a param but it had no members").iter();
                         
                         let is_first_eightbyte_predicate = |(decl, offset): &&(Declaration, MemorySize)| {
-                            let last_byte_of_member_offset = decl.data_type.memory_size(asm_data) + *offset;
+                            let last_byte_of_member_offset = decl.data_type.memory_size(get_struct_union) + *offset;
 
                             last_byte_of_member_offset.size_bytes() <= 8
                         };
 
                         let first_eightbyte_types: Vec<_> = args_iter.clone()
                             .take_while(is_first_eightbyte_predicate)
-                            .map(|(decl, _)| Self::param_from_type(&decl.data_type, asm_data))
+                            .map(|(decl, _)| Self::param_from_type(&decl.data_type, get_struct_union))
                             .collect();
                         let second_eightbyte_types: Vec<_> = args_iter
                             .skip_while(is_first_eightbyte_predicate)
-                            .map(|(decl, _)| Self::param_from_type(&decl.data_type, asm_data))
+                            .map(|(decl, _)| Self::param_from_type(&decl.data_type, get_struct_union))
                             .collect();
 
                         let first_eightbyte = classify_eightbyte(&first_eightbyte_types).unwrap();

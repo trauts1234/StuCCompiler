@@ -1,4 +1,4 @@
-use crate::{args_handling::{location_allocation::{AllocatedLocation, ArgAllocator, EightByteLocation}, location_classification::PreferredParamLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, FloatType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::{align, StackAllocator}};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, FloatType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::{align, StackAllocator}};
 use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 
@@ -22,35 +22,27 @@ impl FunctionCall {
         result.add_comment(format!("calling function: {}", self.func_name));
 
         //attach type to each of the args
-        let type_matched_args: Vec<_> = self.args.iter().enumerate().map(|(i, x)|{
-            
-            let param_type = if i >= self.decl.params.len() {
-                assert!(self.decl.params.last().unwrap().data_type == DataType::new(BaseType::VaArg));//more args than params, so must be varadic
-                DataType::new(BaseType::VaArg)//this is handled later
-            } else {
-                self.decl.params[i].data_type.clone()//arg gets cast to param type
-            };
+        let type_matched_args: Vec<_> = self.args.iter()
+            .enumerate()
+            .map(|(i, expr)|{
+                let param_type = if i >= self.decl.params.len() {
+                    assert!(self.decl.params.last().unwrap().data_type == DataType::new(BaseType::VaArg));//more args than params, so must be varadic
+                    //promotion of the arg is required, subject to some funny rules
+                    match expr.accept(&mut GetDataTypeVisitor {asm_data: visitor.asm_data}).decay() {
+                        DataType::RAW(BaseType::Scalar(ScalarType::Float(_))) => DataType::RAW(BaseType::Scalar(ScalarType::Float(FloatType::F64))),//for some reason, varadic args request promotion to f64
+                        x => calculate_unary_type_arithmetic(&x)//promote the param via C99, §6.5.2.2/6
+                    }
+                } else {
+                    self.decl.params[i].data_type.clone()//arg gets cast to param type
+                };
 
-            (param_type, x)
-        }).collect();
-
-        let mut arg_allocator = ArgAllocator::default();
-        //regenerate the list, allocating registers where possible
-        let location_marked_args: Vec<_> = type_matched_args
-            .into_iter()
-            .map(|(dtype, expr)| {
-                let dtype = dtype.replace_va_arg(match expr.accept(&mut GetDataTypeVisitor {asm_data: visitor.asm_data}).decay() {
-                    DataType::RAW(BaseType::Scalar(ScalarType::Float(_))) => DataType::RAW(BaseType::Scalar(ScalarType::Float(FloatType::F64))),//for some reason, varadic args request promotion to f64
-                    x => calculate_unary_type_arithmetic(&x)//promote the param via C99, §6.5.2.2/6
-                });
-
-                let preferred_location = PreferredParamLocation::param_from_type(&dtype, visitor.asm_data);
-                let allocated_location = arg_allocator.allocate(preferred_location);
-                (dtype, expr, allocated_location)
+                (param_type, expr)
             })
             .collect();
 
-        assert!(location_marked_args.iter().all(|x| x.0.decay() == x.0));//none can be array at this point
+        let (return_location, params_locations) = generate_param_and_return_locations(type_matched_args.iter().map(|(t, _)| t), &self.decl.return_type, visitor.asm_data);
+
+        assert!(type_matched_args.iter().all(|x| x.0.decay() == x.0));//none can be array at this point
 
         //maintaining order, split into categories based on location allocated
         let mut memory_args = Vec::new();

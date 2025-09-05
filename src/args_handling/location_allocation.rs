@@ -1,6 +1,6 @@
 use memory_size::MemorySize;
 
-use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, assembly::operand::register::{GPRegister, MMRegister}, data_type::recursive_data_type::DataType, declaration::Declaration};
+use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, asm_gen_data::GetStructUnion, assembly::operand::register::{GPRegister, MMRegister}, data_type::recursive_data_type::DataType};
 
 const MAX_GP_REGS: u64 = 6;
 const MAX_XMM_REGS: u64 = 8;
@@ -26,72 +26,47 @@ pub enum ReturnLocation {
     InMemory {pointer_bp_offset: MemorySize}
 }
 
-/// Stores where the args should be as per the ABI
-#[derive(Clone)]
-pub struct AbiArgs {
-    return_loc: ReturnLocation,
-    params_loc: Vec<AllocatedLocation> 
-}
-impl AbiArgs {
-    pub fn generate(args: &[Declaration], return_type: &DataType) -> Self {
-        let return_loc = match return_type {
 
-        }
-    }
-    pub fn return_location(&self) -> &ReturnLocation {
-        &self.return_loc
-    }
-    pub fn param_location(&self, param_num: usize) -> &AllocatedLocation {
-        &self.params_loc[param_num]
-    }
-}
+pub fn generate_param_and_return_locations<'a, ArgIter>(arg_types: ArgIter, return_type: &DataType, get_struct_union: &dyn GetStructUnion) -> (ReturnLocation, Vec<AllocatedLocation>)
+where ArgIter: IntoIterator<Item = &'a DataType>
+{
+    let mut arg_alloc = ArgAllocator::default();
 
-pub struct ArgAllocator {
-    integer_regs_used: u64,
-    float_regs_used: u64,
+    let return_loc = match PreferredParamLocation::param_from_type(return_type, get_struct_union) {
+        //scalar - just return in the correct register
+        PreferredParamLocation::InGP => ReturnLocation::InRegs(vec![EightByteLocation::GP(GPRegister::_AX)]),
+        PreferredParamLocation::InMMX => ReturnLocation::InRegs(vec![EightByteLocation::XMM(MMRegister::XMM0)]),
+        //multi-register - use the correct register pair
+        PreferredParamLocation::Struct { l, r } => ReturnLocation::InRegs(match (l, r) {
+            (StructEightbytePreferredLocation::InGP, StructEightbytePreferredLocation::InGP) => vec![EightByteLocation::GP(GPRegister::_AX), EightByteLocation::GP(GPRegister::_DX)],
+            (StructEightbytePreferredLocation::InGP, StructEightbytePreferredLocation::InMMX) => vec![EightByteLocation::GP(GPRegister::_AX), EightByteLocation::XMM(MMRegister::XMM0)],
+            (StructEightbytePreferredLocation::InMMX, StructEightbytePreferredLocation::InGP) => vec![EightByteLocation::XMM(MMRegister::XMM0), EightByteLocation::GP(GPRegister::_AX)],
+            (StructEightbytePreferredLocation::InMMX, StructEightbytePreferredLocation::InMMX) => vec![EightByteLocation::XMM(MMRegister::XMM0), EightByteLocation::XMM(MMRegister::XMM1)],
+        }),
+        // here it is more tricky
+        PreferredParamLocation::InMemory => {
+            arg_alloc.integer_regs_used += 1;//first register is a hidden pointer
+            todo!()
+        },
+    };
+
+    let params_loc = 
+        arg_types.into_iter()
+        .map(|arg_type| arg_alloc.allocate(PreferredParamLocation::param_from_type(arg_type, get_struct_union)))
+        .collect();
+        
+
+    (return_loc, params_loc)
+}
+    
+
+#[derive(Default)]
+struct ArgAllocator {
+    pub integer_regs_used: u64,
+    pub float_regs_used: u64,
 }
 impl ArgAllocator {
-    /// Since some return values are passed via hidden pointer...
-    pub fn new(func_return_preferred_location: PreferredParamLocation) -> (Self, AllocatedLocation) {
-        let mut result = Self {
-            integer_regs_used: 0,
-            float_regs_used: 0,
-        };
 
-
-        let ret_location = match func_return_preferred_location {
-            //single GP returns in RAX
-            PreferredParamLocation::InGP => AllocatedLocation::Regs(vec![EightByteLocation::GP(GPRegister::_AX)]),
-            //caller needs to reserve stack, and put a hidden pointer in the first param
-            PreferredParamLocation::InMemory => {
-                result.allocate(PreferredParamLocation::InGP)
-            },
-            //single XMM returns in XMM0
-            PreferredParamLocation::InMMX => AllocatedLocation::Regs(vec![EightByteLocation::XMM(MMRegister::XMM0)]),
-            //struct in 2 parts returns in 2 appropriate return registers
-            PreferredParamLocation::Struct { l, r } => {
-                let return_gp = [GPRegister::_AX, GPRegister::_DX];
-                let return_xmm = [MMRegister::XMM0, MMRegister::XMM1];
-                let mut allocated = Vec::new();
-                //allocate each eightbyte based on *return location*
-                for eightbyte in [l, r] {
-                    match eightbyte {
-                        StructEightbytePreferredLocation::InGP => {
-                            allocated.push(EightByteLocation::GP(return_gp[result.integer_regs_used as usize]));
-                            result.integer_regs_used += 1;
-                        },
-                        StructEightbytePreferredLocation::InMMX => {
-                            allocated.push(EightByteLocation::XMM(return_xmm[result.float_regs_used as usize]));
-                            result.float_regs_used += 1;
-                        },
-                    }
-                }
-                AllocatedLocation::Regs(allocated)
-            }
-        };
-
-        (result, ret_location)
-    } 
     /**
      * Allocates registers for params
      */
