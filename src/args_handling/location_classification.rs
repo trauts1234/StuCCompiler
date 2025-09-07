@@ -81,6 +81,9 @@ impl PreferredParamLocation {
             BaseType::Scalar(ScalarType::Float(_)) => {
                 PreferredParamLocation::InMMX
             }
+            BaseType::Union(_) => {
+                PreferredParamLocation::InMemory//unions prefer memory
+            }
             x => panic!("tried to calculate param type from unknown type: {:?}", x)
         }
     }

@@ -158,7 +158,7 @@ pub fn consume_fully_qualified_type(tokens_queue: &TokenQueue, previous_queue_id
 impl Display for FunctionDeclaration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f,
-            "function {}: {} -> {}",
+            "function {}: ({}) -> {}",
             self.function_name,
             self.params.iter().map(|x| format!("{}", x)).collect:: <Vec<_>>().join(", "),
             self.return_type)
