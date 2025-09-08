@@ -1,4 +1,5 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, member_access::MemberAccess};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, member_access::MemberAccess};
+use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
@@ -10,7 +11,7 @@ use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
  */
 pub struct ScalarInAccVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut StackAllocator,
+    pub(crate) stack_data: &'a mut SimpleStackFrame,
     pub(crate) global_asm_data: &'a mut GlobalAsmData
 }
 
@@ -173,11 +174,8 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             comparison: AsmComparison::EQ,
         });
 
-        //both branches are mutually exclusive so I only need enough stack for *one* of the branches to run
-        let (mut if_body_stack_usage, mut else_body_stack_usage) = self.stack_data.split_for_branching();
-
         //generate the body of the if statement
-        let if_body_asm = ternary.true_branch().accept(&mut ScalarInAccVisitor {asm_data: self.asm_data, stack_data: &mut if_body_stack_usage, global_asm_data: self.global_asm_data});
+        let if_body_asm = ternary.true_branch().accept(&mut ScalarInAccVisitor {asm_data: self.asm_data, stack_data: &mut self.stack_data, global_asm_data: self.global_asm_data});
         result.merge(&if_body_asm);
 
         //jump to the end of the if/else block
@@ -186,14 +184,11 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
             comparison: AsmComparison::ALWAYS,//unconditional jump
         });
 
-        let else_body_asm = ternary.false_branch().accept(&mut ScalarInAccVisitor {asm_data: self.asm_data, stack_data: &mut else_body_stack_usage, global_asm_data: self.global_asm_data});
+        let else_body_asm = ternary.false_branch().accept(&mut ScalarInAccVisitor {asm_data: self.asm_data, stack_data: &mut self.stack_data, global_asm_data: self.global_asm_data});
 
         //start of the else block
         result.add_instruction(AsmOperation::Label(else_label));//add label
         result.merge(&else_body_asm);//generate the body of the else statement
-
-        //stack required is the largest between the if and else branches
-        self.stack_data.merge_from_branching(if_body_stack_usage, else_body_stack_usage);
 
         //after if/else are complete, jump here
         result.add_instruction(AsmOperation::Label(if_end_label));

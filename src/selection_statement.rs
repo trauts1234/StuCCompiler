@@ -1,5 +1,6 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, Operand}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::StackAllocator, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, Operand}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
+use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 
 /**
@@ -66,7 +67,7 @@ impl SelectionStatement {
         }
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         match self {
@@ -94,10 +95,8 @@ impl SelectionStatement {
                     comparison: AsmComparison::EQ,
                 });
 
-                let (mut if_body_stack_usage, mut else_body_stack_usage) = stack_data.split_for_branching();
-
                 //generate the body of the if statement
-                let if_body_asm = if_body.generate_assembly(asm_data, &mut if_body_stack_usage, global_asm_data);
+                let if_body_asm = if_body.generate_assembly(asm_data, stack_data, global_asm_data);
                 result.merge(&if_body_asm);
 
                 //jump to the end of the if/else block
@@ -109,15 +108,12 @@ impl SelectionStatement {
                 if let Some(else_body) = else_body {
                     //there is code in the else block
 
-                    let else_body_asm = else_body.generate_assembly(asm_data, &mut else_body_stack_usage, global_asm_data);
+                    let else_body_asm = else_body.generate_assembly(asm_data, stack_data, global_asm_data);
 
                     //start of the else block
                     result.add_instruction(AsmOperation::Label(else_label));//add label
                     result.merge(&else_body_asm);//generate the body of the else statement
                 }
-
-                //stack required is the largest between the if and else branches
-                stack_data.merge_from_branching(if_body_stack_usage, else_body_stack_usage);
 
                 //after if/else are complete, jump here
                 result.add_instruction(AsmOperation::Label(if_end_label));

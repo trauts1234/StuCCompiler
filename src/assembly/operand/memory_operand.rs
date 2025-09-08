@@ -1,5 +1,6 @@
 use colored::Colorize;
 use memory_size::MemorySize;
+use stack_management::stack_item::StackItemKey;
 
 use crate::debugging::IRDisplay;
 
@@ -11,14 +12,14 @@ pub enum MemoryOperand {
     LabelAccess(String),
     MemoryAddress {pointer_reg: GPRegister},
     PreviousStackFrame{add_to_rbp: MemorySize},//(remember to add 8 bytes for stack frame and 8 bytes for the return address when creating this enum)
-    SubFromBP(MemorySize),
+    SubFromBP(StackItemKey),
     AddToSP(MemorySize),
 }
 
 impl MemoryOperand {
     pub fn generate_name(&self) -> String {
         match self {
-            MemoryOperand::SubFromBP(memory_layout) => format!("[rbp-{}]", memory_layout.size_bytes()),
+            MemoryOperand::SubFromBP(memory_layout) => panic!(),//format!("[rbp-{}]", memory_layout.size_bytes()),
             MemoryOperand::AddToSP(memory_layout) => format!("[rsp+{}]", memory_layout.size_bytes()),
             MemoryOperand::PreviousStackFrame { add_to_rbp } => format!("[rbp+{}]", add_to_rbp.size_bytes()),
             MemoryOperand::LabelAccess(label) => format!("[rel {}]", label),

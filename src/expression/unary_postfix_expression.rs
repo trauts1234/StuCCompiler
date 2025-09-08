@@ -1,7 +1,6 @@
 use colored::Colorize;
-use memory_size::MemorySize;
-
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral, stack_allocation::StackAllocator};
+use stack_management::simple_stack_frame::SimpleStackFrame;
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral};
 
 use super::{expression::Expression, unary_postfix_operator::UnaryPostfixOperator};
 
@@ -24,7 +23,7 @@ impl UnaryPostfixExpression {
         }
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         match self.operator {

@@ -1,5 +1,6 @@
 use memory_size::MemorySize;
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, stack_allocation::{aligned_size, StackAllocator}};
+use stack_management::simple_stack_frame::SimpleStackFrame;
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE, STACK_ALIGN}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -54,7 +55,8 @@ impl FunctionDefinition {
 
     pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
-        let mut stack_data = StackAllocator::default();//stack starts as empty in a function
+        //as per SYSV ABI, stack is aligned (once stack frame generated) to 16 bytes
+        let mut stack_data = SimpleStackFrame::new(STACK_ALIGN);//stack starts as empty in a function
         let (return_location, args_locations) = generate_param_and_return_locations(self.decl.params.iter().map(|decl| &decl.data_type), &self.get_return_type(), global_asm_data);
 
         //clone myself, but add all my local variables, and add my return type
@@ -66,8 +68,6 @@ impl FunctionDefinition {
         result.add_commented_instruction(AsmOperation::CreateStackFrame, "create stack frame");
 
         let code_for_body = self.code.generate_assembly(asm_data, &mut stack_data, global_asm_data);//calculate stack needed for function, while generating asm
-        let aligned_stack_usage = aligned_size(stack_data.stack_required(), MemorySize::from_bytes(16));
-        result.add_commented_instruction(AsmOperation::AllocateStack(aligned_stack_usage), "allocate stack for local variables and alignment");
 
         result.add_comment("moving args to memory");
 
@@ -107,8 +107,13 @@ impl FunctionDefinition {
                     EightByteLocation::GP(gpregister) => Operand::GPReg(*gpregister),
                     EightByteLocation::XMM(mmregister) => Operand::MMReg(*mmregister),
                 };
+
+                //rax should be safe to clobber here...
+                result.add_instruction(AsmOperation::LEA { from: MemoryOperand::SubFromBP(*param_end_location)});
+                result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(how_far_into_param.as_imm()), data_type: ScalarType::Integer(IntegerType::U64) });
+
                 result.add_commented_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(*param_end_location - how_far_into_param)),
+                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
                     from: from_reg,
                     size: eightbyte_size
                 }, format!("moving reg arg to memory (param no.{} eightbyte no.{})", param_idx, i));
@@ -121,7 +126,7 @@ impl FunctionDefinition {
             let skip_stackframe_and_return_addr = MemorySize::from_bytes(16);// +8 to skip stack frame, +8 to skip return address, now points to first memory arg
 
             let arg_address_operand = MemoryOperand::PreviousStackFrame { add_to_rbp: skip_stackframe_and_return_addr + memory_offset_tracker };
-            memory_offset_tracker += aligned_size(param_size, MemorySize::from_bytes(8));//args are padded, so keep track of the memory address here
+            memory_offset_tracker += param_size.align_up(&MemorySize::from_bytes(8));//args are padded, so keep track of the memory address here
 
             result.add_commented_instruction(AsmOperation::LEA {
                 from: arg_address_operand,

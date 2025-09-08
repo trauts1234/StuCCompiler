@@ -1,4 +1,5 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator, member_access::MemberAccess};
+use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, member_access::MemberAccess};
+use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::expr_visitor::ExprVisitor;
@@ -10,7 +11,7 @@ use super::expr_visitor::ExprVisitor;
  */
 pub struct CopyStructVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut StackAllocator,
+    pub(crate) stack_data: &'a mut SimpleStackFrame,
     pub(crate) global_asm_data: &'a mut GlobalAsmData,
     pub(crate) resultant_location: Operand,
 }

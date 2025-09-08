@@ -13,6 +13,7 @@ unwrap_let = "*"
 memory_size = "*"
 colored = "*"
 logos = "*"
+stack_management = {path="../stack_management"}
 
 [dependencies.uuid]
 version = "1.17.0"

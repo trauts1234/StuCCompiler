@@ -39,7 +39,6 @@ mod number_literal;
 mod debugging;
 mod member_access;
 mod args_handling;
-mod stack_allocation;
 pub mod goto_and_labels;
 pub mod union_definition;
 

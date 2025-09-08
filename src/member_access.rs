@@ -1,5 +1,6 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, stack_allocation::StackAllocator};
+use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use memory_size::MemorySize;
+use stack_management::simple_stack_frame::SimpleStackFrame;
 
 #[derive(Clone, Debug)]
 pub struct MemberAccess {
@@ -44,7 +45,7 @@ impl MemberAccess {
         
     }
 
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         result.add_comment(format!("getting address of member {}", self.member_name));

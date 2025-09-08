@@ -1,5 +1,6 @@
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ImmediateValue, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, FloatType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData, stack_allocation::{align, StackAllocator}};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, function_declaration::FunctionDeclaration, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
+use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 
 #[derive(Clone, Debug)]
@@ -74,7 +75,7 @@ impl FunctionCall {
                 let mem_required = dtype.memory_size(visitor.asm_data);
                 let location = MemoryOperand::AddToSP(stack_used_by_mem_args);
                 stack_used_by_mem_args += mem_required;//step over the param
-                stack_used_by_mem_args += align(stack_used_by_mem_args, MemorySize::from_bytes(8));//align correctly
+                stack_used_by_mem_args = stack_used_by_mem_args.align_up(&MemorySize::from_bytes(8));//align correctly
                 (dtype, expr, location)
             })
             .rev()//undo the previous .rev()
@@ -101,17 +102,19 @@ impl FunctionCall {
                 //for each eightbyte, read further into the arg
                 let eightbyte_offset = MemorySize::from_bytes(8 * (i as u64));
                 unwrap_let!(MemoryOperand::SubFromBP(spill_base) = spill_space);
-                //spill base takes us towards SP, then offset walks us back towards BP
-                let eightbyte_addr = MemoryOperand::SubFromBP(*spill_base - eightbyte_offset);
                 // convert to an operand for assembly
                 let to_location = match reg {
                     EightByteLocation::GP(gpregister) => RegOrMem::GPReg(*gpregister),
                     EightByteLocation::XMM(mmregister) => RegOrMem::MMReg(*mmregister),
                 };
 
+                //spill base takes us towards SP, then offset walks us back towards BP
+                result.add_instruction(AsmOperation::LEA { from: MemoryOperand::SubFromBP(*spill_base)});
+                result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(eightbyte_offset.as_imm()), data_type: ScalarType::Integer(IntegerType::U64) });
+
                 result.add_commented_instruction(AsmOperation::MOV {
                     to: to_location,
-                    from: Operand::Mem(eightbyte_addr),
+                    from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::_AX }),
                     size: MemorySize::from_bytes(8),
                 }, format!("moving eightbyte {} into the appropriate register", i));
             }
@@ -191,7 +194,7 @@ impl ASTDisplay for FunctionCall {
     }
 }
 
-fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperand, asm_data: &AsmData, stack_data: &mut StackAllocator, global_asm_data:&mut crate::asm_gen_data::GlobalAsmData) -> Assembly {
+fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperand, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data:&mut crate::asm_gen_data::GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
     //push arg to stack
     let param_type = expr.accept(&mut GetDataTypeVisitor{asm_data});

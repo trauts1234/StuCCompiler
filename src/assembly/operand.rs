@@ -11,6 +11,10 @@ use memory_size::MemorySize;
 use crate::{assembly::operand::register::MMRegister, debugging::IRDisplay};
 
 pub const PTR_SIZE: MemorySize = MemorySize::from_bytes(8);
+/// Alignment of the stack before calling a function in SysV ABI
+/// 
+/// Coincidentally also the alignment after a call and stack frame have been set up
+pub const STACK_ALIGN: MemorySize = MemorySize::from_bytes(16);
 
 /**
  * enum storing any possible r/m or immediate operand

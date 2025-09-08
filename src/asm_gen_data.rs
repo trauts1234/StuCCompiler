@@ -1,4 +1,6 @@
-use crate::{args_handling::location_allocation::{ReturnLocation}, assembly::{operand::memory_operand::MemoryOperand, operation::Label}, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, stack_allocation::StackAllocator, struct_definition::{StructDefinition, StructIdentifier}, union_definition::{UnionDefinition, UnionIdentifier}};
+use stack_management::simple_stack_frame::SimpleStackFrame;
+
+use crate::{args_handling::location_allocation::{ReturnLocation}, assembly::{operand::memory_operand::MemoryOperand, operation::Label}, compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::{StructDefinition, StructIdentifier}, union_definition::{UnionDefinition, UnionIdentifier}};
 
 pub trait GetStructUnion {
     fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition;
@@ -72,7 +74,7 @@ impl GlobalAsmData {
 }
 
 impl AsmData {
-    pub fn for_new_function(global_asm_data: &GlobalAsmData, parse_data: &ParseData, current_function_return_type: DataType, current_function_return_addr: ReturnLocation, stack_data: &mut StackAllocator) -> AsmData {
+    pub fn for_new_function(global_asm_data: &GlobalAsmData, parse_data: &ParseData, current_function_return_type: DataType, current_function_return_addr: ReturnLocation, stack_data: &mut SimpleStackFrame) -> AsmData {
         let mut result = Self {
             variables: global_asm_data.global_variables.clone(),
             return_type: current_function_return_type,
@@ -99,7 +101,7 @@ impl AsmData {
         result
     }
 
-    pub fn clone_for_new_scope(&self, parse_data: &ParseData, stack_data: &mut StackAllocator) -> AsmData {
+    pub fn clone_for_new_scope(&self, parse_data: &ParseData, stack_data: &mut SimpleStackFrame) -> AsmData {
         let mut result = self.clone();
 
         //add new structs

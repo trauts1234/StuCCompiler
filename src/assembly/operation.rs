@@ -45,7 +45,9 @@ pub enum AsmOperation {
     BitwiseOp { secondary: Operand, operation: LogicalOperation},
 
     Label(Label),
+    /// also allocates variables on the stack
     CreateStackFrame,
+    /// also (implicitly) deallocates variables on the stack
     DestroyStackFrame,
     Return,
     /// Subtracts MemorySize bytes from RSP
@@ -97,7 +99,7 @@ impl AsmOperation {
             AsmOperation::ADD { increment, data_type } => instruction_add(increment, data_type),
             AsmOperation::SUB { decrement, data_type } => instruction_sub(decrement, data_type),
             AsmOperation::NEG { data_type } => instruction_neg(data_type),
-            AsmOperation::CreateStackFrame => "push rbp\nmov rbp, rsp".to_string(),
+            AsmOperation::CreateStackFrame => format!("push rbp\nmov rbp, rsp\nsub rsp, {}", todo!()),//TODO allocate stack here?
             AsmOperation::DestroyStackFrame => "mov rsp, rbp\npop rbp".to_string(),
             AsmOperation::Return => "ret".to_string(),
             AsmOperation::AllocateStack(size) => format!("sub rsp, {}", size.size_bytes()),
