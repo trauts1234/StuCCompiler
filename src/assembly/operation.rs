@@ -47,19 +47,34 @@ pub enum AsmOperation {
 
     Label(Label),
     /// also allocates variables on the stack
+    /// 
+    /// Doesn't clobber the accumulator
     CreateStackFrame,
     /// also (implicitly) deallocates variables on the stack
+    /// 
+    /// Doesn't clobber the accumulator
     DestroyStackFrame,
+    /// Doesn't clobber the accumulator
     Return,
     /// Subtracts MemorySize bytes from RSP
+    /// 
+    /// Doesn't clobber the accumulator
     AllocateStack(MemorySize),
     /// adds MemorySize bytes to RSP
+    /// 
+    /// Doesn't clobber the accumulator
     DeallocateStack(MemorySize),
     ///copies `size` bytes from the pointer RSI to RDI
+    /// 
+    /// Doesn't clobber the accumulator
     MEMCPY {size: MemorySize},
     ///calls a subroutine
+    /// 
+    /// Doesn't clobber the accumulator
     CALL {label: String},
     ///not even a nop, just a blank line of assembly
+    /// 
+    /// Doesn't clobber the accumulator
     BLANK,
 }
 

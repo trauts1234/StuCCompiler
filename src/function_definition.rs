@@ -57,7 +57,7 @@ impl FunctionDefinition {
         let mut result = Assembly::make_empty();
         //as per SYSV ABI, stack is aligned (once stack frame generated) to 16 bytes
         let mut stack_data = SimpleStackFrame::new(STACK_ALIGN);//stack starts as empty in a function
-        let (return_location, args_locations) = generate_param_and_return_locations(self.decl.params.iter().map(|decl| &decl.data_type), &self.get_return_type(), global_asm_data);
+        let (return_location, args_locations) = generate_param_and_return_locations(self.decl.params.iter().map(|decl| &decl.data_type), &self.get_return_type(), global_asm_data, &mut stack_data);
 
         //clone myself, but add all my local variables, and add my return type
         let asm_data = &AsmData::for_new_function(&global_asm_data, &self.local_scope_data, self.get_return_type(), return_location, &mut stack_data);

@@ -43,7 +43,7 @@ impl FunctionCall {
             })
             .collect();
 
-        let (return_location, params_locations) = generate_param_and_return_locations(type_matched_args.iter().map(|(t, _)| t), &self.decl.return_type, visitor.asm_data);
+        let (return_location, params_locations) = generate_param_and_return_locations(type_matched_args.iter().map(|(t, _)| t), &self.decl.return_type, visitor.asm_data, &mut visitor.stack_data);
 
         assert!(type_matched_args.iter().all(|x| x.0.decay() == x.0));//none can be array at this point
 

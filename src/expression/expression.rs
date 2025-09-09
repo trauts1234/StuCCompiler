@@ -280,10 +280,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
         (DataType::ARRAY { .. }, x) => panic!("tried to set {:?} to {:?}", lhs, x),
 
-        (data_type, _) => {
-            assert!(data_type.memory_size(asm_data).size_bytes() <= 8);
-            //maybe more special cases for struct assignment etc
-
+        (DataType::RAW(BaseType::Scalar(_)), _) => {
             //put address of lvalue on stack
             let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
             result.merge(&lhs_asm);

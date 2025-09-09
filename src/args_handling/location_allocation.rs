@@ -1,6 +1,6 @@
-use memory_size::MemorySize;
+use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 
-use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, asm_gen_data::GetStructUnion, assembly::operand::register::{GPRegister, MMRegister}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
+use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, asm_gen_data::GetStructUnion, assembly::operand::{register::{GPRegister, MMRegister}, PTR_SIZE}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
 
 const MAX_GP_REGS: u64 = 6;
 const MAX_XMM_REGS: u64 = 8;
@@ -22,23 +22,21 @@ pub enum AllocatedLocation {
 #[derive(Clone)]
 pub enum ReturnLocation {
     InRegs(Vec<EightByteLocation>),
-    // pointer to the return data is stored at [rbp-pointer_bp_offset]
-    InMemory {pointer_bp_offset: MemorySize},
-    ReturnsVoid,
+    InMemory {hidden_ptr_location: StackItemKey},
 }
 
 
-pub fn generate_param_and_return_locations<'a, ArgIter>(arg_types: ArgIter, return_type: &DataType, get_struct_union: &dyn GetStructUnion) -> (ReturnLocation, Vec<AllocatedLocation>)
+pub fn generate_param_and_return_locations<'a, ArgIter>(arg_types: ArgIter, return_type: &DataType, get_struct_union: &dyn GetStructUnion, stack: &mut SimpleStackFrame) -> (Option<ReturnLocation>, Vec<AllocatedLocation>)
 where ArgIter: IntoIterator<Item = &'a DataType>
 {
     let mut arg_alloc = ArgAllocator::default();
 
     let return_loc = 
     if *return_type == DataType::RAW(BaseType::VOID) {
-        ReturnLocation::ReturnsVoid// to prevent param_from_type from crashing
+        None
     } else {
         //calculate where the return value should go
-        match PreferredParamLocation::param_from_type(return_type, get_struct_union) {
+        Some(match PreferredParamLocation::param_from_type(return_type, get_struct_union) {
             //scalar - just return in the correct register
             PreferredParamLocation::InGP => ReturnLocation::InRegs(vec![EightByteLocation::GP(GPRegister::_AX)]),
             PreferredParamLocation::InMMX => ReturnLocation::InRegs(vec![EightByteLocation::XMM(MMRegister::XMM0)]),
@@ -52,9 +50,10 @@ where ArgIter: IntoIterator<Item = &'a DataType>
             // here it is more tricky
             PreferredParamLocation::InMemory => {
                 arg_alloc.integer_regs_used += 1;//first register is a hidden pointer
-                todo!()
+                let hidden_ptr_location = stack.allocate(PTR_SIZE);
+                ReturnLocation::InMemory { hidden_ptr_location }
             },
-        }
+        })
     };
 
     let params_loc = 

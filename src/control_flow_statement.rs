@@ -1,6 +1,7 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{EightByteLocation, ReturnLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
+use unwrap_let::unwrap_let;
 
 /**
  * this handles break, continue and return statements
@@ -49,24 +50,47 @@ impl ControlFlowChange {
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    let expr_asm = expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                    result.merge(&expr_asm);
 
-                    match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
-                        DataType::ARRAY {..} => panic!("tried to return array from function!"),
-                        expr_type => match expr_type {
-                            DataType::RAW(BaseType::Struct(struct_name)) => {
-                                todo!("returning struct {:?} from function", struct_name)
+                    match (asm_data.get_return_location().as_ref().unwrap(), expr.accept(&mut GetDataTypeVisitor{asm_data})) {
+                        (_, DataType::ARRAY {..}) |
+                        (_, DataType::UNKNOWNSIZEARRAY {..}) => panic!("tried to return array from function!"),
+                        (_, DataType::RAW(BaseType::VOID)) |
+                        (_, DataType::RAW(BaseType::VaArg)) => panic!("invalid return type"),
+
+                        //structs
+                        (ReturnLocation::InMemory { hidden_ptr_location }, DataType::RAW(BaseType::Struct(struct_name))) => {
+                            todo!("returning struct {:?} in memory", struct_name)
+                        }
+                        (ReturnLocation::InRegs(regs), DataType::RAW(BaseType::Struct(struct_name))) => {
+                            todo!("returning struct in registers")
+                        }
+
+                        //unions
+                        (ReturnLocation::InMemory{ hidden_ptr_location }, DataType::RAW(BaseType::Union(union_name))) => {
+                            assert_eq!(*asm_data.get_function_return_type(), DataType::RAW(BaseType::Union(union_name)));
+                            let expr_asm = expr.accept(&mut CopyStructVisitor { asm_data, stack_data, global_asm_data, resultant_location: Operand::Mem(MemoryOperand::SubFromBP(*hidden_ptr_location)) });
+                            result.merge(&expr_asm);
+                        }
+                        (_, DataType::RAW(BaseType::Union(_))) => panic!("union seems to not be of category MEMORY"),
+
+                        //scalars and pointers
+                        (ReturnLocation::InRegs(regs), x @ DataType::RAW(BaseType::Scalar(_))) |
+                        (ReturnLocation::InRegs(regs), x @ DataType::POINTER(_)) => {
+                            match regs[..] {
+                                [EightByteLocation::GP(GPRegister::_AX)] |
+                                [EightByteLocation::XMM(MMRegister::XMM0)] => {}
+
+                                _ => panic!("invalid register to return scalar in")
                             }
-                            DataType::RAW(BaseType::Union(union_name)) => {
-                                todo!("returning union {:?} from function", union_name);
-                            }
-                            x => {
-                                //put the value in the accumulator
-                                let cast_asm = cast_from_acc(&x, asm_data.get_function_return_type(), asm_data);
-                                result.merge(&cast_asm);
-                            }
-                        },
+                            
+                            //put the value in the accumulator
+                            let expr_asm = expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+                            result.merge(&expr_asm);
+                            let cast_asm = cast_from_acc(&x, asm_data.get_function_return_type(), asm_data);
+                            result.merge(&cast_asm);
+                        }
+                        (_, DataType::RAW(BaseType::Scalar(_))) |
+                        (_, DataType::POINTER(_)) => panic!("scalars and pointers should only be returned in registers")
                     }
 
                 }
