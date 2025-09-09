@@ -280,7 +280,8 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
         (DataType::ARRAY { .. }, x) => panic!("tried to set {:?} to {:?}", lhs, x),
 
-        (DataType::RAW(BaseType::Scalar(_)), _) => {
+        (DataType::RAW(BaseType::Scalar(_)), _) |
+        (DataType::POINTER(_), _) => {
             //put address of lvalue on stack
             let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
             result.merge(&lhs_asm);
@@ -315,6 +316,8 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 size: promoted_type.memory_size(asm_data)
             });
         },
+
+        _ => panic!()
     }
 
     result
