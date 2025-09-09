@@ -1,7 +1,6 @@
 use crate::{args_handling::location_allocation::{EightByteLocation, ReturnLocation}, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}, Operand}, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use unwrap_let::unwrap_let;
 
 /**
  * this handles break, continue and return statements
@@ -52,8 +51,7 @@ impl ControlFlowChange {
                 if let Some(expr) = expression {
 
                     match (asm_data.get_return_location().as_ref().unwrap(), expr.accept(&mut GetDataTypeVisitor{asm_data})) {
-                        (_, DataType::ARRAY {..}) |
-                        (_, DataType::UNKNOWNSIZEARRAY {..}) => panic!("tried to return array from function!"),
+                        (_, DataType::ARRAY {..}) => panic!("tried to return array from function!"),
                         (_, DataType::RAW(BaseType::VOID)) |
                         (_, DataType::RAW(BaseType::VaArg)) => panic!("invalid return type"),
 

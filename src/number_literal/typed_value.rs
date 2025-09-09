@@ -584,7 +584,7 @@ mod dec_parse {
         pub negative_exponent: bool,
     }
     /// Parses the whole of a hex number including decimals and exponents
-    pub fn dec_parse(remainder: &[char]) -> DecParseResult {
+    pub fn dec_parse(remainder: &'_ [char]) -> DecParseResult<'_> {
         //parse the `123` part of `123.44e10`
         let (integer_part, remainder) = dec_run(remainder);
 
@@ -624,7 +624,7 @@ mod hex_parse {
         pub negative_exponent: bool,
     }
     /// Parses the whole of a hex number including decimals and exponents
-    pub fn hex_parse(remainder: &[char]) -> HexParseResult {
+    pub fn hex_parse(remainder: &'_ [char]) -> HexParseResult<'_> {
         //parse the `ff` part of `ff.ep10`
         let (integer_part, remainder) = hex_run(remainder);
 
@@ -661,7 +661,7 @@ mod bin_parse {
         pub remainder: &'a[char],
     }
     /// Parses the whole of a binary number including decimals and exponents
-    pub fn bin_parse(remainder: &[char]) -> BinParseResult {
+    pub fn bin_parse(remainder: &'_ [char]) -> BinParseResult<'_> {
 
         let (integer_part, remainder) = bin_run(remainder);
 
@@ -680,7 +680,7 @@ mod oct_parse {
         pub remainder: &'a[char],
     }
     /// Parses the whole of an octal number including decimals and exponents
-    pub fn oct_parse(remainder: &[char]) -> OctParseResult {
+    pub fn oct_parse(remainder: &'_ [char]) -> OctParseResult<'_> {
 
         let (integer_part, remainder) = oct_run(remainder);
 

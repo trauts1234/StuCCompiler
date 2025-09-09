@@ -17,15 +17,9 @@ impl GlobalVariable {
             },
 
             // array is being set to a string
-            (DataType::ARRAY { size, element }, ConstexprValue::STRING(string_literal)) => {
+            (DataType::ARRAY { size: size_opt, element }, ConstexprValue::STRING(string_literal)) => {
                 assert_eq!(**element, DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))));
-                assert_eq!(*size as usize, string_literal.get_num_chars());
-                format!("{} db {}\n", self.decl.name, string_literal.get_comma_separated_bytes())
-            }
-
-            // unknown size array is being set to a string
-            (DataType::UNKNOWNSIZEARRAY { element }, ConstexprValue::STRING(string_literal)) => {
-                assert_eq!(**element, DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))));
+                assert!(size_opt.is_none_or(|size| size as usize == string_literal.get_num_chars()));
                 format!("{} db {}\n", self.decl.name, string_literal.get_comma_separated_bytes())
             }
 

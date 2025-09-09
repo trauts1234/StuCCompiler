@@ -3,7 +3,7 @@ use std::hash::Hash;
 use unwrap_let::unwrap_let;
 use uuid::Uuid;
 
-use crate::data_type::base_type::IntegerType;
+use crate::data_type::base_type::{BaseType, IntegerType, ScalarType};
 use crate::data_type::recursive_data_type::DataType;
 use crate::expression::expression::Expression;
 use crate::expression_visitors::expr_visitor::ExprVisitor;
@@ -78,7 +78,8 @@ impl StringLiteral {
     }
 
     pub fn zero_fill_and_flatten_to_iter(&self, array_data_type: &DataType) -> Vec<Expression> {
-        unwrap_let!(DataType::ARRAY{size, ..} = array_data_type);
+        unwrap_let!(DataType::ARRAY{size: Some(size), element } = array_data_type);
+        assert_eq!(**element, DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))));
 
         let extra_zeroes = size.checked_sub(self.text.len() as u64).unwrap();
 

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}}, data_type::base_type::{BaseType, FloatType, IntegerType, ScalarType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
 use stack_management::baked_stack_frame::BakedSimpleStackFrame;

@@ -26,9 +26,7 @@ impl PreferredParamLocation {
     /// Do not pass VOID, as it will `panic!`
     pub fn param_from_type(data_type: &DataType, get_struct_union: &dyn GetStructUnion) -> PreferredParamLocation {
         match data_type {
-            DataType::UNKNOWNSIZEARRAY { .. } |
             DataType::ARRAY {..} => PreferredParamLocation::InGP,//decays to a pointer, which is integer
-
             DataType::POINTER(_) => PreferredParamLocation::InGP,// pointer can be passed as an integer type
             DataType::RAW(base_type) => 
                 Self::param_from_base_type(base_type, get_struct_union),

@@ -8,8 +8,7 @@ use super::{base_type::BaseType, type_modifier::DeclModifier};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DataType {
-    UNKNOWNSIZEARRAY{element: Box<DataType>},
-    ARRAY{size: u64, element: Box<DataType>},
+    ARRAY{size: Option<u64>, element: Box<DataType>},
     POINTER(Box<DataType>),
     RAW(BaseType)
 }
@@ -24,10 +23,10 @@ impl DataType
             //no modifiers left, just raw type
             [] => base,
             //array of count, and "remaining" tokens => array of count, process(remaining)
-            [DeclModifier::ARRAY(count), remaining @ ..] => DataType::ARRAY { size: *count, element: Box::new(Self::new_from_slice(base, remaining)) },
+            [DeclModifier::ARRAY(count), remaining @ ..] => DataType::ARRAY { size: Some(*count), element: Box::new(Self::new_from_slice(base, remaining)) },
             //pointer to "remaining" tokens => pointer to process(remaining)
             [DeclModifier::POINTER, remaining @ ..] => DataType::POINTER(Box::new(Self::new_from_slice(base, remaining))),
-            [DeclModifier::UnknownSizeArray, remaining @ ..] => DataType::UNKNOWNSIZEARRAY { element: Box::new(Self::new_from_slice(base, remaining)) }
+            [DeclModifier::UnknownSizeArray, remaining @ ..] => DataType::ARRAY { size: None, element: Box::new(Self::new_from_slice(base, remaining)) }
         }
     }
     
@@ -43,7 +42,6 @@ impl DataType
     /// any raw type is unaffected
     pub fn decay_to_primative(&self) -> ScalarType {
         match self {
-            DataType::UNKNOWNSIZEARRAY { .. } => ScalarType::Integer(IntegerType::U64),
             DataType::ARRAY { .. } => ScalarType::Integer(IntegerType::U64),
             DataType::POINTER(_) => ScalarType::Integer(IntegerType::U64),
             DataType::RAW(BaseType::Scalar(s)) => s.clone(),
@@ -76,16 +74,16 @@ impl DataType
     /// );
     /// ```
     pub fn flatten_nested_array(&self) -> Self {
-        if let DataType::ARRAY { size, element } = self {
+        if let DataType::ARRAY { size: Some(outer_size), element } = self {
             match element.flatten_nested_array() {
                 DataType::ARRAY { size: inner_size, element: inner_element } => {
                     DataType::ARRAY {
-                        size: size * inner_size,
+                        size: Some(outer_size * inner_size.unwrap()),
                         element: inner_element,
                     }
                 }
                 other => DataType::ARRAY {
-                    size: *size,
+                    size: Some(*outer_size),
                     element: Box::new(other),
                 },
             }
@@ -108,25 +106,25 @@ impl DataType
     /// If I am an unknown size array, work out my size implicitly from the initialisation
     pub fn replace_unknown_array(self, initialised_value: &Option<Expression>) -> Self {
         match (self, initialised_value) {
-            (DataType::UNKNOWNSIZEARRAY { .. }, None) => panic!("tried to infer size of unknown array, but there was no initialisation"),
+            (DataType::ARRAY { size: None, element:_ }, None) => panic!("tried to infer size of unknown array, but there was no initialisation"),
 
-            (DataType::UNKNOWNSIZEARRAY { element }, Some(Expression::ARRAYLITERAL(array_initialisation))) => {
+            (DataType::ARRAY { size: None, element }, Some(Expression::ARRAYLITERAL(array_initialisation))) => {
                 // int x[] = {1,2,3};
                 //ensuring that the types of elements in the array initialisation == `element`: trust me
 
-                DataType::ARRAY { size: array_initialisation.calculate_element_count(), element }
+                DataType::ARRAY { size: Some(array_initialisation.calculate_element_count()), element }
             }
 
-            (DataType::UNKNOWNSIZEARRAY { element }, Some(Expression::STRINGLITERAL(string_initialisaiton))) => {
+            (DataType::ARRAY { size: None, element }, Some(Expression::STRINGLITERAL(string_initialisaiton))) => {
                 //char x[] = "hello world";
 
                 //ensure the element is char
                 assert_eq!(element.as_ref(), &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))));
 
-                DataType::ARRAY { size: string_initialisaiton.get_num_chars() as u64, element }//size of array = number of chars in the string (including the zero byte)
+                DataType::ARRAY { size: Some(string_initialisaiton.get_num_chars() as u64), element }//size of array = number of chars in the string (including the zero byte)
             }
 
-            (DataType::UNKNOWNSIZEARRAY { .. }, Some(x)) => panic!("tried to infer size of unknown array, but found an initialisation that does not provide enough information\n{:?}", x),
+            (DataType::ARRAY { size: None, element:_ }, Some(x)) => panic!("tried to infer size of unknown array, but found an initialisation that does not provide enough information\n{:?}", x),
 
             (x, _) => x,//already know my data type, no initialisation inference required...
         }
@@ -134,7 +132,6 @@ impl DataType
 
     pub fn remove_outer_modifier(&self) -> Self {
         match self {
-            Self::UNKNOWNSIZEARRAY { element } => *element.clone(),
             Self::ARRAY { size:_, element } => *element.clone(),
             Self::POINTER(element) => *element.clone(),
             Self::RAW(_) => panic!("tried to remove outer modifier from raw type")
@@ -143,15 +140,15 @@ impl DataType
     pub fn add_outer_modifier(&self, modifier: DeclModifier) -> Self {
         match modifier {
             DeclModifier::POINTER => Self::POINTER(Box::new(self.clone())),
-            DeclModifier::ARRAY(size) => Self::ARRAY { size, element: Box::new(self.clone()) },
-            DeclModifier::UnknownSizeArray => Self::UNKNOWNSIZEARRAY { element: Box::new(self.clone()) },
+            DeclModifier::ARRAY(size) => Self::ARRAY { size: Some(size), element: Box::new(self.clone()) },
+            DeclModifier::UnknownSizeArray => Self::ARRAY { size: None, element: Box::new(self.clone()) },
         }
     }
 
     pub fn memory_size(&self, struct_info: &dyn GetStructUnion) -> MemorySize {
         match self {
-            DataType::UNKNOWNSIZEARRAY { .. } => panic!("cannot find size of unknow size array. perhaps this should return an Option???"),
-            DataType::ARRAY { size, element } => MemorySize::from_bytes(size * &element.memory_size(struct_info).size_bytes()),
+            DataType::ARRAY { size: None, element:_ } => panic!("cannot find size of unknow size array. perhaps this should return an Option???"),
+            DataType::ARRAY { size: Some(size), element } => MemorySize::from_bytes(size * &element.memory_size(struct_info).size_bytes()),
             DataType::POINTER(_) => MemorySize::from_bytes(8),
             DataType::RAW(base) => base.memory_size(struct_info),
         }
@@ -183,7 +180,8 @@ impl DataType
     /// ```
     pub fn array_num_elements(&self) -> u64 {
         match self {
-            DataType::ARRAY { size, element } => size * element.array_num_elements(),
+            //should `size` be unwrapped here?
+            DataType::ARRAY { size, element } => size.unwrap() * element.array_num_elements(),
             _ => 1
         }
     }
@@ -193,8 +191,8 @@ impl Display for DataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}",
         match self {
-            DataType::UNKNOWNSIZEARRAY { element } => format!("ARR[]({})", element),
-            DataType::ARRAY { size, element } => format!("ARR[{}]({})", size, element),
+            DataType::ARRAY { size: None, element } => format!("ARR[]({})", element),
+            DataType::ARRAY { size: Some(size), element } => format!("ARR[{}]({})", size, element),
             DataType::POINTER(data_type) => format!("PTR({})", data_type),
             DataType::RAW(base_type) => format!("{}",base_type),
         })

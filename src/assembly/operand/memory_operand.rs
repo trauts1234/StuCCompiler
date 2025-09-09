@@ -1,8 +1,7 @@
 use colored::Colorize;
 use memory_size::MemorySize;
 use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
-
-use crate::{assembly::operation::Label, debugging::IRDisplay};
+use crate::debugging::IRDisplay;
 
 use super::{register::GPRegister, PTR_SIZE};
 
@@ -25,16 +24,6 @@ impl MemoryOperand {
             MemoryOperand::LabelAccess(label) => format!("[rel {}]", label),
             MemoryOperand::MemoryAddress { pointer_reg } => format!("[{}]", pointer_reg.generate_name(PTR_SIZE)),
         }
-    }
-    pub fn generate_sized_name(&self, size: MemorySize) -> String {
-        todo!();
-        // format!("{} {}", match size.size_bytes() {
-        //     1 => "BYTE PTR",
-        //     2 => "WORD PTR",
-        //     4 => "DWORD PTR",
-        //     8 => "QWORD PTR",
-        //     _ => panic!()
-        // }, self.generate_name())
     }
 }
 
