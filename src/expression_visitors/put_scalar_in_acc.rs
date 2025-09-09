@@ -5,7 +5,7 @@ use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
 
 /**
- * calculates the value of the expression and puts the scalar result in AX. does not leave anything on the stack
+ * calculates the value of the expression and puts the scalar result in AX
  * does not work with structs, as they are not scalar types
  * stack_data is modified
  */

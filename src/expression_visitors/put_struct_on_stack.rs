@@ -1,5 +1,5 @@
 use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, member_access::MemberAccess};
-use stack_management::simple_stack_frame::SimpleStackFrame;
+use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
 use super::expr_visitor::ExprVisitor;
@@ -13,7 +13,8 @@ pub struct CopyStructVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
     pub(crate) stack_data: &'a mut SimpleStackFrame,
     pub(crate) global_asm_data: &'a mut GlobalAsmData,
-    pub(crate) resultant_location: Operand,
+    /// stack variable that points to the location the result should be in
+    pub(crate) resultant_location_ptr: StackItemKey,
 }
 
 
@@ -28,13 +29,13 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         let mut result = Assembly::make_empty();
 
         result.add_comment(format!("cloning struct {}", var.name));
+
         //put pointer to variable in RAX
         let from_addr_asm = var.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
         result.merge(&from_addr_asm);
 
         let variable_size = var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
-        unwrap_let!(Operand::Mem(resultant_mem_location) = self.resultant_location.clone());
-        let struct_copy_asm = clone_struct_to_stack(variable_size, &resultant_mem_location);
+        let struct_copy_asm = clone_struct_to_stack(variable_size, &self.resultant_location);
         result.merge(&struct_copy_asm);//memcpy the struct
 
         result
@@ -68,8 +69,7 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         result.merge(&expr_addr_asm);
 
         let dereferenced_size = expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
-        unwrap_let!(Operand::Mem(resultant_mem_location) = self.resultant_location.clone());
-        let struct_clone_asm = clone_struct_to_stack(dereferenced_size, &resultant_mem_location);
+        let struct_clone_asm = clone_struct_to_stack(dereferenced_size, &self.resultant_location);
         result.merge(&struct_clone_asm);
 
         result
@@ -91,8 +91,8 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
         unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
         let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
-        //generate struct that I am getting a member of
-        let generate_struct_base = member_access.get_base_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location: self.resultant_location.clone()});
+        //generate the outer struct that I am going to be getting a member of
+        let generate_struct_base = member_access.get_base_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location_ptr: self.resultant_location_ptr});
         result.merge(&generate_struct_base);
 
         result.add_comment(format!("increasing pointer to get index of member struct {}", member_data.0.name));
@@ -122,8 +122,10 @@ impl<'a> ExprVisitor for CopyStructVisitor<'a> {
 /**
  * clones the struct pointed to by acc onto the stack
  * moves acc to point to the start of the cloned struct
+ * 
+ * `destination_ptr`: stack variable that is a pointer that points to where the struct should end up
  */
-fn clone_struct_to_stack(struct_size: MemorySize, destination: &MemoryOperand) -> Assembly {
+fn clone_struct_to_stack(struct_size: MemorySize, destination_ptr: &StackItemKey) -> Assembly {
     let mut result = Assembly::make_empty();
 
     //put source in RSI
@@ -134,12 +136,9 @@ fn clone_struct_to_stack(struct_size: MemorySize, destination: &MemoryOperand) -
     });
     
     //put destination in RDI
-    result.add_instruction(AsmOperation::LEA {
-        from: destination.clone(),
-    });
     result.add_instruction(AsmOperation::MOV {
         to: RegOrMem::GPReg(GPRegister::_DI),
-        from: Operand::GPReg(GPRegister::acc()),
+        from: Operand::Mem(MemoryOperand::SubFromBP(*destination_ptr)),
         size: PTR_SIZE
     });
 
@@ -147,8 +146,10 @@ fn clone_struct_to_stack(struct_size: MemorySize, destination: &MemoryOperand) -
     result.add_instruction(AsmOperation::MEMCPY { size: struct_size });
 
     //point to the cloned struct
-    result.add_instruction(AsmOperation::LEA {
-        from: destination.clone(),
+    result.add_instruction(AsmOperation::MOV {
+        to: RegOrMem::GPReg(GPRegister::acc()),
+        from: Operand::Mem(MemoryOperand::SubFromBP(*destination_ptr)),
+        size: PTR_SIZE
     });
 
     result

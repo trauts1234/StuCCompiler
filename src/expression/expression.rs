@@ -1,7 +1,7 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, member_access::MemberAccess};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -270,7 +270,6 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 asm_data, stack_data, global_asm_data
             ));
         },
-
         //initialising array to array literal
         (DataType::ARRAY { .. }, Expression::ARRAYLITERAL(array_init)) => {
             //convert int x[2][2] to int x[4] for easy assigning of values
@@ -278,7 +277,16 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             result.merge(&assembly_for_array_assignment(lhs, array_init.zero_fill_and_flatten_to_iter(&promoted_type), array_element_type.as_ref(), asm_data, stack_data, global_asm_data));
         },
 
-        (DataType::ARRAY { .. }, x) => panic!("tried to set {:?} to {:?}", lhs, x),
+        (DataType::RAW(BaseType::VOID), _) |
+        (DataType::RAW(BaseType::VaArg), _) |
+        (DataType::ARRAY { .. }, _) => panic!("invalid assignment"),
+
+        (DataType::RAW(BaseType::Struct(identifier)), _) => {
+            result.merge(&assembly_for_agregate_assignment(lhs, asm_data, stack_data, global_asm_data));
+        },
+        (DataType::RAW(BaseType::Union(identifier)), _) => {
+            result.merge(&assembly_for_agregate_assignment(lhs, asm_data, stack_data, global_asm_data));
+        }
 
         (DataType::RAW(BaseType::Scalar(_)), _) |
         (DataType::POINTER(_), _) => {
@@ -317,8 +325,18 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             });
         },
 
-        _ => panic!()
     }
+
+    result
+}
+
+fn assembly_for_agregate_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    let mut result = Assembly::make_empty();
+    //put address of lvalue on stack
+    let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+    result.merge(&lhs_asm);
+
+    result.merge(&rhs.accept(&mut CopyStructVisitor { asm_data, stack_data, global_asm_data, resultant_location: MemoryOperand::MemoryAddress{pointer_reg: GPRegister::acc()} }));
 
     result
 }
