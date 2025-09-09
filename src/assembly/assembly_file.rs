@@ -1,4 +1,9 @@
 
+use memory_size::MemorySize;
+use stack_management::{baked_stack_frame::BakedSimpleStackFrame, simple_stack_frame::SimpleStackFrame};
+
+use crate::assembly::operand::STACK_ALIGN;
+
 use super::assembly::Assembly;
 
 
@@ -7,7 +12,7 @@ pub struct AssemblyFile {
     global_labels: Vec<String>,//function names that are exported
     extern_labels: Vec<String>,//function names that are imported
     global_variable_init: Vec<String>,//initialise static and auto variables
-    functions: Vec<Assembly>,//list of each function
+    functions: Vec<(Assembly, SimpleStackFrame)>,//list of each function
 }
 
 impl AssemblyFile {
@@ -32,9 +37,14 @@ impl AssemblyFile {
 
         let instructions = self.functions
             .iter()
-            .map(|x| x.get_lines())
+            .map(|(asm, stack)| {
+                let stack = BakedSimpleStackFrame::new(stack, STACK_ALIGN);
+                asm.get_lines()
+                .iter()
+                .map(|x| x.emit_assembly(&stack))
+                .collect::<Vec<_>>()
+            })
             .flatten()//flatten each assembly's lines into a massive iterator
-            .map(|x| x.emit_assembly())
             .collect::<Vec<_>>()//get each line
             .join("\n");
 
@@ -67,7 +77,7 @@ pub struct AssemblyFileBuilder {
 
     /// assembly lines for initialising static or auto variables
     global_variable_init: Vec<String>,
-    functions: Vec<Assembly>,
+    functions: Vec<(Assembly, SimpleStackFrame)>,
 }
 
 impl AssemblyFileBuilder {
@@ -86,7 +96,7 @@ impl AssemblyFileBuilder {
         self
     }
 
-    pub fn functions(mut self, functions: Vec<Assembly>) -> Self {
+    pub fn functions(mut self, functions: Vec<(Assembly, SimpleStackFrame)>) -> Self {
         self.functions = functions;
         self
     }

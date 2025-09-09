@@ -1,4 +1,5 @@
 use colored::Colorize;
+use stack_management::baked_stack_frame::BakedSimpleStackFrame;
 
 use crate::debugging::IRDisplay;
 
@@ -22,11 +23,11 @@ impl AsmInstruction {
         AsmInstruction { comment: Some(comment), operation }
     }
 
-    pub fn emit_assembly(&self) -> String{
+    pub fn emit_assembly(&self, stack: &BakedSimpleStackFrame) -> String{
         if let Some(comment) = &self.comment {
-            format!("{} ; {}", self.operation.to_text(), comment)
+            format!("{} ; {}", self.operation.to_text(stack), comment)
         } else {
-            self.operation.to_text()
+            self.operation.to_text(stack)
         }
     }
 }

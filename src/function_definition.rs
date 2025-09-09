@@ -53,7 +53,7 @@ impl FunctionDefinition {
             remaining_slice});
     }
 
-    pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> (Assembly, SimpleStackFrame) {
         let mut result = Assembly::make_empty();
         //as per SYSV ABI, stack is aligned (once stack frame generated) to 16 bytes
         let mut stack_data = SimpleStackFrame::new(STACK_ALIGN);//stack starts as empty in a function
@@ -158,7 +158,7 @@ impl FunctionDefinition {
         result.add_instruction(AsmOperation::DestroyStackFrame);
         result.add_instruction(AsmOperation::Return);
 
-        return result;
+        return (result, stack_data);
     }
 }
 

@@ -7,6 +7,7 @@ use memory_operand::MemoryOperand;
 use register::GPRegister;
 
 use memory_size::MemorySize;
+use stack_management::baked_stack_frame::BakedSimpleStackFrame;
 
 use crate::{assembly::operand::register::MMRegister, debugging::IRDisplay};
 
@@ -46,20 +47,20 @@ impl Into<Operand> for RegOrMem {
 
 
 impl Operand {
-    pub fn generate_name(&self, data_size: MemorySize) -> String {
+    pub fn generate_name(&self, data_size: MemorySize, stack: &BakedSimpleStackFrame) -> String {
         match self {
             Operand::GPReg(register) => register.generate_name(data_size),
             Operand::MMReg(register) => register.generate_name(data_size),
-            Operand::Mem(memory_operand) => memory_operand.generate_name(),
+            Operand::Mem(memory_operand) => memory_operand.generate_name(stack),
             Operand::Imm(immediate_value) => immediate_value.generate_name(),
         }
     }
 }
 impl RegOrMem {
-    pub fn generate_name(&self, data_size: MemorySize) -> String {
+    pub fn generate_name(&self, data_size: MemorySize, stack: &BakedSimpleStackFrame) -> String {
         match self {
             RegOrMem::GPReg(register) => register.generate_name(data_size),
-            RegOrMem::Mem(memory_operand) => memory_operand.generate_name(),
+            RegOrMem::Mem(memory_operand) => memory_operand.generate_name(stack),
             _ => panic!()
         }
     }
