@@ -64,10 +64,10 @@ pub enum AsmOperation {
     /// 
     /// Doesn't clobber the accumulator
     DeallocateStack(MemorySize),
-    ///copies `size` bytes from the pointer RSI to RDI
+    ///copies `size` bytes `from` -> `to`
     /// 
     /// Doesn't clobber the accumulator
-    MEMCPY {size: MemorySize},
+    MEMCPY {size: MemorySize, from: MemoryOperand, to: MemoryOperand},
     ///calls a subroutine
     /// 
     /// Doesn't clobber the accumulator
@@ -121,7 +121,7 @@ impl AsmOperation {
             AsmOperation::AllocateStack(size) => format!("sub rsp, {}", size.size_bytes()),
             AsmOperation::DeallocateStack(size) => format!("add rsp, {}", size.size_bytes()),
             AsmOperation::Label(label) => format!("{}:", label),
-            AsmOperation::MEMCPY { size } => format!("mov rcx, {}\ncld\nrep movsb", size.size_bytes()),
+            AsmOperation::MEMCPY { size, from   , to } => format!("lea rdi, {}\nlea rsi, {}\nmov rcx, {}\ncld\nrep movsb", to.generate_name(stack), from.generate_name(stack), size.size_bytes()),
             AsmOperation::BLANK => String::new(),
             AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type, stack),
             AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type, stack),
@@ -418,9 +418,9 @@ impl IRDisplay for AsmOperation {
             AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
             AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),
             AsmOperation::Return => opcode!("RET"),
-            AsmOperation::AllocateStack(size) => format!("{} {} B", opcode!("reserve stack"), size.size_bytes()),
-            AsmOperation::DeallocateStack(size) => format!("{} {} B", opcode!("deallocate stack"), size.size_bytes()),
-            AsmOperation::MEMCPY { size } => format!("{} {}", opcode!("MEMCPY"), size),
+            AsmOperation::AllocateStack(size) => format!("{} {}", opcode!("reserve stack"), size),
+            AsmOperation::DeallocateStack(size) => format!("{} {}", opcode!("deallocate stack"), size),
+            AsmOperation::MEMCPY { size, from, to } => format!("{} {} -> {} ({})", opcode!("MEMCPY"), from.display_ir(), to.display_ir(), size),
             AsmOperation::CALL { label } => format!("{} {}", opcode!("CALL"), label),
             AsmOperation::CAST { from_type, to_type } => format!("{} {} {} -> {}", opcode!("CAST"), acc!(), from_type,  to_type),
             AsmOperation::BLANK => String::new(),

@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{put_struct_on_stack::CopyStructVisitor, reference_assembly_visitor::ReferenceVisitor}, member_access::MemberAccess};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{reference_assembly_visitor::ReferenceVisitor}, member_access::MemberAccess};
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
@@ -12,7 +12,7 @@ use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 pub struct ScalarInAccVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
     pub(crate) stack_data: &'a mut SimpleStackFrame,
-    pub(crate) global_asm_data: &'a mut GlobalAsmData
+    pub(crate) global_asm_data: &'a GlobalAsmData
 }
 
 impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {

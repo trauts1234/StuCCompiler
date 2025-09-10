@@ -1,156 +1,53 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{unary_prefix_expr::UnaryPrefixExpression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, reference_assembly_visitor::ReferenceVisitor}, member_access::MemberAccess};
-use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
-use unwrap_let::unwrap_let;
-use memory_size::MemorySize;
-use super::expr_visitor::ExprVisitor;
 
+    // fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
+    //     let mut result = Assembly::make_empty();
 
-/**
- * sets RAX to valid pointer to struct
- * always clones the struct
- */
-pub struct CopyStructVisitor<'a>{
-    pub(crate) asm_data: &'a AsmData,
-    pub(crate) stack_data: &'a mut SimpleStackFrame,
-    pub(crate) global_asm_data: &'a mut GlobalAsmData,
-    /// stack variable that points to the location the result should be in
-    pub(crate) resultant_location_ptr: StackItemKey,
-}
+    //     if let DataType::RAW(BaseType::Struct(struct_name)) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}) {
+    //         let struct_type = self.asm_data.get_struct(&struct_name);
+    //         todo!("detect whether the struct is MEMORY or other, then allocate a hidden param or read from registers after function has been called. remember to align the stack")
+    //     } else {
+    //         panic!("Expected a struct type in function call");
+    //     }
 
+    //     result
+    // }
 
-impl<'a> ExprVisitor for CopyStructVisitor<'a> {
-    type Output = Assembly;
-
-    fn visit_number_literal(&mut self, _number: &crate::number_literal::typed_value::NumberLiteral) -> Self::Output {
-        panic!("tried to put struct on stack but found number literal")
-    }
-
-    fn visit_variable(&mut self, var: &crate::declaration::MinimalDataVariable) -> Self::Output {
-        let mut result = Assembly::make_empty();
-
-        result.add_comment(format!("cloning struct {}", var.name));
-
-        //put pointer to variable in RAX
-        let from_addr_asm = var.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
-        result.merge(&from_addr_asm);
-
-        let variable_size = var.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
-        let struct_copy_asm = clone_struct_to_stack(variable_size, &self.resultant_location);
-        result.merge(&struct_copy_asm);//memcpy the struct
-
-        result
-    }
-
-    fn visit_string_literal(&mut self, _string: &crate::string_literal::StringLiteral) -> Self::Output {
-        panic!("tried to put struct on stack but found string literal");
-    }
-
-    fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        let mut result = Assembly::make_empty();
-
-        if let DataType::RAW(BaseType::Struct(struct_name)) = func_call.accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}) {
-            let struct_type = self.asm_data.get_struct(&struct_name);
-            todo!("detect whether the struct is MEMORY or other, then allocate a hidden param or read from registers after function has been called. remember to align the stack")
-        } else {
-            panic!("Expected a struct type in function call");
-        }
-
-        result
-    }
-
-    /**
+    /*
      * node: this does not allocate, since the pointer points to already-allocated memory
      */
-    fn visit_unary_prefix(&mut self, expr: &UnaryPrefixExpression) -> Self::Output {
-        let mut result = Assembly::make_empty();
-        assert!(*expr.get_operator() == UnaryPrefixOperator::Dereference);// unary prefix can only return a struct when it is a dereference operation
+    // fn visit_unary_prefix(&mut self, expr: &UnaryPrefixExpression) -> Self::Output {
+    //     let mut result = Assembly::make_empty();
+    //     assert!(*expr.get_operator() == UnaryPrefixOperator::Dereference);// unary prefix can only return a struct when it is a dereference operation
         
-        let expr_addr_asm = expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
-        result.merge(&expr_addr_asm);
+    //     let expr_addr_asm = expr.accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
+    //     result.merge(&expr_addr_asm);
 
-        let dereferenced_size = expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
-        let struct_clone_asm = clone_struct_to_stack(dereferenced_size, &self.resultant_location);
-        result.merge(&struct_clone_asm);
+    //     let dereferenced_size = expr.accept(&mut GetDataTypeVisitor{asm_data:self.asm_data}).memory_size(self.asm_data);
+    //     let struct_clone_asm = clone_struct_to_stack(dereferenced_size, &self.resultant_location);
+    //     result.merge(&struct_clone_asm);
 
-        result
-    }
+    //     result
+    // }
 
-    fn visit_unary_postfix(&mut self, _expr: &crate::expression::unary_postfix_expression::UnaryPostfixExpression) -> Self::Output {
-        panic!("tried to put struct on stack but found a unary postfix expression")
-    }
+    // fn visit_member_access(&mut self, member_access: &MemberAccess) -> Self::Output {
+    //     //this function handles getting struct members that are also structs themselves
+    //     let mut result = Assembly::make_empty();
 
-    fn visit_binary_expression(&mut self, _expr: &crate::binary_expression::BinaryExpression) -> Self::Output {
-        panic!("tried to put struct on stack but found binary expression");
-    }
+    //     let member_name = member_access.get_member_name();
+    //     unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
+    //     let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
 
-    fn visit_member_access(&mut self, member_access: &MemberAccess) -> Self::Output {
-        //this function handles getting struct members that are also structs themselves
-        let mut result = Assembly::make_empty();
+    //     //generate the outer struct that I am going to be getting a member of
+    //     let generate_struct_base = member_access.get_base_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location_ptr: self.resultant_location_ptr});
+    //     result.merge(&generate_struct_base);
 
-        let member_name = member_access.get_member_name();
-        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
-        let member_data = self.asm_data.get_struct(&original_struct_name).get_member_data(member_name);
+    //     result.add_comment(format!("increasing pointer to get index of member struct {}", member_data.0.name));
 
-        //generate the outer struct that I am going to be getting a member of
-        let generate_struct_base = member_access.get_base_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location_ptr: self.resultant_location_ptr});
-        result.merge(&generate_struct_base);
+    //     //increase pointer to index of member
+    //     result.add_instruction(AsmOperation::ADD {
+    //         increment: Operand::Imm(member_data.1.as_imm()),
+    //         data_type: ScalarType::Integer(IntegerType::U64),
+    //     });
 
-        result.add_comment(format!("increasing pointer to get index of member struct {}", member_data.0.name));
-
-        //increase pointer to index of member
-        result.add_instruction(AsmOperation::ADD {
-            increment: Operand::Imm(member_data.1.as_imm()),
-            data_type: ScalarType::Integer(IntegerType::U64),
-        });
-
-        result
-    }
-    
-    fn visit_cast_expr(&mut self, _: &crate::cast_expr::CastExpression) -> Self::Output {
-        panic!("cannot cast to struct")
-    }
-    
-    fn visit_sizeof(&mut self, _: &crate::expression::sizeof_expression::SizeofExpr) -> Self::Output {
-        panic!("sizeof never returns a struct")
-    }
-    
-    fn visit_ternary(&mut self, ternary: &crate::expression::ternary::TernaryExpr) -> Self::Output {
-        todo!()
-    }
-}
-
-/**
- * clones the struct pointed to by acc onto the stack
- * moves acc to point to the start of the cloned struct
- * 
- * `destination_ptr`: stack variable that is a pointer that points to where the struct should end up
- */
-fn clone_struct_to_stack(struct_size: MemorySize, destination_ptr: &StackItemKey) -> Assembly {
-    let mut result = Assembly::make_empty();
-
-    //put source in RSI
-    result.add_instruction(AsmOperation::MOV {
-        to: RegOrMem::GPReg(GPRegister::_SI),
-        from: Operand::GPReg(GPRegister::acc()),
-        size: PTR_SIZE,
-    });
-    
-    //put destination in RDI
-    result.add_instruction(AsmOperation::MOV {
-        to: RegOrMem::GPReg(GPRegister::_DI),
-        from: Operand::Mem(MemoryOperand::SubFromBP(*destination_ptr)),
-        size: PTR_SIZE
-    });
-
-    //clone struct
-    result.add_instruction(AsmOperation::MEMCPY { size: struct_size });
-
-    //point to the cloned struct
-    result.add_instruction(AsmOperation::MOV {
-        to: RegOrMem::GPReg(GPRegister::acc()),
-        from: Operand::Mem(MemoryOperand::SubFromBP(*destination_ptr)),
-        size: PTR_SIZE
-    });
-
-    result
-}
+    //     result
+    // }

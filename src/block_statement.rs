@@ -32,7 +32,7 @@ impl StatementOrDeclaration {
         None
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
         match self {
             Self::STATEMENT(statement) => statement.generate_assembly(asm_data, stack_data, global_asm_data),
             Self::DECLARATION(decl) => {

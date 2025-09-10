@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
-use crate::{assembly::{comparison::ComparisonKind, operand::immediate::ToImmediate}, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{assembly::{assembly::Assembly, comparison::ComparisonKind, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::AsmOperation}, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression::put_on_stack::PutOnStack, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone)]
 pub enum NumberLiteral {
@@ -182,6 +182,32 @@ impl NumberLiteral {
             data: self.cmp(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I64 }, &ComparisonKind::EQ) as i128,
             data_type: IntegerType::_BOOL
         }
+    }
+}
+
+impl PutOnStack for NumberLiteral {
+    fn put_on_stack(&self, _: &crate::asm_gen_data::AsmData, stack: &mut stack_management::simple_stack_frame::SimpleStackFrame, _: &crate::asm_gen_data::GlobalAsmData) -> (crate::assembly::assembly::Assembly, stack_management::stack_item::StackItemKey) {
+        let mut assembly = Assembly::make_empty();
+        assembly.add_comment(format!("reading number literal: {:?}", self));
+
+        let number_size = match self {
+            NumberLiteral::INTEGER { data: _, data_type } => data_type.memory_size(),
+            NumberLiteral::FLOAT { data: _, data_type } => data_type.memory_size(),
+        };
+        let return_addr = stack.allocate(number_size);
+
+        assembly.add_instruction(AsmOperation::MOV {
+            to: RegOrMem::GPReg(GPRegister::acc()),
+            from: Operand::Imm(self.as_imm()),
+            size: number_size,
+        });
+        assembly.add_instruction(AsmOperation::MOV {
+            to: RegOrMem::Mem(MemoryOperand::SubFromBP(return_addr)),
+            from: Operand::GPReg(GPRegister::acc()),
+            size: number_size,
+        });
+
+        (assembly, return_addr)
     }
 }
 

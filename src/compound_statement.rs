@@ -45,7 +45,7 @@ impl ScopeStatements {
         })
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         let asm_data = asm_data.clone_for_new_scope(&self.local_scope_data, stack_data);

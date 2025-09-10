@@ -2,6 +2,7 @@ use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembl
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
+use uuid::Uuid;
 
 /**
  * this handles if statements and other conditionals
@@ -109,10 +110,10 @@ impl IterationStatement {
         }
     }
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
-        let generic_label = global_asm_data.label_gen_mut().generate_label();
+        let generic_label = Uuid::new_v4().simple().to_string();
         let loop_start_label = Label::Local(format!("{}_loop_start", generic_label));
         let loop_end_label = Label::Local(format!("{}_loop_end", generic_label));
 

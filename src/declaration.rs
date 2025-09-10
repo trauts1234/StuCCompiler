@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
 use colored::Colorize;
+use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 
-use crate::{data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{memory_operand::MemoryOperand, register::GPRegister}, operation::AsmOperation}, data_type::recursive_data_type::DataType, expression::put_on_stack::PutOnStack, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
 
 #[derive(Clone, Debug)]
 /**
@@ -15,6 +16,29 @@ pub struct MinimalDataVariable {
 impl MinimalDataVariable {
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         visitor.visit_variable(self)
+    }
+}
+
+impl PutOnStack for MinimalDataVariable {
+    fn put_on_stack(&self, asm_data: &AsmData, stack: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, StackItemKey) {
+        let mut result = Assembly::make_empty();
+        let variable_size = self.accept(&mut GetDataTypeVisitor{asm_data:asm_data}).memory_size(asm_data);
+        let resultant_location = stack.allocate(variable_size);
+
+        result.add_comment(format!("cloning variable {} to the stack at {:?}", self.name, resultant_location));
+
+        //put pointer to variable in RAX
+        let from_addr_asm = self.accept(&mut ReferenceVisitor{asm_data, stack_data: stack, global_asm_data});
+        result.merge(&from_addr_asm);
+
+        //memcpy the struct
+        result.add_instruction(AsmOperation::MEMCPY {
+            size: variable_size,
+            from: MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() },
+            to: MemoryOperand::SubFromBP(resultant_location),
+        });
+
+        (result, resultant_location)
     }
 }
 

@@ -8,7 +8,7 @@ use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembl
 pub struct ReferenceVisitor<'a>{
     pub(crate) asm_data: &'a AsmData,
     pub(crate) stack_data: &'a mut SimpleStackFrame,
-    pub(crate) global_asm_data: &'a mut GlobalAsmData
+    pub(crate) global_asm_data: &'a GlobalAsmData
 }
 
 impl<'a> ExprVisitor for ReferenceVisitor<'a> {

@@ -17,7 +17,7 @@ impl BinaryExpression {
         visitor.visit_binary_expression(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         if self.operator == BinaryExpressionOperator::Assign {
@@ -432,7 +432,7 @@ impl ASTDisplay for BinaryExpression {
 }
 
 /// Puts lhs in AX and rhs in CX, taking into account pointer scaling
-fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+fn apply_pointer_scaling(lhs: &Expression, rhs: &Expression, promoted_type: &DataType,  asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
 
     let lhs_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});

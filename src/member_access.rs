@@ -45,7 +45,7 @@ impl MemberAccess {
         
     }
 
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
         result.add_comment(format!("getting address of member {}", self.member_name));

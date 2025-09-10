@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::data_type::base_type::{BaseType, IntegerType, ScalarType};
 use crate::data_type::recursive_data_type::DataType;
 use crate::expression::expression::Expression;
+use crate::expression::put_on_stack::PutOnStack;
 use crate::expression_visitors::expr_visitor::ExprVisitor;
 use crate::number_literal::typed_value::NumberLiteral;
 
@@ -25,9 +26,7 @@ impl StringLiteral {
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         visitor.visit_string_literal(self)
     }
-}
 
-impl StringLiteral {
     pub fn get_label(&self) -> &str {
         &self.label
     }
@@ -87,6 +86,12 @@ impl StringLiteral {
         .chain(std::iter::repeat_n(&0i8, extra_zeroes as usize))
         .map(|num| Expression::NUMBERLITERAL(NumberLiteral::INTEGER { data: (*num).into(), data_type: IntegerType::I8 }))
         .collect()
+    }
+}
+
+impl PutOnStack for StringLiteral {
+    fn put_on_stack(&self, asm_data: &crate::asm_gen_data::AsmData, stack: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (crate::assembly::assembly::Assembly, stack_management::stack_item::StackItemKey) {
+        let resultant_location
     }
 }
 

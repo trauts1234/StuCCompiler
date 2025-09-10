@@ -117,7 +117,7 @@ impl TranslationUnit {
         output_file.write(&assembly_code.into_bytes()).unwrap();
     }
 
-    fn generate_fn_asm(&self, global_asm_data: &mut GlobalAsmData) -> Vec<(Assembly, SimpleStackFrame)> {
+    fn generate_fn_asm(&self, global_asm_data: &GlobalAsmData) -> Vec<(Assembly, SimpleStackFrame)> {
 
         self.functions.func_definitions_as_slice().iter()
         .map(|x| x.generate_assembly(global_asm_data))

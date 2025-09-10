@@ -53,7 +53,7 @@ impl FunctionDefinition {
             remaining_slice});
     }
 
-    pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> (Assembly, SimpleStackFrame) {
+    pub fn generate_assembly(&self, global_asm_data: &GlobalAsmData) -> (Assembly, SimpleStackFrame) {
         let mut result = Assembly::make_empty();
         //as per SYSV ABI, stack is aligned (once stack frame generated) to 16 bytes
         let mut stack_data = SimpleStackFrame::new(STACK_ALIGN);//stack starts as empty in a function
@@ -128,17 +128,7 @@ impl FunctionDefinition {
             let arg_address_operand = MemoryOperand::PreviousStackFrame { add_to_rbp: skip_stackframe_and_return_addr + memory_offset_tracker };
             memory_offset_tracker += param_size.align_up(&MemorySize::from_bytes(8));//args are padded, so keep track of the memory address here
 
-            result.add_commented_instruction(AsmOperation::LEA {
-                from: arg_address_operand,
-            }, format!("getting pointer to stack arg (param no.{})", param_idx));//grab pointer to data
-            result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_SI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
-
-            result.add_commented_instruction(AsmOperation::LEA {//Hope this doesn't clobber DI
-                from: MemoryOperand::SubFromBP(*param_end_location),
-            }, format!("getting pointer to destination (param no.{})", param_idx));//grab pointer to resultant location
-            result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_DI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
-
-            result.add_instruction(AsmOperation::MEMCPY { size: param_size });//copy the param
+            result.add_commented_instruction(AsmOperation::MEMCPY { size: param_size, from: arg_address_operand, to: MemoryOperand::SubFromBP(*param_end_location) }, format!("copying param {}", param_idx));//copy the param
         }
 
         result.merge(&code_for_body);
