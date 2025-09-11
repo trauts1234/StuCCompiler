@@ -1,6 +1,6 @@
 use colored::Colorize;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}};
+use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::put_on_stack::PutOnStack, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}};
 
 use super::expression::Expression;
 
@@ -35,6 +35,27 @@ impl SizeofExpr {
 
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         visitor.visit_sizeof(&self)
+    }
+}
+
+impl PutOnStack for SizeofExpr {
+    fn put_on_stack(&self, asm_data: &AsmData, stack: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemKey) {
+        let size = self.get_result(asm_data);
+        let mut asm = Assembly::make_empty();
+        let resultant_location = stack.allocate(PTR_SIZE);
+
+        asm.add_instruction(AsmOperation::MOV {
+            to: RegOrMem::GPReg(GPRegister::acc()),
+            from: Operand::Imm(size.as_imm()),
+            size: PTR_SIZE,//standard actually says it should be a size_t
+        });
+        asm.add_instruction(AsmOperation::MOV {
+            to: RegOrMem::Mem(MemoryOperand::SubFromBP(resultant_location)),
+            from: Operand::GPReg(GPRegister::acc()),
+            size: PTR_SIZE,//standard actually says it should be a size_t
+        });
+
+        (asm, resultant_location)
     }
 }
 

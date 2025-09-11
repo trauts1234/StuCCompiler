@@ -75,9 +75,9 @@ impl PutOnStack for Expression {
             Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.put_on_stack(asm_data, stack, global_asm_data),
             Expression::UNARYSUFFIX(unary_postfix_expression) => unary_postfix_expression.put_on_stack(asm_data, stack, global_asm_data),
             Expression::BINARYEXPRESSION(binary_expression) => binary_expression.put_on_stack(asm_data, stack, global_asm_data),
-            Expression::TERNARYEXPRESSION(ternary_expr) => ternary_expr,
+            Expression::TERNARYEXPRESSION(ternary_expr) => ternary_expr.put_on_stack(asm_data, stack, global_asm_data),
             Expression::CAST(cast_expression) => cast_expression.put_on_stack(asm_data, stack, global_asm_data),
-            Expression::SIZEOF(sizeof_expr) => sizeof_expr,
+            Expression::SIZEOF(sizeof_expr) => sizeof_expr.put_on_stack(asm_data, stack, global_asm_data),
         }
     }
 }

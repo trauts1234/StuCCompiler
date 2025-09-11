@@ -1,7 +1,7 @@
 use colored::Colorize;
 use uuid::Uuid;
 use unwrap_let::unwrap_let;
-use crate::{assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, Operand}, operation::{AsmOperation, Label}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{expression::Expression, put_on_stack::PutOnStack}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}};
+use crate::{asm_boilerplate::cast_from_memory, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, Operand}, operation::{AsmOperation, Label}}, data_type::{base_type::BaseType, recursive_data_type::{calculate_promoted_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{expression::Expression, put_on_stack::PutOnStack}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor}};
 
 #[derive(Clone, Debug)]
 pub struct TernaryExpr {
@@ -43,6 +43,7 @@ impl PutOnStack for TernaryExpr {
         let true_type = self.true_branch.accept(&mut GetDataTypeVisitor {asm_data});
         let false_type = self.false_branch.accept(&mut GetDataTypeVisitor{asm_data});
         let promoted_type = calculate_promoted_type_arithmetic(&true_type, &false_type);
+        let promoted_resultant_location = stack.allocate(promoted_type.memory_size(asm_data));
 
         let cond_false_label = &else_label;//only jump to else branch if it exists
 
@@ -64,8 +65,9 @@ impl PutOnStack for TernaryExpr {
         });
 
         let (mut true_asm, true_location) = self.true_branch.put_on_stack(asm_data, stack, global_asm_data);
-        true_asm.add_instruction(AsmOperation::CAST { from_type: true_type, to_type: promoted_type });
+        true_asm.merge(&cast_from_memory(&true_location, &true_type, &promoted_resultant_location, &promoted_type, asm_data));
         let (mut false_asm, false_location) = self.false_branch.put_on_stack(asm_data, stack, global_asm_data);
+        false_asm.merge(&cast_from_memory(&false_location, &false_type, &promoted_resultant_location, &promoted_type, asm_data));
 
         //true branch
         result.merge(&true_asm);
@@ -75,16 +77,14 @@ impl PutOnStack for TernaryExpr {
             comparison: AsmComparison::ALWAYS,//unconditional jump
         });
 
-        let else_body_asm = ternary.false_branch().accept(&mut ScalarInAccVisitor {asm_data: self.asm_data, stack_data: &mut self.stack_data, global_asm_data: self.global_asm_data});
-
         //start of the else block
         result.add_instruction(AsmOperation::Label(else_label));//add label
-        result.merge(&else_body_asm);//generate the body of the else statement
+        result.merge(&false_asm);//generate the body of the else statement
 
         //after if/else are complete, jump here
         result.add_instruction(AsmOperation::Label(if_end_label));
 
-        result
+        (result, promoted_resultant_location)
     }
 }
 
