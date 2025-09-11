@@ -1,8 +1,13 @@
 use std::fmt::Display;
 use std::hash::Hash;
+use memory_size::MemorySize;
 use unwrap_let::unwrap_let;
 use uuid::Uuid;
 
+use crate::assembly::assembly::Assembly;
+use crate::assembly::operand::memory_operand::MemoryOperand;
+use crate::assembly::operand::Operand;
+use crate::assembly::operation::AsmOperation;
 use crate::data_type::base_type::{BaseType, IntegerType, ScalarType};
 use crate::data_type::recursive_data_type::DataType;
 use crate::expression::expression::Expression;
@@ -91,7 +96,17 @@ impl StringLiteral {
 
 impl PutOnStack for StringLiteral {
     fn put_on_stack(&self, asm_data: &crate::asm_gen_data::AsmData, stack: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (crate::assembly::assembly::Assembly, stack_management::stack_item::StackItemKey) {
-        let resultant_location
+        let size = MemorySize::from_bytes(self.text.len().try_into().unwrap());
+        let resultant_location = stack.allocate(size);
+        let mut assembly = Assembly::make_empty();
+
+        assembly.add_commented_instruction(AsmOperation::MEMCPY {
+            size,
+            from: MemoryOperand::LabelAccess(self.label.clone()),
+            to: MemoryOperand::SubFromBP(resultant_location),
+        }, format!("cloning string {} to {:?}", self.label, resultant_location));
+
+        (assembly, resultant_location)
     }
 }
 

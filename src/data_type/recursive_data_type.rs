@@ -2,7 +2,6 @@ use std::fmt::{Debug, Display};
 
 use crate::{asm_gen_data::GetStructUnion, data_type::base_type::{FloatType, IntegerType, ScalarType}, expression::expression::Expression};
 use memory_size::MemorySize;
-use unwrap_let::unwrap_let;
 use super::{base_type::BaseType, type_modifier::DeclModifier};
 
 
@@ -37,9 +36,9 @@ impl DataType
         }
     }
 
-    /// converts arrays to u64 memory addresses
-    /// pointers to u64
-    /// any raw type is unaffected
+    /// - converts arrays to u64 memory addresses
+    /// - pointers to u64
+    /// - any scalar type is unaffected
     pub fn decay_to_primative(&self) -> ScalarType {
         match self {
             DataType::ARRAY { .. } => ScalarType::Integer(IntegerType::U64),
@@ -212,13 +211,13 @@ pub fn calculate_promoted_type_arithmetic(lhs: &DataType, rhs: &DataType) -> Dat
 
         (_, DataType::POINTER(_)) => rhs.decay(),
 
-        (DataType::RAW(lhs_base), DataType::RAW(rhs_base)) => {
-            unwrap_let!(BaseType::Scalar(lhs_scalar) = lhs_base);
-            unwrap_let!(BaseType::Scalar(rhs_scalar) = rhs_base);
+        (DataType::RAW(BaseType::Scalar(lhs_scalar)), DataType::RAW(BaseType::Scalar(rhs_scalar))) => {
             DataType::RAW(BaseType::Scalar(calculate_promoted_type(&lhs_scalar, &rhs_scalar)))
         }
 
-        _ => panic!()//this should never happen as decay always returns pointer or raw
+        //TODO support for struct promotion (assert the struct names are the same)
+
+        _ => panic!()//this should never happen?
     }
 
 }

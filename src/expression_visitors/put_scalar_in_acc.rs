@@ -1,6 +1,7 @@
 use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{reference_assembly_visitor::ReferenceVisitor}, member_access::MemberAccess};
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
+use uuid::Uuid;
 use super::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor};
 
 
@@ -68,7 +69,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     }
 
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        func_call.generate_assembly_scalar_return(self)
+        panic!("put it on the stack instead");
     }
 
     fn visit_unary_prefix(&mut self, expr: &UnaryPrefixExpression) -> Self::Output {
@@ -84,52 +85,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     }
 
     fn visit_member_access(&mut self, member_access: &MemberAccess) -> Self::Output {
-        let mut result = Assembly::make_empty();
-
-        let member_name = member_access.get_member_name();
-        unwrap_let!(DataType::RAW(BaseType::Struct(original_struct_name)) = member_access.get_base_tree().accept(&mut GetDataTypeVisitor{asm_data: self.asm_data}));
-
-        let original_struct_definition = self.asm_data.get_struct(&original_struct_name);
-        let (member_decl, member_offset) = original_struct_definition.get_member_data(member_name);
-
-        //allocate struct on the stack
-        let resultant_struct_location = self.stack_data.allocate(original_struct_definition.calculate_size().unwrap());
-        let resultant_struct_location = Operand::Mem(MemoryOperand::SubFromBP(resultant_struct_location));
-
-        result.add_comment(format!("getting struct's member {}", member_name));
-
-        if let DataType::ARRAY { .. } = member_decl.data_type {
-            //get pointer to struct
-            let struct_addr_asm = member_access.get_base_tree().accept(&mut ReferenceVisitor{asm_data:self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data});
-            result.merge(&struct_addr_asm);
-
-            //offset the start pointer to the address of the member
-            result.add_instruction(AsmOperation::ADD {
-                increment: Operand::Imm(member_offset.as_imm()),
-                data_type: ScalarType::Integer(IntegerType::U64),
-            });
-        } else {
-            //clone the struct, just in case it is a return value for example
-            let struct_clone_asm = member_access.get_base_tree().accept(&mut CopyStructVisitor{asm_data: self.asm_data, stack_data: self.stack_data, global_asm_data: self.global_asm_data, resultant_location: resultant_struct_location});
-            result.merge(&struct_clone_asm);//generate struct that I am getting member of
-
-            //offset the start pointer to the address of the member
-            result.add_instruction(AsmOperation::ADD {
-                increment: Operand::Imm(member_offset.as_imm()),
-                data_type: ScalarType::Integer(IntegerType::U64),
-            });
-
-            //dereference pointer
-            result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::GPReg(GPRegister::acc()),
-                from: Operand::Mem(MemoryOperand::MemoryAddress{pointer_reg: GPRegister::acc() }),
-                size: member_decl.data_type.memory_size(self.asm_data),
-            });
-        }
-
-        //asm_line!(result, "{}", member_access.accept(&mut PopStructFromStack{asm_data: self.asm_data}));//pop the struct if needed
-
-        result
+        panic!()
     }
     
     fn visit_cast_expr(&mut self, expr: &crate::cast_expr::CastExpression) -> Self::Output {
@@ -151,7 +107,7 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     fn visit_ternary(&mut self, ternary: &crate::expression::ternary::TernaryExpr) -> Self::Output {
         let mut result = Assembly::make_empty();
 
-        let generic_label = self.global_asm_data.label_gen_mut().generate_label();
+        let generic_label = Uuid::new_v4().simple().to_string();
         let else_label = Label::Local(format!("{}_else", generic_label));//jump for the else branch
         let if_end_label = Label::Local(format!("{}_end", generic_label));//rendevous point for the if and else branches
 

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::{expression::Expression, put_on_stack::PutOnStack}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -76,6 +76,43 @@ impl MemberAccess {
         });
 
         result
+    }
+}
+
+impl PutOnStack for MemberAccess {
+    fn put_on_stack(&self, asm_data: &AsmData, stack: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemKey) {
+        let member_name = self.get_member_name();
+        let (mut result, base_location) = self.base_tree.put_on_stack(asm_data, stack, global_asm_data);
+
+        let (member_decl, member_offset) = match self.base_tree.accept(&mut GetDataTypeVisitor {asm_data}) {
+            DataType::RAW(BaseType::Struct(struct_name)) => {
+                let struct_definition = asm_data.get_struct(&struct_name);
+                struct_definition.get_member_data(member_name)
+            }
+
+            DataType::RAW(BaseType::Union(union_name)) => todo!(),
+
+            x => panic!("this type does not have members: {:?}", x)
+        };
+        let member_size = member_decl.data_type.memory_size(asm_data);
+        let member_location = stack.allocate(member_size);
+        
+        //get pointer to the member in base_location
+        result.add_instruction(AsmOperation::LEA {
+            from: MemoryOperand::SubFromBP(base_location),
+        });
+        result.add_instruction(AsmOperation::ADD {
+            increment: Operand::Imm(member_offset.as_imm()),
+            data_type: ScalarType::Integer(IntegerType::U64),
+        });
+        //copy to new location
+        result.add_instruction(AsmOperation::MEMCPY {
+            size: member_offset,
+            from: MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() },
+            to: MemoryOperand::SubFromBP(member_location),
+        });
+
+        (result, member_location)
     }
 }
 

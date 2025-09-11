@@ -66,8 +66,9 @@ impl ControlFlowChange {
                         //unions
                         (ReturnLocation::InMemory{ hidden_ptr_location }, DataType::RAW(BaseType::Union(union_name))) => {
                             assert_eq!(*asm_data.get_function_return_type(), DataType::RAW(BaseType::Union(union_name)));
-                            let expr_asm = expr.accept(&mut CopyStructVisitor { asm_data, stack_data, global_asm_data, resultant_location: Operand::Mem(MemoryOperand::SubFromBP(*hidden_ptr_location)) });
-                            result.merge(&expr_asm);
+                            panic!()
+                            // let expr_asm = expr.accept(&mut CopyStructVisitor { asm_data, stack_data, global_asm_data, resultant_location: Operand::Mem(MemoryOperand::SubFromBP(*hidden_ptr_location)) });
+                            // result.merge(&expr_asm);
                         }
                         (_, DataType::RAW(BaseType::Union(_))) => panic!("union seems to not be of category MEMORY"),
 

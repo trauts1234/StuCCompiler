@@ -1,3 +1,5 @@
+use std::mem;
+
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
@@ -61,19 +63,22 @@ impl Expression {
     }
 }
 
-macro_rules! delegate_put_on_stack {
-    ($self:expr, $($variant:ident),*) => {
-        match $self {
-            $(
-                Self::$variant(x) => x.put_on_stack(asm_data, stack, global_asm_data),
-            )*
-        }
-    };
-}
-
 impl PutOnStack for Expression {
     fn put_on_stack(&self, asm_data: &AsmData, stack: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemKey) {
-        delegate_put_on_stack!(self, NUMBERLITERAL, VARIABLE, STRINGLITERAL, FUNCCALL, UNARYPREFIX, UNARYSUFFIX, BINARYEXPRESSION, STRUCTMEMBERACCESS, CAST, ARRAYLITERAL, SIZEOF, TERNARYEXPRESSION)
+        match self {
+            Expression::NUMBERLITERAL(number_literal) => number_literal.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::STRUCTMEMBERACCESS(member_access) => member_access.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::STRINGLITERAL(string_literal) => string_literal.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::ARRAYLITERAL(array_initialisation) => panic!("cannot put this type on the stack yet"),
+            Expression::FUNCCALL(function_call) => function_call.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::UNARYSUFFIX(unary_postfix_expression) => unary_postfix_expression.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::TERNARYEXPRESSION(ternary_expr) => ternary_expr,
+            Expression::CAST(cast_expression) => cast_expression.put_on_stack(asm_data, stack, global_asm_data),
+            Expression::SIZEOF(sizeof_expr) => sizeof_expr,
+        }
     }
 }
 

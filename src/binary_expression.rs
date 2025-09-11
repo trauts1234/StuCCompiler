@@ -3,7 +3,7 @@ use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, put_lhs_ax_rhs_cx, Expression}, put_on_stack::PutOnStack}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -417,6 +417,23 @@ impl BinaryExpression {
     }
     pub fn operator(&self) -> &BinaryExpressionOperator {
         &self.operator
+    }
+}
+
+impl PutOnStack for BinaryExpression {
+    fn put_on_stack(&self, asm_data: &AsmData, stack: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemKey) {
+        let mut assembly = self.generate_assembly(asm_data, stack, global_asm_data);
+        let data_type = self.accept(&mut GetDataTypeVisitor { asm_data });
+        let data_size = data_type.memory_size(asm_data);
+        let stack_allocation = stack.allocate(data_size);
+
+        assembly.add_instruction(AsmOperation::MOV {
+            to: RegOrMem::Mem(MemoryOperand::SubFromBP(stack_allocation)),
+            from: Operand::GPReg(GPRegister::acc()),
+            size: data_size,
+        });
+
+        (assembly, stack_allocation)
     }
 }
 

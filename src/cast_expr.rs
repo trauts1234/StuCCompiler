@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::{expression::Expression, put_on_stack::PutOnStack}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Clone, Debug)]
 pub struct CastExpression {
@@ -24,6 +24,12 @@ impl CastExpression {
     }
     pub fn get_uncasted_expr(&self) -> &Expression {
         &self.expr
+    }
+}
+
+impl PutOnStack for CastExpression {
+    fn put_on_stack(&self, asm_data: &crate::asm_gen_data::AsmData, stack: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (crate::assembly::assembly::Assembly, stack_management::stack_item::StackItemKey) {
+        todo!()
     }
 }
 
