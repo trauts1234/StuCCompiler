@@ -1,64 +1,69 @@
 use std::fmt::Display;
 
-use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use colored::Colorize;
 use memory_size::MemorySize;
-use stack_management::baked_stack_frame::BakedSimpleStackFrame;
+use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::{StackItemKey, StackItemValue}};
 use super::{operand::{Operand, RegOrMem, PTR_SIZE}};
 
 
 #[derive(Clone)]
 pub enum AsmOperation {
-    ///moves size bytes from -> to
-    MOV {to: RegOrMem, from: Operand, size: MemorySize},
-    ///references from, puts address in the accumulator
-    LEA {from: MemoryOperand},
+    /// Moves `size` bytes from the pointers
+    MOV {from: Storage, to: Storage, size: MemorySize},
 
-    ///compares the accumulator and rhs, based on their data type
-    CMP {rhs: Operand, data_type: ScalarType},
-    /// based on the comparison, sets _AX to 1 or 0
-    SETCC {comparison: AsmComparison},
+    /// Finds the address of `from` and puts a pointer to it in the eightbyte `to`
+    LEA {from: Storage, to: Storage},
+
+    /// Compare `lhs` and `rhs` using the appropriate comparison
+    CMP {lhs: Storage, rhs: Storage, data_type: ScalarType},
+
+    /// based on the comparison, sets `storage` to 1 or 0
+    SETCC {to: Storage, data_type: ScalarType, comparison: AsmComparison},
+
     ///based on the comparison, conditionally jump to the label
     JMPCC {label: Label, comparison: AsmComparison},
 
     //casts and moves from -> to
-    CAST {from_type: ScalarType, to_type: ScalarType},
+    CAST {from: Storage, from_type: ScalarType, to: Storage, to_type: ScalarType},
 
-    ///adds increment to _AX
-    ADD {increment: Operand, data_type: ScalarType},
-    ///subtracts decrement from _AX
-    SUB {decrement: Operand, data_type: ScalarType},
-    ///multiplies _AX by the multiplier. depending on data type, injects mul or imul commands
-    MUL {multiplier: RegOrMem, data_type: ScalarType},
-    ///divides _AX by the divisor. depending on data type, injects div or idiv commands
-    DIV {divisor: RegOrMem, data_type: ScalarType},
-    ///shifts logically left
-    SHL {amount: Operand, base_type: BaseType},
-    ///shifts right, (arithmetic or logical based on the signedness of base_type)
-    SHR {amount: Operand, base_type: BaseType},
+    /// Sums lhs and rhs, storing the result in `to`
+    ADD {lhs: Storage, rhs: Storage, to: Storage, data_type: ScalarType},
+    ///subtracts rhs from lhs, storing the result in `to`
+    SUB {lhs: Storage, rhs: Storage, to: Storage, data_type: ScalarType},
+    ///multiplies lhs by rhs and stores the result in `to`
+    MUL {lhs: Storage, rhs: Storage, to: Storage, data_type: ScalarType},
+    /// Divides lhs by rhs and stores the result in `to`
+    DIV {lhs: Storage, rhs: Storage, to: Storage, data_type: ScalarType},
 
-    ///negates the accumulator item, taking into account its data type
-    NEG {data_type: ScalarType},
-    ///performs bitwise not to the accumulator
-    BitwiseNot,
+    ///shifts `from` logically left, storing the result in `to`
+    SHL {from: Storage, from_type: IntegerType, amount: Storage, amount_type: IntegerType, to: Storage},
+    ///shifts `from` logically left, storing the result in `to` (arithmetic or logical based on the signedness of `from_type`)
+    SHR {from: Storage, from_type: IntegerType, amount: Storage, amount_type: IntegerType, to: Storage},
 
-    /// applies operation to destination and secondary, saving results to the accumulator
-    BitwiseOp { secondary: Operand, operation: LogicalOperation},
+    ///negates `from`, storing results in `to` and taking into account data type
+    NEG {from: Storage, to: Storage, data_type: ScalarType},
+    ///performs bitwise not to `size` bytes from `from`, storing results in `to`
+    BitwiseNot {from: Storage, to: Storage, size: MemorySize},
 
+    /// applies `operation` to `size` bytes, moving `from` -> `to`
+    BitwiseOp {from: Storage, to: Storage, size: MemorySize, operation: LogicalOperation},
+
+    /// Generates an assembly label 
     Label(Label),
     /// also allocates variables on the stack
     CreateStackFrame,
     /// also (implicitly) deallocates variables on the stack
     DestroyStackFrame,
+    /// Pops the return address from the stack using the `ret` instruction
     Return,
     /// Subtracts MemorySize bytes from RSP
     AllocateStack(MemorySize),
     /// adds MemorySize bytes to RSP
     DeallocateStack(MemorySize),
-    ///copies `size` bytes from the pointer RSI to RDI
-    MEMCPY {size: MemorySize},
-    ///calls a subroutine
+    ///calls a subroutine (you must handle the parameters though)
     CALL {label: String},
+
     ///not even a nop, just a blank line of assembly
     BLANK,
 }
@@ -92,7 +97,9 @@ impl AsmOperation {
      */
     pub fn to_text(&self, stack: &BakedSimpleStackFrame) -> String {
         match self {
-            AsmOperation::MOV { to, from, size } => instruction_mov(to, from, *size, stack),
+            AsmOperation::MOV { to, from, size } => {
+
+            },
             AsmOperation::LEA { from } => format!("lea {}, {}", GPRegister::acc().generate_name(PTR_SIZE), from.generate_name(stack)),
             AsmOperation::CMP { rhs, data_type } => instruction_cmp(rhs, data_type, stack),
             AsmOperation::SETCC { comparison } => instruction_setcc(comparison),
@@ -370,7 +377,7 @@ macro_rules! acc {
 impl IRDisplay for AsmOperation {
     fn display_ir(&self) -> String {
         match self {
-            AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to.display_ir(), from.display_ir(), size),
+            AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to, from.display_ir(), size),
             AsmOperation::LEA { from } => format!("{} = {} {}", acc!(), opcode!("LEA"), from.display_ir()),
             AsmOperation::CMP { rhs, data_type } => 
                         format!("{} {}, {} ({})",

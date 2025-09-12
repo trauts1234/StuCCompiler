@@ -7,7 +7,7 @@ use memory_operand::MemoryOperand;
 use register::GPRegister;
 
 use memory_size::MemorySize;
-use stack_management::baked_stack_frame::BakedSimpleStackFrame;
+use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
 
 use crate::{assembly::operand::register::MMRegister, debugging::IRDisplay};
 
@@ -16,6 +16,12 @@ pub const PTR_SIZE: MemorySize = MemorySize::from_bytes(8);
 /// 
 /// Coincidentally also the alignment after a call and stack frame have been set up
 pub const STACK_ALIGN: MemorySize = MemorySize::from_bytes(16);
+
+#[derive(Clone)]
+pub enum Storage {
+    Stack(StackItemKey),
+    //TODO stack with offset
+}
 
 /**
  * enum storing any possible r/m or immediate operand
@@ -28,23 +34,6 @@ pub enum Operand {
     Imm(ImmediateValue),
 }
 
-#[derive(Clone)]
-pub enum RegOrMem {
-    GPReg(GPRegister),
-    MMReg(MMRegister),
-    Mem(MemoryOperand),
-}
-
-impl Into<Operand> for RegOrMem {
-    fn into(self) -> Operand {
-        match self {
-            RegOrMem::GPReg(gpregister) => Operand::GPReg(gpregister),
-            RegOrMem::MMReg(mmregister) => Operand::MMReg(mmregister),
-            RegOrMem::Mem(memory_operand) => Operand::Mem(memory_operand),
-        }
-    }
-}
-
 
 impl Operand {
     pub fn generate_name(&self, data_size: MemorySize, stack: &BakedSimpleStackFrame) -> String {
@@ -53,24 +42,6 @@ impl Operand {
             Operand::MMReg(register) => register.generate_name(data_size),
             Operand::Mem(memory_operand) => memory_operand.generate_name(stack),
             Operand::Imm(immediate_value) => immediate_value.generate_name(),
-        }
-    }
-}
-impl RegOrMem {
-    pub fn generate_name(&self, data_size: MemorySize, stack: &BakedSimpleStackFrame) -> String {
-        match self {
-            RegOrMem::GPReg(register) => register.generate_name(data_size),
-            RegOrMem::Mem(memory_operand) => memory_operand.generate_name(stack),
-            _ => panic!()
-        }
-    }
-}
-impl IRDisplay for RegOrMem {
-    fn display_ir(&self) -> String {
-        match self {
-            RegOrMem::GPReg(register) => register.display_ir(),
-            RegOrMem::MMReg(register) => register.display_ir(),
-            RegOrMem::Mem(memory_operand) => memory_operand.display_ir(),
         }
     }
 }
