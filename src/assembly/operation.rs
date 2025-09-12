@@ -1,10 +1,9 @@
 use std::fmt::Display;
 
-use crate::{assembly::{comparison::AsmComparison, operand::{memory_operand::MemoryOperand, register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
-use colored::Colorize;
+use crate::{assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::base_type::{BaseType, FloatType, IntegerType, ScalarType}, debugging::IRDisplay};
 use memory_size::MemorySize;
-use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::{StackItemKey, StackItemValue}};
-use super::{operand::{Operand, RegOrMem, PTR_SIZE}};
+use stack_management::baked_stack_frame::BakedSimpleStackFrame;
+use super::{operand::{Operand, PTR_SIZE}};
 
 
 #[derive(Clone)]
@@ -46,8 +45,8 @@ pub enum AsmOperation {
     ///performs bitwise not to `size` bytes from `from`, storing results in `to`
     BitwiseNot {from: Storage, to: Storage, size: MemorySize},
 
-    /// applies `operation` to `size` bytes, moving `from` -> `to`
-    BitwiseOp {from: Storage, to: Storage, size: MemorySize, operation: LogicalOperation},
+    /// applies `operation` to `size` bytes
+    BitwiseOp {lhs: Storage, rhs: Storage, to: Storage, size: MemorySize, operation: LogicalOperation},
 
     /// Generates an assembly label 
     Label(Label),
@@ -368,71 +367,50 @@ macro_rules! opcode {
         ($op.yellow().to_string())
     }
 }
-macro_rules! acc {
-    () => {
-        ("acc".red().to_string())
-    };
-}
 
 impl IRDisplay for AsmOperation {
     fn display_ir(&self) -> String {
         match self {
-            AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to, from.display_ir(), size),
-            AsmOperation::LEA { from } => format!("{} = {} {}", acc!(), opcode!("LEA"), from.display_ir()),
-            AsmOperation::CMP { rhs, data_type } => 
-                        format!("{} {}, {} ({})",
-                            opcode!("CMP"),
-                            acc!(),
-                            rhs.display_ir(),
-                            data_type
-                        ),
-            AsmOperation::SETCC { comparison } => 
-                        format!("{} {}",
-                            opcode!(format!("set-{}", comparison.display_ir())),
-                            acc!()
-                        ),
-            AsmOperation::JMPCC { label, comparison } => 
-                        
-                        format!("{} {}",
-                            opcode!(format!("jmp-{}", comparison.display_ir())),
-                            label
-                        ),
-            AsmOperation::ADD { increment, data_type } => format!("{} += {} ({})", acc!(), increment.display_ir(), data_type),
-            AsmOperation::SUB { decrement, data_type } => format!("{} -= {} ({})", acc!(), decrement.display_ir(), data_type),
-            AsmOperation::MUL { multiplier, data_type } => format!("{} *= {} ({})", acc!(), multiplier.display_ir(), data_type),
-            AsmOperation::DIV { divisor, data_type } => format!("{} /= {} ({})", acc!(), divisor.display_ir(), data_type),
-            AsmOperation::SHL { amount, base_type } => format!("{} <<= {} ({})", acc!(), amount.display_ir(), base_type),
-            AsmOperation::SHR { amount, base_type } => format!("{} >>= {} ({})", acc!(), amount.display_ir(), base_type),
-            AsmOperation::NEG { data_type } => format!("{} {} ({})", opcode!("NEG"), acc!(), data_type),
-            AsmOperation::BitwiseNot => format!("{} {}", opcode!("NOT"), acc!()),
-            AsmOperation::BitwiseOp { secondary, operation} => format!("{} {} {}", acc!(), operation.display_ir(), secondary.display_ir()),
-            AsmOperation::Label(label) => format!("{}:", label.to_string().red()),
-            AsmOperation::CreateStackFrame => opcode!("CreateStackFrame"),
-            AsmOperation::DestroyStackFrame => opcode!("DestroyStackFrame"),
-            AsmOperation::Return => opcode!("RET"),
-            AsmOperation::AllocateStack(size) => format!("{} {} B", opcode!("reserve stack"), size.size_bytes()),
-            AsmOperation::DeallocateStack(size) => format!("{} {} B", opcode!("deallocate stack"), size.size_bytes()),
-            AsmOperation::MEMCPY { size } => format!("{} {}", opcode!("MEMCPY"), size),
-            AsmOperation::CALL { label } => format!("{} {}", opcode!("CALL"), label),
-            AsmOperation::CAST { from_type, to_type } => format!("{} {} {} -> {}", opcode!("CAST"), acc!(), from_type,  to_type),
+            AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to.display_ir(), from.display_ir(), size),
             AsmOperation::BLANK => String::new(),
+            AsmOperation::LEA { from, to } => format!("{} = &{}", to.display_ir(), from.display_ir()),
+            AsmOperation::CMP { lhs, rhs, data_type } => format!("compare {}, {} ({})", lhs.display_ir(), rhs.display_ir(), data_type),
+            AsmOperation::SETCC { to, data_type, comparison } => format!("set-{} {} ({})", comparison, to.display_ir(), data_type),
+            AsmOperation::JMPCC { label, comparison } => format!("jump-{} to {}", comparison, label),
+            AsmOperation::CAST { from, from_type, to, to_type } => format!("cast {} -> {} ({} = {})", from_type, to_type, to, from),
+            AsmOperation::ADD { lhs, rhs, to, data_type } => format!("{} = {} + {} ({})", to, lhs, rhs, data_type),
+            AsmOperation::SUB { lhs, rhs, to, data_type } => format!("{} = {} - {} ({})", to, lhs, rhs, data_type),
+            AsmOperation::MUL { lhs, rhs, to, data_type } => format!("{} = {} * {} ({})", to, lhs, rhs, data_type),
+            AsmOperation::DIV { lhs, rhs, to, data_type } => format!("{} = {} / {} ({})", to, lhs, rhs, data_type),
+            AsmOperation::SHL { from, from_type, amount, amount_type: _, to } => format!("{} = {} << {} ({})", to, from, amount, from_type),
+            AsmOperation::SHR { from, from_type, amount, amount_type: _, to } => format!("{} = {} >> {} ({})", to, from, amount, from_type),
+            AsmOperation::NEG { from, to, data_type } => format!("{} = -{} ({})", to, from, data_type),
+            AsmOperation::BitwiseNot { from, to, size } => format!("{} = ~{} ({})", to, from, size),
+            AsmOperation::BitwiseOp { lhs, rhs, to, size, operation } => format!("{} = {} {} {} ({})", to, lhs, operation, rhs, size),
+            AsmOperation::Label(label) => format!("{}", label),
+            AsmOperation::CreateStackFrame => format!("create stack frame and reserve stack space"),
+            AsmOperation::DestroyStackFrame => format!("destroy stack frame"),
+            AsmOperation::Return => format!("return"),
+            AsmOperation::AllocateStack(memory_size) => format!("reserve stack ({})", memory_size),
+            AsmOperation::DeallocateStack(memory_size) => format!("deallocate stack ({})", memory_size),
+            AsmOperation::CALL { label } => format!("call {}", label),
         }
     }
 }
 
-impl IRDisplay for LogicalOperation {
-    fn display_ir(&self) -> String {
-        match self {
+impl Display for LogicalOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
             LogicalOperation::AND => "&=",
             LogicalOperation::OR => "|=",
             LogicalOperation::XOR => "^=",
-        }.to_owned()
+        })
     }
 }
 
-impl IRDisplay for AsmComparison {
-    fn display_ir(&self) -> String {
-        match self {
+impl Display for AsmComparison {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
             AsmComparison::ALWAYS => "always",
             AsmComparison::NE => "ne",
             AsmComparison::EQ => "eq",
@@ -440,7 +418,7 @@ impl IRDisplay for AsmComparison {
             AsmComparison::GE {..} => "ge",
             AsmComparison::L {..} => "l",
             AsmComparison::G {..} => "g",
-        }.to_owned()
+        })
     }
 }
 

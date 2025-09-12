@@ -2,6 +2,9 @@ pub mod memory_operand;
 pub mod register;
 pub mod immediate;
 
+use std::fmt::Display;
+
+use colored::Colorize;
 use immediate::ImmediateValue;
 use memory_operand::MemoryOperand;
 use register::GPRegister;
@@ -53,5 +56,19 @@ impl IRDisplay for Operand {
             Operand::Mem(memory_operand) => memory_operand.display_ir(),
             Operand::Imm(immediate_value) => immediate_value.display_ir(),
         }
+    }
+}
+impl Display for Storage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Storage::Stack(stack_item_key) => format!("[{:?}]", stack_item_key),
+        }.blue())
+    }
+}
+impl IRDisplay for Storage {
+    fn display_ir(&self) -> String {
+        match self {
+            Storage::Stack(stack_item_key) => format!("[{:?}]", stack_item_key),
+        }.blue().to_string()
     }
 }
