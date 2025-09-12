@@ -121,7 +121,10 @@ impl AsmOperation {
             AsmOperation::AllocateStack(size) => format!("sub rsp, {}", size.size_bytes()),
             AsmOperation::DeallocateStack(size) => format!("add rsp, {}", size.size_bytes()),
             AsmOperation::Label(label) => format!("{}:", label),
-            AsmOperation::MEMCPY { size, from   , to } => format!("lea rdi, {}\nlea rsi, {}\nmov rcx, {}\ncld\nrep movsb", to.generate_name(stack), from.generate_name(stack), size.size_bytes()),
+            AsmOperation::MEMCPY { size, from   , to } => {
+                assert_ne!(*from, MemoryOperand::MemoryAddress { pointer_reg: GPRegister::_DI });// `to` uses this register so it gets clobbered early
+                format!("lea rdi, {}\nlea rsi, {}\nmov rcx, {}\ncld\nrep movsb", to.generate_name(stack), from.generate_name(stack), size.size_bytes())
+            },
             AsmOperation::BLANK => String::new(),
             AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type, stack),
             AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type, stack),

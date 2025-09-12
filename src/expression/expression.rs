@@ -353,13 +353,20 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
 fn assembly_for_agregate_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
+    assert_eq!(lhs.accept(&mut GetDataTypeVisitor {asm_data}), rhs.accept(&mut GetDataTypeVisitor{asm_data}));
+    let lhs_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
+    //put rvalue on the stack
+    let (rhs_asm, rhs_location) = rhs.put_on_stack(asm_data, stack_data, global_asm_data);
     //put address of lvalue in acc
     let lhs_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+    result.merge(&rhs_asm);
     result.merge(&lhs_asm);
 
-    //TODO generate rhs value, then copy to lhs address
-
-    result.merge(&rhs.accept(&mut CopyStructVisitor { asm_data, stack_data, global_asm_data, resultant_location: MemoryOperand::MemoryAddress{pointer_reg: GPRegister::acc()} }));
+    result.add_instruction(AsmOperation::MEMCPY {
+        size: lhs_type.memory_size(asm_data),
+        from: MemoryOperand::SubFromBP(rhs_location),
+        to: MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() },
+    });
 
     result
 }

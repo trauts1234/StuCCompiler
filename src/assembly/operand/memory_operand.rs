@@ -5,7 +5,7 @@ use crate::debugging::IRDisplay;
 
 use super::{register::GPRegister, PTR_SIZE};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MemoryOperand {
     ///accessing a label, RIP-relative addressed
     LabelAccess(String),
