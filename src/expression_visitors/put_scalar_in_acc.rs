@@ -1,4 +1,5 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::unary_prefix_expr::UnaryPrefixExpression, expression_visitors::{reference_assembly_visitor::ReferenceVisitor}, member_access::MemberAccess};
+use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem}, operation::{AsmOperation, Label}}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, expression::{put_on_stack::PutOnStack, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::reference_assembly_visitor::ReferenceVisitor, member_access::MemberAccess};
+use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 use uuid::Uuid;
@@ -69,11 +70,19 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     }
 
     fn visit_func_call(&mut self, func_call: &crate::function_call::FunctionCall) -> Self::Output {
-        panic!("put it on the stack instead");
+        //BODGE
+        let(mut asm, stack_location) = func_call.put_on_stack(self.asm_data, self.stack_data, self.global_asm_data);
+        if func_call.get_callee_decl().return_type != DataType::RAW(BaseType::VOID) {
+            asm.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::Mem(MemoryOperand::SubFromBP(stack_location)), size: MemorySize::from_bytes(8) });
+        }
+        asm
     }
 
     fn visit_unary_prefix(&mut self, expr: &UnaryPrefixExpression) -> Self::Output {
-        expr.generate_assembly(self.asm_data, self.stack_data, self.global_asm_data)
+        //BODGE - please remove ASAP
+        let (mut asm, stack_location) = expr.put_on_stack(self.asm_data, self.stack_data, self.global_asm_data);
+        asm.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::Mem(MemoryOperand::SubFromBP(stack_location)), size: MemorySize::from_bytes(8) });
+        asm
     }
 
     fn visit_unary_postfix(&mut self, expr: &crate::expression::unary_postfix_expression::UnaryPostfixExpression) -> Self::Output {
@@ -85,7 +94,10 @@ impl<'a> ExprVisitor for ScalarInAccVisitor<'a> {
     }
 
     fn visit_member_access(&mut self, member_access: &MemberAccess) -> Self::Output {
-        panic!()
+        //BODGE
+        let (mut asm, stack_location) = member_access.put_on_stack(self.asm_data, self.stack_data, self.global_asm_data);
+        asm.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::Mem(MemoryOperand::SubFromBP(stack_location)), size: MemorySize::from_bytes(8) });
+        asm
     }
     
     fn visit_cast_expr(&mut self, expr: &crate::cast_expr::CastExpression) -> Self::Output {

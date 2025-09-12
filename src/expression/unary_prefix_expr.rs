@@ -1,5 +1,6 @@
 use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, put_on_stack::PutOnStack, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral};
 use colored::Colorize;
+use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 
@@ -14,7 +15,32 @@ impl UnaryPrefixExpression {
         visitor.visit_unary_prefix(self)
     }
     
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
+
+    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
+        let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+        match self.operator {
+            UnaryPrefixOperator::Reference => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
+            UnaryPrefixOperator::Dereference => operand_type.remove_outer_modifier(),//TODO should this be decayed?
+            UnaryPrefixOperator::UnaryPlus | UnaryPrefixOperator::Negate | UnaryPrefixOperator::Increment | UnaryPrefixOperator::Decrement | UnaryPrefixOperator::BitwiseNot => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
+            UnaryPrefixOperator::BooleanNot => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),
+        }
+    }
+
+    pub fn new(operator: UnaryPrefixOperator, operand: Expression) -> UnaryPrefixExpression {
+        UnaryPrefixExpression { operand: Box::new(operand), operator }
+    }
+
+    pub fn get_operator(&self) -> &UnaryPrefixOperator {
+        &self.operator
+    }
+
+    pub fn get_operand(&self) -> &Expression {
+        &self.operand
+    }
+}
+
+impl PutOnStack for UnaryPrefixExpression {
+    fn put_on_stack(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemKey) {
         let mut result = Assembly::make_empty();
 
         match self.operator {
@@ -33,11 +59,11 @@ impl UnaryPrefixExpression {
                 if let DataType::ARRAY {..} = self.get_data_type(asm_data) {
                     //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
                 } else {
-                    result.add_instruction(AsmOperation::MOV {
+                    result.add_commented_instruction(AsmOperation::MOV {
                         to: RegOrMem::GPReg(GPRegister::acc()),
                         from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
                         size: PTR_SIZE
-                    });//dereference pointer
+                    }, "deref pointer");//dereference pointer
                 }
             },
             UnaryPrefixOperator::Negate => {
@@ -208,35 +234,11 @@ impl UnaryPrefixExpression {
             }
         }
 
-        result
-    }
+        //BODGE
+        let push = stack_data.allocate(MemorySize::from_bytes(8));
+        result.add_instruction(AsmOperation::MOV { to: RegOrMem::Mem(MemoryOperand::SubFromBP(push)), from: Operand::GPReg(GPRegister::_AX), size: PTR_SIZE });
 
-    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
-        match self.operator {
-            UnaryPrefixOperator::Reference => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
-            UnaryPrefixOperator::Dereference => operand_type.remove_outer_modifier(),
-            UnaryPrefixOperator::UnaryPlus | UnaryPrefixOperator::Negate | UnaryPrefixOperator::Increment | UnaryPrefixOperator::Decrement | UnaryPrefixOperator::BitwiseNot => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
-            UnaryPrefixOperator::BooleanNot => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),
-        }
-    }
-
-    pub fn new(operator: UnaryPrefixOperator, operand: Expression) -> UnaryPrefixExpression {
-        UnaryPrefixExpression { operand: Box::new(operand), operator }
-    }
-
-    pub fn get_operator(&self) -> &UnaryPrefixOperator {
-        &self.operator
-    }
-
-    pub fn get_operand(&self) -> &Expression {
-        &self.operand
-    }
-}
-
-impl PutOnStack for UnaryPrefixExpression {
-    fn put_on_stack(&self, asm_data: &AsmData, stack: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemKey) {
-        todo!()
+        (result, push)
     }
 }
 

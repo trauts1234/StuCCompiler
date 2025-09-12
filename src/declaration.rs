@@ -22,7 +22,7 @@ impl MinimalDataVariable {
 impl PutOnStack for MinimalDataVariable {
     fn put_on_stack(&self, asm_data: &AsmData, stack: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, StackItemKey) {
         let mut result = Assembly::make_empty();
-        let variable_size = self.accept(&mut GetDataTypeVisitor{asm_data:asm_data}).memory_size(asm_data);
+        let variable_size = self.accept(&mut GetDataTypeVisitor{asm_data}).memory_size(asm_data);
         let resultant_location = stack.allocate(variable_size);
 
         result.add_comment(format!("cloning variable {} to the stack at {:?}", self.name, resultant_location));

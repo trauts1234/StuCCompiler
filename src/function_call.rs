@@ -114,7 +114,7 @@ impl FunctionCall {
                 let mem_required = dtype.memory_size(asm_data);
                 assert!(mem_required.size_bytes() / reg.len() as u64 <= 8);//ensure there are only 8 bytes or less per register being used
 
-                (dtype, expr, reg, MemoryOperand::SubFromBP(stack.allocate(mem_required)))
+                (dtype, expr, reg, stack.allocate(mem_required))
             })
             .collect();
 
@@ -134,7 +134,7 @@ impl FunctionCall {
 
         //calculate values and put in spill space
         for (dtype, expr, _, spill_space) in &regs_with_spill_space {
-            let calculate = put_arg_on_stack(expr, (*dtype).clone(), spill_space.clone(), asm_data, stack, global_asm_data);
+            let calculate = put_arg_on_stack(expr, (*dtype).clone(), MemoryOperand::SubFromBP(spill_space.clone()), asm_data, stack, global_asm_data);
             result.merge(&calculate);
         }
 
@@ -152,7 +152,6 @@ impl FunctionCall {
             for (i, reg) in regs.iter().enumerate() {
                 //for each eightbyte, read further into the arg
                 let eightbyte_offset = MemorySize::from_bytes(8 * (i as u64));
-                unwrap_let!(MemoryOperand::SubFromBP(spill_base) = spill_space);
                 // convert to an operand for assembly
                 let to_location = match reg {
                     EightByteLocation::GP(gpregister) => RegOrMem::GPReg(*gpregister),
@@ -160,7 +159,7 @@ impl FunctionCall {
                 };
 
                 //spill base takes us towards SP, then offset walks us back towards BP
-                result.add_instruction(AsmOperation::LEA { from: MemoryOperand::SubFromBP(*spill_base)});
+                result.add_instruction(AsmOperation::LEA { from: MemoryOperand::SubFromBP(*spill_space)});
                 result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(eightbyte_offset.as_imm()), data_type: ScalarType::Integer(IntegerType::U64) });
 
                 result.add_commented_instruction(AsmOperation::MOV {
@@ -198,7 +197,7 @@ impl PutOnStack for FunctionCall {
                 resultant_location
             },
             Some(ReturnLocation::InMemory { hidden_ptr_location }) => todo!(),
-            None => panic!("cannot put void on the stack!"),
+            None => stack.allocate(MemorySize::new()),//allocate zero
         };
 
         (result, resultant_location)
@@ -233,6 +232,8 @@ fn put_arg_on_stack(expr: &Expression, arg_type: DataType,location: MemoryOperan
                 from: MemoryOperand::SubFromBP(struct_stack_location),
                 to: location,
             });
+
+            //TODO do I need to zero some of the padding bits?
 
         },
         (original_type, casted_type) => {
