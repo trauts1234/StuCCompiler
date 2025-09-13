@@ -1,6 +1,6 @@
-use std::fmt::Display;
+use std::{fmt::Display, num::NonZeroU64};
 
-use crate::{assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::base_type::{BaseType, FloatType, IntegerType, ScalarType}, debugging::IRDisplay};
+use crate::{assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister, Register}, Storage}}, data_type::base_type::{BaseType, FloatType, IntegerType, ScalarType}, debugging::IRDisplay};
 use memory_size::MemorySize;
 use stack_management::baked_stack_frame::BakedSimpleStackFrame;
 use super::{operand::{Operand, PTR_SIZE}};
@@ -97,7 +97,14 @@ impl AsmOperation {
     pub fn to_text(&self, stack: &BakedSimpleStackFrame) -> String {
         match self {
             AsmOperation::MOV { to, from, size } => {
+                let mut in_stream = MovStream::new(GPRegister::_AX, from, *size, stack);
 
+                in_stream
+                .map(|MovStreamData { put_in_reg_asm, reg_size, offset_from_start }| {
+                    
+                });
+
+                todo!()
             },
             AsmOperation::LEA { from } => format!("lea {}, {}", GPRegister::acc().generate_name(PTR_SIZE), from.generate_name(stack)),
             AsmOperation::CMP { rhs, data_type } => instruction_cmp(rhs, data_type, stack),
@@ -112,7 +119,6 @@ impl AsmOperation {
             AsmOperation::AllocateStack(size) => format!("sub rsp, {}", size.size_bytes()),
             AsmOperation::DeallocateStack(size) => format!("add rsp, {}", size.size_bytes()),
             AsmOperation::Label(label) => format!("{}:", label),
-            AsmOperation::MEMCPY { size } => format!("mov rcx, {}\ncld\nrep movsb", size.size_bytes()),
             AsmOperation::BLANK => String::new(),
             AsmOperation::MUL { multiplier, data_type } => instruction_mul(multiplier, data_type, stack),
             AsmOperation::DIV { divisor, data_type } => instruction_div(divisor, data_type, stack),
@@ -122,7 +128,9 @@ impl AsmOperation {
             AsmOperation::SHR { amount, base_type } => instruction_shiftright(amount, base_type, stack),
             AsmOperation::BitwiseNot => format!("not {}", GPRegister::acc().generate_name(MemorySize::from_bits(64))),//just NOT the whole reg
 
-            AsmOperation::CAST { from_type, to_type } => instruction_cast(from_type, to_type)
+            AsmOperation::CAST { from_type, to_type, from, to } => {
+                
+            }
         }
     }
 }
@@ -362,10 +370,61 @@ fn xmm_to_acc() -> &'static str {
     "movq rax, xmm0"
 }
 
-macro_rules! opcode {
-    ($op:expr) => {
-        ($op.yellow().to_string())
+struct MovStreamData {
+    put_in_reg_asm: String,
+    reg_size: MemorySize,
+    offset_from_start: MemorySize
+}
+struct MovStream<'a> {
+    /// Which register to stream the bytes into
+    register: GPRegister,
+    /// Where to stream the bytes from
+    from: &'a Storage,
+    /// How many bytes to stream
+    size: MemorySize,
+
+    stack: &'a BakedSimpleStackFrame,
+
+    curr_offset: MemorySize
+}
+impl<'a> MovStream<'a> {
+    pub fn new(register: Register, from: &Storage, size: MemorySize, stack: &BakedSimpleStackFrame) -> Self {
+        Self {
+            register, from, size, stack,
+            curr_offset: MemorySize::default(),
+        }
     }
+}
+
+impl<'a> Iterator for MovStream<'a> {
+    type Item = MovStreamData;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current_offset = self.curr_offset;
+        let remaining = self.size - current_offset;
+        if remaining == MemorySize::new() {return None;}
+
+        let register_size = best_reg_size(remaining);
+        self.curr_offset += register_size;//skip over the register for the next iteration
+
+        let bp_offset = match &self.from {
+            //start at from location, and add(but actually subtract, as this is a negative offset)
+            Storage::Stack(stack_item_key) => self.stack.get(stack_item_key).offset_from_bp - current_offset,
+        };
+
+        let mov_instr = format!("mov {}, [rbp-{}]", self.register.generate_name(register_size), bp_offset);
+
+        Some(MovStreamData { put_in_reg_asm: mov_instr, reg_size: register_size, offset_from_start: current_offset })
+    }
+}
+
+fn best_reg_size(x: MemorySize) -> MemorySize {
+    assert_ne!(x, MemorySize::default());//cannot have a 0 register size
+
+    MemorySize::from_bytes(
+        1 << (64 - x.size_bytes().leading_zeros())
+    )
+    .min(MemorySize::from_bytes(8))//GP registers are only 8 byte max
 }
 
 impl IRDisplay for AsmOperation {
