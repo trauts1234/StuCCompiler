@@ -41,6 +41,7 @@ mod member_access;
 mod args_handling;
 pub mod goto_and_labels;
 pub mod union_definition;
+pub mod put_on_stack;
 
 fn main() {
     let mut input_path = PathBuf::from("test.c");

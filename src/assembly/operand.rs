@@ -23,7 +23,7 @@ pub const STACK_ALIGN: MemorySize = MemorySize::from_bytes(16);
 #[derive(Clone)]
 pub enum Storage {
     Stack(StackItemKey),
-    //TODO stack with offset
+    Constant(ImmediateValue)
 }
 
 /**
@@ -61,14 +61,8 @@ impl IRDisplay for Operand {
 impl Display for Storage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
-            Storage::Stack(stack_item_key) => format!("[{:?}]", stack_item_key),
+            Storage::Stack(stack_item_key)=>format!("[{:?}]",stack_item_key),
+            Storage::Constant(immediate_value) => immediate_value.generate_name(),
         }.blue())
-    }
-}
-impl IRDisplay for Storage {
-    fn display_ir(&self) -> String {
-        match self {
-            Storage::Stack(stack_item_key) => format!("[{:?}]", stack_item_key),
-        }.blue().to_string()
     }
 }

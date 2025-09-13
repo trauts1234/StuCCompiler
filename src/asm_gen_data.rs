@@ -26,7 +26,6 @@ pub struct AsmData {
 /// Stores information that is required globally and does not change when entering new scopes, like the list of accessible functions
 pub struct GlobalAsmData {
     function_decls: Vec<FunctionDeclaration>,
-    label_gen: LabelGenerator,
     /// any variable that is accessed via a label, like extern and static variables.
     /// static variables in functions are also stored here
     global_variables: Vec<(String, AddressedDeclaration)>,
@@ -45,7 +44,6 @@ impl GlobalAsmData {
         //generate a partially complete self, so that structs can be padded using myself
         let mut partial_result = Self {
             function_decls: global_parse_data.func_declarations_as_vec(),
-            label_gen: LabelGenerator::default(),
             global_variables,
             global_structs: Vec::new(),
             global_unions: Vec::new(),
@@ -66,10 +64,6 @@ impl GlobalAsmData {
     }
     pub fn get_global_variables(&self) -> &[(String, AddressedDeclaration)] {
         &self.global_variables
-    }
-
-    pub fn label_gen_mut(&mut self) -> &mut LabelGenerator {
-        &mut self.label_gen
     }
 }
 

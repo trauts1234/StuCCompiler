@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, Operand}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, Operand, Storage}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
@@ -78,14 +78,14 @@ impl SelectionStatement {
 
                 let cond_false_label = if else_body.is_some() {&else_label} else {&if_end_label};//only jump to else branch if it exists
 
-                let condition_asm = condition.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+                let (condition_asm, condition_value) = condition.put_on_stack();
                 result.merge(&condition_asm);//generate the condition to acc
                 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.accept(&mut GetDataTypeVisitor {asm_data}));
 
                 //compare the result to 0
                 result.add_instruction(AsmOperation::CMP {
-                    rhs: Operand::Imm(ImmediateValue("0".to_string())),
+                    rhs: Storage::Constant(ImmediateValue("0".to_string())),
                     data_type: condition_type
                 });
 
