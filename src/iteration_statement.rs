@@ -1,7 +1,8 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, Operand}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::ImmediateValue, Operand, Storage}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor}, generate_ir::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
+use uuid::Uuid;
 
 /**
  * this handles if statements and other conditionals
@@ -108,11 +109,13 @@ impl IterationStatement {
             _ => None
         }
     }
+}
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+impl GenerateIR for IterationStatement {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
         let mut result = Assembly::make_empty();
 
-        let generic_label = global_asm_data.label_gen_mut().generate_label();
+        let generic_label = Uuid::new_v4().simple().to_string();
         let loop_start_label = Label::Local(format!("{}_loop_start", generic_label));
         let loop_end_label = Label::Local(format!("{}_loop_end", generic_label));
 
@@ -125,12 +128,16 @@ impl IterationStatement {
                 let asm_data = asm_data.clone_for_new_scope(local_scope_data, stack_data);
                 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data}));
+                let zero = match condition_type {
+                    ScalarType::Float(float_type) => NumberLiteral::FLOAT { data: 0f64, data_type: float_type },
+                    ScalarType::Integer(integer_type) => NumberLiteral::INTEGER { data: 0, data_type: integer_type },
+                };
 
                 let loop_increment_label = Label::Local(format!("{}_loop_increment", generic_label));//extra label required for for loops
 
                 //write to stack data whilst generating assembly for initialising the loop body
                 let init_asm = match initialisation {
-                    Some(x) => x.generate_assembly(&asm_data, stack_data, global_asm_data),
+                    Some(x) => x.generate_ir(&asm_data, stack_data, global_asm_data).0,
                     None => Assembly::make_empty(),//no initialisation => blank assembly
                 };
                 
@@ -139,13 +146,14 @@ impl IterationStatement {
 
                 result.add_instruction(AsmOperation::Label(loop_start_label.clone()));//label for loop's start
 
-                let condition_asm = condition.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data, global_asm_data});
+                let (condition_asm, condition_value) = condition.generate_ir(&asm_data, stack_data, global_asm_data);
 
                 result.merge(&condition_asm);//generate the condition
 
                 //compare the result to 0
                 result.add_instruction(AsmOperation::CMP {
-                    rhs: Operand::Imm(ImmediateValue("0".to_string())),
+                    lhs: Storage::Stack(condition_value.unwrap()),
+                    rhs: Storage::Constant(zero),
                     data_type: condition_type
                 });
 
@@ -156,13 +164,13 @@ impl IterationStatement {
                 });
 
                 //overwrite stack data whilst generating assembly for the loop body
-                let body_asm = body.generate_assembly(&asm_data, stack_data, global_asm_data);
+                let (body_asm, _) = body.generate_ir(&asm_data, stack_data, global_asm_data);
                 result.merge(&body_asm);//generate the loop body
 
                 result.add_instruction(AsmOperation::Label(loop_increment_label));//add label to jump to incrementing the loop
 
                 if let Some(inc) = increment {//if there is an increment
-                    let increment_asm = inc.accept(&mut ScalarInAccVisitor {asm_data: &asm_data, stack_data, global_asm_data});
+                    let (increment_asm, _) = inc.generate_ir(&asm_data, stack_data, global_asm_data);
                     result.merge(&increment_asm);//apply the increment
                 }
 
@@ -178,15 +186,20 @@ impl IterationStatement {
             Self::WHILE { condition, body } => {
 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data}));
+                let zero = match condition_type {
+                    ScalarType::Float(float_type) => NumberLiteral::FLOAT { data: 0f64, data_type: float_type },
+                    ScalarType::Integer(integer_type) => NumberLiteral::INTEGER { data: 0, data_type: integer_type },
+                };
 
                 result.add_instruction(AsmOperation::Label(loop_start_label.clone())); // label for loop's start
 
-                let condition_asm = condition.accept(&mut ScalarInAccVisitor { asm_data, stack_data, global_asm_data });
+                let (condition_asm, condition_value) = condition.generate_ir(&asm_data, stack_data, global_asm_data);
                 result.merge(&condition_asm); // generate the condition
 
                 // compare the result to 0
                 result.add_instruction(AsmOperation::CMP {
-                    rhs: Operand::Imm(ImmediateValue("0".to_string())),
+                    lhs: Storage::Stack(condition_value.unwrap()),
+                    rhs: Storage::Constant(zero),
                     data_type: condition_type,
                 });
 
@@ -197,7 +210,7 @@ impl IterationStatement {
                 });
 
                 // generate the loop body
-                let body_asm = body.generate_assembly(asm_data, stack_data, global_asm_data);
+                let (body_asm, _) = body.generate_ir(asm_data, stack_data, global_asm_data);
                 result.merge(&body_asm);
 
                 // after loop complete, go to top of loop
@@ -210,7 +223,7 @@ impl IterationStatement {
             }
         }
         
-        result
+        (result, None)
     }
 }
 

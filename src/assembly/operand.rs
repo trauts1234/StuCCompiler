@@ -12,7 +12,7 @@ use register::GPRegister;
 use memory_size::MemorySize;
 use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
 
-use crate::{assembly::operand::register::MMRegister, debugging::IRDisplay};
+use crate::{assembly::operand::register::MMRegister, debugging::IRDisplay, number_literal::typed_value::NumberLiteral};
 
 pub const PTR_SIZE: MemorySize = MemorySize::from_bytes(8);
 /// Alignment of the stack before calling a function in SysV ABI
@@ -23,7 +23,7 @@ pub const STACK_ALIGN: MemorySize = MemorySize::from_bytes(16);
 #[derive(Clone)]
 pub enum Storage {
     Stack(StackItemKey),
-    Constant(ImmediateValue)
+    Constant(NumberLiteral)
 }
 
 /**
@@ -62,7 +62,7 @@ impl Display for Storage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
             Storage::Stack(stack_item_key)=>format!("[{:?}]",stack_item_key),
-            Storage::Constant(immediate_value) => immediate_value.generate_name(),
+            Storage::Constant(immediate_value) => immediate_value.to_string(),
         }.blue())
     }
 }

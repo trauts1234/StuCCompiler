@@ -1,6 +1,6 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay, generate_ir::GenerateIR, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 
 /**
  * This represents either a statement or variable creation.
@@ -31,9 +31,11 @@ impl StatementOrDeclaration {
 
         None
     }
+}
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
-        match self {
+impl GenerateIR for StatementOrDeclaration {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
+        let asm = match self {
             Self::STATEMENT(statement) => statement.generate_assembly(asm_data, stack_data, global_asm_data),
             Self::DECLARATION(decl) => {
                 //declare each variable individually
@@ -46,7 +48,9 @@ impl StatementOrDeclaration {
                     acc
                 })
             },
-        }
+        };
+
+        (asm, None)
     }
 }
 

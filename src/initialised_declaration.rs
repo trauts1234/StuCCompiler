@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_qualifier::TypeQualifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, struct_definition::StructDefinition, union_definition::UnionDefinition};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::{base_type::{self, BaseType, ScalarType}, recursive_data_type::DataType, storage_type::StorageDuration, type_modifier::DeclModifier, type_qualifier::TypeQualifier, type_token::TypeInfo}, debugging::ASTDisplay, declaration::{Declaration, MinimalDataVariable}, enum_definition::try_consume_enum_as_type, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{self, Expression}}, generate_ir::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, struct_definition::StructDefinition, union_definition::UnionDefinition};
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
 
@@ -44,16 +44,18 @@ impl InitialisedDeclaration {
             remaining_slice: curr_queue_idx,
         })
     }
+}
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+impl GenerateIR for InitialisedDeclaration {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
         let mut result = Assembly::make_empty();
 
         if let Some(init) = &self.init_code {
-            let init_asm = init.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+            let (init_asm, _) = init.generate_ir(asm_data, stack_data, global_asm_data);
             result.merge(&init_asm);//init is an expression that assigns to the variable, so no more work for me
         }
 
-        result
+        (result, None)
     }
 }
 

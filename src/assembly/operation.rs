@@ -1,6 +1,6 @@
 use std::{fmt::Display, num::NonZeroU64};
 
-use crate::{assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister, Register}, Storage}}, data_type::base_type::{BaseType, FloatType, IntegerType, ScalarType}, debugging::IRDisplay};
+use crate::{assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use memory_size::MemorySize;
 use stack_management::baked_stack_frame::BakedSimpleStackFrame;
 use super::{operand::{Operand, PTR_SIZE}};
@@ -24,7 +24,7 @@ pub enum AsmOperation {
     JMPCC {label: Label, comparison: AsmComparison},
 
     //casts and moves from -> to
-    CAST {from: Storage, from_type: ScalarType, to: Storage, to_type: ScalarType},
+    CAST {from: Storage, from_type: DataType, to: Storage, to_type: DataType},
 
     /// Sums lhs and rhs, storing the result in `to`
     ADD {lhs: Storage, rhs: Storage, to: Storage, data_type: ScalarType},
@@ -430,11 +430,11 @@ fn best_reg_size(x: MemorySize) -> MemorySize {
 impl IRDisplay for AsmOperation {
     fn display_ir(&self) -> String {
         match self {
-            AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to.display_ir(), from.display_ir(), size),
+            AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to, from, size),
             AsmOperation::BLANK => String::new(),
-            AsmOperation::LEA { from, to } => format!("{} = &{}", to.display_ir(), from.display_ir()),
-            AsmOperation::CMP { lhs, rhs, data_type } => format!("compare {}, {} ({})", lhs.display_ir(), rhs.display_ir(), data_type),
-            AsmOperation::SETCC { to, data_type, comparison } => format!("set-{} {} ({})", comparison, to.display_ir(), data_type),
+            AsmOperation::LEA { from, to } => format!("{} = &{}", to, from),
+            AsmOperation::CMP { lhs, rhs, data_type } => format!("compare {}, {} ({})", lhs, rhs, data_type),
+            AsmOperation::SETCC { to, data_type, comparison } => format!("set-{} {} ({})", comparison, to, data_type),
             AsmOperation::JMPCC { label, comparison } => format!("jump-{} to {}", comparison, label),
             AsmOperation::CAST { from, from_type, to, to_type } => format!("cast {} -> {} ({} = {})", from_type, to_type, to, from),
             AsmOperation::ADD { lhs, rhs, to, data_type } => format!("{} = {} + {} ({})", to, lhs, rhs, data_type),

@@ -1,6 +1,6 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay, generate_ir::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 /**
  * this represents all the code inside a scope (i.e function definition)
@@ -44,18 +44,20 @@ impl ScopeStatements {
             remaining_slice: remaining_slice_after_scope,
         })
     }
+}
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+impl GenerateIR for ScopeStatements {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
         let mut result = Assembly::make_empty();
 
         let asm_data = asm_data.clone_for_new_scope(&self.local_scope_data, stack_data);
 
         for statement in &self.statements {
-            let line_asm = statement.generate_assembly(&asm_data, stack_data, global_asm_data);
+            let (line_asm, _) = statement.generate_ir(&asm_data, stack_data, global_asm_data);
             result.merge(&line_asm);
         }
 
-        result
+        (result, None)
     }
 }
 

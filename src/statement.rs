@@ -1,6 +1,6 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::put_scalar_in_acc::ScalarInAccVisitor, goto_and_labels::{CustomLabel, Goto}, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, debugging::ASTDisplay, expression::expression::Expression, generate_ir::GenerateIR, goto_and_labels::{CustomLabel, Goto}, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
 
 pub enum Statement {
     EXPRESSION(Expression),
@@ -57,29 +57,30 @@ impl Statement {
 
         None
     }
+}
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
-
+impl GenerateIR for Statement {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
         //match on variant and call recursively
         match self {
             Self::COMPOUND(scope) => {
-                scope.generate_assembly(asm_data, stack_data, global_asm_data)
+                scope.generate_ir(asm_data, stack_data, global_asm_data)
             }
             Self::CONTROLFLOW(command) => {
-                command.generate_assembly(asm_data, stack_data, global_asm_data)
+                command.generate_ir(asm_data, stack_data, global_asm_data)
             }
             Self::EXPRESSION(expr) => {
-                expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data})
+                expr.generate_ir(asm_data, stack_data, global_asm_data)
             }
-            Self::SELECTION(selection) => selection.generate_assembly(asm_data, stack_data, global_asm_data),
+            Self::SELECTION(selection) => selection.generate_ir(asm_data, stack_data, global_asm_data),
             
-            Self::ITERATION(it) => it.generate_assembly(asm_data, stack_data, global_asm_data),
+            Self::ITERATION(it) => it.generate_ir(asm_data, stack_data, global_asm_data),
             
-            Self::GOTO(goto) => goto.generate_assembly(),
+            Self::GOTO(goto) => goto.generate_ir(asm_data, stack_data, global_asm_data),
 
-            Self::LABEL(label) => label.generate_assembly(),
+            Self::LABEL(label) => label.generate_ir(asm_data, stack_data, global_asm_data),
 
-            Self::NOP => Assembly::make_empty(),
+            Self::NOP => (Assembly::make_empty(), None),
         }
     }
 }

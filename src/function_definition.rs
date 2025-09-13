@@ -1,6 +1,6 @@
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE, STACK_ALIGN}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE, STACK_ALIGN}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -53,6 +53,7 @@ impl FunctionDefinition {
             remaining_slice});
     }
 
+    //cannot be GenerateIR as it creates some things like `stack_data`
     pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> (Assembly, SimpleStackFrame) {
         let mut result = Assembly::make_empty();
         //as per SYSV ABI, stack is aligned (once stack frame generated) to 16 bytes
@@ -67,7 +68,7 @@ impl FunctionDefinition {
         //create stack frame
         result.add_commented_instruction(AsmOperation::CreateStackFrame, "create stack frame");
 
-        let code_for_body = self.code.generate_assembly(asm_data, &mut stack_data, global_asm_data);//calculate stack needed for function, while generating asm
+        let (code_for_body, _) = self.code.generate_ir(asm_data, &mut stack_data, global_asm_data);//calculate stack needed for function, while generating asm
 
         result.add_comment("moving args to memory");
 

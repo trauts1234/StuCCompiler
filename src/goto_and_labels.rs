@@ -1,7 +1,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 
-use crate::{assembly::{assembly::Assembly, comparison::AsmComparison, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, debugging::ASTDisplay, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{assembly::{assembly::Assembly, comparison::AsmComparison, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, debugging::ASTDisplay, generate_ir::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 /// A label in the style `label:`
 /// 
@@ -22,13 +22,14 @@ impl CustomLabel {
             None //no label name
         }
     }
-
-    pub fn generate_assembly(&self) -> Assembly {
+}
+impl GenerateIR for CustomLabel {
+    fn generate_ir(&self, asm_data: &crate::asm_gen_data::AsmData, stack_data: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
         let mut result = Assembly::make_empty();
 
         result.add_commented_instruction(AsmOperation::Label(Label::Local(self.0.clone())), format!("custom label {}", self.0));
 
-        result
+        (result, None)
     }
 }
 
@@ -44,8 +45,9 @@ impl Goto {
 
         Some(ASTMetadata { remaining_slice: curr_queue_idx, resultant_tree: Goto(label_name) })
     }
-
-    pub fn generate_assembly(&self) -> Assembly {
+}
+impl GenerateIR for Goto {
+    fn generate_ir(&self, asm_data: &crate::asm_gen_data::AsmData, stack_data: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
         let mut result = Assembly::make_empty();
 
         result.add_commented_instruction(
@@ -53,7 +55,7 @@ impl Goto {
             format!("goto {}", self.0)
         );
 
-        result
+        (result, None)
     }
 }
 

@@ -1,7 +1,7 @@
-use stack_management::simple_stack_frame::SimpleStackFrame;
+use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral, member_access::MemberAccess};
+use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, generate_ir::GenerateIR, string_literal::StringLiteral};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -58,6 +58,12 @@ impl Expression {
             Expression::SIZEOF(sizeof_expr) => sizeof_expr.accept(visitor),
             Expression::TERNARYEXPRESSION(x) => x.accept(visitor),
         }
+    }
+}
+
+impl GenerateIR for Expression {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<StackItemKey>) {
+        todo!()
     }
 }
 

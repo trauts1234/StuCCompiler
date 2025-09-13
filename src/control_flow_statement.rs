@@ -1,4 +1,4 @@
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, put_scalar_in_acc::ScalarInAccVisitor}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operation::AsmOperation}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor}, generate_ir::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -42,14 +42,16 @@ impl ControlFlowChange {
             _ => None
         }
     }
+}
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+impl GenerateIR for ControlFlowChange {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
         let mut result = Assembly::make_empty();
 
         match self {
             ControlFlowChange::RETURN(expression) => {
                 if let Some(expr) = expression {
-                    let expr_asm = expr.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+                    let (expr_asm, expr_location) = expr.generate_ir(asm_data, stack_data, global_asm_data);
                     result.merge(&expr_asm);
 
                     match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
@@ -62,9 +64,10 @@ impl ControlFlowChange {
                                 todo!("returning union {:?} from function", union_name);
                             }
                             x => {
-                                //put the value in the accumulator
-                                let cast_asm = cast_from_acc(&x, asm_data.get_function_return_type(), asm_data);
-                                result.merge(&cast_asm);
+                                // //put the value in the accumulator
+                                // let cast_asm = cast_from_acc(&x, asm_data.get_function_return_type(), asm_data);
+                                // result.merge(&cast_asm);
+                                todo!("cast return value then put in rax")
                             }
                         },
                     }
@@ -82,7 +85,7 @@ impl ControlFlowChange {
             },
         }
 
-        result
+        (result, None)
     }
 }
 

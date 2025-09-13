@@ -7,7 +7,6 @@ mod expression;
 mod translation_unit;
 mod lexer;
 pub mod control_flow_statement;
-pub mod asm_boilerplate;
 pub mod compile;
 pub mod test;
 pub mod compilation_error;
@@ -41,7 +40,7 @@ mod member_access;
 mod args_handling;
 pub mod goto_and_labels;
 pub mod union_definition;
-pub mod put_on_stack;
+pub mod generate_ir;
 
 fn main() {
     let mut input_path = PathBuf::from("test.c");
