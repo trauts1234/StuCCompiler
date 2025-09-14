@@ -23,7 +23,8 @@ pub const STACK_ALIGN: MemorySize = MemorySize::from_bytes(16);
 #[derive(Clone)]
 pub enum Storage {
     Stack(StackItemKey),
-    Constant(NumberLiteral)
+    StackWithOffset{stack: StackItemKey, offset: MemorySize},
+    Constant(NumberLiteral),
 }
 
 /**
@@ -62,7 +63,8 @@ impl Display for Storage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
             Storage::Stack(stack_item_key)=>format!("[{:?}]",stack_item_key),
-            Storage::Constant(immediate_value) => immediate_value.to_string(),
+            Storage::StackWithOffset { stack, offset } => format!("[{:?} + {}]", stack, offset),
+            Storage::Constant(immediate_value)=>immediate_value.to_string(),
         }.blue())
     }
 }

@@ -35,22 +35,22 @@ impl StatementOrDeclaration {
 
 impl GenerateIR for StatementOrDeclaration {
     fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
-        let asm = match self {
-            Self::STATEMENT(statement) => statement.generate_assembly(asm_data, stack_data, global_asm_data),
+        match self {
+            Self::STATEMENT(statement) => statement.generate_ir(asm_data, stack_data, global_asm_data),
             Self::DECLARATION(decl) => {
                 //declare each variable individually
                 //no intermediate newline as generate_assembly puts in a trailing newline
-                decl
+                let asm = decl
                 .iter()
-                .map(|x| x.generate_assembly(asm_data, stack_data, global_asm_data))//generate assembly
+                .map(|x| x.generate_ir(asm_data, stack_data, global_asm_data).0)//generate assembly
                 .fold(Assembly::make_empty(), |mut acc, x| {
                     acc.merge(&x);
                     acc
-                })
-            },
-        };
+                });
 
-        (asm, None)
+                (asm, None)
+            },
+        }
     }
 }
 
