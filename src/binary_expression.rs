@@ -3,7 +3,7 @@ use colored::Colorize;
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, promote, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir::GenerateIR, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, promote, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir::{GenerateIR, GetType}, number_literal::typed_value::NumberLiteral};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -25,6 +25,42 @@ impl BinaryExpression {
         }
     }
 }
+impl GetType for BinaryExpression {
+    fn get_type(&self, asm_data: &AsmData) -> DataType {
+        match self.operator {
+            BinaryExpressionOperator::BitwiseOr |
+            BinaryExpressionOperator::BitwiseAnd |
+            BinaryExpressionOperator::BitwiseXor |
+            BinaryExpressionOperator::Add |
+            BinaryExpressionOperator::Subtract |
+            BinaryExpressionOperator::Multiply | 
+            BinaryExpressionOperator::Divide | 
+            BinaryExpressionOperator::Mod => {
+                calculate_promoted_type_arithmetic(//calculate type when data types:
+                    &self.lhs.accept(&mut GetDataTypeVisitor { asm_data}),//type of lhs
+                    &self.rhs.accept(&mut GetDataTypeVisitor { asm_data}),//type of rhs
+                )
+            },
+
+            BinaryExpressionOperator::Assign |
+            BinaryExpressionOperator::AdditionCombination |
+            BinaryExpressionOperator::SubtractionCombination => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
+
+            //bit shifts have lhs promoted, then resultant type is the same as promoted lhs
+            BinaryExpressionOperator::BitshiftLeft |
+            BinaryExpressionOperator::BitshiftRight => calculate_unary_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data})),
+
+            BinaryExpressionOperator::CmpLess |
+            BinaryExpressionOperator::CmpGreater |
+            BinaryExpressionOperator::CmpGreaterEqual |
+            BinaryExpressionOperator::CmpLessEqual |
+            BinaryExpressionOperator::CmpEqual |
+            BinaryExpressionOperator::CmpNotEqual |
+            BinaryExpressionOperator::BooleanOr |
+            BinaryExpressionOperator::BooleanAnd  => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),
+        }
+    }
+}
 impl GenerateIR for BinaryExpression {
     fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<StackItemKey>) {
         let mut result = Assembly::make_empty();
@@ -42,17 +78,8 @@ impl GenerateIR for BinaryExpression {
         let (rhs_asm, rhs_result) = self.rhs.generate_ir(asm_data, stack_data, global_asm_data);
         result.merge(&rhs_asm);
         
-        //what type the result is (TODO swap it for a call to self's get type or something)
-        let resultant_type = match &self.operator {
-            BinaryExpressionOperator::Assign => unreachable!(),
-
-            BinaryExpressionOperator::BitshiftLeft |
-            BinaryExpressionOperator::BitshiftRight => calculate_unary_type_arithmetic(&lhs_type),//bit shift type is related to the number being shifted
-            x if x.as_boolean_instr().is_some() => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),//is a boolean operator, results in boolean
-            x if x.as_comparator_instr().is_some() => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),//is a comparison, results in boolean
-            BinaryExpressionOperator::AdditionCombination => lhs_type,
-            _ => calculate_promoted_type_arithmetic(&lhs_type, &rhs_type)//else find a common meeting ground
-        };
+        //what type the result is
+        let resultant_type = self.get_type(asm_data);
 
         //the type lhs and rhs have to be promoted to (sometimes rhs doesn't get promoted to this, as in bit shifts)
         let promoted_type = match &self.operator {

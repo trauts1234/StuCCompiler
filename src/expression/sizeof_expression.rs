@@ -1,6 +1,6 @@
 use colored::Colorize;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, register::GPRegister, Operand, PTR_SIZE}, operation::AsmOperation}, data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}};
+use crate::{asm_gen_data::AsmData, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}, generate_ir::GetType};
 
 use super::expression::Expression;
 
@@ -35,6 +35,12 @@ impl SizeofExpr {
 
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         visitor.visit_sizeof(&self)
+    }
+}
+
+impl GetType for SizeofExpr {
+    fn get_type(&self, _: &AsmData) -> DataType {
+        DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64)))//sizeof is size_t-sized
     }
 }
 

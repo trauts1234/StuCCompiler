@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}};
+use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir::GetType};
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -22,27 +22,6 @@ impl MemberAccess {
     }
     pub fn get_member_name(&self) -> &str {
         &self.member_name
-    }
-
-    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        let base_tree_type = self.base_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct/union
-
-        match base_tree_type {
-            DataType::RAW(BaseType::Struct(struct_name)) => {
-                let (member_decl, _) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get the type of the member
-
-                member_decl.data_type.clone()
-            }
-
-            DataType::RAW(BaseType::Union(union_name)) => {
-                asm_data.get_union(&union_name)
-                .get_member_data(&self.member_name)
-                .data_type.clone()
-            }
-            _ => panic!("this base type doesn't have members?")
-        }
-
-        
     }
 
     pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
@@ -76,6 +55,27 @@ impl MemberAccess {
         });
 
         result
+    }
+}
+
+impl GetType for MemberAccess {
+    fn get_type(&self, asm_data: &AsmData) -> DataType {
+        let base_tree_type = self.base_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct/union
+
+        match base_tree_type {
+            DataType::RAW(BaseType::Struct(struct_name)) => {
+                let (member_decl, _) = asm_data.get_struct(&struct_name).get_member_data(&self.member_name);//get the type of the member
+
+                member_decl.data_type.clone()
+            }
+
+            DataType::RAW(BaseType::Union(union_name)) => {
+                asm_data.get_union(&union_name)
+                .get_member_data(&self.member_name)
+                .data_type.clone()
+            }
+            _ => panic!("this base type doesn't have members?")
+        }
     }
 }
 

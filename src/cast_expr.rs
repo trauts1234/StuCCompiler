@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor, generate_ir::GetType};
 
 #[derive(Clone, Debug)]
 pub struct CastExpression {
@@ -24,6 +24,12 @@ impl CastExpression {
     }
     pub fn get_uncasted_expr(&self) -> &Expression {
         &self.expr
+    }
+}
+
+impl GetType for CastExpression {
+    fn get_type(&self, _asm_data: &crate::asm_gen_data::AsmData) -> DataType {
+        self.new_type.clone()
     }
 }
 

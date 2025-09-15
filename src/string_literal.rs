@@ -3,10 +3,12 @@ use std::hash::Hash;
 use unwrap_let::unwrap_let;
 use uuid::Uuid;
 
-use crate::data_type::base_type::IntegerType;
+use crate::data_type::base_type::{BaseType, IntegerType, ScalarType};
 use crate::data_type::recursive_data_type::DataType;
+use crate::data_type::type_modifier::DeclModifier;
 use crate::expression::expression::Expression;
 use crate::expression_visitors::expr_visitor::ExprVisitor;
+use crate::generate_ir::GetType;
 use crate::number_literal::typed_value::NumberLiteral;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,6 +88,13 @@ impl StringLiteral {
         .chain(std::iter::repeat_n(&0i8, extra_zeroes as usize))
         .map(|num| Expression::NUMBERLITERAL(NumberLiteral::INTEGER { data: (*num).into(), data_type: IntegerType::I8 }))
         .collect()
+    }
+}
+
+impl GetType for StringLiteral {
+    fn get_type(&self, _: &crate::asm_gen_data::AsmData) -> DataType {
+        DataType::new(BaseType::Scalar(ScalarType::Integer(IntegerType::I8)))//8 bit integer
+        .add_outer_modifier(DeclModifier::ARRAY(self.get_num_chars() as u64))//but replace modifiers to change it to an array of integers
     }
 }
 

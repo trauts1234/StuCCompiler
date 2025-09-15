@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use colored::Colorize;
 
-use crate::{data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor, generate_ir::GetType};
 
 #[derive(Clone, Debug)]
 /**
@@ -15,6 +15,12 @@ pub struct MinimalDataVariable {
 impl MinimalDataVariable {
     pub fn accept<V: ExprVisitor>(&self, visitor: &mut V) -> V::Output {
         visitor.visit_variable(self)
+    }
+}
+
+impl GetType for MinimalDataVariable {
+    fn get_type(&self, asm_data: &crate::asm_gen_data::AsmData) -> DataType {
+        asm_data.get_variable(&self.name).data_type.clone()
     }
 }
 

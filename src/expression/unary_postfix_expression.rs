@@ -1,6 +1,6 @@
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir::GetType, number_literal::typed_value::NumberLiteral};
 
 use super::{expression::Expression, unary_postfix_operator::UnaryPostfixOperator};
 
@@ -15,13 +15,6 @@ impl UnaryPostfixExpression {
         visitor.visit_unary_postfix(self)
     }
 
-    pub fn get_data_type(&self, asm_data: &AsmData) -> DataType {
-        let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
-        match self.operator {
-            UnaryPostfixOperator::Increment |
-            UnaryPostfixOperator::Decrement => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
-        }
-    }
 
     pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
@@ -37,7 +30,7 @@ impl UnaryPostfixExpression {
                     DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
                     
                     DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
-                    DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
+                    DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base),
                     _ => panic!("cannot decrement this")
                 };
 
@@ -157,6 +150,16 @@ impl UnaryPostfixExpression {
 
     pub fn get_operand(&self) -> &Expression {
         &self.operand
+    }
+}
+
+impl GetType for UnaryPostfixExpression {
+    fn get_type(&self, asm_data: &AsmData) -> DataType {
+        let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+        match self.operator {
+            UnaryPostfixOperator::Increment |
+            UnaryPostfixOperator::Decrement => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
+        }
     }
 }
 

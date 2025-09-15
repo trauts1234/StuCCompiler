@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{data_type::recursive_data_type::{calculate_promoted_type_arithmetic, DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}, generate_ir::GetType};
 
 //TODO: a?b:c syntax parsing
 //then generate assembly for it
@@ -31,6 +31,15 @@ impl TernaryExpr {
     }
     pub fn condition(&self) -> &Expression {
         &self.condition
+    }
+}
+
+impl GetType for TernaryExpr {
+    fn get_type(&self, asm_data: &crate::asm_gen_data::AsmData) -> DataType {
+        calculate_promoted_type_arithmetic(
+            &self.true_branch.accept(&mut GetDataTypeVisitor {asm_data}),
+            &self.false_branch.accept(&mut GetDataTypeVisitor {asm_data})
+        )
     }
 }
 
