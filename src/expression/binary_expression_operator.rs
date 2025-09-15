@@ -15,6 +15,7 @@ pub enum BinaryExpressionOperator {
     Divide,
     Mod,
 
+    ///TODO how about a COMPARISON(ComparisonKind) variant?
     CmpLess,
     CmpGreater,
     CmpLessEqual,

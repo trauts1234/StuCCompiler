@@ -1,5 +1,4 @@
-use std::{fmt::Display, num::NonZeroU64};
-
+use std::fmt::Display;
 use crate::{assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use memory_size::MemorySize;
 use stack_management::baked_stack_frame::BakedSimpleStackFrame;
@@ -35,10 +34,13 @@ pub enum AsmOperation {
     /// Divides lhs by rhs and stores the result in `to`
     DIV {lhs: Storage, rhs: Storage, to: Storage, data_type: ScalarType},
 
+    /// finds lhs % rhs
+    MOD {lhs: Storage, rhs: Storage, to: Storage, data_type: IntegerType},
+
     ///shifts `from` logically left, storing the result in `to`
-    SHL {from: Storage, from_type: IntegerType, amount: Storage, amount_type: IntegerType, to: Storage},
-    ///shifts `from` logically left, storing the result in `to` (arithmetic or logical based on the signedness of `from_type`)
-    SHR {from: Storage, from_type: IntegerType, amount: Storage, amount_type: IntegerType, to: Storage},
+    SHL {from: Storage, from_type: IntegerType, amount: Storage, to: Storage},
+    ///shifts `from` logically left by (u8)`amount`, storing the result in `to` (arithmetic or logical based on the signedness of `from_type`)
+    SHR {from: Storage, from_type: IntegerType, amount: Storage, to: Storage},
 
     ///negates `from`, storing results in `to` and taking into account data type
     NEG {from: Storage, to: Storage, data_type: ScalarType},
@@ -441,6 +443,7 @@ impl IRDisplay for AsmOperation {
             AsmOperation::SUB { lhs, rhs, to, data_type } => format!("{} = {} - {} ({})", to, lhs, rhs, data_type),
             AsmOperation::MUL { lhs, rhs, to, data_type } => format!("{} = {} * {} ({})", to, lhs, rhs, data_type),
             AsmOperation::DIV { lhs, rhs, to, data_type } => format!("{} = {} / {} ({})", to, lhs, rhs, data_type),
+            AsmOperation::MOD { lhs, rhs, to, data_type } => format!("{} = {} % {} ({})", to, lhs, rhs, data_type),
             AsmOperation::SHL { from, from_type, amount, amount_type: _, to } => format!("{} = {} << {} ({})", to, from, amount, from_type),
             AsmOperation::SHR { from, from_type, amount, amount_type: _, to } => format!("{} = {} >> {} ({})", to, from, amount, from_type),
             AsmOperation::NEG { from, to, data_type } => format!("{} = -{} ({})", to, from, data_type),
