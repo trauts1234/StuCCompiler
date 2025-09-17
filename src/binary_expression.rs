@@ -3,13 +3,13 @@ use colored::Colorize;
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, promote, Expression}}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir::{GenerateIR, GetType}, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, promote, Expression}}, expression_visitors::{expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir::{GenerateIR, GetType}, number_literal::typed_value::NumberLiteral};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
-    lhs: Box<Expression>,
-    operator: BinaryExpressionOperator,
-    rhs: Box<Expression>,
+    pub lhs: Box<Expression>,
+    pub operator: BinaryExpressionOperator,
+    pub rhs: Box<Expression>,
 }
 
 impl BinaryExpression {
@@ -37,18 +37,18 @@ impl GetType for BinaryExpression {
             BinaryExpressionOperator::Divide | 
             BinaryExpressionOperator::Mod => {
                 calculate_promoted_type_arithmetic(//calculate type when data types:
-                    &self.lhs.accept(&mut GetDataTypeVisitor { asm_data}),//type of lhs
-                    &self.rhs.accept(&mut GetDataTypeVisitor { asm_data}),//type of rhs
+                    &self.lhs.get_type(asm_data),//type of lhs
+                    &self.rhs.get_type(asm_data),//type of rhs
                 )
             },
 
             BinaryExpressionOperator::Assign |
             BinaryExpressionOperator::AdditionCombination |
-            BinaryExpressionOperator::SubtractionCombination => self.lhs.accept(&mut GetDataTypeVisitor {asm_data}),//assigning, rhs must be converted to lhs
+            BinaryExpressionOperator::SubtractionCombination => self.lhs.get_type(asm_data),//assigning, rhs must be converted to lhs
 
             //bit shifts have lhs promoted, then resultant type is the same as promoted lhs
             BinaryExpressionOperator::BitshiftLeft |
-            BinaryExpressionOperator::BitshiftRight => calculate_unary_type_arithmetic(&self.lhs.accept(&mut GetDataTypeVisitor {asm_data})),
+            BinaryExpressionOperator::BitshiftRight => calculate_unary_type_arithmetic(&self.lhs.get_type(asm_data)),
 
             BinaryExpressionOperator::CmpLess |
             BinaryExpressionOperator::CmpGreater |
@@ -69,8 +69,8 @@ impl GenerateIR for BinaryExpression {
             return generate_assembly_for_assignment(&self.lhs, &self.rhs, asm_data, stack_data, global_asm_data);
         }
 
-        let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
-        let rhs_type = self.rhs.accept(&mut GetDataTypeVisitor {asm_data});
+        let lhs_type = self.lhs.get_type(asm_data);
+        let rhs_type = self.rhs.get_type(asm_data);
 
         result.add_comment("generating lhs and rhs of binary expression");
         let (lhs_asm, lhs_result) = self.lhs.generate_ir(asm_data, stack_data, global_asm_data);
@@ -287,8 +287,8 @@ impl GenerateIR for BinaryExpression {
 
                 // *a++ += b is not the same as *a++ = *a++ + b because a might be incremented once or twice
                 // so I need a custom implementation
-                let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
-                let rhs_type = self.rhs.accept(&mut GetDataTypeVisitor {asm_data});
+                let lhs_type = self.lhs.get_type(asm_data);
+                let rhs_type = self.rhs.get_type(asm_data);
 
                 let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&lhs_ptr_asm);//put pointer to lhs in acc
@@ -389,8 +389,8 @@ impl GenerateIR for BinaryExpression {
 
                 // *a++ += b is not the same as *a++ = *a++ + b because a might be incremented once or twice
                 // so I need a custom implementation
-                let lhs_type = self.lhs.accept(&mut GetDataTypeVisitor {asm_data});
-                let rhs_type = self.rhs.accept(&mut GetDataTypeVisitor {asm_data});
+                let lhs_type = self.lhs.get_type(asm_data);
+                let rhs_type = self.rhs.get_type(asm_data);
 
                 let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&lhs_ptr_asm);//put pointer to lhs in acc

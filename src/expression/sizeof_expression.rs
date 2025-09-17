@@ -28,7 +28,7 @@ impl SizeofExpr {
     /// evaluates the expression by calculating the size 
     pub fn get_result(&self, asm_data: &AsmData) -> MemorySize {
         match self {
-            SizeofExpr::SizeofExpression(x) => x.accept(&mut GetDataTypeVisitor {asm_data}).memory_size(asm_data),
+            SizeofExpr::SizeofExpression(x) => x.get_type(asm_data).memory_size(asm_data),
             SizeofExpr::SizeofType(x) => x.memory_size(asm_data)
         }
     }

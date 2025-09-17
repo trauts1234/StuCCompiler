@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor}, generate_ir::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, generate_ir::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -54,7 +54,7 @@ impl GenerateIR for ControlFlowChange {
                     let (expr_asm, expr_location) = expr.generate_ir(asm_data, stack_data, global_asm_data);
                     result.merge(&expr_asm);
 
-                    match expr.accept(&mut GetDataTypeVisitor{asm_data}) {
+                    match expr.get_type(asm_data) {
                         DataType::ARRAY {..} => panic!("tried to return array from function!"),
                         expr_type => match expr_type {
                             DataType::RAW(BaseType::Struct(struct_name)) => {

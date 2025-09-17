@@ -37,8 +37,8 @@ impl TernaryExpr {
 impl GetType for TernaryExpr {
     fn get_type(&self, asm_data: &crate::asm_gen_data::AsmData) -> DataType {
         calculate_promoted_type_arithmetic(
-            &self.true_branch.accept(&mut GetDataTypeVisitor {asm_data}),
-            &self.false_branch.accept(&mut GetDataTypeVisitor {asm_data})
+            &self.true_branch.get_type(asm_data),
+            &self.false_branch.get_type(asm_data)
         )
     }
 }

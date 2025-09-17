@@ -23,7 +23,7 @@ impl UnaryPostfixExpression {
             UnaryPostfixOperator::Decrement => {
                 result.add_comment("postfix decrement");
                 let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+                let original_type = self.operand.get_type(asm_data);
 
                 let increment_amount = match &original_type {
                     DataType::UNKNOWNSIZEARRAY { .. } |
@@ -81,7 +81,7 @@ impl UnaryPostfixExpression {
             UnaryPostfixOperator::Increment => {
                 result.add_comment("postfix increment");
                 let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+                let original_type = self.operand.get_type(asm_data);
 
                 let increment_amount = match &original_type {
                     DataType::UNKNOWNSIZEARRAY { .. } |
@@ -155,7 +155,7 @@ impl UnaryPostfixExpression {
 
 impl GetType for UnaryPostfixExpression {
     fn get_type(&self, asm_data: &AsmData) -> DataType {
-        let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+        let operand_type = self.operand.get_type(asm_data);
         match self.operator {
             UnaryPostfixOperator::Increment |
             UnaryPostfixOperator::Decrement => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type

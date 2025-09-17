@@ -58,9 +58,9 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
     type Error = String;
 
     fn try_from(value: BinaryExpression) -> Result<Self, Self::Error> {
-        let lhs: ConstexprValue = value.lhs().try_into()?;
-        let rhs: ConstexprValue = value.rhs().try_into()?;
-        match (lhs, value.operator(), rhs) {
+        let lhs: ConstexprValue = (&*value.lhs).try_into()?;
+        let rhs: ConstexprValue = (&*value.rhs).try_into()?;
+        match (lhs, value.operator, rhs) {
             (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitwiseOr, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l | r)),
             (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitwiseAnd, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l & r)),
             (ConstexprValue::NUMBER(l), BinaryExpressionOperator::BitwiseXor, ConstexprValue::NUMBER(r)) => Ok(ConstexprValue::NUMBER(l ^ r)),
@@ -81,7 +81,7 @@ impl TryFrom<BinaryExpression> for ConstexprValue {
                     data_type: IntegerType::_BOOL
                 })),
             
-            _ => todo!("constexpr folding of binary operator {:?}", value.operator())
+            x => todo!("constexpr folding of binary operator {:?}", x)
         }
     }
 }

@@ -1,7 +1,7 @@
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, generate_ir::GenerateIR, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
+use crate::{ array_initialisation::ArrayInitialisation, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, generate_ir::{GenerateIR, GetType}, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -63,6 +63,11 @@ impl Expression {
 
 impl GenerateIR for Expression {
     fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<StackItemKey>) {
+        todo!()
+    }
+}
+impl GetType for Expression {
+    fn get_type(&self, asm_data: &AsmData) -> DataType {
         todo!()
     }
 }
@@ -229,7 +234,7 @@ pub fn promote(location: StackItemKey, original: DataType, promoted_type: DataTy
 pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> (Assembly, StackItemKey) {
     let mut result = Assembly::make_empty();
 
-    let promoted_type = lhs.accept(&mut GetDataTypeVisitor {asm_data});
+    let promoted_type = lhs.get_type(asm_data);
 
     match (&promoted_type, rhs) {
         //initialising array to string literal
@@ -322,7 +327,7 @@ fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, 
         result.add_instruction(AsmOperation::MOV {
             to: RegOrMem::GPReg(GPRegister::secondary()),
             from: Operand::GPReg(GPRegister::acc()),
-            size: item.accept(&mut GetDataTypeVisitor {asm_data}).memory_size(asm_data),
+            size: item.get_type(asm_data).memory_size(asm_data),
         });
 
         //get address of the start of the array

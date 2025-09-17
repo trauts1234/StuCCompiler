@@ -44,7 +44,7 @@ impl UnaryPrefixExpression {
                 result.add_comment("negating something");
 
                 let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+                let original_type = self.operand.get_type(asm_data);
 
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
@@ -58,7 +58,7 @@ impl UnaryPrefixExpression {
                 result.add_comment("unary +");
 
                 let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+                let original_type = self.operand.get_type(asm_data);
 
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
@@ -69,7 +69,7 @@ impl UnaryPrefixExpression {
             UnaryPrefixOperator::Increment => {
 
                 let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+                let original_type = self.operand.get_type(asm_data);
 
                 let increment_amount = match &original_type {
                     DataType::UNKNOWNSIZEARRAY { .. } |
@@ -121,7 +121,7 @@ impl UnaryPrefixExpression {
                 //TODO this code is duplicated from PLUSPLUS
 
                 let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+                let original_type = self.operand.get_type(asm_data);
 
                 let increment_amount = match &original_type {
                     DataType::UNKNOWNSIZEARRAY { .. } |
@@ -172,7 +172,7 @@ impl UnaryPrefixExpression {
             UnaryPrefixOperator::BooleanNot => {
                 result.add_comment("boolean not");
 
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data}).decay_to_primative();
+                let original_type = self.operand.get_type(asm_data).decay_to_primative();
 
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 result.merge(&operand_asm);
@@ -198,7 +198,7 @@ impl UnaryPrefixExpression {
                 result.add_comment("bitwise not");
                 let promoted_type = self.get_data_type(asm_data);
 
-                let original_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+                let original_type = self.operand.get_type(asm_data);
 
                 let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
                 let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to boolean
@@ -228,7 +228,7 @@ impl UnaryPrefixExpression {
 
 impl GetType for UnaryPrefixExpression {
     fn get_type(&self, asm_data: &AsmData) -> DataType {
-        let operand_type = self.operand.accept(&mut GetDataTypeVisitor {asm_data});
+        let operand_type = self.operand.get_type(asm_data);
         match self.operator {
             UnaryPrefixOperator::Reference => operand_type.add_outer_modifier(DeclModifier::POINTER),//pointer to whatever rhs is
             UnaryPrefixOperator::Dereference => operand_type.remove_outer_modifier(),

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{Storage}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor}, generate_ir::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::Storage, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, generate_ir::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
@@ -127,7 +127,7 @@ impl GenerateIR for IterationStatement {
                 //overwrite asm_data by creating new scope
                 let asm_data = asm_data.clone_for_new_scope(local_scope_data, stack_data);
                 
-                unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data}));
+                unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.get_type(&asm_data));
                 let zero = match condition_type {
                     ScalarType::Float(float_type) => NumberLiteral::FLOAT { data: 0f64, data_type: float_type },
                     ScalarType::Integer(integer_type) => NumberLiteral::INTEGER { data: 0, data_type: integer_type },
@@ -185,7 +185,7 @@ impl GenerateIR for IterationStatement {
 
             Self::WHILE { condition, body } => {
 
-                unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.accept(&mut GetDataTypeVisitor {asm_data: &asm_data}));
+                unwrap_let!(DataType::RAW(BaseType::Scalar(condition_type)) = condition.get_type(asm_data));
                 let zero = match condition_type {
                     ScalarType::Float(float_type) => NumberLiteral::FLOAT { data: 0f64, data_type: float_type },
                     ScalarType::Integer(integer_type) => NumberLiteral::INTEGER { data: 0, data_type: integer_type },

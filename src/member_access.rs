@@ -33,7 +33,7 @@ impl MemberAccess {
 
         let base_address_asm = self.base_tree.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});//assembly to get address of struct
 
-        let base_type = self.base_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct
+        let base_type = self.base_tree.get_type(asm_data);//get type of the tree that returns the struct
 
         let member_offset = match base_type {
             DataType::RAW(BaseType::Struct(struct_name)) => {
@@ -60,7 +60,7 @@ impl MemberAccess {
 
 impl GetType for MemberAccess {
     fn get_type(&self, asm_data: &AsmData) -> DataType {
-        let base_tree_type = self.base_tree.accept(&mut GetDataTypeVisitor {asm_data});//get type of the tree that returns the struct/union
+        let base_tree_type = self.base_tree.get_type(asm_data);//get type of the tree that returns the struct/union
 
         match base_tree_type {
             DataType::RAW(BaseType::Struct(struct_name)) => {
