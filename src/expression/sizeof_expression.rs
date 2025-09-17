@@ -1,6 +1,6 @@
 use colored::Colorize;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::AsmData, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}, generate_ir::GetType};
+use crate::{asm_gen_data::AsmData, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir::GetType};
 
 use super::expression::Expression;
 

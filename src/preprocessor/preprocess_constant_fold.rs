@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use unwrap_let::unwrap_let;
 
-use crate::{compilation_state::label_generator::LabelGenerator, constexpr_parsing::ConstexprValue, data_type::base_type::IntegerType, expression::expression::try_consume_whole_expr, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, preprocessor::{preprocess_context::PreprocessContext, preprocess_token::MacroFunction}};
+use crate::{constexpr_parsing::ConstexprValue, data_type::base_type::IntegerType, expression::expression::try_consume_whole_expr, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, preprocessor::{preprocess_context::PreprocessContext, preprocess_token::MacroFunction}};
 
 /// Folds a constant for #if statements
 pub fn fold(tokens: Vec<Token>, ctx: &PreprocessContext) -> ConstexprValue {
@@ -18,7 +18,7 @@ pub fn fold(tokens: Vec<Token>, ctx: &PreprocessContext) -> ConstexprValue {
 
     println!("{:?}", tokens.tokens);
 
-    let resultant_tree = try_consume_whole_expr(&tokens, &slice, &mut ParseData::make_empty(), &mut LabelGenerator::default()).unwrap();
+    let resultant_tree = try_consume_whole_expr(&tokens, &slice, &mut ParseData::make_empty()).unwrap();
 
     (&resultant_tree).try_into().unwrap()
 }

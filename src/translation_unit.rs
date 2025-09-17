@@ -1,7 +1,7 @@
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList, label_generator::LabelGenerator}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{ token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
+use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{ token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{collections::HashSet, fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -29,23 +29,22 @@ impl TranslationUnit {
         let mut functions = FunctionList::new();
         let mut global_variables = Vec::new();
         let mut scope_data = ParseData::make_empty();
-        let mut struct_label_gen = LabelGenerator::default();
 
         while !token_queue.no_remaining_tokens(&token_idx) {
 
-            if let Some(ASTMetadata{resultant_tree, remaining_slice }) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &scope_data, &mut struct_label_gen){
+            if let Some(ASTMetadata{resultant_tree, remaining_slice }) = FunctionDefinition::try_consume(&mut token_queue, &token_idx, &scope_data){
                 functions.add_function(&mut scope_data, resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice, resultant_tree }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone_for_new_scope(), &mut struct_label_gen) {
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree }) = FunctionDeclaration::try_consume(&mut token_queue, &token_idx, &mut scope_data.clone_for_new_scope()) {
                 //do I need to save the clone of scope data I passed? probably not
                 scope_data.add_declaration(resultant_tree);
                 assert!(remaining_slice.index > token_idx.index);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data, &mut struct_label_gen) {
+            } else if let Some(ASTMetadata { remaining_slice,mut resultant_tree }) = GlobalVariable::try_consume(&mut token_queue, &token_idx, &mut scope_data) {
                 global_variables.append(&mut resultant_tree);
                 token_idx = remaining_slice;
-            } else if let Some(ASTMetadata { remaining_slice, resultant_tree: (name, new_def, storage_duration) }) = Typedef::try_consume(&token_queue, &token_idx, &mut scope_data, &mut struct_label_gen) {
+            } else if let Some(ASTMetadata { remaining_slice, resultant_tree: (name, new_def, storage_duration) }) = Typedef::try_consume(&token_queue, &token_idx, &mut scope_data) {
                 scope_data.add_typedef(name, new_def);
                 token_idx = remaining_slice;
             } else {

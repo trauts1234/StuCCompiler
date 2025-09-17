@@ -137,7 +137,7 @@ impl FunctionCall {
         &self.decl
     }
     
-    pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<FunctionCall> {
+    pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<FunctionCall> {
         //look for unary postfixes as association is left to right
         let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
     
@@ -158,7 +158,7 @@ impl FunctionCall {
 
         if all_args_slice.get_slice_size() > 0 {//ensure args have actually been passed
             for arg_slice in args_slices {
-                args.push(expression::try_consume_whole_expr(tokens_queue, &arg_slice, scope_data, struct_label_gen)?);
+                args.push(expression::try_consume_whole_expr(tokens_queue, &arg_slice, scope_data)?);
             }
         }
 

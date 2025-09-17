@@ -1,13 +1,14 @@
 use std::fmt::Display;
 
 use memory_size::MemorySize;
+use uuid::Uuid;
 
-use crate::{asm_gen_data::GetStructUnion, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, declaration::Declaration, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, struct_definition::try_consume_member};
+use crate::{asm_gen_data::GetStructUnion, ast_metadata::ASTMetadata, declaration::Declaration, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, struct_definition::try_consume_member};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnionIdentifier {
     pub name: Option<String>,
-    pub id: u32
+    pub id: Uuid
 }
 impl Display for UnionIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -39,7 +40,7 @@ impl UnionDefinition {
         .clone()
     }
 
-    pub fn try_consume_union_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData, label_generator: &mut LabelGenerator) -> Option<ASTMetadata<UnionIdentifier>> {
+    pub fn try_consume_union_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<UnionIdentifier>> {
         let mut curr_queue_idx = previous_slice.clone();
 
         if tokens_queue.consume(&mut curr_queue_idx, &scope_data)? != Token::KEYWORD(Keyword::UNION) {
@@ -61,14 +62,14 @@ impl UnionDefinition {
 
                 let mut members = Vec::new();
                 while inside_variants.get_slice_size() > 0 {
-                    let mut new_member = try_consume_member(tokens_queue, &mut inside_variants, scope_data, label_generator);
+                    let mut new_member = try_consume_member(tokens_queue, &mut inside_variants, scope_data);
                     members.append(&mut new_member);
                 }
 
                 assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
 
                 let union_definition = UnionDefinition { ordered_members: Some(members),  };
-                let union_identifier = scope_data.add_union(&union_name, &union_definition, label_generator);
+                let union_identifier = scope_data.add_union(&union_name, &union_definition);
 
                 Some(ASTMetadata {
                     remaining_slice,
@@ -79,7 +80,7 @@ impl UnionDefinition {
             _ => Some(ASTMetadata { 
                 remaining_slice: curr_queue_idx,
                 //add declaration and return identifier of it
-                resultant_tree: scope_data.add_union(&union_name, &UnionDefinition { ordered_members: None }, label_generator)
+                resultant_tree: scope_data.add_union(&union_name, &UnionDefinition { ordered_members: None })
             })
         }
 

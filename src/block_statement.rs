@@ -1,6 +1,6 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, debugging::ASTDisplay, generate_ir::GenerateIR, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, debugging::ASTDisplay, generate_ir::GenerateIR, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 
 /**
  * This represents either a statement or variable creation.
@@ -17,15 +17,15 @@ impl StatementOrDeclaration {
      * returns a StatementOrDeclaration and the remaining tokens as a queue location, else none
      * local_variables must be mut, as declarations can modify this
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<StatementOrDeclaration>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<StatementOrDeclaration>> {
         if previous_queue_idx.get_slice_size() == 0 {return None;}
         let curr_queue_idx = previous_queue_idx.clone();
 
-        if let Some(ASTMetadata {remaining_slice, resultant_tree}) = Statement::try_consume(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+        if let Some(ASTMetadata {remaining_slice, resultant_tree}) = Statement::try_consume(tokens_queue, &curr_queue_idx, scope_data) {
             return Some(ASTMetadata{remaining_slice, resultant_tree: Self::STATEMENT(resultant_tree)});
         }
 
-        if let Some(ASTMetadata {remaining_slice, resultant_tree}) = InitialisedDeclaration::try_consume(tokens_queue, &curr_queue_idx,  scope_data, struct_label_gen) {
+        if let Some(ASTMetadata {remaining_slice, resultant_tree}) = InitialisedDeclaration::try_consume(tokens_queue, &curr_queue_idx,  scope_data) {
             return Some(ASTMetadata{remaining_slice, resultant_tree: Self::DECLARATION(resultant_tree)});
         }
 

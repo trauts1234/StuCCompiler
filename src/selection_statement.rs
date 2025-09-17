@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::Storage, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::data_type_visitor::GetDataTypeVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, generate_ir::GenerateIR, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::Storage, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, expression_visitors::data_type_visitor::GetDataTypeVisitor, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, generate_ir::GenerateIR, statement::Statement};
 use colored::Colorize;
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
@@ -16,7 +16,7 @@ pub enum SelectionStatement{
 }
 
 impl SelectionStatement {
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<SelectionStatement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<SelectionStatement>> {
         let mut curr_queue_idx = previous_queue_idx.clone();
 
         let kw = if let Some(Token::KEYWORD(x)) = tokens_queue.consume(&mut curr_queue_idx, &scope_data) {x} else {return None;};
@@ -34,7 +34,7 @@ impl SelectionStatement {
                     max_index: closecurly_idx
                 };
 
-                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, scope_data, struct_label_gen).expect(&tokens_queue.display_slice(&condition_slice));
+                let condition = expression::try_consume_whole_expr(tokens_queue, &condition_slice, scope_data).expect(&tokens_queue.display_slice(&condition_slice));
 
                 //consume the condition
                 curr_queue_idx = TokenQueueSlice{
@@ -43,7 +43,7 @@ impl SelectionStatement {
                 };
 
                 //consume the function body
-                let ASTMetadata{ remaining_slice, resultant_tree: taken_body } = Statement::try_consume(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen).unwrap();
+                let ASTMetadata{ remaining_slice, resultant_tree: taken_body } = Statement::try_consume(tokens_queue, &curr_queue_idx, scope_data).unwrap();
                 curr_queue_idx = remaining_slice;
 
                 let has_else_branch = tokens_queue.peek(&curr_queue_idx, &scope_data).is_some_and(|x| x == Token::KEYWORD(Keyword::ELSE));
@@ -51,7 +51,7 @@ impl SelectionStatement {
                 //try and consume the else branch
                 let not_taken_body: Option<Box<Statement>> = if has_else_branch {
                     tokens_queue.consume(&mut curr_queue_idx, &scope_data);//consume the else keyword
-                    let ASTMetadata{ remaining_slice, resultant_tree: else_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen).unwrap();
+                    let ASTMetadata{ remaining_slice, resultant_tree: else_body} = Statement::try_consume(tokens_queue, &curr_queue_idx, scope_data).unwrap();
                     curr_queue_idx = remaining_slice;//consume the else
 
                     Some(Box::new(else_body))

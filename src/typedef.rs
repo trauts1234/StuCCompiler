@@ -1,9 +1,9 @@
-use crate::{ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{ast_metadata::ASTMetadata, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, function_declaration::consume_fully_qualified_type, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 pub struct Typedef;
 
 impl Typedef {
-    pub fn try_consume(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<(String, DataType, StorageDuration)>> {
+    pub fn try_consume(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<(String, DataType, StorageDuration)>> {
 
         let mut curr_queue_idx = previous_queue_idx.clone();
 
@@ -35,7 +35,7 @@ impl Typedef {
         //get name
         unwrap_let!(Token::IDENTIFIER(name) = tokens_queue.peek(&name_slice, scope_data).unwrap());
         //get type, discarding storage duration
-        let ASTMetadata { remaining_slice: type_remaining, resultant_tree: (type_represented, storage_duration) } = consume_fully_qualified_type(tokens_queue, &type_slice, scope_data, struct_label_gen).unwrap();
+        let ASTMetadata { remaining_slice: type_remaining, resultant_tree: (type_represented, storage_duration) } = consume_fully_qualified_type(tokens_queue, &type_slice, scope_data).unwrap();
         assert!(type_remaining.get_slice_size() == 0);//must consume all of previous
 
         Some(ASTMetadata {

@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::{data_type::recursive_data_type::{calculate_promoted_type_arithmetic, DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor}, generate_ir::GetType};
+use crate::{data_type::recursive_data_type::{calculate_promoted_type_arithmetic, DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir::GetType};
 
 //TODO: a?b:c syntax parsing
 //then generate assembly for it

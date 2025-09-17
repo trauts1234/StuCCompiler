@@ -1,6 +1,6 @@
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::{ImmediateValue, ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, RegOrMem, PTR_SIZE, STACK_ALIGN}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, PTR_SIZE, STACK_ALIGN}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -26,12 +26,12 @@ impl FunctionDefinition {
      * consumes tokens to try and make a function definition
      * returns some(function found, remaining tokens) if found, else None
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, global_scope_data: &ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<FunctionDefinition>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, global_scope_data: &ParseData) -> Option<ASTMetadata<FunctionDefinition>> {
         //TODO if this function was already declared, you can steal enum variants from it?
 
         let mut scope_data = global_scope_data.clone_for_new_scope();//clone for a local scope, so that I can have my own declaration in here, and scrap it if things go south
 
-        let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx, &mut scope_data, struct_label_gen)?;
+        let ASTMetadata { remaining_slice: after_decl_slice, resultant_tree: func_decl, .. } = consume_decl_only(tokens_queue, previous_queue_idx, &mut scope_data)?;
 
         if tokens_queue.peek(&after_decl_slice, &scope_data)? == Token::PUNCTUATOR(Punctuator::SEMICOLON) {
             return None;//function declaration + semicolon means no definition for certain
@@ -42,7 +42,7 @@ impl FunctionDefinition {
 
         scope_data.add_declaration(func_decl.clone());//so that I can call recursively
 
-        let ASTMetadata{resultant_tree, remaining_slice} = ScopeStatements::try_consume(tokens_queue, &after_decl_slice, &mut scope_data, struct_label_gen)?;
+        let ASTMetadata{resultant_tree, remaining_slice} = ScopeStatements::try_consume(tokens_queue, &after_decl_slice, &mut scope_data)?;
         
         return Some(ASTMetadata{
             resultant_tree: FunctionDefinition {

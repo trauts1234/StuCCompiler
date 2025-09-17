@@ -1,6 +1,6 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, debugging::ASTDisplay, expression::expression::Expression, generate_ir::GenerateIR, goto_and_labels::{CustomLabel, Goto}, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, control_flow_statement::ControlFlowChange, debugging::ASTDisplay, expression::expression::Expression, generate_ir::GenerateIR, goto_and_labels::{CustomLabel, Goto}, iteration_statement::IterationStatement, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, selection_statement::SelectionStatement};
 
 pub enum Statement {
     EXPRESSION(Expression),
@@ -18,7 +18,7 @@ impl Statement {
      * tries to parse the tokens queue starting at previous_queue_idx, to find a statement
      * returns a statement and the remaining tokens as a queue location, else none
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Statement>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<Statement>> {
         let curr_queue_idx = previous_queue_idx.clone();
 
         //this should be first, because label: could be counted as an expression which would break everything
@@ -26,23 +26,23 @@ impl Statement {
             return Some(ASTMetadata { remaining_slice, resultant_tree: Self::LABEL(resultant_tree) })
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, &scope_data, struct_label_gen){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ScopeStatements::try_consume(tokens_queue, &curr_queue_idx, &scope_data){
             return Some(ASTMetadata{resultant_tree: Self::COMPOUND(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = SelectionStatement::try_consume(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = SelectionStatement::try_consume(tokens_queue, &curr_queue_idx, scope_data){
             return Some(ASTMetadata{resultant_tree: Self::SELECTION(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = IterationStatement::try_consume(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = IterationStatement::try_consume(tokens_queue, &curr_queue_idx, scope_data){
             return Some(ASTMetadata{resultant_tree: Self::ITERATION(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ControlFlowChange::try_consume(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = ControlFlowChange::try_consume(tokens_queue, &curr_queue_idx, scope_data){
             return Some(ASTMetadata{resultant_tree: Self::CONTROLFLOW(resultant_tree), remaining_slice});
         }
 
-        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = Expression::try_consume(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen){
+        if let Some(ASTMetadata{resultant_tree, remaining_slice}) = Expression::try_consume(tokens_queue, &curr_queue_idx, scope_data){
             return Some(ASTMetadata{resultant_tree: Self::EXPRESSION(resultant_tree), remaining_slice});
         }
 

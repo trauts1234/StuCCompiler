@@ -1,7 +1,7 @@
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_boilerplate::cast_from_acc, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, compilation_state::label_generator::LabelGenerator, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, put_scalar_in_acc::ScalarInAccVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, generate_ir::GenerateIR, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
+use crate::{ array_initialisation::ArrayInitialisation, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, generate_ir::GenerateIR, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -27,7 +27,7 @@ impl Expression {
     /**
      * tries to consume an expression, terminated by a semicolon, and returns None if this is not possible
      */
-    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<Expression>> {
+    pub fn try_consume(tokens_queue: &mut TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<Expression>> {
         let semicolon_idx = tokens_queue.find_closure_matches(&previous_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::SEMICOLON), &TokenSearchType::skip_all_brackets())?;
         //define the slice that we are going to try and parse
         let attempt_slice = TokenQueueSlice {
@@ -35,7 +35,7 @@ impl Expression {
             max_index: semicolon_idx
         };
 
-        match try_consume_whole_expr(tokens_queue, &attempt_slice, scope_data, struct_label_gen) {
+        match try_consume_whole_expr(tokens_queue, &attempt_slice, scope_data) {
             Some(expr) => {
                 Some(ASTMetadata{resultant_tree: expr, remaining_slice: TokenQueueSlice { index: semicolon_idx+1, max_index: previous_queue_idx.max_index }})
             },
@@ -71,7 +71,7 @@ impl GenerateIR for Expression {
  * tries to parse the tokens queue starting at previous_queue_idx, to find an expression
  * returns an expression(entirely consumed), else none
  */
-pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<Expression> {
+pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<Expression> {
     let mut curr_queue_idx = TokenQueueSlice {
         index: previous_queue_idx.index,
         max_index: previous_queue_idx.max_index.min(tokens_queue.tokens.len())//prevent very wide slices from overflowing the array
@@ -87,7 +87,7 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
     }
 
     //look for array initialisation
-    if let Some(x) = ArrayInitialisation::try_consume_whole_expr(tokens_queue, previous_queue_idx, scope_data, struct_label_gen) {
+    if let Some(x) = ArrayInitialisation::try_consume_whole_expr(tokens_queue, previous_queue_idx, scope_data) {
         return Some(Expression::ARRAYLITERAL(x));
     }
 
@@ -125,15 +125,15 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                     assert!(curr_queue_idx.max_index <= tokens_queue.tokens.len());
 
                     if precedence_required == 1 {
-                        if let Some(index_expr) = try_parse_array_index(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                        if let Some(index_expr) = try_parse_array_index(tokens_queue, &curr_queue_idx, scope_data) {
                             return Some(Expression::UNARYPREFIX(index_expr));//since a[b] = *(a+b), indexing returns a unary prefix
                         }
 
-                        if let Some(func) = FunctionCall::try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                        if let Some(func) = FunctionCall::try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data) {
                             return Some(Expression::FUNCCALL(func));
                         }
 
-                        if let Some(access) = try_parse_member_access(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                        if let Some(access) = try_parse_member_access(tokens_queue, &curr_queue_idx, scope_data) {
                             return Some(Expression::STRUCTMEMBERACCESS(access));
                         }
                     }
@@ -145,7 +145,7 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                         .is_some_and(|precedence| precedence == precedence_required);
 
                     if ends_with_valid_suffix {
-                        if let Some(x) = try_parse_unary_suffix(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                        if let Some(x) = try_parse_unary_suffix(tokens_queue, &curr_queue_idx, scope_data) {
                             return Some(Expression::UNARYSUFFIX(x));
                         }
                     }
@@ -160,24 +160,24 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                         .is_some_and(|precedence| precedence == precedence_required);
 
                     if starts_with_valid_prefix {//TODO do I need this if statement
-                        if let Some(x) = try_parse_unary_prefix(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                        if let Some(x) = try_parse_unary_prefix(tokens_queue, &curr_queue_idx, scope_data) {
                             return Some(Expression::UNARYPREFIX(x));
                         }
                     }
 
                     if precedence_required == 2 {
                         //parse cast expression
-                        if let Some(cast) = try_parse_cast(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                        if let Some(cast) = try_parse_cast(tokens_queue, &curr_queue_idx, scope_data) {
                             return Some(Expression::CAST(cast));
                         }
-                        if let Some(sizeof_expr) = try_parse_sizeof(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                        if let Some(sizeof_expr) = try_parse_sizeof(tokens_queue, &curr_queue_idx, scope_data) {
                             return Some(Expression::SIZEOF(sizeof_expr));
                         }
                     }
 
                     if precedence_required == 13 {
                         //parse ternary conditional
-                        if let Some(ternary) = try_parse_ternary(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen) {
+                        if let Some(ternary) = try_parse_ternary(tokens_queue, &curr_queue_idx, scope_data) {
                             return Some(Expression::TERNARYEXPRESSION(ternary));
                         }
                     }
@@ -204,7 +204,7 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
                     //try to find an operator
                     //note that the operator_idx is a slice of just the operator
 
-                    match try_parse_binary_expr(tokens_queue, &curr_queue_idx, operator_idx, scope_data, struct_label_gen) {
+                    match try_parse_binary_expr(tokens_queue, &curr_queue_idx, operator_idx, scope_data) {
                         Some(x) => {return Some(Expression::BINARYEXPRESSION(x));}
                         None => {
                             continue;
@@ -354,19 +354,19 @@ fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, 
  * if the parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_unary_prefix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<UnaryPrefixExpression> {
+fn try_parse_unary_prefix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<UnaryPrefixExpression> {
     let mut curr_queue_idx = previous_queue_idx.clone();
     
     let unary_op: UnaryPrefixOperator = tokens_queue.consume(&mut curr_queue_idx, &scope_data)
     .and_then(|tok| tok.as_punctuator())
     .and_then(|punc| punc.try_into().ok())?;//get unary operator, or return if it isn't one
 
-    let operand = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen)?;
+    let operand = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data)?;
 
     Some(UnaryPrefixExpression::new(unary_op, operand))
 }
 
-fn try_parse_unary_suffix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<UnaryPostfixExpression> {
+fn try_parse_unary_suffix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<UnaryPostfixExpression> {
     let mut curr_queue_idx = previous_queue_idx.clone();
     
     let unary_op: UnaryPostfixOperator = tokens_queue.peek_back(&curr_queue_idx, &scope_data)
@@ -375,7 +375,7 @@ fn try_parse_unary_suffix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQ
 
     curr_queue_idx.max_index -= 1;//consume the last token
 
-    let operand = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen)?;
+    let operand = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data)?;
 
     Some(UnaryPostfixExpression::new(unary_op, operand))
 }
@@ -385,13 +385,13 @@ fn try_parse_unary_suffix(tokens_queue: &TokenQueue, previous_queue_idx: &TokenQ
  * if this parse was successful, an expression is returned
  * else, you get None
  */
-fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: usize, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<BinaryExpression> {
+fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, operator_idx: usize, scope_data: &mut ParseData) -> Option<BinaryExpression> {
     //split to before and after the operator
     let (left_part, right_part) = tokens_queue.split_at(operator_idx, curr_queue_idx);
 
     //try and parse the left and right hand sides, propogating errors
-    let parsed_left = try_consume_whole_expr(tokens_queue, &left_part, scope_data, struct_label_gen)?;
-    let parsed_right = try_consume_whole_expr(tokens_queue, &right_part, scope_data, struct_label_gen)?;
+    let parsed_left = try_consume_whole_expr(tokens_queue, &left_part, scope_data)?;
+    let parsed_right = try_consume_whole_expr(tokens_queue, &right_part, scope_data)?;
 
     let operator = tokens_queue.peek(&TokenQueueSlice { index: operator_idx, max_index: operator_idx+1 }, &scope_data)//get token in the middle
     .and_then(|x| x.as_punctuator())//try to convert to punctuator
@@ -400,7 +400,7 @@ fn try_parse_binary_expr(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueS
     Some(BinaryExpression::new(parsed_left, operator, parsed_right))
 }
 
-fn try_parse_array_index(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<UnaryPrefixExpression> {
+fn try_parse_array_index(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<UnaryPrefixExpression> {
     //look for unary postfixes as association is left to right
     let last_token = tokens_queue.peek_back(&curr_queue_idx, &scope_data)?;
 
@@ -417,8 +417,8 @@ fn try_parse_array_index(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueS
             max_index: square_open_idx
         };
 
-        let index_expr = try_consume_whole_expr(tokens_queue, &index_slice, scope_data, struct_label_gen)?;
-        let array_expr = try_consume_whole_expr(tokens_queue, &array_slice, scope_data, struct_label_gen)?;
+        let index_expr = try_consume_whole_expr(tokens_queue, &index_slice, scope_data)?;
+        let array_expr = try_consume_whole_expr(tokens_queue, &array_slice, scope_data)?;
 
         //a[b] == *(a+b) in C
         return Some(
@@ -431,7 +431,7 @@ fn try_parse_array_index(tokens_queue: &TokenQueue, curr_queue_idx: &TokenQueueS
     None
 }
 
-fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<MemberAccess> {
+fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<MemberAccess> {
 
     let mut curr_queue_idx = expr_slice.clone();
 
@@ -450,7 +450,7 @@ fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSli
     if let Token::IDENTIFIER(member_name) = last_token {
         //last token is a struct's member name
         //the first part must return a struct
-        let struct_tree = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen)?;
+        let struct_tree = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data)?;
 
         return Some(MemberAccess::new(struct_tree, member_name));
     }
@@ -458,7 +458,7 @@ fn try_parse_member_access(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSli
     None//failed to find correct identifiers
 }
 
-fn try_parse_sizeof(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<SizeofExpr> {
+fn try_parse_sizeof(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<SizeofExpr> {
     let mut curr_queue_idx = expr_slice.clone();
 
     if tokens_queue.consume(&mut curr_queue_idx, scope_data)? != Token::KEYWORD(Keyword::SIZEOF) {
@@ -472,9 +472,9 @@ fn try_parse_sizeof(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, sco
     }
 
     //try and look for an expression
-    let base_expr = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen);
+    let base_expr = try_consume_whole_expr(tokens_queue, &curr_queue_idx, scope_data);
     //try and look for a data type
-    let data_type = consume_fully_qualified_type(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen)
+    let data_type = consume_fully_qualified_type(tokens_queue, &curr_queue_idx, scope_data)
         .map(|x| {
             assert!(x.remaining_slice.get_slice_size() == 0);
             x.resultant_tree.0
@@ -487,7 +487,7 @@ fn try_parse_sizeof(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, sco
     }
 }
 
-fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<CastExpression> {
+fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<CastExpression> {
     let mut curr_queue_idx = expr_slice.clone();
 
     if tokens_queue.consume(&mut curr_queue_idx, scope_data)? != Token::PUNCTUATOR(Punctuator::OPENCURLY) {
@@ -508,15 +508,15 @@ fn try_parse_cast(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope
     };
 
     //discard storage duration for cast
-    let ASTMetadata { remaining_slice, resultant_tree: (new_type, _) } = consume_fully_qualified_type(tokens_queue, &new_type_slice, scope_data, struct_label_gen)?;
+    let ASTMetadata { remaining_slice, resultant_tree: (new_type, _) } = consume_fully_qualified_type(tokens_queue, &new_type_slice, scope_data)?;
     assert!(remaining_slice.get_slice_size() == 0);//cannot be any remaining tokens in the cast type
 
-    let base_expr = try_consume_whole_expr(tokens_queue, &remaining_expr_slice, scope_data, struct_label_gen)?;
+    let base_expr = try_consume_whole_expr(tokens_queue, &remaining_expr_slice, scope_data)?;
 
     Some(CastExpression::new(new_type, base_expr))
 }
 
-fn try_parse_ternary(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<TernaryExpr> {
+fn try_parse_ternary(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<TernaryExpr> {
     let mut curr_queue_idx = expr_slice.clone();
 
     let question_idx = tokens_queue.find_closure_matches(&curr_queue_idx, false, |x| *x == Token::PUNCTUATOR(Punctuator::QuestionMark), &TokenSearchType::skip_nothing())?;
@@ -531,9 +531,9 @@ fn try_parse_ternary(tokens_queue: &TokenQueue, expr_slice: &TokenQueueSlice, sc
     let false_branch = TokenQueueSlice {index: colon_idx+1, max_index: curr_queue_idx.max_index};
 
     Some(TernaryExpr::new(
-        try_consume_whole_expr(tokens_queue, &condition, scope_data, struct_label_gen).unwrap(),
-        try_consume_whole_expr(tokens_queue, &true_branch, scope_data, struct_label_gen).unwrap(),
-        try_consume_whole_expr(tokens_queue, &false_branch, scope_data, struct_label_gen).unwrap()
+        try_consume_whole_expr(tokens_queue, &condition, scope_data).unwrap(),
+        try_consume_whole_expr(tokens_queue, &true_branch, scope_data).unwrap(),
+        try_consume_whole_expr(tokens_queue, &false_branch, scope_data).unwrap()
     ))
 }
 

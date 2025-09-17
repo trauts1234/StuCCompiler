@@ -1,12 +1,13 @@
 use std::fmt::Display;
 
-use crate::{asm_gen_data::GetStructUnion, ast_metadata::ASTMetadata, compilation_state::label_generator::LabelGenerator, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{asm_gen_data::GetStructUnion, ast_metadata::ASTMetadata, data_type::{recursive_data_type::DataType, storage_type::StorageDuration}, declaration::Declaration, initialised_declaration::{consume_type_specifier, try_consume_declaration_modifiers}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct StructIdentifier {
     pub(crate) name: Option<String>,
-    pub(crate) id: u32
+    pub(crate) id: Uuid
 }
 impl Display for StructIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -82,7 +83,7 @@ impl StructDefinition {
         &self.ordered_members
     }
     
-    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Option<ASTMetadata<StructIdentifier>> {
+    pub fn try_consume_struct_as_type(tokens_queue: &TokenQueue, previous_slice: &TokenQueueSlice, scope_data: &mut ParseData) -> Option<ASTMetadata<StructIdentifier>> {
 
         let mut curr_queue_idx = previous_slice.clone();
 
@@ -105,14 +106,14 @@ impl StructDefinition {
 
                 let mut members = Vec::new();
                 while inside_variants.get_slice_size() > 0 {
-                    let mut new_member = try_consume_member(tokens_queue, &mut inside_variants, scope_data, struct_label_gen);
+                    let mut new_member = try_consume_member(tokens_queue, &mut inside_variants, scope_data);
                     members.append(&mut new_member);
                 }
 
                 assert!(inside_variants.get_slice_size() == 0);//must consume all tokens in variants
 
                 let struct_definition = UnpaddedStructDefinition { ordered_members: Some(members),  };
-                let struct_identifier = scope_data.add_struct(&struct_name, &struct_definition, struct_label_gen);
+                let struct_identifier = scope_data.add_struct(&struct_name, &struct_definition);
 
                 Some(ASTMetadata {
                     remaining_slice,
@@ -123,7 +124,7 @@ impl StructDefinition {
             _ => Some(ASTMetadata { 
                 remaining_slice: curr_queue_idx,
                 //add declaration and return identifier of it
-                resultant_tree: scope_data.add_struct(&struct_name, &UnpaddedStructDefinition { ordered_members: None }, struct_label_gen)
+                resultant_tree: scope_data.add_struct(&struct_name, &UnpaddedStructDefinition { ordered_members: None })
             })
         }
     }
@@ -132,10 +133,10 @@ impl StructDefinition {
 ///in struct definitions, this will consume the `int a,b;` part of `struct {int a,b;char c;}`
 /// 
 /// Can also be used for unions
-pub fn try_consume_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData, struct_label_gen: &mut LabelGenerator) -> Vec<Declaration> {
+pub fn try_consume_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQueueSlice, scope_data: &mut ParseData) -> Vec<Declaration> {
 
     //consume the base type
-    let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, &curr_queue_idx, scope_data, struct_label_gen).unwrap();
+    let ASTMetadata { remaining_slice, resultant_tree: (base_type, storage_duration) } = consume_type_specifier(tokens_queue, &curr_queue_idx, scope_data).unwrap();
     assert_eq!(storage_duration, StorageDuration::Default);//cannot specify static or extern in a struct
 
     curr_queue_idx.index = remaining_slice.index;//consume it and let the calling function know
@@ -151,7 +152,7 @@ pub fn try_consume_member(tokens_queue: &TokenQueue, curr_queue_idx: &mut TokenQ
     declarator_segments
     .iter()//go through each comma separated declaration
     .map(|declarator_segment| {
-        try_consume_declaration_modifiers(tokens_queue, &declarator_segment, &base_type, scope_data, struct_label_gen)//convert it into a declaration
+        try_consume_declaration_modifiers(tokens_queue, &declarator_segment, &base_type, scope_data)//convert it into a declaration
         .unwrap()
         .resultant_tree//extract the declaration
     })

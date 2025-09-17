@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 
-use crate::{compilation_state::label_generator::LabelGenerator, data_type::recursive_data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::{StructIdentifier, UnpaddedStructDefinition}, union_definition::{UnionDefinition, UnionIdentifier}};
+use uuid::Uuid;
+
+use crate::{data_type::recursive_data_type::DataType, enum_definition::EnumList, function_declaration::FunctionDeclaration, struct_definition::{StructIdentifier, UnpaddedStructDefinition}, union_definition::{UnionDefinition, UnionIdentifier}};
 
 #[derive(Debug)]
 pub struct ParseData {
@@ -73,7 +75,7 @@ impl ParseData {
     /// saves the struct definition under the name specified
     /// returns an identifier for the struct added
     /// if the struct was previously *declared*, it is overwritten with new contents
-    pub fn add_struct(&mut self, name: &Option<String>, new_definition: &UnpaddedStructDefinition, struct_label_generator: &mut LabelGenerator) -> StructIdentifier {
+    pub fn add_struct(&mut self, name: &Option<String>, new_definition: &UnpaddedStructDefinition) -> StructIdentifier {
 
         let defined_struct_finder =
             self.structs
@@ -110,7 +112,7 @@ impl ParseData {
             => {
                 let identifier = StructIdentifier {
                     name: name.clone(),
-                    id: struct_label_generator.generate_label_number(),
+                    id: Uuid::new_v4(),
                 };
                 self.structs.push((identifier.clone(), new_definition.clone()));//add new struct, overwriting if it was declared etc.
     
@@ -127,7 +129,7 @@ impl ParseData {
     /// saves the struct definition under the name specified
     /// returns an identifier for the struct added
     /// if the struct was previously *declared*, it is overwritten with new contents
-    pub fn add_union(&mut self, name: &Option<String>, new_definition: &UnionDefinition, label_generator: &mut LabelGenerator) -> UnionIdentifier {
+    pub fn add_union(&mut self, name: &Option<String>, new_definition: &UnionDefinition) -> UnionIdentifier {
 
         let defined_union_finder =
             self.unions
@@ -164,7 +166,7 @@ impl ParseData {
             => {
                 let identifier = UnionIdentifier {
                     name: name.clone(),
-                    id: label_generator.generate_label_number(),
+                    id: Uuid::new_v4(),
                 };
                 self.unions.push((identifier.clone(), new_definition.clone()));//add new union, overwriting if it was declared etc.
     

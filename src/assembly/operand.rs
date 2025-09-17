@@ -5,7 +5,6 @@ pub mod immediate;
 use std::fmt::Display;
 
 use colored::Colorize;
-use immediate::ImmediateValue;
 use memory_operand::MemoryOperand;
 use register::GPRegister;
 
