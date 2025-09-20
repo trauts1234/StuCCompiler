@@ -40,7 +40,7 @@ mod member_access;
 mod args_handling;
 pub mod goto_and_labels;
 pub mod union_definition;
-pub mod generate_ir;
+pub mod generate_ir_traits;
 
 fn main() {
     let mut input_path = PathBuf::from("test.c");

@@ -1,7 +1,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 
-use crate::{assembly::{assembly::Assembly, comparison::AsmComparison, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, debugging::ASTDisplay, generate_ir::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{assembly::{assembly::Assembly, comparison::AsmComparison, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, debugging::ASTDisplay, generate_ir_traits::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 /// A label in the style `label:`
 /// 

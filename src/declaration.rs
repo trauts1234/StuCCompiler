@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use colored::Colorize;
 
-use crate::{data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor, generate_ir::GetType};
+use crate::{data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::GetType};
 
 #[derive(Clone, Debug)]
 /**

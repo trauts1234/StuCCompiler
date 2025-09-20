@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor, generate_ir::GetType};
+use crate::{data_type::recursive_data_type::DataType, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::GetType};
 
 #[derive(Clone, Debug)]
 pub struct CastExpression {

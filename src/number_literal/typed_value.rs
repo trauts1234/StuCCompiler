@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
-use crate::{assembly::{comparison::ComparisonKind, operand::immediate::ToImmediate}, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{assembly::comparison::ComparisonKind, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor};
 
 #[derive(Debug, Clone)]
 pub enum NumberLiteral {
@@ -51,10 +51,10 @@ impl NumberLiteral {
                 )
             },
             
-            Self::FLOAT{data_type, ..} => {
+            Self::FLOAT{data_type, data} => {
                 match data_type {
-                    FloatType::F32 => format!("{} dd {}", variable_name, self.as_imm().generate_name()),
-                    FloatType::F64 => format!("{} dq {}", variable_name, self.as_imm().generate_name()),
+                    FloatType::F32 => format!("{} dd {}", variable_name, (*data as f32).to_bits()),
+                    FloatType::F64 => format!("{} dq {}", variable_name, data.to_bits()),
                 }
             }
         }

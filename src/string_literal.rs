@@ -8,7 +8,7 @@ use crate::data_type::recursive_data_type::DataType;
 use crate::data_type::type_modifier::DeclModifier;
 use crate::expression::expression::Expression;
 use crate::expression_visitors::expr_visitor::ExprVisitor;
-use crate::generate_ir::GetType;
+use crate::generate_ir_traits::GetType;
 use crate::number_literal::typed_value::NumberLiteral;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

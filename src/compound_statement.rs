@@ -1,6 +1,6 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, debugging::ASTDisplay, generate_ir::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, debugging::ASTDisplay, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 /**
  * this represents all the code inside a scope (i.e function definition)
