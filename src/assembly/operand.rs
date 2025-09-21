@@ -5,13 +5,10 @@ pub mod immediate;
 use std::fmt::Display;
 
 use colored::Colorize;
-use memory_operand::MemoryOperand;
-use register::GPRegister;
-
 use memory_size::MemorySize;
-use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
+use stack_management::stack_item::StackItemKey;
 
-use crate::{assembly::operand::register::MMRegister, debugging::IRDisplay, number_literal::typed_value::NumberLiteral};
+use crate::number_literal::typed_value::NumberLiteral;
 
 pub const PTR_SIZE: MemorySize = MemorySize::from_bytes(8);
 /// Alignment of the stack before calling a function in SysV ABI
@@ -24,46 +21,17 @@ pub enum Storage {
     Stack(StackItemKey),
     StackWithOffset{stack: StackItemKey, offset: MemorySize},
     Constant(NumberLiteral),
+    /// Dereferences the pointer at `self.0`
+    IndirectAddress(StackItemKey),
 }
 
-/**
- * enum storing any possible r/m or immediate operand
- */
-#[derive(Clone, Debug)]
-pub enum Operand {
-    GPReg(GPRegister),
-    MMReg(MMRegister),
-    Mem(MemoryOperand),
-    Imm(ImmediateValue),
-}
-
-
-impl Operand {
-    pub fn generate_name(&self, data_size: MemorySize, stack: &BakedSimpleStackFrame) -> String {
-        match self {
-            Operand::GPReg(register) => register.generate_name(data_size),
-            Operand::MMReg(register) => register.generate_name(data_size),
-            Operand::Mem(memory_operand) => memory_operand.generate_name(stack),
-            Operand::Imm(immediate_value) => immediate_value.generate_name(),
-        }
-    }
-}
-impl IRDisplay for Operand {
-    fn display_ir(&self) -> String {
-        match self {
-            Operand::GPReg(register) => register.display_ir(),
-            Operand::MMReg(register) => register.display_ir(),
-            Operand::Mem(memory_operand) => memory_operand.display_ir(),
-            Operand::Imm(immediate_value) => immediate_value.display_ir(),
-        }
-    }
-}
 impl Display for Storage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
             Storage::Stack(stack_item_key)=>format!("[{:?}]",stack_item_key),
-            Storage::StackWithOffset { stack, offset } => format!("[{:?} + {}]", stack, offset),
+            Storage::StackWithOffset{stack,offset}=>format!("[{:?} + {}]",stack,offset),
             Storage::Constant(immediate_value)=>immediate_value.to_string(),
+            Storage::IndirectAddress(stack_item_key) => format!("[[{:?}]]", stack_item_key),
         }.blue())
     }
 }

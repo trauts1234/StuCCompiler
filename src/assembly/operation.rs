@@ -2,7 +2,9 @@ use std::fmt::Display;
 use crate::{assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use memory_size::MemorySize;
 use stack_management::baked_stack_frame::BakedSimpleStackFrame;
-use super::{operand::{Operand, PTR_SIZE}};
+use super::{operand::PTR_SIZE};
+
+//TODO dump to registers and save from registers
 
 
 #[derive(Clone)]

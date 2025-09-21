@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Operand}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::{data_type_visitor::GetDataTypeVisitor, expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir_traits::GetType};
+use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GetAddress, GetType}};
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -23,19 +23,19 @@ impl MemberAccess {
     pub fn get_member_name(&self) -> &str {
         &self.member_name
     }
+}
 
-    pub fn put_addr_in_acc(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
+impl GetAddress for MemberAccess {
+    fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemKey) {
         let mut result = Assembly::make_empty();
 
         result.add_comment(format!("getting address of member {}", self.member_name));
-        //put tree's address in acc
-        //add the member offset
 
-        let base_address_asm = self.base_tree.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});//assembly to get address of struct
+        //assembly to get base address of agregate
+        let (base_address_asm, base_address_ptr) = self.base_tree.get_address(asm_data, stack_data, global_asm_data);
 
-        let base_type = self.base_tree.get_type(asm_data);//get type of the tree that returns the struct
-
-        let member_offset = match base_type {
+        //calculate the offset of the member, based on whether base is a struct or union
+        let member_offset = match self.base_tree.get_type(asm_data) {
             DataType::RAW(BaseType::Struct(struct_name)) => {
                 asm_data.get_struct(&struct_name).get_member_data(&self.member_name).1
             },
@@ -49,12 +49,15 @@ impl MemberAccess {
         result.merge(&base_address_asm);
 
         //go up by member offset
+        let resultant_ptr = stack_data.allocate(PTR_SIZE);
         result.add_instruction(AsmOperation::ADD {
-            increment: Operand::Imm(member_offset.as_imm()),
-            data_type: ScalarType::Integer(IntegerType::U64)//pointer addition is u64 add
+            data_type: ScalarType::Integer(IntegerType::U64),
+            lhs: Storage::Stack(base_address_ptr),
+            rhs: Storage::Constant(member_offset.as_imm()),
+            to: Storage::Stack(resultant_ptr), //pointer addition is u64 add
         });
 
-        result
+        (result, resultant_ptr)
     }
 }
 

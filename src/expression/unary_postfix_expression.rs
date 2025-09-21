@@ -1,6 +1,6 @@
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir_traits::GetType, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir_traits::GetType, number_literal::typed_value::NumberLiteral};
 
 use super::{expression::Expression, unary_postfix_operator::UnaryPostfixOperator};
 
@@ -19,123 +19,125 @@ impl UnaryPostfixExpression {
     pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
-        match self.operator {
-            UnaryPostfixOperator::Decrement => {
-                result.add_comment("postfix decrement");
-                let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.get_type(asm_data);
+        todo!();
 
-                let increment_amount = match &original_type {
-                    DataType::UNKNOWNSIZEARRAY { .. } |
-                    DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+        // match self.operator {
+        //     UnaryPostfixOperator::Decrement => {
+        //         result.add_comment("postfix decrement");
+        //         let promoted_type = self.get_data_type(asm_data);
+        //         let original_type = self.operand.get_type(asm_data);
+
+        //         let increment_amount = match &original_type {
+        //             DataType::UNKNOWNSIZEARRAY { .. } |
+        //             DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
                     
-                    DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
-                    DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base),
-                    _ => panic!("cannot decrement this")
-                };
+        //             DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
+        //             DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base),
+        //             _ => panic!("cannot decrement this")
+        //         };
 
-                //put address of operand in secondary
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_asm);
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::secondary()),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: PTR_SIZE
-                });
+        //         //put address of operand in secondary
+        //         let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_asm);
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::secondary()),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: PTR_SIZE
+        //         });
 
-                //put self.operand in acc and third
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::acc()),
-                    from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    size: original_type.memory_size(asm_data),
-                });
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::third()),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: original_type.memory_size(asm_data),
-                });
+        //         //put self.operand in acc and third
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::acc()),
+        //             from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+        //             size: original_type.memory_size(asm_data),
+        //         });
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::third()),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: original_type.memory_size(asm_data),
+        //         });
 
-                //increment value in acc
-                result.add_instruction(AsmOperation::SUB {
-                    decrement: Operand::Imm(increment_amount),
-                    data_type: original_type.decay_to_primative(),
-                });
-                //save acc to the variable address
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: original_type.memory_size(asm_data),
-                });
+        //         //increment value in acc
+        //         result.add_instruction(AsmOperation::SUB {
+        //             decrement: Operand::Imm(increment_amount),
+        //             data_type: original_type.decay_to_primative(),
+        //         });
+        //         //save acc to the variable address
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: original_type.memory_size(asm_data),
+        //         });
 
-                //resurrect the old value
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::acc()),
-                    from: Operand::GPReg(GPRegister::third()),
-                    size: original_type.memory_size(asm_data),
-                });
+        //         //resurrect the old value
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::acc()),
+        //             from: Operand::GPReg(GPRegister::third()),
+        //             size: original_type.memory_size(asm_data),
+        //         });
 
-                //promote the original self.operand in acc
-                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
-                result.merge(&cast_asm);
-            },
-            UnaryPostfixOperator::Increment => {
-                result.add_comment("postfix increment");
-                let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.get_type(asm_data);
+        //         //promote the original self.operand in acc
+        //         let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
+        //         result.merge(&cast_asm);
+        //     },
+        //     UnaryPostfixOperator::Increment => {
+        //         result.add_comment("postfix increment");
+        //         let promoted_type = self.get_data_type(asm_data);
+        //         let original_type = self.operand.get_type(asm_data);
 
-                let increment_amount = match &original_type {
-                    DataType::UNKNOWNSIZEARRAY { .. } |
-                    DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+        //         let increment_amount = match &original_type {
+        //             DataType::UNKNOWNSIZEARRAY { .. } |
+        //             DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
 
-                    DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
-                    DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
-                    _ => panic!("cannot increment this")
-                };
+        //             DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
+        //             DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
+        //             _ => panic!("cannot increment this")
+        //         };
 
-                //put address of operand in secondary
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_asm);
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::secondary()),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: PTR_SIZE
-                });
+        //         //put address of operand in secondary
+        //         let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_asm);
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::secondary()),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: PTR_SIZE
+        //         });
 
-                //put self.operand in acc and third
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::acc()),
-                    from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    size: original_type.memory_size(asm_data),
-                });
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::third()),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: original_type.memory_size(asm_data),
-                });
+        //         //put self.operand in acc and third
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::acc()),
+        //             from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+        //             size: original_type.memory_size(asm_data),
+        //         });
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::third()),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: original_type.memory_size(asm_data),
+        //         });
 
-                //increment value in acc
-                result.add_instruction(AsmOperation::ADD {
-                    increment: Operand::Imm(increment_amount),
-                    data_type: original_type.decay_to_primative(),
-                });
-                //save acc to the variable address
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: original_type.memory_size(asm_data),
-                });
+        //         //increment value in acc
+        //         result.add_instruction(AsmOperation::ADD {
+        //             increment: Operand::Imm(increment_amount),
+        //             data_type: original_type.decay_to_primative(),
+        //         });
+        //         //save acc to the variable address
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: original_type.memory_size(asm_data),
+        //         });
 
-                //promote the original self.operand
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::acc()),
-                    from: Operand::GPReg(GPRegister::third()),
-                    size: original_type.memory_size(asm_data),
-                });
-                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
-                result.merge(&cast_asm);
+        //         //promote the original self.operand
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::acc()),
+        //             from: Operand::GPReg(GPRegister::third()),
+        //             size: original_type.memory_size(asm_data),
+        //         });
+        //         let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
+        //         result.merge(&cast_asm);
 
-            },
-        }
+        //     },
+        // }
 
         result
     }

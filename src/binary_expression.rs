@@ -3,7 +3,7 @@ use colored::Colorize;
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, promote, Expression}}, expression_visitors::{expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir_traits::{GenerateIR, GetType}, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, promote, Expression}}, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir_traits::{GenerateIR, GetType}, number_literal::typed_value::NumberLiteral};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -88,7 +88,7 @@ impl GenerateIR for BinaryExpression {
             BinaryExpressionOperator::BitshiftLeft |
             BinaryExpressionOperator::BitshiftRight => calculate_unary_type_arithmetic(&lhs_type),//bit shift type is related to the number being shifted
             x if x.as_boolean_instr().is_some() => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),//is a boolean operator, operands are booleans
-            BinaryExpressionOperator::AdditionCombination => lhs_type,
+            BinaryExpressionOperator::AdditionCombination => lhs_type.clone(),
             _ => calculate_promoted_type_arithmetic(&lhs_type, &rhs_type)//else find a common meeting ground
         };
         
@@ -110,8 +110,8 @@ impl GenerateIR for BinaryExpression {
             BinaryExpressionOperator::BooleanOr |
             BinaryExpressionOperator::BooleanAnd |
             BinaryExpressionOperator::AdditionCombination => {
-                let (promote_lhs_op, lhs_promoted) = promote(lhs_result.unwrap(), lhs_type, promoted_type, stack_data, asm_data);
-                let (promote_rhs_op, rhs_promoted) = promote(rhs_result.unwrap(), rhs_type, promoted_type, stack_data, asm_data);
+                let (promote_lhs_op, lhs_promoted) = promote(lhs_result.unwrap(), lhs_type.clone(), promoted_type.clone(), stack_data, asm_data);
+                let (promote_rhs_op, rhs_promoted) = promote(rhs_result.unwrap(), rhs_type.clone(), promoted_type.clone(), stack_data, asm_data);
 
                 result.add_instruction(promote_lhs_op);
                 result.add_instruction(promote_rhs_op);
@@ -121,8 +121,8 @@ impl GenerateIR for BinaryExpression {
 
             BinaryExpressionOperator::BitshiftLeft |
             BinaryExpressionOperator::BitshiftRight => {
-                let (promote_lhs_op, lhs_promoted) = promote(lhs_result.unwrap(), lhs_type, promoted_type, stack_data, asm_data);
-                let (promote_rhs_op, rhs_promoted) = promote(rhs_result.unwrap(), rhs_type, DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U8))), stack_data, asm_data);//can only shift by u8 in assembly
+                let (promote_lhs_op, lhs_promoted) = promote(lhs_result.unwrap(), lhs_type.clone(), promoted_type.clone(), stack_data, asm_data);
+                let (promote_rhs_op, rhs_promoted) = promote(rhs_result.unwrap(), rhs_type.clone(), DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U8))), stack_data, asm_data);//can only shift by u8 in assembly
 
                 result.add_instruction(promote_lhs_op);
                 result.add_instruction(promote_rhs_op);
@@ -135,6 +135,7 @@ impl GenerateIR for BinaryExpression {
             _ => todo!()
         };
 
+        //do different work based on the operator
         match &self.operator {
             BinaryExpressionOperator::Add => {
                 result.add_comment(format!("adding {} numbers", promoted_type.memory_size(asm_data)));
@@ -280,215 +281,215 @@ impl GenerateIR for BinaryExpression {
                 });
             }
 
-            BinaryExpressionOperator::AdditionCombination => {
-                let promoted_type = ();
-                let promoted_size = ();
-                result.add_comment("addition combination (+=)");
+            // BinaryExpressionOperator::AdditionCombination => {
+            //     let promoted_type = ();
+            //     let promoted_size = ();
+            //     result.add_comment("addition combination (+=)");
 
-                // *a++ += b is not the same as *a++ = *a++ + b because a might be incremented once or twice
-                // so I need a custom implementation
-                let lhs_type = self.lhs.get_type(asm_data);
-                let rhs_type = self.rhs.get_type(asm_data);
+            //     // *a++ += b is not the same as *a++ = *a++ + b because a might be incremented once or twice
+            //     // so I need a custom implementation
+            //     let lhs_type = self.lhs.get_type(asm_data);
+            //     let rhs_type = self.rhs.get_type(asm_data);
 
-                let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&lhs_ptr_asm);//put pointer to lhs in acc
-                //save the pointer
-                let lhs_ptr_temporary_address = stack_data.allocate(PTR_SIZE);
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: PTR_SIZE
-                });
+            //     let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+            //     result.merge(&lhs_ptr_asm);//put pointer to lhs in acc
+            //     //save the pointer
+            //     let lhs_ptr_temporary_address = stack_data.allocate(PTR_SIZE);
+            //     result.add_instruction(AsmOperation::MOV {
+            //         to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+            //         from: Operand::GPReg(GPRegister::acc()),
+            //         size: PTR_SIZE
+            //     });
 
-                //calculate and cast rhs value
-                let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                let rhs_cast_asm = cast_from_acc(&rhs_type, &lhs_type, asm_data);
-                result.merge(&rhs_asm);
-                result.merge(&rhs_cast_asm);//cast to lhs as that will be incremented
+            //     //calculate and cast rhs value
+            //     let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+            //     let rhs_cast_asm = cast_from_acc(&rhs_type, &lhs_type, asm_data);
+            //     result.merge(&rhs_asm);
+            //     result.merge(&rhs_cast_asm);//cast to lhs as that will be incremented
 
-                if let DataType::POINTER(_) = lhs_type.decay() {
-                    //you can only add pointer and number here, as per the C standard
-                    let lhs_deref_size = lhs_type.remove_outer_modifier().memory_size(asm_data);
+            //     if let DataType::POINTER(_) = lhs_type.decay() {
+            //         //you can only add pointer and number here, as per the C standard
+            //         let lhs_deref_size = lhs_type.remove_outer_modifier().memory_size(asm_data);
 
-                    result.add_comment(format!("lhs is a pointer. make rhs {} times bigger", lhs_deref_size.size_bytes()));
+            //         result.add_comment(format!("lhs is a pointer. make rhs {} times bigger", lhs_deref_size.size_bytes()));
 
-                    //get the size of value pointed to by rhs
-                    result.add_instruction(AsmOperation::MOV {
-                        to: RegOrMem::GPReg(GPRegister::_CX),
-                        from: Operand::Imm(lhs_deref_size.as_imm()),
-                        size: MemorySize::from_bytes(8),
-                    });
+            //         //get the size of value pointed to by rhs
+            //         result.add_instruction(AsmOperation::MOV {
+            //             to: RegOrMem::GPReg(GPRegister::_CX),
+            //             from: Operand::Imm(lhs_deref_size.as_imm()),
+            //             size: MemorySize::from_bytes(8),
+            //         });
 
-                    //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
-                    result.add_instruction(AsmOperation::MUL {
-                        multiplier: RegOrMem::GPReg(GPRegister::_CX),
-                        data_type: lhs_type.decay_to_primative(),//rhs has been promoted to lhs's type
-                    });
-                }
+            //         //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
+            //         result.add_instruction(AsmOperation::MUL {
+            //             multiplier: RegOrMem::GPReg(GPRegister::_CX),
+            //             data_type: lhs_type.decay_to_primative(),//rhs has been promoted to lhs's type
+            //         });
+            //     }
 
-                //put RHS in secondary
-                result.add_commented_instruction(
-                    AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: MemorySize::from_bytes(8)},
-                    "put RHS in secondary"
-                );
+            //     //put RHS in secondary
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: MemorySize::from_bytes(8)},
+            //         "put RHS in secondary"
+            //     );
 
-                // put a pointer to lhs to acc
-                result.add_commented_instruction(
-                    AsmOperation::MOV { 
-                        to: RegOrMem::GPReg(GPRegister::acc()),
-                        from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
-                        size: PTR_SIZE
-                    },
-                    "put a pointer to lhs in acc"
-                );
-                //dereference the pointer
-                result.add_commented_instruction(
-                    AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::acc()), 
-                        from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc()}),
-                        size: lhs_type.memory_size(asm_data)
-                    },
-                    "dereference pointer to lhs"
-                );
-                //increment lhs by rhs
-                result.add_commented_instruction(AsmOperation::ADD {
-                    increment: Operand::GPReg(GPRegister::secondary()),
-                    data_type: lhs_type.decay_to_primative()
-                }, "increment lhs by rhs");
-                //put the addition result in secondary
-                result.add_commented_instruction(
-                    AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: lhs_type.memory_size(asm_data) },
-                    "move the result to secondary"
-                );
+            //     // put a pointer to lhs to acc
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { 
+            //             to: RegOrMem::GPReg(GPRegister::acc()),
+            //             from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+            //             size: PTR_SIZE
+            //         },
+            //         "put a pointer to lhs in acc"
+            //     );
+            //     //dereference the pointer
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV {
+            //         to: RegOrMem::GPReg(GPRegister::acc()), 
+            //             from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc()}),
+            //             size: lhs_type.memory_size(asm_data)
+            //         },
+            //         "dereference pointer to lhs"
+            //     );
+            //     //increment lhs by rhs
+            //     result.add_commented_instruction(AsmOperation::ADD {
+            //         increment: Operand::GPReg(GPRegister::secondary()),
+            //         data_type: lhs_type.decay_to_primative()
+            //     }, "increment lhs by rhs");
+            //     //put the addition result in secondary
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: lhs_type.memory_size(asm_data) },
+            //         "move the result to secondary"
+            //     );
 
-                //get a pointer to lhs again
-                result.add_commented_instruction(
-                    AsmOperation::MOV { 
-                        to: RegOrMem::GPReg(GPRegister::acc()),
-                        from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
-                        size: PTR_SIZE
-                    },
-                    "get a pointer to lhs again"
-                );
-                //save the results
-                result.add_commented_instruction(
-                    AsmOperation::MOV { to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
-                    "save the results back to lhs"
-                );
+            //     //get a pointer to lhs again
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { 
+            //             to: RegOrMem::GPReg(GPRegister::acc()),
+            //             from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+            //             size: PTR_SIZE
+            //         },
+            //         "get a pointer to lhs again"
+            //     );
+            //     //save the results
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
+            //         "save the results back to lhs"
+            //     );
 
-                result.add_commented_instruction(
-                    AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
-                    "leave the result in acc"
-                );
-            }
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
+            //         "leave the result in acc"
+            //     );
+            // }
 
-            BinaryExpressionOperator::SubtractionCombination => {
-                let promoted_type = ();
-                let promoted_size = ();
-                result.add_comment("addition combination (+=)");
+            // BinaryExpressionOperator::SubtractionCombination => {
+            //     let promoted_type = ();
+            //     let promoted_size = ();
+            //     result.add_comment("addition combination (+=)");
 
-                // *a++ += b is not the same as *a++ = *a++ + b because a might be incremented once or twice
-                // so I need a custom implementation
-                let lhs_type = self.lhs.get_type(asm_data);
-                let rhs_type = self.rhs.get_type(asm_data);
+            //     // *a++ += b is not the same as *a++ = *a++ + b because a might be incremented once or twice
+            //     // so I need a custom implementation
+            //     let lhs_type = self.lhs.get_type(asm_data);
+            //     let rhs_type = self.rhs.get_type(asm_data);
 
-                let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&lhs_ptr_asm);//put pointer to lhs in acc
-                //save the pointer
-                let lhs_ptr_temporary_address = stack_data.allocate(PTR_SIZE);
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: PTR_SIZE
-                });
+            //     let lhs_ptr_asm = self.lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+            //     result.merge(&lhs_ptr_asm);//put pointer to lhs in acc
+            //     //save the pointer
+            //     let lhs_ptr_temporary_address = stack_data.allocate(PTR_SIZE);
+            //     result.add_instruction(AsmOperation::MOV {
+            //         to: RegOrMem::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+            //         from: Operand::GPReg(GPRegister::acc()),
+            //         size: PTR_SIZE
+            //     });
 
-                //calculate and cast rhs value
-                let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                let rhs_cast_asm = cast_from_acc(&rhs_type, &lhs_type, asm_data);
-                result.merge(&rhs_asm);
-                result.merge(&rhs_cast_asm);//cast to lhs as that will be incremented
+            //     //calculate and cast rhs value
+            //     let rhs_asm = self.rhs.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+            //     let rhs_cast_asm = cast_from_acc(&rhs_type, &lhs_type, asm_data);
+            //     result.merge(&rhs_asm);
+            //     result.merge(&rhs_cast_asm);//cast to lhs as that will be incremented
 
-                if let DataType::POINTER(_) = lhs_type.decay() {
-                    //you can only add pointer and number here, as per the C standard
-                    let lhs_deref_size = lhs_type.remove_outer_modifier().memory_size(asm_data);
+            //     if let DataType::POINTER(_) = lhs_type.decay() {
+            //         //you can only add pointer and number here, as per the C standard
+            //         let lhs_deref_size = lhs_type.remove_outer_modifier().memory_size(asm_data);
 
-                    result.add_comment(format!("lhs is a pointer. make rhs {} times bigger", lhs_deref_size.size_bytes()));
+            //         result.add_comment(format!("lhs is a pointer. make rhs {} times bigger", lhs_deref_size.size_bytes()));
 
-                    //get the size of value pointed to by rhs
-                    result.add_instruction(AsmOperation::MOV {
-                        to: RegOrMem::GPReg(GPRegister::_CX),
-                        from: Operand::Imm(lhs_deref_size.as_imm()),
-                        size: MemorySize::from_bytes(8),
-                    });
+            //         //get the size of value pointed to by rhs
+            //         result.add_instruction(AsmOperation::MOV {
+            //             to: RegOrMem::GPReg(GPRegister::_CX),
+            //             from: Operand::Imm(lhs_deref_size.as_imm()),
+            //             size: MemorySize::from_bytes(8),
+            //         });
 
-                    //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
-                    result.add_instruction(AsmOperation::MUL {
-                        multiplier: RegOrMem::GPReg(GPRegister::_CX),
-                        data_type: lhs_type.decay_to_primative(),//rhs has been promoted to lhs's type
-                    });
+            //         //multiply lhs by the size of value pointed to by rhs, so that +1 would skip along 1 value, not 1 byte
+            //         result.add_instruction(AsmOperation::MUL {
+            //             multiplier: RegOrMem::GPReg(GPRegister::_CX),
+            //             data_type: lhs_type.decay_to_primative(),//rhs has been promoted to lhs's type
+            //         });
                     
-                }
+            //     }
 
-                //put RHS in secondary
-                result.add_commented_instruction(
-                    AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: MemorySize::from_bytes(8)},
-                    "put RHS in secondary"
-                );
+            //     //put RHS in secondary
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: MemorySize::from_bytes(8)},
+            //         "put RHS in secondary"
+            //     );
 
-                // put a pointer to lhs to acc
-                result.add_commented_instruction(
-                    AsmOperation::MOV { 
-                        to: RegOrMem::GPReg(GPRegister::acc()),
-                        from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
-                        size: PTR_SIZE
-                    },
-                    "put a pointer to lhs in acc"
-                );
-                //dereference the pointer
-                result.add_commented_instruction(
-                    AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::acc()), 
-                        from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc()}),
-                        size: lhs_type.memory_size(asm_data)
-                    },
-                    "dereference pointer to lhs"
-                );
-                //increment lhs by rhs
-                result.add_commented_instruction(AsmOperation::SUB {
-                    decrement: Operand::GPReg(GPRegister::secondary()),
-                    data_type: lhs_type.decay_to_primative()
-                }, "increment lhs by rhs");
-                //put the addition result in secondary
-                result.add_commented_instruction(
-                    AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: lhs_type.memory_size(asm_data) },
-                    "move the result to secondary"
-                );
+            //     // put a pointer to lhs to acc
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { 
+            //             to: RegOrMem::GPReg(GPRegister::acc()),
+            //             from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+            //             size: PTR_SIZE
+            //         },
+            //         "put a pointer to lhs in acc"
+            //     );
+            //     //dereference the pointer
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV {
+            //         to: RegOrMem::GPReg(GPRegister::acc()), 
+            //             from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc()}),
+            //             size: lhs_type.memory_size(asm_data)
+            //         },
+            //         "dereference pointer to lhs"
+            //     );
+            //     //increment lhs by rhs
+            //     result.add_commented_instruction(AsmOperation::SUB {
+            //         decrement: Operand::GPReg(GPRegister::secondary()),
+            //         data_type: lhs_type.decay_to_primative()
+            //     }, "increment lhs by rhs");
+            //     //put the addition result in secondary
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::secondary()), from: Operand::GPReg(GPRegister::acc()), size: lhs_type.memory_size(asm_data) },
+            //         "move the result to secondary"
+            //     );
 
-                //get a pointer to lhs again
-                result.add_commented_instruction(
-                    AsmOperation::MOV { 
-                        to: RegOrMem::GPReg(GPRegister::acc()),
-                        from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
-                        size: PTR_SIZE
-                    },
-                    "get a pointer to lhs again"
-                );
-                //save the results
-                result.add_commented_instruction(
-                    AsmOperation::MOV { to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
-                    "save the results back to lhs"
-                );
+            //     //get a pointer to lhs again
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { 
+            //             to: RegOrMem::GPReg(GPRegister::acc()),
+            //             from: Operand::Mem(MemoryOperand::SubFromBP(lhs_ptr_temporary_address)),
+            //             size: PTR_SIZE
+            //         },
+            //         "get a pointer to lhs again"
+            //     );
+            //     //save the results
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
+            //         "save the results back to lhs"
+            //     );
 
-                result.add_commented_instruction(
-                    AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
-                    "leave the result in acc"
-                );
-            }
+            //     result.add_commented_instruction(
+            //         AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::acc()), from: Operand::GPReg(GPRegister::secondary()), size: lhs_type.memory_size(asm_data) },
+            //         "leave the result in acc"
+            //     );
+            // }
 
             _ => panic!("assignment must be done beforehand")
         }
 
-        result
+        (result, Some(resultant_location))
     }
 }
 

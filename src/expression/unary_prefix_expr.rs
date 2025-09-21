@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, Operand, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, generate_ir_traits::GetType, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::{immediate::{ToImmediate}, memory_operand::MemoryOperand, register::GPRegister, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir_traits::GetType, number_literal::typed_value::NumberLiteral};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
@@ -17,198 +17,200 @@ impl UnaryPrefixExpression {
     pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
         let mut result = Assembly::make_empty();
 
-        match self.operator {
-            UnaryPrefixOperator::Reference => {
-                result.add_comment("getting address of something");
-                //put address of the right hand side in acc
-                let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_ref_asm);
-            },
-            UnaryPrefixOperator::Dereference => {
-                result.add_comment("dereferencing pointer");
-                // put the address pointed to in rax
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_asm);
+        todo!();
 
-                if let DataType::ARRAY {..} = self.get_data_type(asm_data) {
-                    //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
-                } else {
-                    result.add_instruction(AsmOperation::MOV {
-                        to: RegOrMem::GPReg(GPRegister::acc()),
-                        from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
-                        size: PTR_SIZE
-                    });//dereference pointer
-                }
-            },
-            UnaryPrefixOperator::Negate => {
-                result.add_comment("negating something");
+        // match self.operator {
+        //     UnaryPrefixOperator::Reference => {
+        //         result.add_comment("getting address of something");
+        //         //put address of the right hand side in acc
+        //         let operand_ref_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_ref_asm);
+        //     },
+        //     UnaryPrefixOperator::Dereference => {
+        //         result.add_comment("dereferencing pointer");
+        //         // put the address pointed to in rax
+        //         let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_asm);
 
-                let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.get_type(asm_data);
+        //         if let DataType::ARRAY {..} = self.get_data_type(asm_data) {
+        //             //dereferencing results in an array, so I leave the address in RAX for future indexing etc.
+        //         } else {
+        //             result.add_instruction(AsmOperation::MOV {
+        //                 to: RegOrMem::GPReg(GPRegister::acc()),
+        //                 from: Operand::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
+        //                 size: PTR_SIZE
+        //             });//dereference pointer
+        //         }
+        //     },
+        //     UnaryPrefixOperator::Negate => {
+        //         result.add_comment("negating something");
 
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
-                result.merge(&operand_asm);
-                result.merge(&cast_asm);//cast to the correct type
+        //         let promoted_type = self.get_data_type(asm_data);
+        //         let original_type = self.operand.get_type(asm_data);
 
-                unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_base)) = promoted_type);
-                result.add_instruction(AsmOperation::NEG { data_type: promoted_base });//negate the promoted value
-            },
-            UnaryPrefixOperator::UnaryPlus => {
-                result.add_comment("unary +");
+        //         let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+        //         let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
+        //         result.merge(&operand_asm);
+        //         result.merge(&cast_asm);//cast to the correct type
 
-                let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.get_type(asm_data);
+        //         unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_base)) = promoted_type);
+        //         result.add_instruction(AsmOperation::NEG { data_type: promoted_base });//negate the promoted value
+        //     },
+        //     UnaryPrefixOperator::UnaryPlus => {
+        //         result.add_comment("unary +");
 
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
-                result.merge(&operand_asm);
-                result.merge(&cast_asm);//promote the type
+        //         let promoted_type = self.get_data_type(asm_data);
+        //         let original_type = self.operand.get_type(asm_data);
+
+        //         let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+        //         let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);
+        //         result.merge(&operand_asm);
+        //         result.merge(&cast_asm);//promote the type
                 
-            },
-            UnaryPrefixOperator::Increment => {
+        //     },
+        //     UnaryPrefixOperator::Increment => {
 
-                let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.get_type(asm_data);
+        //         let promoted_type = self.get_data_type(asm_data);
+        //         let original_type = self.operand.get_type(asm_data);
 
-                let increment_amount = match &original_type {
-                    DataType::UNKNOWNSIZEARRAY { .. } |
-                    DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+        //         let increment_amount = match &original_type {
+        //             DataType::UNKNOWNSIZEARRAY { .. } |
+        //             DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
                     
-                    DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
-                    DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
-                    _ => panic!("cannot increment this")
-                };
+        //             DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//increment pointer adds number of bytes
+        //             DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
+        //             _ => panic!("cannot increment this")
+        //         };
 
-                //push &self.operand
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_asm);
-                //allocate temporary lhs storage
-                let operand_address_storage = stack_data.allocate(PTR_SIZE);
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: PTR_SIZE
-                });
+        //         //push &self.operand
+        //         let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_asm);
+        //         //allocate temporary lhs storage
+        //         let operand_address_storage = stack_data.allocate(PTR_SIZE);
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: PTR_SIZE
+        //         });
 
-                //put self.operand in acc
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_asm);
+        //         //put self.operand in acc
+        //         let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_asm);
 
-                //increment self.operand (in acc) as original type, so that it can be stored correctly afterwards
-                result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(increment_amount), data_type: original_type.decay_to_primative() });
+        //         //increment self.operand (in acc) as original type, so that it can be stored correctly afterwards
+        //         result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(increment_amount), data_type: original_type.decay_to_primative() });
 
-                //pop &self.operand to RCX
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::secondary()),
-                    from: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
-                    size: PTR_SIZE
-                });
+        //         //pop &self.operand to RCX
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::secondary()),
+        //             from: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
+        //             size: PTR_SIZE
+        //         });
 
-                //save the new value of self.operand
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: original_type.memory_size(asm_data)
-                });
+        //         //save the new value of self.operand
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: original_type.memory_size(asm_data)
+        //         });
 
-                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to the correct type
-                result.merge(&cast_asm);
+        //         let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to the correct type
+        //         result.merge(&cast_asm);
 
-            }, 
+        //     }, 
 
-            UnaryPrefixOperator::Decrement => {
-                //TODO this code is duplicated from PLUSPLUS
+        //     UnaryPrefixOperator::Decrement => {
+        //         //TODO this code is duplicated from PLUSPLUS
 
-                let promoted_type = self.get_data_type(asm_data);
-                let original_type = self.operand.get_type(asm_data);
+        //         let promoted_type = self.get_data_type(asm_data);
+        //         let original_type = self.operand.get_type(asm_data);
 
-                let increment_amount = match &original_type {
-                    DataType::UNKNOWNSIZEARRAY { .. } |
-                    DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
+        //         let increment_amount = match &original_type {
+        //             DataType::UNKNOWNSIZEARRAY { .. } |
+        //             DataType::ARRAY {..} => panic!("this operation is invalid for arrays"),
 
-                    DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//decrement by number of bytes
-                    DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
-                    _ => panic!("cannot decrement this")
-                };
+        //             DataType::POINTER(underlying) => underlying.memory_size(asm_data).as_imm(),//decrement by number of bytes
+        //             DataType::RAW(BaseType::Scalar(original_base)) => NumberLiteral::INTEGER { data: 1, data_type: IntegerType::I32 }.cast(original_base).as_imm(),
+        //             _ => panic!("cannot decrement this")
+        //         };
 
-                //push &self.operand
-                let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_asm);
-                //allocate temporary lhs storage
-                let operand_address_storage = stack_data.allocate(PTR_SIZE);
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: PTR_SIZE
-                });
+        //         //push &self.operand
+        //         let operand_asm = self.operand.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_asm);
+        //         //allocate temporary lhs storage
+        //         let operand_address_storage = stack_data.allocate(PTR_SIZE);
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: PTR_SIZE
+        //         });
 
-                //put self.operand in acc
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_asm);
+        //         //put self.operand in acc
+        //         let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_asm);
 
-                //decrement self.operand (in acc) as original type, so that it can be stored correctly afterwards
-                result.add_instruction(AsmOperation::SUB {decrement: Operand::Imm(increment_amount), data_type: original_type.decay_to_primative() });
+        //         //decrement self.operand (in acc) as original type, so that it can be stored correctly afterwards
+        //         result.add_instruction(AsmOperation::SUB {decrement: Operand::Imm(increment_amount), data_type: original_type.decay_to_primative() });
 
-                //pop &self.operand to RCX
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::GPReg(GPRegister::secondary()),
-                    from: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
-                    size: PTR_SIZE
-                });
+        //         //pop &self.operand to RCX
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::GPReg(GPRegister::secondary()),
+        //             from: Operand::Mem(MemoryOperand::SubFromBP(operand_address_storage)),
+        //             size: PTR_SIZE
+        //         });
 
-                //save the new value of self.operand
-                result.add_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
-                    from: Operand::GPReg(GPRegister::acc()),
-                    size: original_type.memory_size(asm_data)
-                });
+        //         //save the new value of self.operand
+        //         result.add_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::secondary() }),
+        //             from: Operand::GPReg(GPRegister::acc()),
+        //             size: original_type.memory_size(asm_data)
+        //         });
 
-                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to the correct type
-                result.merge(&cast_asm);
+        //         let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to the correct type
+        //         result.merge(&cast_asm);
 
-            },
+        //     },
 
-            UnaryPrefixOperator::BooleanNot => {
-                result.add_comment("boolean not");
+        //     UnaryPrefixOperator::BooleanNot => {
+        //         result.add_comment("boolean not");
 
-                let original_type = self.operand.get_type(asm_data).decay_to_primative();
+        //         let original_type = self.operand.get_type(asm_data).decay_to_primative();
 
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                result.merge(&operand_asm);
-                //cast to boolean
-                result.add_instruction(AsmOperation::CAST {
-                    from_type: original_type,
-                    to_type: ScalarType::Integer(IntegerType::_BOOL)
-                });
+        //         let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+        //         result.merge(&operand_asm);
+        //         //cast to boolean
+        //         result.add_instruction(AsmOperation::CAST {
+        //             from_type: original_type,
+        //             to_type: ScalarType::Integer(IntegerType::_BOOL)
+        //         });
 
-                //compare the boolean to zero
-                result.add_instruction(AsmOperation::CMP {
-                    rhs: Operand::Imm(ImmediateValue("0".to_string())),
-                    data_type: ScalarType::Integer(IntegerType::_BOOL),
-                });
+        //         //compare the boolean to zero
+        //         result.add_instruction(AsmOperation::CMP {
+        //             rhs: Operand::Imm(ImmediateValue("0".to_string())),
+        //             data_type: ScalarType::Integer(IntegerType::_BOOL),
+        //         });
 
-                //set 1 if equal to 0 or vice-versa
-                result.add_instruction(AsmOperation::SETCC {
-                    comparison: AsmComparison::EQ,//set to 1 if it was previously equal to 0
-                });
-            },
+        //         //set 1 if equal to 0 or vice-versa
+        //         result.add_instruction(AsmOperation::SETCC {
+        //             comparison: AsmComparison::EQ,//set to 1 if it was previously equal to 0
+        //         });
+        //     },
 
-            UnaryPrefixOperator::BitwiseNot => {
-                result.add_comment("bitwise not");
-                let promoted_type = self.get_data_type(asm_data);
+        //     UnaryPrefixOperator::BitwiseNot => {
+        //         result.add_comment("bitwise not");
+        //         let promoted_type = self.get_data_type(asm_data);
 
-                let original_type = self.operand.get_type(asm_data);
+        //         let original_type = self.operand.get_type(asm_data);
 
-                let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
-                let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to boolean
-                result.merge(&operand_asm);
-                result.merge(&cast_asm);//cast to the correct type
+        //         let operand_asm = self.operand.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data});
+        //         let cast_asm = cast_from_acc(&original_type, &promoted_type, asm_data);//cast to boolean
+        //         result.merge(&operand_asm);
+        //         result.merge(&cast_asm);//cast to the correct type
 
-                //flip accumulator bits
-                result.add_instruction(AsmOperation::BitwiseNot);
-            }
-        }
+        //         //flip accumulator bits
+        //         result.add_instruction(AsmOperation::BitwiseNot);
+        //     }
+        // }
 
         result
     }

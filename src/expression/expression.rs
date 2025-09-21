@@ -1,7 +1,6 @@
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
-use memory_size::MemorySize;
-use crate::{ array_initialisation::ArrayInitialisation, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, Storage, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::{expr_visitor::ExprVisitor, reference_assembly_visitor::ReferenceVisitor}, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, generate_ir_traits::{GenerateIR, GetAddress, GetType}, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
+use crate::{ array_initialisation::ArrayInitialisation, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Storage, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::expr_visitor::ExprVisitor, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, generate_ir_traits::{GenerateIR, GetAddress, GetType}, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -72,7 +71,7 @@ impl GetType for Expression {
     }
 }
 impl GetAddress for Expression {
-    fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemValue) {
+    fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, StackItemKey) {
         todo!()
     }
 }
@@ -236,10 +235,11 @@ pub fn promote(location: StackItemKey, original: DataType, promoted_type: DataTy
     (op, result)
 }
 
-pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, StackItemKey) {
+/// Returns assembly to handle the assignment and a copy of the data assigned (rhs value promoted to lhs type)
+pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<StackItemKey>) {
     let mut result = Assembly::make_empty();
 
-    let promoted_type = lhs.get_type(asm_data);
+    let promoted_type = lhs.get_type(asm_data);//TODO inline into match statement
 
     match (&promoted_type, rhs) {
         //initialising array to string literal
@@ -250,6 +250,8 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
                 &DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::I8))),
                 asm_data, stack_data, global_asm_data
             ));
+
+            (result, None)
         },
 
         //initialising array to array literal
@@ -257,13 +259,14 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             //convert int x[2][2] to int x[4] for easy assigning of values
             unwrap_let!(DataType::ARRAY { element: array_element_type, .. } = promoted_type.flatten_nested_array());
             result.merge(&assembly_for_array_assignment(lhs, array_init.zero_fill_and_flatten_to_iter(&promoted_type), array_element_type.as_ref(), asm_data, stack_data, global_asm_data));
+
+            (result, None)
         },
 
         (DataType::ARRAY { .. }, x) => panic!("tried to set {:?} to {:?}", lhs, x),
 
         (data_type, _) => {
-            assert!(data_type.memory_size(asm_data).size_bytes() <= 8);
-            //maybe more special cases for struct assignment etc
+            //maybe more special cases for struct assignment etc?
 
             //put address of lvalue on stack
             let (lhs_asm, lhs_addr_ptr) = lhs.get_address(asm_data, stack_data, global_asm_data);
@@ -271,7 +274,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             
             //put the value to assign in acc, and cast to correct type
             let (rhs_asm, rhs_value) = rhs.generate_ir(asm_data, stack_data, global_asm_data);
-            let (rhs_cast_asm, rhs_casted_value) = promote(rhs_value.unwrap(), rhs.get_type(asm_data), promoted_type, stack_data, asm_data);
+            let (rhs_cast_asm, rhs_casted_value) = promote(rhs_value.unwrap(), rhs.get_type(asm_data), promoted_type.clone(), stack_data, asm_data);
             result.merge(&rhs_asm);
             result.add_instruction(rhs_cast_asm);
 
@@ -279,65 +282,61 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 
             //save to memory
             result.add_instruction(AsmOperation::MOV {
-                from: ,
-                to: todo!(),
-                size: todo!(),
+                from: Storage::Stack(rhs_casted_value),
+                to: Storage::IndirectAddress(lhs_addr_ptr),
+                size: promoted_type.memory_size(asm_data),
             });
-            result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::Mem(MemoryOperand::MemoryAddress {pointer_reg: GPRegister::secondary()} ),
-                from: Operand::GPReg(GPRegister::acc()), 
-                size: promoted_type.memory_size(asm_data)
-            });
+
+            (result, Some(rhs_casted_value))
         },
     }
-
-    result
 }
 
+/// Assigns `array_items` to `lhs`, where each item is of type `array_element_type`
 fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, array_element_type: &DataType, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
     let mut result = Assembly::make_empty();
     let array_element_size = array_element_type.memory_size(asm_data);
 
     //get address of destination array
-    let lhs_addr_asm = lhs.accept(&mut ReferenceVisitor {asm_data, stack_data, global_asm_data});
+    let (lhs_addr_asm, lhs_addr_ptr) = lhs.get_address(asm_data, stack_data, global_asm_data);
     result.merge(&lhs_addr_asm);
 
-    //TODO replace reference visitor with something proper
+    //this stores the address of the to-be initialised element
+    let lhs_current = stack_data.allocate(PTR_SIZE);
+    result.add_instruction(AsmOperation::MOV {
+        from: Storage::Stack(lhs_addr_ptr),
+        to: Storage::Stack(lhs_current),
+        size: PTR_SIZE,
+    });
 
     //this generates the following c-style code to assign the array literal to the destination array
     //for 2d arrays, this code reinteprets it as a 1d array, using zero_fill_and_flatten_to_iter which flattens to 1d array
+    //T* lhs_current = array;
     //for(int i=0;i<array_size;i++){
-    //  array[i] = array_literal[i];
+    //  T item_value = array_literal[i]
+    //  *lhs_current = item_value;
+    //  lhs_current++;
     //}
     for (i, item) in array_items.iter().enumerate() {
 
-        //generate the item and store in secondary
-        result.merge(&item.accept(&mut ScalarInAccVisitor {asm_data, stack_data, global_asm_data}));
-        result.add_instruction(AsmOperation::MOV {
-            to: RegOrMem::GPReg(GPRegister::secondary()),
-            from: Operand::GPReg(GPRegister::acc()),
-            size: item.get_type(asm_data).memory_size(asm_data),
-        });
+        //generate the item and store in `item_value`
+        let (item_assignment, item_value) = item.generate_ir(asm_data, stack_data, global_asm_data);
+        result.merge(&item_assignment);
 
-        //get address of the start of the array
-        result.add_instruction(AsmOperation::MOV {
-            to: RegOrMem::GPReg(GPRegister::acc()),
-            from: Operand::Mem(MemoryOperand::SubFromBP(lhs_addr_storage)),
-            size: PTR_SIZE,
-        });
-
-        let array_start_offset = MemorySize::from_bytes(i as u64 * array_element_size.size_bytes());//how many bytes from the start of the array is the item
-        //add the index to it: (void*)ndarray + i
-        result.add_instruction(AsmOperation::ADD {
-            increment: Operand::Imm(array_start_offset.as_imm()),
-            data_type: ScalarType::Integer(IntegerType::U64),
-        });
-
+        //place `item_value` in the next array index to be initialised
         result.add_commented_instruction(AsmOperation::MOV {
-            to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
-            from: Operand::GPReg(GPRegister::secondary()),
+            from: Storage::Stack(item_value.unwrap()),
+            to: Storage::IndirectAddress(lhs_current),
             size: array_element_size,
         }, format!("initialising element {} of array", i));
+
+        //increment lhs_current
+        result.add_instruction(AsmOperation::ADD {
+            lhs: Storage::Stack(lhs_current),
+            rhs: Storage::Constant(array_element_size.as_imm()),
+            to: Storage::Stack(lhs_current),
+            data_type: ScalarType::Integer(IntegerType::U64),
+        });
     }
 
     result
