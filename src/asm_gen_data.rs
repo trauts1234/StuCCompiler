@@ -17,7 +17,7 @@ pub struct AddressedDeclaration {
 pub struct AsmData {
     variables: Vec<(String, AddressedDeclaration)>,
     return_type: DataType,
-    return_location: ReturnLocation,
+    return_location: Option<ReturnLocation>,
     struct_list: Vec<(StructIdentifier, StructDefinition)>,//needs to be ordered since some structs need previously declared structs as members
     union_list: Vec<(UnionIdentifier, UnionDefinition)>,
     break_label: Option<Label>,//which label to jump to on a "break;" statement
@@ -68,7 +68,7 @@ impl GlobalAsmData {
 }
 
 impl AsmData {
-    pub fn for_new_function(global_asm_data: &GlobalAsmData, parse_data: &ParseData, current_function_return_type: DataType, current_function_return_addr: ReturnLocation, stack_data: &mut SimpleStackFrame) -> AsmData {
+    pub fn for_new_function(global_asm_data: &GlobalAsmData, parse_data: &ParseData, current_function_return_type: DataType, current_function_return_addr: Option<ReturnLocation>, stack_data: &mut SimpleStackFrame) -> AsmData {
         let mut result = Self {
             variables: global_asm_data.global_variables.clone(),
             return_type: current_function_return_type,

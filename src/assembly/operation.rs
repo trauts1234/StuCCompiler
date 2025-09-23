@@ -1,7 +1,7 @@
 use std::fmt::Display;
-use crate::{assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{args_handling::location_allocation::{AllocatedLocation, EightByteLocation, ReturnLocation}, assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use memory_size::MemorySize;
-use stack_management::baked_stack_frame::BakedSimpleStackFrame;
+use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
 use super::{operand::PTR_SIZE};
 
 //TODO dump to registers and save from registers
@@ -59,16 +59,71 @@ pub enum AsmOperation {
     /// also (implicitly) deallocates variables on the stack
     DestroyStackFrame,
     /// Pops the return address from the stack using the `ret` instruction
-    Return,
-    /// Subtracts MemorySize bytes from RSP
-    AllocateStack(MemorySize),
-    /// adds MemorySize bytes to RSP
-    DeallocateStack(MemorySize),
+    /// 
+    /// Puts the return value (or hidden pointer) in correct registers
+    Return {return_data: Option<(ReturnLocation, Storage)>},
     ///calls a subroutine (you must handle the parameters though)
-    CALL {label: String},
+    /// 
+    /// - Sets up registers and the stack correctly
+    /// - 
+    /// 
+    /// TODO should this call a Storage ?
+    CALL {label: String, params: Vec<ParamData>, return_data: Option<ReturnData>},
+
+    ReadParams {regs: Vec<ReadParamFromReg>, mem: Vec<ReadParamFromMem>},
 
     ///not even a nop, just a blank line of assembly
     BLANK,
+}
+
+#[derive(Clone)]
+pub struct ReadParamFromReg {
+    /// Where the param is coming from
+    pub eightbyte_locations: Vec<EightByteLocation>,
+    /// How big the param is
+    pub param_size: MemorySize,
+    /// Where the param should be dumped into
+    pub param_destination: StackItemKey
+}
+
+#[derive(Clone)]
+pub struct ReadParamFromMem {
+    /// How big the param is
+    pub param_size: MemorySize,
+    /// Where the param should be dumped into
+    pub param_destination: StackItemKey
+}
+
+#[derive(Clone)]
+pub struct ParamData {
+    /// Where the arg value is
+    pub data: Storage,
+    /// size of the param
+    pub data_size: MemorySize,
+    /// where the data should be put
+    pub location: AllocatedLocation,
+}
+
+#[derive(Clone)]
+pub struct ReturnData {
+    /// Where the return value will come from
+    pub return_location_info: ReturnLocation,
+    /// hidden pointer or not, allocate memory for the return value to go in
+    pub return_location: StackItemKey,
+    /// Must be aligned up to 8 bytes, so that whole 8 byte registers can be moved
+    /// 
+    /// TODO can this requirement be relaxed with some bit shifting magic
+    pub return_location_size: MemorySize,
+}
+
+#[derive(Clone)]
+pub struct MemoryArg {
+    /// What data to put as a memory arg
+    pub value: Storage,
+    /// What to add to rsp to find the destination of the arg
+    pub sp_offset: MemorySize,
+    /// How many bytes to copy
+    pub size: MemorySize
 }
 
 #[derive(Clone)]

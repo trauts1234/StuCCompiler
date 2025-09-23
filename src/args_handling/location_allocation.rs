@@ -1,6 +1,6 @@
 use memory_size::MemorySize;
 
-use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, asm_gen_data::GetStructUnion, assembly::operand::register::{GPRegister, MMRegister}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
+use crate::{args_handling::location_classification::{PreferredParamLocation, StructEightbytePreferredLocation}, asm_gen_data::GetStructUnion, assembly::operand::{register::{GPRegister, MMRegister}, Storage}, data_type::{base_type::BaseType, recursive_data_type::DataType}};
 
 const MAX_GP_REGS: u64 = 6;
 const MAX_XMM_REGS: u64 = 8;
@@ -19,26 +19,40 @@ pub enum AllocatedLocation {
     Memory,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum ReturnLocation {
     InRegs(Vec<EightByteLocation>),
-    // pointer to the return data is stored at [rbp-pointer_bp_offset]
-    InMemory {pointer_bp_offset: MemorySize},
-    ReturnsVoid,
+    HiddenPointer,
 }
 
 
-pub fn generate_param_and_return_locations<'a, ArgIter>(arg_types: ArgIter, return_type: &DataType, get_struct_union: &dyn GetStructUnion) -> (ReturnLocation, Vec<AllocatedLocation>)
+pub fn generate_param_and_return_locations<'a, ArgIter>(arg_types: ArgIter, return_type: &DataType, get_struct_union: &dyn GetStructUnion) -> (Option<ReturnLocation>, Vec<AllocatedLocation>)
 where ArgIter: IntoIterator<Item = &'a DataType>
 {
     let mut arg_alloc = ArgAllocator::default();
 
-    let return_loc = 
+    let return_loc = generate_only_return_location(return_type, get_struct_union);
+    if return_loc == Some(ReturnLocation::HiddenPointer) {
+        arg_alloc.integer_regs_used += 1;//first register is a hidden pointer
+        todo!();
+    }
+    
+
+    let params_loc = 
+        arg_types.into_iter()
+        .map(|arg_type| arg_alloc.allocate(PreferredParamLocation::param_from_type(arg_type, get_struct_union)))
+        .collect();
+        
+
+    (return_loc, params_loc)
+}
+
+pub fn generate_only_return_location(return_type: &DataType, get_struct_union: &dyn GetStructUnion) -> Option<ReturnLocation> {
     if *return_type == DataType::RAW(BaseType::VOID) {
-        ReturnLocation::ReturnsVoid// to prevent param_from_type from crashing
+        None// to prevent param_from_type from crashing
     } else {
         //calculate where the return value should go
-        match PreferredParamLocation::param_from_type(return_type, get_struct_union) {
+        Some(match PreferredParamLocation::param_from_type(return_type, get_struct_union) {
             //scalar - just return in the correct register
             PreferredParamLocation::InGP => ReturnLocation::InRegs(vec![EightByteLocation::GP(GPRegister::_AX)]),
             PreferredParamLocation::InMMX => ReturnLocation::InRegs(vec![EightByteLocation::XMM(MMRegister::XMM0)]),
@@ -49,21 +63,9 @@ where ArgIter: IntoIterator<Item = &'a DataType>
                 (StructEightbytePreferredLocation::InMMX, StructEightbytePreferredLocation::InGP) => vec![EightByteLocation::XMM(MMRegister::XMM0), EightByteLocation::GP(GPRegister::_AX)],
                 (StructEightbytePreferredLocation::InMMX, StructEightbytePreferredLocation::InMMX) => vec![EightByteLocation::XMM(MMRegister::XMM0), EightByteLocation::XMM(MMRegister::XMM1)],
             }),
-            // here it is more tricky
-            PreferredParamLocation::InMemory => {
-                arg_alloc.integer_regs_used += 1;//first register is a hidden pointer
-                todo!()
-            },
-        }
-    };
-
-    let params_loc = 
-        arg_types.into_iter()
-        .map(|arg_type| arg_alloc.allocate(PreferredParamLocation::param_from_type(arg_type, get_struct_union)))
-        .collect();
-        
-
-    (return_loc, params_loc)
+            PreferredParamLocation::InMemory => ReturnLocation::HiddenPointer,
+        })
+    }
 }
     
 

@@ -1,6 +1,5 @@
-use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Operand, PTR_SIZE, STACK_ALIGN}, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ memory_operand::MemoryOperand, register::GPRegister, Storage, STACK_ALIGN}, operation::{AsmOperation, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -79,85 +78,81 @@ impl FunctionDefinition {
         let mut reg_args = Vec::new();
         let mut mem_args = Vec::new();
 
-        let mut memory_offset_tracker = MemorySize::new();
+        // let mut memory_offset_tracker = MemorySize::new();
         for param_idx in 0..self.decl.params.len() {
             let param = &self.decl.params[param_idx];//get metadata about param
             let param_size = param.data_type.memory_size(asm_data);//get size of param
 
-            let param_start_location = &args_locations[param_idx];
-            unwrap_let!(MemoryOperand::SubFromBP(param_end_location) = &asm_data.get_variable(&param.name).location);//get the location of where the param should *end up* since it gets moved to a new location
+            let param_start_location = args_locations[param_idx].clone();
+            unwrap_let!(MemoryOperand::SubFromBP(param_destination) = asm_data.get_variable(&param.name).location);//get the location of where the param should *end up* since it gets moved to a new location
 
             match param_start_location {
-                AllocatedLocation::Regs(eight_byte_locations) => 
-                    reg_args.push((eight_byte_locations, param_size, param_end_location, param_idx)),
+                AllocatedLocation::Regs(eightbyte_locations) => 
+                    reg_args.push(ReadParamFromReg{ eightbyte_locations, param_size, param_destination }),
                 AllocatedLocation::Memory => 
-                    mem_args.push((param_size, param_end_location, param_idx)),
+                    mem_args.push(ReadParamFromMem{ param_size, param_destination }),
             }
         }
 
-        //go through register args first, as they are very likely to be clobbered if I wait too long...
-        for (eight_byte_locations, param_size, param_end_location, param_idx) in reg_args {
-            let mut how_far_into_param = MemorySize::new();//when reading multiple regs, I need the results in sequential eightbytes
-            for (i,location) in eight_byte_locations.iter().enumerate() {
-                //if I am reading eightbytes in the middle of a struct, each eightbyte is obviously 8 bytes
-                //but the last eightbyte could just be a few bits remaining on a struct
-                let eightbyte_size = MemorySize::from_bytes(param_size.size_bytes() - 8*(i as u64))//remainder size = size of struct - eightbytes consumed
-                    .min(MemorySize::from_bytes(8));//but only up to eight bytes, to fit in a register
+        result.add_instruction(AsmOperation::ReadParams { regs: reg_args, mem: mem_args });
 
-                let from_reg = match location {
-                    EightByteLocation::GP(gpregister) => Operand::GPReg(*gpregister),
-                    EightByteLocation::XMM(mmregister) => Operand::MMReg(*mmregister),
-                };
+        // //go through register args first, as they are very likely to be clobbered if I wait too long...
+        // for (eight_byte_locations, param_size, param_end_location, param_idx) in reg_args {
+        //     let mut how_far_into_param = MemorySize::new();//when reading multiple regs, I need the results in sequential eightbytes
+        //     for (i,location) in eight_byte_locations.iter().enumerate() {
+        //         //if I am reading eightbytes in the middle of a struct, each eightbyte is obviously 8 bytes
+        //         //but the last eightbyte could just be a few bits remaining on a struct
+        //         let eightbyte_size = MemorySize::from_bytes(param_size.size_bytes() - 8*(i as u64))//remainder size = size of struct - eightbytes consumed
+        //             .min(MemorySize::from_bytes(8));//but only up to eight bytes, to fit in a register
 
-                //rax should be safe to clobber here...
-                result.add_instruction(AsmOperation::LEA { from: MemoryOperand::SubFromBP(*param_end_location)});
-                result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(how_far_into_param.as_imm()), data_type: ScalarType::Integer(IntegerType::U64) });
+        //         let from_reg = match location {
+        //             EightByteLocation::GP(gpregister) => Operand::GPReg(*gpregister),
+        //             EightByteLocation::XMM(mmregister) => Operand::MMReg(*mmregister),
+        //         };
 
-                result.add_commented_instruction(AsmOperation::MOV {
-                    to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
-                    from: from_reg,
-                    size: eightbyte_size
-                }, format!("moving reg arg to memory (param no.{} eightbyte no.{})", param_idx, i));
+        //         //rax should be safe to clobber here...
+        //         result.add_instruction(AsmOperation::LEA { from: MemoryOperand::SubFromBP(*param_end_location)});
+        //         result.add_instruction(AsmOperation::ADD { increment: Operand::Imm(how_far_into_param.as_imm()), data_type: ScalarType::Integer(IntegerType::U64) });
 
-                how_far_into_param += eightbyte_size;//write to next part of struct/union
-            }
-        }
-        // go through memory args last
-        for (param_size, param_end_location, param_idx) in mem_args {
-            let skip_stackframe_and_return_addr = MemorySize::from_bytes(16);// +8 to skip stack frame, +8 to skip return address, now points to first memory arg
+        //         result.add_commented_instruction(AsmOperation::MOV {
+        //             to: RegOrMem::Mem(MemoryOperand::MemoryAddress { pointer_reg: GPRegister::acc() }),
+        //             from: from_reg,
+        //             size: eightbyte_size
+        //         }, format!("moving reg arg to memory (param no.{} eightbyte no.{})", param_idx, i));
 
-            let arg_address_operand = MemoryOperand::PreviousStackFrame { add_to_rbp: skip_stackframe_and_return_addr + memory_offset_tracker };
-            memory_offset_tracker += param_size.align_up(&MemorySize::from_bytes(8));//args are padded, so keep track of the memory address here
+        //         how_far_into_param += eightbyte_size;//write to next part of struct/union
+        //     }
+        // }
+        // // go through memory args last
+        // for (param_size, param_end_location, param_idx) in mem_args {
+        //     let skip_stackframe_and_return_addr = MemorySize::from_bytes(16);// +8 to skip stack frame, +8 to skip return address, now points to first memory arg
 
-            result.add_commented_instruction(AsmOperation::LEA {
-                from: arg_address_operand,
-            }, format!("getting pointer to stack arg (param no.{})", param_idx));//grab pointer to data
-            result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_SI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
+        //     let arg_address_operand = MemoryOperand::PreviousStackFrame { add_to_rbp: skip_stackframe_and_return_addr + memory_offset_tracker };
+        //     memory_offset_tracker += param_size.align_up(&MemorySize::from_bytes(8));//args are padded, so keep track of the memory address here
 
-            result.add_commented_instruction(AsmOperation::LEA {//Hope this doesn't clobber DI
-                from: MemoryOperand::SubFromBP(*param_end_location),
-            }, format!("getting pointer to destination (param no.{})", param_idx));//grab pointer to resultant location
-            result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_DI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
+        //     result.add_commented_instruction(AsmOperation::LEA {
+        //         from: arg_address_operand,
+        //     }, format!("getting pointer to stack arg (param no.{})", param_idx));//grab pointer to data
+        //     result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_SI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
 
-            result.add_instruction(AsmOperation::MEMCPY { size: param_size });//copy the param
-        }
+        //     result.add_commented_instruction(AsmOperation::LEA {//Hope this doesn't clobber DI
+        //         from: MemoryOperand::SubFromBP(*param_end_location),
+        //     }, format!("getting pointer to destination (param no.{})", param_idx));//grab pointer to resultant location
+        //     result.add_instruction(AsmOperation::MOV { to: RegOrMem::GPReg(GPRegister::_DI), from: Operand::GPReg(GPRegister::acc()), size: PTR_SIZE });
+
+        //     result.add_instruction(AsmOperation::MEMCPY { size: param_size });//copy the param
+        // }
 
         result.merge(&code_for_body);
-
-        //destroy stack frame and return
-
-        if self.get_name() == "main" {
-            //main auto returns 0
-            result.add_instruction(AsmOperation::MOV {
-                to: RegOrMem::GPReg(GPRegister::acc()),
-                from: Operand::Imm(ImmediateValue("0".to_string())),
-                size: MemorySize::from_bytes(8)
-            });
-        }
         
         //destroy stack frame and return
         result.add_instruction(AsmOperation::DestroyStackFrame);
-        result.add_instruction(AsmOperation::Return);
+        if self.get_name() == "main" {
+            //main automatically returns 0
+            result.add_instruction(AsmOperation::Return{ return_data: Some((ReturnLocation::InRegs(vec![EightByteLocation::GP(GPRegister::acc())]), Storage::Constant(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I32 }))) });
+        } else {
+            result.add_instruction(AsmOperation::Return{ return_data: None });
+        }
 
         return (result, stack_data);
     }

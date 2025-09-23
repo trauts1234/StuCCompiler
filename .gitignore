@@ -11,3 +11,4 @@ main
 tests/c_testsuite
 tests/fujitsu_testsuite
 Cargo.lock
+count_diff_sizes.sh

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, generate_ir_traits::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{args_handling::location_allocation::generate_only_return_location, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::Storage, operation::AsmOperation}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, promote, Expression}, generate_ir_traits::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -50,32 +50,28 @@ impl GenerateIR for ControlFlowChange {
 
         match self {
             ControlFlowChange::RETURN(expression) => {
-                if let Some(expr) = expression {
-                    let (expr_asm, expr_location) = expr.generate_ir(asm_data, stack_data, global_asm_data);
-                    result.merge(&expr_asm);
+                let return_data = 
+                    expression
+                    .as_ref()
+                    .map(|expr| {
+                        //find out what type to return and metadata about it
+                        let return_type = asm_data.get_function_return_type();
+                        let return_location = generate_only_return_location(return_type, asm_data).unwrap();
+                        //generate the return value
+                        let (expr_asm, expr_location) = expr.generate_ir(asm_data, stack_data, global_asm_data);
+                        result.merge(&expr_asm);
+                        //cast to resultant type
+                        let (cast_asm, cast_result) = promote(expr_location.unwrap(), expr.get_type(asm_data), return_type.clone(), stack_data, asm_data);
+                        result.add_instruction(cast_asm);
+                        //have the IR deal with where to put the result
+                        (return_location, Storage::Stack(cast_result))
+                    });
 
-                    match expr.get_type(asm_data) {
-                        DataType::ARRAY {..} => panic!("tried to return array from function!"),
-                        expr_type => match expr_type {
-                            DataType::RAW(BaseType::Struct(struct_name)) => {
-                                todo!("returning struct {:?} from function", struct_name)
-                            }
-                            DataType::RAW(BaseType::Union(union_name)) => {
-                                todo!("returning union {:?} from function", union_name);
-                            }
-                            x => {
-                                // //put the value in the accumulator
-                                // let cast_asm = cast_from_acc(&x, asm_data.get_function_return_type(), asm_data);
-                                // result.merge(&cast_asm);
-                                todo!("cast return value then put in rax")
-                            }
-                        },
-                    }
-
-                }
                 //destroy stack frame and return
                 result.add_instruction(AsmOperation::DestroyStackFrame);
-                result.add_instruction(AsmOperation::Return);
+                result.add_instruction(AsmOperation::Return {
+                    return_data,
+                });
             },
             ControlFlowChange::BREAK => {
                 let label = asm_data.get_break_label().expect("break statement outside of a loop");
