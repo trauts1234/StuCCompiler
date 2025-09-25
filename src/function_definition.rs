@@ -1,5 +1,5 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ memory_operand::MemoryOperand, register::GPRegister, Storage, STACK_ALIGN}, operation::{AsmOperation, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ memory_operand::MemoryOperand, register::GPRegister, Storage, STACK_ALIGN}, operation::{AsmOperation, CalleeReturnData, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -149,7 +149,12 @@ impl FunctionDefinition {
         result.add_instruction(AsmOperation::DestroyStackFrame);
         if self.get_name() == "main" {
             //main automatically returns 0
-            result.add_instruction(AsmOperation::Return{ return_data: Some((ReturnLocation::InRegs(vec![EightByteLocation::GP(GPRegister::acc())]), Storage::Constant(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I32 }))) });
+            result.add_instruction(AsmOperation::Return{
+                return_data: Some((
+                    CalleeReturnData::InRegs(vec![EightByteLocation::GP(GPRegister::acc())]),
+                    Storage::Constant(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I32 })
+                ))
+            });
         } else {
             result.add_instruction(AsmOperation::Return{ return_data: None });
         }

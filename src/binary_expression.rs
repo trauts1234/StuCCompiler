@@ -223,7 +223,7 @@ impl GenerateIR for BinaryExpression {
                 result.add_instruction(AsmOperation::SETCC {
                     comparison: asm_comparison,
                     to: Storage::Stack(resultant_location),
-                    data_type: ScalarType::Integer(IntegerType::_BOOL)//returns a bool, not taking into account the promoted type of lhs and rhs (obviously)
+                    data_type: IntegerType::_BOOL//returns a bool, not taking into account the promoted type of lhs and rhs (obviously)
                 });
 
             },

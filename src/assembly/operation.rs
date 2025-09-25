@@ -1,11 +1,7 @@
 use std::fmt::Display;
-use crate::{args_handling::location_allocation::{AllocatedLocation, EightByteLocation, ReturnLocation}, assembly::{comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{args_handling::location_allocation::{AllocatedLocation, EightByteLocation, ReturnLocation}, assembly::{assembly_text::RawAssembly, comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use memory_size::MemorySize;
 use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
-use super::{operand::PTR_SIZE};
-
-//TODO dump to registers and save from registers
-
 
 #[derive(Clone)]
 pub enum AsmOperation {
@@ -19,7 +15,7 @@ pub enum AsmOperation {
     CMP {lhs: Storage, rhs: Storage, data_type: ScalarType},
 
     /// based on the comparison, sets `storage` to 1 or 0
-    SETCC {to: Storage, data_type: ScalarType, comparison: AsmComparison},
+    SETCC {to: Storage, data_type: IntegerType, comparison: AsmComparison},
 
     ///based on the comparison, conditionally jump to the label
     JMPCC {label: Label, comparison: AsmComparison},
@@ -61,14 +57,14 @@ pub enum AsmOperation {
     /// Pops the return address from the stack using the `ret` instruction
     /// 
     /// Puts the return value (or hidden pointer) in correct registers
-    Return {return_data: Option<(ReturnLocation, Storage)>},
+    Return {return_data: Option<(CalleeReturnData, Storage)>},
     ///calls a subroutine (you must handle the parameters though)
     /// 
     /// - Sets up registers and the stack correctly
     /// - 
     /// 
     /// TODO should this call a Storage ?
-    CALL {label: String, params: Vec<ParamData>, return_data: Option<ReturnData>},
+    CALL {label: String, params: Vec<CallerParamData>, return_data: Option<CallerReturnData>},
 
     ReadParams {regs: Vec<ReadParamFromReg>, mem: Vec<ReadParamFromMem>},
 
@@ -95,7 +91,7 @@ pub struct ReadParamFromMem {
 }
 
 #[derive(Clone)]
-pub struct ParamData {
+pub struct CallerParamData {
     /// Where the arg value is
     pub data: Storage,
     /// size of the param
@@ -105,7 +101,7 @@ pub struct ParamData {
 }
 
 #[derive(Clone)]
-pub struct ReturnData {
+pub struct CallerReturnData {
     /// Where the return value will come from
     pub return_location_info: ReturnLocation,
     /// hidden pointer or not, allocate memory for the return value to go in
@@ -114,6 +110,12 @@ pub struct ReturnData {
     /// 
     /// TODO can this requirement be relaxed with some bit shifting magic
     pub return_location_size: MemorySize,
+}
+
+#[derive(Clone)]
+pub enum CalleeReturnData {
+    InRegs(Vec<EightByteLocation>),
+    InMemory{hidden_pointer_location: Storage}
 }
 
 #[derive(Clone)]
@@ -153,24 +155,98 @@ impl AsmOperation {
     /**
      * converts myself into a line of assembly, with no newline
      */
-    pub fn to_text(&self, stack: &BakedSimpleStackFrame) -> String {
+    pub fn to_text(&self, stack: &BakedSimpleStackFrame) -> RawAssembly {
+        let result = RawAssembly::default();
         match self {
             AsmOperation::MOV { to, from, size } => {
-                let mut in_stream = MovStream::new(GPRegister::_AX, from, *size, stack);
+                result.add_comment(format!("moving {} bytes", size.size_bytes()));
+                //loop through each eightbyte(or smaller)
+                for i in (0..size.size_bytes()).step_by(8) {
+                    let offset = MemorySize::from_bytes(i);//find the offset into `from` and `to` that I am copying
+                    let remaining_bytes = *size - offset;//find the number of bytes left to copy
+                    let best_reg_size = best_reg_size(remaining_bytes);//find the biggest register size to move the next part of the data
+                    let cx_name = GPRegister::_CX.generate_name(best_reg_size);//to store the bytes temporarily
 
-                in_stream
-                .map(|MovStreamData { put_in_reg_asm, reg_size, offset_from_start }| {
-                    
-                });
-
-                todo!()
+                    //point to the start of the source
+                    result.add(put_pointer_in_rax(from, stack));
+                    //put the next bytes from the correct part of the source in RCX
+                    result.add(format!("mov {}, [rax+{}]", cx_name, offset.size_bytes()));
+                    //point to the start of the destination
+                    result.add(put_pointer_in_rax(to, stack));
+                    //store the next few bytes from RCX
+                    result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
+                }
             },
-            AsmOperation::LEA { from } => format!("lea {}, {}", GPRegister::acc().generate_name(PTR_SIZE), from.generate_name(stack)),
-            AsmOperation::CMP { rhs, data_type } => instruction_cmp(rhs, data_type, stack),
-            AsmOperation::SETCC { comparison } => instruction_setcc(comparison),
-            AsmOperation::JMPCC { label, comparison } => format!("{} {}", instruction_jmpcc(comparison), label),
-            AsmOperation::ADD { increment, data_type } => instruction_add(increment, data_type, stack),
-            AsmOperation::SUB { decrement, data_type } => instruction_sub(decrement, data_type, stack),
+            
+            AsmOperation::LEA { from, to } => {
+                //generate address, and put in rcx
+                result.add(put_pointer_in_rax(from, stack));
+                result.add(format!("mov rcx, rax"));
+                //get destination, and store result
+                result.add(put_pointer_in_rax(to, stack));
+                result.add(format!("mov [rax], rcx"));
+            },
+            AsmOperation::CMP { rhs, data_type, lhs } => {
+                match data_type {
+                    ScalarType::Float(float_type) => {
+                        result.add(put_rhs_xmm0_lhs_xmm1(lhs, rhs, float_type, stack));
+                        //compare
+                        result.add(match float_type {
+                            FloatType::F32 => "ucomiss xmm1, xmm0",
+                            FloatType::F64 => "ucomisd xmm1, xmm0",
+                        }.to_string());
+                    },
+                    ScalarType::Integer(integer_type) => {
+                        result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                        //compare
+                        result.add(format!("cmp rax, rcx"));
+                    },
+                }
+            },
+            AsmOperation::SETCC { comparison, to, data_type } => {
+                let reg_name = GPRegister::acc().generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
+
+                let comparison_instr = match comparison {
+                    AsmComparison::NE => "setne",
+                    AsmComparison::EQ => "sete",
+                    AsmComparison::ALWAYS => panic!(),//return format!("mov al, 1"),//for set always, there is no command, so quickly return a mov command
+                    AsmComparison::LE {signed} => if *signed {"setle"} else {"setbe"},
+                    AsmComparison::GE {signed} => if *signed {"setge"} else {"setae"},
+                    AsmComparison::L {signed} => if *signed {"setl"} else {"setb"},
+                    AsmComparison::G {signed} => if *signed {"setg"} else {"seta"},
+                };
+
+                result.add(format!("{} al", comparison_instr));
+            },
+            AsmOperation::JMPCC { label, comparison } => {
+                let comparison_instr = match comparison {
+                    AsmComparison::NE => "jne",
+                    AsmComparison::EQ => "je",
+                    AsmComparison::ALWAYS => "jmp",
+                    AsmComparison::LE {signed}  => if *signed {"jle"} else {"jbe"},
+                    AsmComparison::GE {signed}  => if *signed {"jge"} else {"jae"},
+                    AsmComparison::L {signed}  => if *signed {"jl"} else {"jb"},
+                    AsmComparison::G {signed}  => if *signed {"jg"} else {"ja"},
+                };
+                
+                result.add(format!("{} {}", comparison_instr, label));
+            },
+            AsmOperation::ADD { data_type, lhs, rhs, to } => {
+                match data_type {
+                    ScalarType::Float(float_type) => todo!(),
+                    ScalarType::Integer(integer_type) => {
+                        let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
+                        result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                        //sum and put the result in rcx
+                        result.add(format!("add rcx, rax"));
+                        //point to the destination
+                        result.add(put_pointer_in_rax(to, stack));
+                        //truncate and store
+                        result.add(format!("mov [rax], {}", truncated_rcx));
+                    },
+                }
+            },
+            AsmOperation::SUB { data_type } => instruction_sub(decrement, data_type, stack),
             AsmOperation::NEG { data_type } => instruction_neg(data_type),
             AsmOperation::CreateStackFrame => format!("push rbp\nmov rbp, rsp\nsub rsp, {}", stack.stack_size().size_bytes()),
             AsmOperation::DestroyStackFrame => "mov rsp, rbp\npop rbp".to_string(),
@@ -191,6 +267,114 @@ impl AsmOperation {
                 
             }
         }
+
+        result
+    }
+}
+
+/// Says it on the tin
+/// 
+/// ### Clobbers
+/// - RAX
+/// - RCX
+fn put_rhs_ax_lhs_cx(lhs:&Storage, rhs:&Storage, integer_type: &IntegerType, stack: &BakedSimpleStackFrame) -> String {
+    let mut result = String::new();
+    //put lhs in rcx
+    result += &put_value_in_rax(lhs, integer_type, stack);
+    result += &format!("mov rcx, rax");
+    //put rhs in rax
+    result += &put_value_in_rax(rhs, integer_type, stack);
+
+    result
+}
+
+/// Says it on the tin
+/// 
+/// ### Clobbers
+/// - RAX
+/// - XMM0
+/// - XMM1
+fn put_rhs_xmm0_lhs_xmm1(lhs:&Storage, rhs:&Storage, float_type: &FloatType, stack: &BakedSimpleStackFrame) -> String {
+    let mut result = String::new();
+    //put lhs in XMM1
+    result += &put_value_in_xmm0(lhs, float_type, stack);
+    result += &format!("movq xmm1, xmm0");
+    //put rhs in XMM0
+    result += &put_value_in_xmm0(rhs, float_type, stack);
+
+    result
+}
+
+/// Puts a pointer to the data in `storage` in rax
+/// 
+/// ### Clobbers
+/// - RAX
+/// ### Panics
+/// if storage is a constant value, as this doesn't have an address
+fn put_pointer_in_rax(storage: &Storage, stack: &BakedSimpleStackFrame) -> String {
+    match storage {
+        Storage::Stack(stack_item_key) => 
+            format!("lea rax, [rbp-{}]", stack.get(stack_item_key).offset_from_bp.size_bytes()),
+        Storage::StackWithOffset { stack: stack_item_key, offset } => 
+            format!("lea rax, [rbp-{}]", (stack.get(stack_item_key).offset_from_bp + *offset).size_bytes()),//+ offset right?
+        Storage::Constant(_) => panic!(),
+        Storage::IndirectAddress(stack_item_key) => 
+            format!("mov rax, [rbp-{}]", stack.get(stack_item_key).offset_from_bp.size_bytes()),
+    }
+}
+
+/// Puts `storage` in rax, sign or zero extending to 64 bit
+/// 
+/// ### Clobbers
+/// - RAX
+fn put_value_in_rax(storage: &Storage, data_type: &IntegerType, stack: &BakedSimpleStackFrame) -> String {
+    let register = GPRegister::_AX.generate_name(data_type.memory_size());
+    let mut result = match storage {
+        Storage::Stack(stack_item_key) => 
+            format!("mov {}, [rbp-{}]", register, stack.get(stack_item_key).offset_from_bp.size_bytes()),
+        Storage::StackWithOffset { stack: stack_item_key, offset } => 
+            format!("mov {}, [rbp-{}]", register, (stack.get(stack_item_key).offset_from_bp + *offset).size_bytes()),//+ offset right?
+        Storage::Constant(number_literal) => 
+            format!("mov {}, {}", register, number_literal.generate_nasm_literal()),
+        Storage::IndirectAddress(stack_item_key) => 
+            format!("mov rax, [rbp-{}]\nmov {}, [rax]", stack.get(stack_item_key).offset_from_bp.size_bytes(), register),
+    };
+
+    //sign extend
+    result += 
+        if data_type.is_unsigned() {
+            zero_extend(data_type.memory_size())
+        } else {
+            sign_extend(data_type.memory_size())
+        };
+
+    result
+}
+
+/// Puts `storage` in XMM0
+/// 
+/// ### Clobbers
+/// - RAX
+/// - XMM0
+fn put_value_in_xmm0(storage: &Storage, data_type: &FloatType, stack: &BakedSimpleStackFrame) -> String {
+    let mov_from_mem = match data_type {
+        FloatType::F32 => "movss",
+        FloatType::F64 => "movsd",
+    };
+    let mov_from_reg = match data_type {
+        FloatType::F32 => "movd",
+        FloatType::F64 => "movq",
+    };
+
+    match storage {
+        Storage::Stack(stack_item_key) => 
+            format!("{} xmm0, [rbp-{}]", mov_from_mem, stack.get(stack_item_key).offset_from_bp.size_bytes()),
+        Storage::StackWithOffset { stack: stack_item_key, offset } => 
+            format!("{} xmm0, [rbp-{}]", mov_from_mem, (stack.get(stack_item_key).offset_from_bp + *offset).size_bytes()),//+ offset right?
+        Storage::Constant(number_literal) => 
+            format!("mov rax, {}\n{} xmm0, rax", number_literal.generate_nasm_literal(), mov_from_reg),//pass the raw bitpattern via rax
+        Storage::IndirectAddress(stack_item_key) => 
+            format!("mov rax, [rbp-{}]\n{} xmm0, [rax]", stack.get(stack_item_key).offset_from_bp.size_bytes(), mov_from_mem),
     }
 }
 
@@ -232,100 +416,19 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {
     }
 }
 
-fn instruction_mov(to: &RegOrMem, from: &Operand, size: MemorySize, stack: &BakedSimpleStackFrame) -> String {
-    match (from, to) {
-        (Operand::MMReg(from_reg), RegOrMem::MMReg(to_reg)) => format!("movaps {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
-        (Operand::MMReg(from_reg), RegOrMem::Mem(to_mem)) => match size.size_bytes() {
-            4 => format!("movss {}, {}", to_mem.generate_name(stack), from_reg.generate_name(size)),
-            8 => format!("movsd {}, {}", to_mem.generate_name(stack), from_reg.generate_name(size)),
-            _ => panic!("invalid size for XMM -> RAM move")
-        },
-        (Operand::Mem(from_mem), RegOrMem::MMReg(to_reg)) => match size.size_bytes() {
-            4 => format!("movss {}, {}", to_reg.generate_name(size), from_mem.generate_name(stack)),
-            8 => format!("movsd {}, {}", to_reg.generate_name(size), from_mem.generate_name(stack)),
-            _ => panic!("invalid size for RAM -> XMM move")
-        },
-        //this is truly diabolical - requires stack working, but doesn't clobber any registers
-        (Operand::Imm(imm), RegOrMem::MMReg(to_reg)) => format!("push {}\nmovq {}, [rsp]\nadd rsp, 8", imm.generate_name(), to_reg.generate_name(size)),
-        
-        //simple mov commands
-        (Operand::GPReg(_), RegOrMem::GPReg(_))  |
-        (Operand::GPReg(_), RegOrMem::Mem(_)) |
-        (Operand::Mem(_), RegOrMem::GPReg(_)) |
-        (Operand::Imm(_), RegOrMem::GPReg(_)) => format!("mov {}, {}", to.generate_name(size, stack), from.generate_name(size, stack)),
-        
-        //gp <--> xmm
-        (Operand::GPReg(from_reg), RegOrMem::MMReg(to_reg)) => match size.size_bytes() {
-            4 => format!("movd {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
-            8 => format!("movq {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
-            _ => panic!()
-        },
-        (Operand::MMReg(from_reg), RegOrMem::GPReg(to_reg)) => match size.size_bytes() {
-            4 => format!("movd {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
-            8 => format!("movq {}, {}", to_reg.generate_name(size), from_reg.generate_name(size)),
-            _ => panic!()
-        },
-
-        //invalid commands
-        (Operand::Imm(_), RegOrMem::Mem(_)) => panic!("cannot move an immediate directly to memory"),
-        (Operand::Mem(_), RegOrMem::Mem(_)) => panic!("memory-memory mov not supported"),
-    }
-}
-
-fn instruction_cmp(rhs: &Operand, data_type: &ScalarType, stack: &BakedSimpleStackFrame) -> String {
-    match data_type {
-        //put acc in XMM0, rhs in XMM1, then compare
-        ScalarType::Float(FloatType::F32) => format!("{}\n{}\nucomiss xmm0, xmm1", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), rhs, MemorySize::from_bytes(4), stack)),
-        ScalarType::Float(FloatType::F64) => format!("{}\n{}\nucomisd xmm0, xmm1", acc_to_xmm(), instruction_mov(&RegOrMem::MMReg(MMRegister::XMM1), rhs, MemorySize::from_bytes(8), stack)),
-
-        ScalarType::Integer(integer_type) => format!("cmp {}, {}", GPRegister::acc().generate_name(integer_type.memory_size()), rhs.generate_name(integer_type.memory_size(), stack)),
-    }
-}
-// DataType::POINTER(_) => format!("cmp {}, {}", lhs.generate_name(PTR_SIZE), rhs.generate_name(PTR_SIZE)),//comparing pointers
-            // DataType::RAW(base) if base.is_integer() => format!("cmp {}, {}", lhs.generate_name(base.get_non_struct_memory_size()), rhs.generate_name(base.get_non_struct_memory_size())),//comparing integers
-            // _ => panic!("currently cannot compare this data type")
-
-fn instruction_setcc(comparison: &AsmComparison) -> String {
-    let reg_name = GPRegister::acc().generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
-
-    let comparison_instr = match comparison {
-        AsmComparison::NE => "setne",
-        AsmComparison::EQ => "sete",
-        AsmComparison::ALWAYS => return format!("mov {}, 1 ; unconditional set", reg_name),//for set always, there is no command, so quickly return a mov command
-        AsmComparison::LE {signed} => if *signed {"setle"} else {"setbe"},
-        AsmComparison::GE {signed} => if *signed {"setge"} else {"setae"},
-        AsmComparison::L {signed} => if *signed {"setl"} else {"setb"},
-        AsmComparison::G {signed} => if *signed {"setg"} else {"seta"},
-    };
-
-    format!("{} {}", comparison_instr, reg_name)
-}
-fn instruction_jmpcc(comparison: &AsmComparison) -> &str {
-
-    match comparison {
-        AsmComparison::NE => "jne",
-        AsmComparison::EQ => "je",
-        AsmComparison::ALWAYS => "jmp",
-        AsmComparison::LE {signed}  => if *signed {"jle"} else {"jbe"},
-        AsmComparison::GE {signed}  => if *signed {"jge"} else {"jae"},
-        AsmComparison::L {signed}  => if *signed {"jl"} else {"jb"},
-        AsmComparison::G {signed}  => if *signed {"jg"} else {"ja"},
-    }
-}
-
 /// Writes instructions to sign extend the accumulator
-fn sign_extend(original: &MemorySize) -> String {
+fn sign_extend(original: MemorySize) -> &'static str {
     match original.size_bytes() {
-        1 => format!("cbw\n{}", sign_extend(&MemorySize::from_bytes(2))),
-        2 => format!("cwde\n{}", sign_extend(&MemorySize::from_bytes(4))),
-        4 => format!("cdqe"),
-        8 => String::new(),
+        1 => "cbw\ncwde\ncdqe",
+        2 => "cwde\ncqde",
+        4 => "cdqe",
+        8 => "",
         _ => panic!("tried to sign extend unknown size")
     }
 }
 
 /// Writes instructions to zero extend the accumulator
-fn zero_extend(original: &MemorySize) -> &str {
+fn zero_extend(original: MemorySize) -> &'static str {
     match original.size_bytes() {
         1 => "movzx rax, al",
         2 => "movzx rax, ax",
@@ -420,63 +523,6 @@ fn instruction_shiftright(amount: &Operand, base_type: &BaseType, stack: &BakedS
     }
 }
 
-/// Returns an instruction to move RAX to XMM0
-fn acc_to_xmm() -> &'static str {
-    "movq xmm0, rax"
-}
-/// Returns an instruction to move XMM0 to RAX
-fn xmm_to_acc() -> &'static str {
-    "movq rax, xmm0"
-}
-
-struct MovStreamData {
-    put_in_reg_asm: String,
-    reg_size: MemorySize,
-    offset_from_start: MemorySize
-}
-struct MovStream<'a> {
-    /// Which register to stream the bytes into
-    register: GPRegister,
-    /// Where to stream the bytes from
-    from: &'a Storage,
-    /// How many bytes to stream
-    size: MemorySize,
-
-    stack: &'a BakedSimpleStackFrame,
-
-    curr_offset: MemorySize
-}
-impl<'a> MovStream<'a> {
-    pub fn new(register: Register, from: &Storage, size: MemorySize, stack: &BakedSimpleStackFrame) -> Self {
-        Self {
-            register, from, size, stack,
-            curr_offset: MemorySize::default(),
-        }
-    }
-}
-
-impl<'a> Iterator for MovStream<'a> {
-    type Item = MovStreamData;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current_offset = self.curr_offset;
-        let remaining = self.size - current_offset;
-        if remaining == MemorySize::new() {return None;}
-
-        let register_size = best_reg_size(remaining);
-        self.curr_offset += register_size;//skip over the register for the next iteration
-
-        let bp_offset = match &self.from {
-            //start at from location, and add(but actually subtract, as this is a negative offset)
-            Storage::Stack(stack_item_key) => self.stack.get(stack_item_key).offset_from_bp - current_offset,
-        };
-
-        let mov_instr = format!("mov {}, [rbp-{}]", self.register.generate_name(register_size), bp_offset);
-
-        Some(MovStreamData { put_in_reg_asm: mov_instr, reg_size: register_size, offset_from_start: current_offset })
-    }
-}
-
 fn best_reg_size(x: MemorySize) -> MemorySize {
     assert_ne!(x, MemorySize::default());//cannot have a 0 register size
 
@@ -501,18 +547,18 @@ impl IRDisplay for AsmOperation {
             AsmOperation::MUL { lhs, rhs, to, data_type } => format!("{} = {} * {} ({})", to, lhs, rhs, data_type),
             AsmOperation::DIV { lhs, rhs, to, data_type } => format!("{} = {} / {} ({})", to, lhs, rhs, data_type),
             AsmOperation::MOD { lhs, rhs, to, data_type } => format!("{} = {} % {} ({})", to, lhs, rhs, data_type),
-            AsmOperation::SHL { from, from_type, amount, amount_type: _, to } => format!("{} = {} << {} ({})", to, from, amount, from_type),
-            AsmOperation::SHR { from, from_type, amount, amount_type: _, to } => format!("{} = {} >> {} ({})", to, from, amount, from_type),
+            AsmOperation::SHL { from, from_type, amount, to } => format!("{} = {} << {} ({})", to, from, amount, from_type),
+            AsmOperation::SHR { from, from_type, amount, to } => format!("{} = {} >> {} ({})", to, from, amount, from_type),
             AsmOperation::NEG { from, to, data_type } => format!("{} = -{} ({})", to, from, data_type),
             AsmOperation::BitwiseNot { from, to, size } => format!("{} = ~{} ({})", to, from, size),
             AsmOperation::BitwiseOp { lhs, rhs, to, size, operation } => format!("{} = {} {} {} ({})", to, lhs, operation, rhs, size),
             AsmOperation::Label(label) => format!("{}", label),
             AsmOperation::CreateStackFrame => format!("create stack frame and reserve stack space"),
             AsmOperation::DestroyStackFrame => format!("destroy stack frame"),
-            AsmOperation::Return => format!("return"),
-            AsmOperation::AllocateStack(memory_size) => format!("reserve stack ({})", memory_size),
-            AsmOperation::DeallocateStack(memory_size) => format!("deallocate stack ({})", memory_size),
-            AsmOperation::CALL { label } => format!("call {}", label),
+            AsmOperation::Return { return_data: None } => format!("return"),
+            AsmOperation::Return { return_data: Some((return_location, storage)) } => format!("return {}", storage),
+            AsmOperation::CALL { label, params, return_data } => format!("call {}", label),
+            AsmOperation::ReadParams { regs, mem } => format!("load params"),
         }
     }
 }

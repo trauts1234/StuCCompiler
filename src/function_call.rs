@@ -1,4 +1,4 @@
-use crate::{args_handling::location_allocation::generate_param_and_return_locations, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::Storage, operation::{AsmOperation, ParamData, ReturnData}}, data_type::{base_type::{BaseType, FloatType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, promote, Expression}, expression_visitors::expr_visitor::ExprVisitor, function_declaration::FunctionDeclaration, generate_ir_traits::{GenerateIR, GetType}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{args_handling::location_allocation::generate_param_and_return_locations, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::Storage, operation::{AsmOperation, CallerParamData, CallerReturnData}}, data_type::{base_type::{BaseType, FloatType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, promote, Expression}, expression_visitors::expr_visitor::ExprVisitor, function_declaration::FunctionDeclaration, generate_ir_traits::{GenerateIR, GetType}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -99,7 +99,7 @@ impl GenerateIR for FunctionCall {
             .map(|return_location_info| {
                 let return_location_size = self.decl.return_type.memory_size(asm_data).align_up(&MemorySize::from_bytes(8));
                 let return_location = stack_data.allocate(return_location_size);
-                ReturnData {return_location_info, return_location, return_location_size}
+                CallerReturnData {return_location_info, return_location, return_location_size}
             });
 
         assert!(type_matched_args.iter().all(|x| x.0.decay() == x.0));//none can be array at this point
@@ -118,7 +118,7 @@ impl GenerateIR for FunctionCall {
                 let (promote_asm, promote_value) = promote(value.unwrap(), expr_type, dtype, stack_data, asm_data);
                 result.add_instruction(promote_asm);
 
-                ParamData {
+                CallerParamData {
                     data: Storage::Stack(promote_value),
                     data_size: casted_size,
                     location,

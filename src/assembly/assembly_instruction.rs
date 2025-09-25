@@ -27,7 +27,7 @@ impl AsmInstruction {
         if let Some(comment) = &self.comment {
             format!("{} ; {}", self.operation.to_text(stack), comment)
         } else {
-            self.operation.to_text(stack)
+            self.operation.to_text(stack).to_string()
         }
     }
 }

@@ -58,8 +58,21 @@ impl NumberLiteral {
                 }
             }
         }
+    }
 
-
+    pub fn generate_nasm_literal(&self) -> String {
+        match self {
+            Self::INTEGER{data, data_type} => {
+                data.to_string()
+            },
+            
+            Self::FLOAT{data_type, data} => {
+                match data_type {
+                    FloatType::F32 => (*data as f32).to_bits().to_string(),
+                    FloatType::F64 => data.to_bits().to_string(),
+                }
+            }
+        }
     }
 
     pub fn cast(&self, new_type: &ScalarType) -> NumberLiteral {
