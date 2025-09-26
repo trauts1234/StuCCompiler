@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use crate::{args_handling::location_allocation::{AllocatedLocation, EightByteLocation, ReturnLocation}, assembly::{assembly_text::RawAssembly, comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
+use crate::{args_handling::location_allocation::{AllocatedLocation, EightByteLocation, ReturnLocation}, assembly::{assembly_file::AssemblyFile, assembly_text::RawAssembly, comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
 use memory_size::MemorySize;
 use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
 
@@ -21,7 +21,7 @@ pub enum IROperation {
     JMPCC {label: Label, comparison: AsmComparison},
 
     //casts and moves from -> to
-    CAST {from: Storage, from_type: DataType, to: Storage, to_type: DataType},
+    CAST {from: Storage, from_type: ScalarType, to: Storage, to_type: ScalarType},
 
     /// Sums lhs and rhs, storing the result in `to`
     ADD {lhs: Storage, rhs: Storage, to: Storage, data_type: ScalarType},
@@ -52,12 +52,10 @@ pub enum IROperation {
     Label(Label),
     /// also allocates variables on the stack
     CreateStackFrame,
-    /// also (implicitly) deallocates variables on the stack
-    DestroyStackFrame,
-    /// Pops the return address from the stack using the `ret` instruction
-    /// 
-    /// Puts the return value (or hidden pointer) in correct registers
-    Return {return_data: Option<(CalleeReturnData, Storage)>},
+    /// - Deallocates stack variables and removes the stack frame
+    /// - Puts the return value (or hidden pointer) in correct registers
+    /// - Pops the return address from the stack using the `ret` instruction
+    Return {return_data: Option<(CalleeReturnData, StackItemKey, MemorySize)>},
     ///calls a subroutine (you must handle the parameters though)
     /// 
     /// - Sets up registers and the stack correctly
@@ -114,7 +112,7 @@ pub struct CallerReturnData {
 
 #[derive(Clone)]
 pub enum CalleeReturnData {
-    InRegs(Vec<EightByteLocation>),
+    InRegs{regs_used: Vec<EightByteLocation>},
     InMemory{hidden_pointer_location: Storage}
 }
 
@@ -295,11 +293,33 @@ impl IROperation {
             IROperation::CreateStackFrame => {
                 result.add(format!("push rbp\nmov rbp, rsp\nsub rsp, {}", stack.stack_size().size_bytes()));
             },
-            IROperation::DestroyStackFrame => {
-                result.add("mov rsp, rbp\npop rbp".to_string());
-            },
             IROperation::Return{ return_data } => {
-                todo!()
+                match return_data {
+                    None => {},//returns void, do nothing
+                    Some((CalleeReturnData::InMemory { hidden_pointer_location }, return_value, size)) => {
+                        todo!("copy return_value to the location pointed by hidden_pointer_location, and put hidden_pointer_location's value in RAX")
+                    }
+                    Some((CalleeReturnData::InRegs{ regs_used }, return_value, size)) => {
+                        assert!(size.size_bytes().is_power_of_two());//can't do weird number of bytes read
+                        
+                        //put in other registers first, as rax gets clobbered many times
+                        for(i, eightbyte_destination) in regs_used.iter().enumerate() {
+                            let offset = MemorySize::from_bytes((8*i).try_into().unwrap());
+                            let reg_size = best_reg_size(*size);
+                            let from = stack.get(return_value).offset_from_bp + offset;
+
+                            let mov_instr = match eightbyte_destination {
+                                EightByteLocation::GP(gpregister) => format!("mov {}, [rbp-{}]", gpregister.generate_name(reg_size), from.size_bytes()),
+                                EightByteLocation::XMM(mmregister) => todo!(),
+                            };
+                            result.add(mov_instr);
+                        }
+                    }
+                }
+                //destroy stack frame
+                result.add("mov rsp, rbp\npop rbp".to_string());
+                //return
+                result.add("ret".to_string());
             },
             IROperation::Label(label) => {
                 result.add(format!("{}:", label));
@@ -325,7 +345,9 @@ impl IROperation {
             IROperation::SHL { amount, from, from_type, to } => todo!(),
             IROperation::SHR { amount, from, from_type, to } => todo!(),
             IROperation::BitwiseNot{ from, to, size } => todo!(),
-            IROperation::CAST { from_type, to_type, from, to } => todo!(),
+            IROperation::CAST { from_type, to_type, from, to } => {
+                result.merge(instruction_cast(from_type, to_type, from, to, stack))
+            },
             IROperation::MOD { lhs, rhs, to, data_type } => todo!(),
             IROperation::ReadParams { regs, mem } => {
                 for ReadParamFromReg { eightbyte_locations, param_size, param_destination } in regs {
@@ -459,6 +481,28 @@ fn put_value_in_xmm0(storage: &Storage, data_type: &FloatType, stack: &BakedSimp
             format!("mov rax, {}\n{} xmm0, rax", number_literal.generate_nasm_literal(), mov_from_reg),//pass the raw bitpattern via rax
         Storage::IndirectAddress(stack_item_key) => 
             format!("mov rax, [rbp-{}]\n{} xmm0, [rax]", stack.get(stack_item_key).offset_from_bp.size_bytes(), mov_from_mem),
+    }
+}
+
+fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType, from: &Storage, to: &Storage, stack: &BakedSimpleStackFrame) -> RawAssembly {
+    match (from_type, to_type) {
+        (x, y) if x == y => IROperation::MOV { from: from.clone(), to: to.clone(), size: x.memory_size() }.to_text(stack),
+
+        (ScalarType::Integer(x), ScalarType::Integer(y)) => {
+            let mut result = RawAssembly::default();
+            let rcx_sized = GPRegister::_CX.generate_name(y.memory_size());
+
+            //put lhs extended in rcx
+            result.add(put_value_in_rax(from, x, stack));
+            result.add("mov rcx, rax".to_string());
+            // truncate and store
+            result.add(put_pointer_in_rax(to, stack));
+            result.add(format!("mov [rax], {}", rcx_sized));
+
+            result
+        }
+
+        _ => todo!()
     }
 }
 
@@ -638,9 +682,8 @@ impl IRDisplay for IROperation {
             IROperation::BitwiseOp { lhs, rhs, to, size, operation } => format!("{} = {} {} {} ({})", to, lhs, operation, rhs, size),
             IROperation::Label(label) => format!("{}", label),
             IROperation::CreateStackFrame => format!("create stack frame and reserve stack space"),
-            IROperation::DestroyStackFrame => format!("destroy stack frame"),
             IROperation::Return { return_data: None } => format!("return"),
-            IROperation::Return { return_data: Some((return_location, storage)) } => format!("return {}", storage),
+            IROperation::Return { return_data: Some((return_location, storage, size)) } => format!("return {:?}", storage),
             IROperation::CALL { label, params, return_data } => format!("call {}", label),
             IROperation::ReadParams { regs, mem } => format!("load params"),
         }

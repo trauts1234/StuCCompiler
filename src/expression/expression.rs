@@ -258,7 +258,12 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
 
 pub fn promote(location: StackItemKey, original: DataType, promoted_type: DataType, stack_data: &mut SimpleStackFrame, struct_info: &dyn GetStructUnion) -> (IROperation, StackItemKey) {
     let result = stack_data.allocate(promoted_type.memory_size(struct_info));
-    let op = IROperation::CAST { from: Storage::Stack(location), from_type: original, to: Storage::Stack(result), to_type: promoted_type };
+    let op = match (original, promoted_type) {
+        (DataType::RAW(BaseType::Scalar(from_type)), DataType::RAW(BaseType::Scalar(to_type))) =>
+            IROperation::CAST { from: Storage::Stack(location), from_type, to: Storage::Stack(result), to_type },
+
+        _ => todo!()
+    };
 
     (op, result)
 }

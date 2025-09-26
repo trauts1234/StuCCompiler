@@ -57,7 +57,7 @@ impl GenerateIR for ControlFlowChange {
                         //find out what type to return and metadata about it
                         let return_type = asm_data.get_function_return_type();
                         let return_location = match generate_only_return_location(return_type, asm_data).unwrap() {
-                            ReturnLocation::InRegs(eight_byte_locations) => CalleeReturnData::InRegs(eight_byte_locations),
+                        ReturnLocation::InRegs(eight_byte_locations) => CalleeReturnData::InRegs{ regs_used: eight_byte_locations },
                             ReturnLocation::HiddenPointer => todo!(),
                         };
                         //generate the return value
@@ -67,11 +67,10 @@ impl GenerateIR for ControlFlowChange {
                         let (cast_asm, cast_result) = promote(expr_location.unwrap(), expr.get_type(asm_data), return_type.clone(), stack_data, asm_data);
                         result.add_instruction(cast_asm);
                         //have the IR deal with where to put the result
-                        (return_location, Storage::Stack(cast_result))
+                        (return_location, cast_result, return_type.memory_size(asm_data))
                     });
 
                 //destroy stack frame and return
-                result.add_instruction(IROperation::DestroyStackFrame);
                 result.add_instruction(IROperation::Return {
                     return_data,
                 });

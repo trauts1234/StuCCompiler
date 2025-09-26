@@ -15,6 +15,9 @@ impl RawAssembly {
         assert!(!text.as_ref().contains("\n"));
         self.lines.push(format!("; {}", text.as_ref()));
     }
+    pub fn merge(&mut self, other: Self) {
+        self.lines.extend(other.lines);
+    }
 }
 
 impl Display for RawAssembly {
