@@ -159,23 +159,43 @@ impl IROperation {
         let mut result = RawAssembly::default();
         match self {
             IROperation::MOV { to, from, size } => {
-                result.add_comment(format!("moving {} bytes", size.size_bytes()));
-                //loop through each eightbyte(or smaller)
-                for i in (0..size.size_bytes()).step_by(8) {
-                    let offset = MemorySize::from_bytes(i);//find the offset into `from` and `to` that I am copying
-                    let remaining_bytes = *size - offset;//find the number of bytes left to copy
-                    let best_reg_size = best_reg_size(remaining_bytes);//find the biggest register size to move the next part of the data
-                    let cx_name = GPRegister::_CX.generate_name(best_reg_size);//to store the bytes temporarily
+                match from {
+                    //data comes from a memory address
+                    Storage::Stack(_) |
+                    Storage::StackWithOffset {..} |
+                    Storage::IndirectAddress(_) => {
+                        result.add_comment(format!("moving {} bytes", size.size_bytes()));
+                        //loop through each eightbyte(or smaller)
+                        for i in (0..size.size_bytes()).step_by(8) {
+                            let offset = MemorySize::from_bytes(i);//find the offset into `from` and `to` that I am copying
+                            let remaining_bytes = *size - offset;//find the number of bytes left to copy
+                            let best_reg_size = best_reg_size(remaining_bytes);//find the biggest register size to move the next part of the data
+                            let cx_name = GPRegister::_CX.generate_name(best_reg_size);//to store the bytes temporarily
 
-                    //point to the start of the source
-                    result.add(put_pointer_in_rax(from, stack));
-                    //put the next bytes from the correct part of the source in RCX
-                    result.add(format!("mov {}, [rax+{}]", cx_name, offset.size_bytes()));
-                    //point to the start of the destination
-                    result.add(put_pointer_in_rax(to, stack));
-                    //store the next few bytes from RCX
-                    result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
+                            //point to the start of the source
+                            result.add(put_pointer_in_rax(from, stack));
+                            //put the next bytes from the correct part of the source in RCX
+                            result.add(format!("mov {}, [rax+{}]", cx_name, offset.size_bytes()));
+                            //point to the start of the destination
+                            result.add(put_pointer_in_rax(to, stack));
+                            //store the next few bytes from RCX
+                            result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
+                        }
+                    }
+
+                    Storage::Constant(number_literal) => {
+                        let cx_name = GPRegister::_CX.generate_name(number_literal.get_data_type().memory_size());
+
+                        result.add_comment(format!("moving literal {}", number_literal));
+                        //put destination pointer in rax
+                        result.add(put_pointer_in_rax(to, stack));
+                        //put value in rcx
+                        result.add(format!("mov rcx, {}", number_literal.generate_nasm_literal()));
+                        //truncate and store
+                        result.add(format!("mov [rax], {}", cx_name));
+                    },
                 }
+                
             },
             IROperation::LEA { from, to } => {
                 //generate address, and put in rcx
