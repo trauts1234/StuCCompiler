@@ -1,6 +1,6 @@
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir_traits::GetType, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, PTR_SIZE}, operation::IROperation}, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir_traits::GetType, number_literal::typed_value::NumberLiteral};
 
 use super::{expression::Expression, unary_postfix_operator::UnaryPostfixOperator};
 
@@ -16,8 +16,8 @@ impl UnaryPostfixExpression {
     }
 
 
-    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> Assembly {
-        let mut result = Assembly::make_empty();
+    pub fn generate_assembly(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &mut GlobalAsmData) -> IRCode {
+        let mut result = IRCode::make_empty();
 
         todo!();
 

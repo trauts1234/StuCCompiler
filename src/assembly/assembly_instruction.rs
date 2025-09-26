@@ -3,24 +3,24 @@ use stack_management::baked_stack_frame::BakedSimpleStackFrame;
 
 use crate::debugging::IRDisplay;
 
-use super::operation::AsmOperation;
+use super::operation::IROperation;
 
 
 /**
  * this is a line of assembly complete with comments and operation
  */
 #[derive(Clone)]
-pub struct AsmInstruction {
+pub struct IRInstruction {
     comment: Option<String>,
-    operation: AsmOperation
+    operation: IROperation
 }
 
-impl AsmInstruction {
-    pub fn generate(operation: AsmOperation) -> Self {
-        AsmInstruction { comment: None, operation }
+impl IRInstruction {
+    pub fn generate(operation: IROperation) -> Self {
+        IRInstruction { comment: None, operation }
     }
-    pub fn generate_with_comment(operation: AsmOperation, comment: String) -> Self {
-        AsmInstruction { comment: Some(comment), operation }
+    pub fn generate_with_comment(operation: IROperation, comment: String) -> Self {
+        IRInstruction { comment: Some(comment), operation }
     }
 
     pub fn emit_assembly(&self, stack: &BakedSimpleStackFrame) -> String{
@@ -32,7 +32,7 @@ impl AsmInstruction {
     }
 }
 
-impl IRDisplay for AsmInstruction {
+impl IRDisplay for IRInstruction {
     fn display_ir(&self) -> String {
         if let Some(comment) = &self.comment {
             let comment = format!("//{}", comment).bright_green();

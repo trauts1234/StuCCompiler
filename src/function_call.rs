@@ -1,4 +1,4 @@
-use crate::{args_handling::location_allocation::generate_param_and_return_locations, asm_gen_data::AsmData, assembly::{assembly::Assembly, operand::Storage, operation::{AsmOperation, CallerParamData, CallerReturnData}}, data_type::{base_type::{BaseType, FloatType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, promote, Expression}, expression_visitors::expr_visitor::ExprVisitor, function_declaration::FunctionDeclaration, generate_ir_traits::{GenerateIR, GetType}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{args_handling::location_allocation::generate_param_and_return_locations, asm_gen_data::AsmData, assembly::{assembly::IRCode, operand::Storage, operation::{IROperation, CallerParamData, CallerReturnData}}, data_type::{base_type::{BaseType, FloatType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::expression::{self, promote, Expression}, expression_visitors::expr_visitor::ExprVisitor, function_declaration::FunctionDeclaration, generate_ir_traits::{GenerateIR, GetType}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -66,9 +66,9 @@ impl FunctionCall {
 }
 
 impl GenerateIR for FunctionCall {
-    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (IRCode, Option<stack_management::stack_item::StackItemKey>) {
         //system V ABI
-        let mut result = Assembly::make_empty();
+        let mut result = IRCode::make_empty();
 
         result.add_comment(format!("calling function: {}", self.func_name));
 
@@ -126,7 +126,7 @@ impl GenerateIR for FunctionCall {
             })
             .collect();
 
-        result.add_instruction(AsmOperation::CALL {
+        result.add_instruction(IROperation::CALL {
             label: self.func_name.clone(),
             params: args_generated,
             return_data: return_data.clone(),

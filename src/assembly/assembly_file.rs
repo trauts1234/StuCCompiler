@@ -4,7 +4,7 @@ use stack_management::{baked_stack_frame::BakedSimpleStackFrame, simple_stack_fr
 
 use crate::assembly::operand::STACK_ALIGN;
 
-use super::assembly::Assembly;
+use super::assembly::IRCode;
 
 
 pub struct AssemblyFile {
@@ -12,7 +12,7 @@ pub struct AssemblyFile {
     global_labels: Vec<String>,//function names that are exported
     extern_labels: Vec<String>,//function names that are imported
     global_variable_init: Vec<String>,//initialise static and auto variables
-    functions: Vec<(Assembly, SimpleStackFrame)>,//list of each function
+    functions: Vec<(IRCode, SimpleStackFrame)>,//list of each function
 }
 
 impl AssemblyFile {
@@ -77,7 +77,7 @@ pub struct AssemblyFileBuilder {
 
     /// assembly lines for initialising static or auto variables
     global_variable_init: Vec<String>,
-    functions: Vec<(Assembly, SimpleStackFrame)>,
+    functions: Vec<(IRCode, SimpleStackFrame)>,
 }
 
 impl AssemblyFileBuilder {
@@ -96,7 +96,7 @@ impl AssemblyFileBuilder {
         self
     }
 
-    pub fn functions(mut self, functions: Vec<(Assembly, SimpleStackFrame)>) -> Self {
+    pub fn functions(mut self, functions: Vec<(IRCode, SimpleStackFrame)>) -> Self {
         self.functions = functions;
         self
     }

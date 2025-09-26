@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::Storage, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, generate_ir_traits::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, comparison::AsmComparison, operand::Storage, operation::{IROperation, Label}}, ast_metadata::ASTMetadata, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, generate_ir_traits::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
@@ -70,8 +70,8 @@ impl SelectionStatement {
 }
 
 impl GenerateIR for SelectionStatement {
-    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<StackItemKey>) {
-        let mut result = Assembly::make_empty();
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<StackItemKey>) {
+        let mut result = IRCode::make_empty();
 
         match self {
             Self::IF { condition, if_body, else_body } => {
@@ -91,14 +91,14 @@ impl GenerateIR for SelectionStatement {
                 };
 
                 //compare the result to 0
-                result.add_instruction(AsmOperation::CMP {
+                result.add_instruction(IROperation::CMP {
                     lhs: Storage::Stack(condition_value.unwrap()),
                     rhs: Storage::Constant(zero),
                     data_type: condition_type
                 });
 
                 //if the result is 0, jump to the else block or the end of the if statement
-                result.add_instruction(AsmOperation::JMPCC {
+                result.add_instruction(IROperation::JMPCC {
                     label: cond_false_label.clone(),
                     comparison: AsmComparison::EQ,
                 });
@@ -108,7 +108,7 @@ impl GenerateIR for SelectionStatement {
                 result.merge(&if_body_asm);
 
                 //jump to the end of the if/else block
-                result.add_instruction(AsmOperation::JMPCC {
+                result.add_instruction(IROperation::JMPCC {
                     label: if_end_label.clone(),
                     comparison: AsmComparison::ALWAYS,//unconditional jump
                 });
@@ -119,12 +119,12 @@ impl GenerateIR for SelectionStatement {
                     let (else_body_asm, _) = else_body.generate_ir(asm_data, stack_data, global_asm_data);
 
                     //start of the else block
-                    result.add_instruction(AsmOperation::Label(else_label));//add label
+                    result.add_instruction(IROperation::Label(else_label));//add label
                     result.merge(&else_body_asm);//generate the body of the else statement
                 }
 
                 //after if/else are complete, jump here
-                result.add_instruction(AsmOperation::Label(if_end_label));
+                result.add_instruction(IROperation::Label(if_end_label));
 
             }
         }

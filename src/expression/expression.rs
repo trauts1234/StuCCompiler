@@ -1,6 +1,6 @@
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
-use crate::{ array_initialisation::ArrayInitialisation, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Storage, PTR_SIZE}, operation::AsmOperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::expr_visitor::ExprVisitor, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, generate_ir_traits::{GenerateIR, GetAddress, GetType}, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
+use crate::{ array_initialisation::ArrayInitialisation, asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::IRCode, operand::{immediate::ToImmediate, Storage, PTR_SIZE}, operation::IROperation}, ast_metadata::ASTMetadata, binary_expression::BinaryExpression, cast_expr::CastExpression, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, declaration::MinimalDataVariable, expression::{ternary::TernaryExpr, unary_prefix_expr::UnaryPrefixExpression}, expression_visitors::expr_visitor::ExprVisitor, function_call::FunctionCall, function_declaration::consume_fully_qualified_type, generate_ir_traits::{GenerateIR, GetAddress, GetType}, lexer::{keywords::Keyword, precedence, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, member_access::MemberAccess, number_literal::typed_value::NumberLiteral, parse_data::ParseData, string_literal::StringLiteral};
 
 use super::{binary_expression_operator::BinaryExpressionOperator, sizeof_expression::SizeofExpr, unary_postfix_expression::UnaryPostfixExpression, unary_postfix_operator::UnaryPostfixOperator, unary_prefix_operator::UnaryPrefixOperator};
 
@@ -61,7 +61,7 @@ impl Expression {
 }
 
 impl GenerateIR for Expression {
-    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<StackItemKey>) {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<StackItemKey>) {
         todo!()
     }
 }
@@ -71,7 +71,7 @@ impl GetType for Expression {
     }
 }
 impl GetAddress for Expression {
-    fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, StackItemKey) {
+    fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, StackItemKey) {
         todo!()
     }
 }
@@ -228,16 +228,16 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
     }
 }
 
-pub fn promote(location: StackItemKey, original: DataType, promoted_type: DataType, stack_data: &mut SimpleStackFrame, struct_info: &dyn GetStructUnion) -> (AsmOperation, StackItemKey) {
+pub fn promote(location: StackItemKey, original: DataType, promoted_type: DataType, stack_data: &mut SimpleStackFrame, struct_info: &dyn GetStructUnion) -> (IROperation, StackItemKey) {
     let result = stack_data.allocate(promoted_type.memory_size(struct_info));
-    let op = AsmOperation::CAST { from: Storage::Stack(location), from_type: original, to: Storage::Stack(result), to_type: promoted_type };
+    let op = IROperation::CAST { from: Storage::Stack(location), from_type: original, to: Storage::Stack(result), to_type: promoted_type };
 
     (op, result)
 }
 
 /// Returns assembly to handle the assignment and a copy of the data assigned (rhs value promoted to lhs type)
-pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<StackItemKey>) {
-    let mut result = Assembly::make_empty();
+pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<StackItemKey>) {
+    let mut result = IRCode::make_empty();
 
     let promoted_type = lhs.get_type(asm_data);//TODO inline into match statement
 
@@ -281,7 +281,7 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
             result.add_comment("assigning to a stack variable");
 
             //save to memory
-            result.add_instruction(AsmOperation::MOV {
+            result.add_instruction(IROperation::MOV {
                 from: Storage::Stack(rhs_casted_value),
                 to: Storage::IndirectAddress(lhs_addr_ptr),
                 size: promoted_type.memory_size(asm_data),
@@ -293,8 +293,8 @@ pub fn generate_assembly_for_assignment(lhs: &Expression, rhs: &Expression, asm_
 }
 
 /// Assigns `array_items` to `lhs`, where each item is of type `array_element_type`
-fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, array_element_type: &DataType, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> Assembly {
-    let mut result = Assembly::make_empty();
+fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, array_element_type: &DataType, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> IRCode {
+    let mut result = IRCode::make_empty();
     let array_element_size = array_element_type.memory_size(asm_data);
 
     //get address of destination array
@@ -303,7 +303,7 @@ fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, 
 
     //this stores the address of the to-be initialised element
     let lhs_current = stack_data.allocate(PTR_SIZE);
-    result.add_instruction(AsmOperation::MOV {
+    result.add_instruction(IROperation::MOV {
         from: Storage::Stack(lhs_addr_ptr),
         to: Storage::Stack(lhs_current),
         size: PTR_SIZE,
@@ -324,14 +324,14 @@ fn assembly_for_array_assignment(lhs: &Expression,array_items: Vec<Expression>, 
         result.merge(&item_assignment);
 
         //place `item_value` in the next array index to be initialised
-        result.add_commented_instruction(AsmOperation::MOV {
+        result.add_commented_instruction(IROperation::MOV {
             from: Storage::Stack(item_value.unwrap()),
             to: Storage::IndirectAddress(lhs_current),
             size: array_element_size,
         }, format!("initialising element {} of array", i));
 
         //increment lhs_current
-        result.add_instruction(AsmOperation::ADD {
+        result.add_instruction(IROperation::ADD {
             lhs: Storage::Stack(lhs_current),
             rhs: Storage::Constant(array_element_size.as_imm()),
             to: Storage::Stack(lhs_current),

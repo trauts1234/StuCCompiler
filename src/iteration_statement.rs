@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::Storage, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, generate_ir_traits::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, comparison::AsmComparison, operand::Storage, operation::{IROperation, Label}}, ast_metadata::ASTMetadata, block_statement::StatementOrDeclaration, data_type::{base_type::{BaseType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, Expression}, generate_ir_traits::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData, statement::Statement};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
@@ -112,8 +112,8 @@ impl IterationStatement {
 }
 
 impl GenerateIR for IterationStatement {
-    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
-        let mut result = Assembly::make_empty();
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<stack_management::stack_item::StackItemKey>) {
+        let mut result = IRCode::make_empty();
 
         let generic_label = Uuid::new_v4().simple().to_string();
         let loop_start_label = Label::Local(format!("{}_loop_start", generic_label));
@@ -138,27 +138,27 @@ impl GenerateIR for IterationStatement {
                 //write to stack data whilst generating assembly for initialising the loop body
                 let init_asm = match initialisation {
                     Some(x) => x.generate_ir(&asm_data, stack_data, global_asm_data).0,
-                    None => Assembly::make_empty(),//no initialisation => blank assembly
+                    None => IRCode::make_empty(),//no initialisation => blank assembly
                 };
                 
                 //initialise the for loop anyways
                 result.merge(&init_asm);
 
-                result.add_instruction(AsmOperation::Label(loop_start_label.clone()));//label for loop's start
+                result.add_instruction(IROperation::Label(loop_start_label.clone()));//label for loop's start
 
                 let (condition_asm, condition_value) = condition.generate_ir(&asm_data, stack_data, global_asm_data);
 
                 result.merge(&condition_asm);//generate the condition
 
                 //compare the result to 0
-                result.add_instruction(AsmOperation::CMP {
+                result.add_instruction(IROperation::CMP {
                     lhs: Storage::Stack(condition_value.unwrap()),
                     rhs: Storage::Constant(zero),
                     data_type: condition_type
                 });
 
                 //if the result is 0, jump to the end of the loop
-                result.add_instruction(AsmOperation::JMPCC {
+                result.add_instruction(IROperation::JMPCC {
                     label: loop_end_label.clone(),
                     comparison: AsmComparison::EQ,
                 });
@@ -167,7 +167,7 @@ impl GenerateIR for IterationStatement {
                 let (body_asm, _) = body.generate_ir(&asm_data, stack_data, global_asm_data);
                 result.merge(&body_asm);//generate the loop body
 
-                result.add_instruction(AsmOperation::Label(loop_increment_label));//add label to jump to incrementing the loop
+                result.add_instruction(IROperation::Label(loop_increment_label));//add label to jump to incrementing the loop
 
                 if let Some(inc) = increment {//if there is an increment
                     let (increment_asm, _) = inc.generate_ir(&asm_data, stack_data, global_asm_data);
@@ -175,12 +175,12 @@ impl GenerateIR for IterationStatement {
                 }
 
                 //after increment, go to top of loop
-                result.add_instruction(AsmOperation::JMPCC {
+                result.add_instruction(IROperation::JMPCC {
                     label: loop_start_label.clone(),
                     comparison: AsmComparison::ALWAYS,
                 });
 
-                result.add_instruction(AsmOperation::Label(loop_end_label));
+                result.add_instruction(IROperation::Label(loop_end_label));
             },
 
             Self::WHILE { condition, body } => {
@@ -191,20 +191,20 @@ impl GenerateIR for IterationStatement {
                     ScalarType::Integer(integer_type) => NumberLiteral::INTEGER { data: 0, data_type: integer_type },
                 };
 
-                result.add_instruction(AsmOperation::Label(loop_start_label.clone())); // label for loop's start
+                result.add_instruction(IROperation::Label(loop_start_label.clone())); // label for loop's start
 
                 let (condition_asm, condition_value) = condition.generate_ir(&asm_data, stack_data, global_asm_data);
                 result.merge(&condition_asm); // generate the condition
 
                 // compare the result to 0
-                result.add_instruction(AsmOperation::CMP {
+                result.add_instruction(IROperation::CMP {
                     lhs: Storage::Stack(condition_value.unwrap()),
                     rhs: Storage::Constant(zero),
                     data_type: condition_type,
                 });
 
                 // if the result is 0, jump to the end of the loop
-                result.add_instruction(AsmOperation::JMPCC {
+                result.add_instruction(IROperation::JMPCC {
                     label: loop_end_label.clone(),
                     comparison: AsmComparison::EQ,
                 });
@@ -214,12 +214,12 @@ impl GenerateIR for IterationStatement {
                 result.merge(&body_asm);
 
                 // after loop complete, go to top of loop
-                result.add_instruction(AsmOperation::JMPCC {
+                result.add_instruction(IROperation::JMPCC {
                     label: loop_start_label,
                     comparison: AsmComparison::ALWAYS,
                 });
 
-                result.add_instruction(AsmOperation::Label(loop_end_label));
+                result.add_instruction(IROperation::Label(loop_end_label));
             }
         }
         

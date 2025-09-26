@@ -1,7 +1,7 @@
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::Assembly, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{ token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
+use crate::{asm_gen_data::GlobalAsmData, assembly::{assembly::IRCode, assembly_file::AssemblyFile}, ast_metadata::ASTMetadata, compilation_error::CompilationError, compilation_state::{functions::FunctionList}, data_type::storage_type::StorageDuration, debugging::{ASTDisplay, IRDisplay}, function_declaration::FunctionDeclaration, function_definition::FunctionDefinition, global_var_declaration::GlobalVariable, lexer::{ token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, preprocessor::preprocessor::preprocess_c_file, string_literal::StringLiteral, typedef::Typedef};
 use std::{collections::HashSet, fs::File, io::Write, path::Path};
 
 pub struct TranslationUnit {
@@ -116,7 +116,7 @@ impl TranslationUnit {
         output_file.write(&assembly_code.into_bytes()).unwrap();
     }
 
-    fn generate_fn_asm(&self, global_asm_data: &mut GlobalAsmData) -> Vec<(Assembly, SimpleStackFrame)> {
+    fn generate_fn_asm(&self, global_asm_data: &mut GlobalAsmData) -> Vec<(IRCode, SimpleStackFrame)> {
 
         self.functions.func_definitions_as_slice().iter()
         .map(|x| x.generate_assembly(global_asm_data))

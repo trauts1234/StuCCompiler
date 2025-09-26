@@ -3,7 +3,7 @@ use colored::Colorize;
 use stack_management::{simple_stack_frame::SimpleStackFrame, stack_item::StackItemKey};
 use unwrap_let::unwrap_let;
 use memory_size::MemorySize;
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, promote, Expression}}, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir_traits::{GenerateIR, GetType}, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, Storage, PTR_SIZE}, operation::IROperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type_arithmetic, calculate_unary_type_arithmetic, DataType}}, debugging::ASTDisplay, expression::{binary_expression_operator::BinaryExpressionOperator, expression::{generate_assembly_for_assignment, promote, Expression}}, expression_visitors::{expr_visitor::ExprVisitor}, generate_ir_traits::{GenerateIR, GetType}, number_literal::typed_value::NumberLiteral};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -62,8 +62,8 @@ impl GetType for BinaryExpression {
     }
 }
 impl GenerateIR for BinaryExpression {
-    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<StackItemKey>) {
-        let mut result = Assembly::make_empty();
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<StackItemKey>) {
+        let mut result = IRCode::make_empty();
 
         if self.operator == BinaryExpressionOperator::Assign {
             return generate_assembly_for_assignment(&self.lhs, &self.rhs, asm_data, stack_data, global_asm_data);
@@ -143,7 +143,7 @@ impl GenerateIR for BinaryExpression {
                 let (ptr_scale_asm, lhs_scaled, rhs_scaled) = apply_pointer_scaling(lhs_promoted, &lhs_type, rhs_promoted, &rhs_type, &promoted_type, asm_data);
                 result.merge(&ptr_scale_asm);
 
-                result.add_instruction(AsmOperation::ADD {
+                result.add_instruction(IROperation::ADD {
                     lhs: Storage::Stack(lhs_scaled),
                     rhs: Storage::Stack(rhs_scaled),
                     to: Storage::Stack(resultant_location),
@@ -157,7 +157,7 @@ impl GenerateIR for BinaryExpression {
                 let (ptr_scale_asm, lhs_scaled, rhs_scaled) = apply_pointer_scaling(lhs_promoted, &lhs_type, rhs_promoted, &rhs_type, &promoted_type, asm_data);
                 result.merge(&ptr_scale_asm);
 
-                result.add_instruction(AsmOperation::SUB {
+                result.add_instruction(IROperation::SUB {
                     lhs: Storage::Stack(lhs_scaled),
                     rhs: Storage::Stack(rhs_scaled),
                     to: Storage::Stack(resultant_location),
@@ -169,7 +169,7 @@ impl GenerateIR for BinaryExpression {
                 result.add_comment("mulitplying numbers");
 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_underlying)) = promoted_type);
-                result.add_instruction(AsmOperation::MUL {
+                result.add_instruction(IROperation::MUL {
                     data_type: promoted_underlying,
                     lhs: Storage::Stack(lhs_promoted),
                     rhs: Storage::Stack(rhs_promoted),
@@ -181,7 +181,7 @@ impl GenerateIR for BinaryExpression {
                 result.add_comment("dividing numbers");
 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(promoted_base)) = promoted_type);
-                result.add_instruction(AsmOperation::DIV {
+                result.add_instruction(IROperation::DIV {
                     data_type: promoted_base,
                     lhs: Storage::Stack(lhs_promoted),
                     rhs: Storage::Stack(rhs_promoted),
@@ -193,7 +193,7 @@ impl GenerateIR for BinaryExpression {
                 result.add_comment("calculating modulus");
 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(ScalarType::Integer(promoted_base))) = promoted_type);
-                result.add_instruction(AsmOperation::MOD {
+                result.add_instruction(IROperation::MOD {
                     data_type: promoted_base,
                     lhs: Storage::Stack(lhs_promoted),
                     rhs: Storage::Stack(rhs_promoted),
@@ -205,7 +205,7 @@ impl GenerateIR for BinaryExpression {
                 result.add_comment("comparing numbers");
 
                 let promoted_base = promoted_type.decay_to_primative();
-                result.add_instruction(AsmOperation::CMP {
+                result.add_instruction(IROperation::CMP {
                     lhs: Storage::Stack(lhs_promoted),
                     rhs: Storage::Stack(rhs_promoted),
                     data_type: promoted_base,
@@ -220,7 +220,7 @@ impl GenerateIR for BinaryExpression {
                     });//take signedness and convert comparison kind to an asm comparison
 
                 //create the correct setcc instruction
-                result.add_instruction(AsmOperation::SETCC {
+                result.add_instruction(IROperation::SETCC {
                     comparison: asm_comparison,
                     to: Storage::Stack(resultant_location),
                     data_type: IntegerType::_BOOL//returns a bool, not taking into account the promoted type of lhs and rhs (obviously)
@@ -234,7 +234,7 @@ impl GenerateIR for BinaryExpression {
 
                 let instruction = operator.as_boolean_instr().unwrap();
                 //operands should have been converted into booleans as this is a boolean instruction
-                result.add_instruction(AsmOperation::BitwiseOp {
+                result.add_instruction(IROperation::BitwiseOp {
                     operation: instruction,
                     lhs: Storage::Stack(lhs_promoted),
                     rhs: Storage::Stack(rhs_promoted),
@@ -248,7 +248,7 @@ impl GenerateIR for BinaryExpression {
 
                 let instruction = operator.as_bitwise_binary_instr().unwrap();
 
-                result.add_instruction(AsmOperation::BitwiseOp {
+                result.add_instruction(IROperation::BitwiseOp {
                     operation: instruction,
                     lhs: Storage::Stack(lhs_promoted),
                     rhs: Storage::Stack(rhs_promoted),
@@ -262,7 +262,7 @@ impl GenerateIR for BinaryExpression {
                 result.add_comment("bitwise shift right");
                 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(ScalarType::Integer(lhs_type))) = promoted_type);
-                result.add_instruction(AsmOperation::SHR {
+                result.add_instruction(IROperation::SHR {
                     from: Storage::Stack(lhs_promoted),
                     from_type: lhs_type,
                     amount: Storage::Stack(rhs_promoted),
@@ -273,7 +273,7 @@ impl GenerateIR for BinaryExpression {
                 result.add_comment("bitwise shift left");
                 
                 unwrap_let!(DataType::RAW(BaseType::Scalar(ScalarType::Integer(lhs_type))) = promoted_type);
-                result.add_instruction(AsmOperation::SHL {
+                result.add_instruction(IROperation::SHL {
                     from: Storage::Stack(lhs_promoted),
                     from_type: lhs_type,
                     amount: Storage::Stack(rhs_promoted),
@@ -504,15 +504,15 @@ impl ASTDisplay for BinaryExpression {
     }
 }
 
-fn apply_pointer_scaling(lhs_promoted: StackItemKey, raw_lhs_type: &DataType, rhs_promoted: StackItemKey, raw_rhs_type: &DataType, promoted_type: &DataType, asm_data: &AsmData) -> (Assembly, StackItemKey, StackItemKey) {
-    let mut result = Assembly::make_empty();
+fn apply_pointer_scaling(lhs_promoted: StackItemKey, raw_lhs_type: &DataType, rhs_promoted: StackItemKey, raw_rhs_type: &DataType, promoted_type: &DataType, asm_data: &AsmData) -> (IRCode, StackItemKey, StackItemKey) {
+    let mut result = IRCode::make_empty();
 
     //decay pointers to u64, so that some things are less ambiguous?
     let promoted_primative = promoted_type.decay_to_primative();
 
     if let DataType::POINTER(rhs_pointed_at) = &raw_rhs_type {
         let rhs_deref_size = rhs_pointed_at.memory_size(asm_data);
-        result.add_commented_instruction(AsmOperation::MUL {
+        result.add_commented_instruction(IROperation::MUL {
             lhs: Storage::Constant(rhs_deref_size.as_imm()),
             rhs: Storage::Stack(lhs_promoted),
             to: Storage::Stack(lhs_promoted),
@@ -522,7 +522,7 @@ fn apply_pointer_scaling(lhs_promoted: StackItemKey, raw_lhs_type: &DataType, rh
 
     if let DataType::POINTER(lhs_pointed_at) = &raw_lhs_type {
         let lhs_deref_size = lhs_pointed_at.memory_size(asm_data);
-        result.add_commented_instruction(AsmOperation::MUL {
+        result.add_commented_instruction(IROperation::MUL {
             lhs: Storage::Constant(lhs_deref_size.as_imm()),
             rhs: Storage::Stack(rhs_promoted),
             to: Storage::Stack(rhs_promoted),

@@ -4,7 +4,7 @@ use memory_size::MemorySize;
 use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
 
 #[derive(Clone)]
-pub enum AsmOperation {
+pub enum IROperation {
     /// Moves `size` bytes from the pointers
     MOV {from: Storage, to: Storage, size: MemorySize},
 
@@ -151,14 +151,14 @@ impl Display for Label {
     }
 }
 
-impl AsmOperation {
+impl IROperation {
     /**
      * converts myself into a line of assembly, with no newline
      */
     pub fn to_text(&self, stack: &BakedSimpleStackFrame) -> RawAssembly {
         let mut result = RawAssembly::default();
         match self {
-            AsmOperation::MOV { to, from, size } => {
+            IROperation::MOV { to, from, size } => {
                         result.add_comment(format!("moving {} bytes", size.size_bytes()));
                         //loop through each eightbyte(or smaller)
                         for i in (0..size.size_bytes()).step_by(8) {
@@ -177,7 +177,7 @@ impl AsmOperation {
                             result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
                         }
                     },
-            AsmOperation::LEA { from, to } => {
+            IROperation::LEA { from, to } => {
                         //generate address, and put in rcx
                         result.add(put_pointer_in_rax(from, stack));
                         result.add(format!("mov rcx, rax"));
@@ -185,7 +185,7 @@ impl AsmOperation {
                         result.add(put_pointer_in_rax(to, stack));
                         result.add(format!("mov [rax], rcx"));
                     },
-            AsmOperation::CMP { rhs, data_type, lhs } => {
+            IROperation::CMP { rhs, data_type, lhs } => {
                         match data_type {
                             ScalarType::Float(float_type) => {
                                 result.add(put_rhs_xmm0_lhs_xmm1(lhs, rhs, float_type, stack));
@@ -202,7 +202,7 @@ impl AsmOperation {
                             },
                         }
                     },
-            AsmOperation::SETCC { comparison, to, data_type } => {
+            IROperation::SETCC { comparison, to, data_type } => {
                         let reg_name = GPRegister::acc().generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
 
                         let comparison_instr = match comparison {
@@ -217,7 +217,7 @@ impl AsmOperation {
 
                         result.add(format!("{} al", comparison_instr));
                     },
-            AsmOperation::JMPCC { label, comparison } => {
+            IROperation::JMPCC { label, comparison } => {
                         let comparison_instr = match comparison {
                             AsmComparison::NE => "jne",
                             AsmComparison::EQ => "je",
@@ -230,7 +230,7 @@ impl AsmOperation {
                 
                         result.add(format!("{} {}", comparison_instr, label));
                     },
-            AsmOperation::ADD { data_type, lhs, rhs, to } => {
+            IROperation::ADD { data_type, lhs, rhs, to } => {
                         match data_type {
                             ScalarType::Float(float_type) => {todo!()},
                             ScalarType::Integer(integer_type) => {
@@ -245,7 +245,7 @@ impl AsmOperation {
                             },
                         }
                     },
-            AsmOperation::SUB { data_type, lhs, rhs, to } => match data_type {
+            IROperation::SUB { data_type, lhs, rhs, to } => match data_type {
                         ScalarType::Float(float_type) => {todo!()},
                         ScalarType::Integer(integer_type) => {
                             let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
@@ -258,7 +258,7 @@ impl AsmOperation {
                             result.add(format!("mov [rax], {}", truncated_rcx));
                         },
                     }
-            AsmOperation::NEG { data_type, from, to } => match data_type {
+            IROperation::NEG { data_type, from, to } => match data_type {
                         ScalarType::Float(float_type) => todo!(),
                         ScalarType::Integer(integer_type) => {
                             let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
@@ -272,20 +272,20 @@ impl AsmOperation {
                             result.add(format!("mov [rax], {}", truncated_rcx));
                         },
                     },
-            AsmOperation::CreateStackFrame => {
+            IROperation::CreateStackFrame => {
                         result.add(format!("push rbp\nmov rbp, rsp\nsub rsp, {}", stack.stack_size().size_bytes()));
                     },
-            AsmOperation::DestroyStackFrame => {
+            IROperation::DestroyStackFrame => {
                         result.add("mov rsp, rbp\npop rbp".to_string());
                     },
-            AsmOperation::Return{ return_data } => {
+            IROperation::Return{ return_data } => {
                         todo!()
                     },
-            AsmOperation::Label(label) => {
+            IROperation::Label(label) => {
                         result.add(format!("{}:", label));
                     },
-            AsmOperation::BLANK => {},
-            AsmOperation::MUL { data_type, lhs, rhs, to } => match data_type {
+            IROperation::BLANK => {},
+            IROperation::MUL { data_type, lhs, rhs, to } => match data_type {
                         ScalarType::Float(float_type) => todo!(),
                         ScalarType::Integer(integer_type) => {
                             let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
@@ -299,15 +299,15 @@ impl AsmOperation {
                             result.add(format!("mov [rax], {}", truncated_rcx));
                         },
                     },
-            AsmOperation::DIV { data_type, lhs, rhs, to } => todo!(),
-            AsmOperation::BitwiseOp { operation, lhs, rhs, to, size } => todo!(),
-            AsmOperation::CALL { label, params, return_data } => todo!(),
-            AsmOperation::SHL { amount, from, from_type, to } => todo!(),
-            AsmOperation::SHR { amount, from, from_type, to } => todo!(),
-            AsmOperation::BitwiseNot{ from, to, size } => todo!(),
-            AsmOperation::CAST { from_type, to_type, from, to } => todo!(),
-            AsmOperation::MOD { lhs, rhs, to, data_type } => todo!(),
-            AsmOperation::ReadParams { regs, mem } => todo!(),
+            IROperation::DIV { data_type, lhs, rhs, to } => todo!(),
+            IROperation::BitwiseOp { operation, lhs, rhs, to, size } => todo!(),
+            IROperation::CALL { label, params, return_data } => todo!(),
+            IROperation::SHL { amount, from, from_type, to } => todo!(),
+            IROperation::SHR { amount, from, from_type, to } => todo!(),
+            IROperation::BitwiseNot{ from, to, size } => todo!(),
+            IROperation::CAST { from_type, to_type, from, to } => todo!(),
+            IROperation::MOD { lhs, rhs, to, data_type } => todo!(),
+            IROperation::ReadParams { regs, mem } => todo!(),
         }
 
         result
@@ -574,33 +574,33 @@ fn best_reg_size(x: MemorySize) -> MemorySize {
     .min(MemorySize::from_bytes(8))//GP registers are only 8 byte max
 }
 
-impl IRDisplay for AsmOperation {
+impl IRDisplay for IROperation {
     fn display_ir(&self) -> String {
         match self {
-            AsmOperation::MOV { to, from, size } => format!("{} = {} ({})", to, from, size),
-            AsmOperation::BLANK => String::new(),
-            AsmOperation::LEA { from, to } => format!("{} = &{}", to, from),
-            AsmOperation::CMP { lhs, rhs, data_type } => format!("compare {}, {} ({})", lhs, rhs, data_type),
-            AsmOperation::SETCC { to, data_type, comparison } => format!("set-{} {} ({})", comparison, to, data_type),
-            AsmOperation::JMPCC { label, comparison } => format!("jump-{} to {}", comparison, label),
-            AsmOperation::CAST { from, from_type, to, to_type } => format!("cast {} -> {} ({} = {})", from_type, to_type, to, from),
-            AsmOperation::ADD { lhs, rhs, to, data_type } => format!("{} = {} + {} ({})", to, lhs, rhs, data_type),
-            AsmOperation::SUB { lhs, rhs, to, data_type } => format!("{} = {} - {} ({})", to, lhs, rhs, data_type),
-            AsmOperation::MUL { lhs, rhs, to, data_type } => format!("{} = {} * {} ({})", to, lhs, rhs, data_type),
-            AsmOperation::DIV { lhs, rhs, to, data_type } => format!("{} = {} / {} ({})", to, lhs, rhs, data_type),
-            AsmOperation::MOD { lhs, rhs, to, data_type } => format!("{} = {} % {} ({})", to, lhs, rhs, data_type),
-            AsmOperation::SHL { from, from_type, amount, to } => format!("{} = {} << {} ({})", to, from, amount, from_type),
-            AsmOperation::SHR { from, from_type, amount, to } => format!("{} = {} >> {} ({})", to, from, amount, from_type),
-            AsmOperation::NEG { from, to, data_type } => format!("{} = -{} ({})", to, from, data_type),
-            AsmOperation::BitwiseNot { from, to, size } => format!("{} = ~{} ({})", to, from, size),
-            AsmOperation::BitwiseOp { lhs, rhs, to, size, operation } => format!("{} = {} {} {} ({})", to, lhs, operation, rhs, size),
-            AsmOperation::Label(label) => format!("{}", label),
-            AsmOperation::CreateStackFrame => format!("create stack frame and reserve stack space"),
-            AsmOperation::DestroyStackFrame => format!("destroy stack frame"),
-            AsmOperation::Return { return_data: None } => format!("return"),
-            AsmOperation::Return { return_data: Some((return_location, storage)) } => format!("return {}", storage),
-            AsmOperation::CALL { label, params, return_data } => format!("call {}", label),
-            AsmOperation::ReadParams { regs, mem } => format!("load params"),
+            IROperation::MOV { to, from, size } => format!("{} = {} ({})", to, from, size),
+            IROperation::BLANK => String::new(),
+            IROperation::LEA { from, to } => format!("{} = &{}", to, from),
+            IROperation::CMP { lhs, rhs, data_type } => format!("compare {}, {} ({})", lhs, rhs, data_type),
+            IROperation::SETCC { to, data_type, comparison } => format!("set-{} {} ({})", comparison, to, data_type),
+            IROperation::JMPCC { label, comparison } => format!("jump-{} to {}", comparison, label),
+            IROperation::CAST { from, from_type, to, to_type } => format!("cast {} -> {} ({} = {})", from_type, to_type, to, from),
+            IROperation::ADD { lhs, rhs, to, data_type } => format!("{} = {} + {} ({})", to, lhs, rhs, data_type),
+            IROperation::SUB { lhs, rhs, to, data_type } => format!("{} = {} - {} ({})", to, lhs, rhs, data_type),
+            IROperation::MUL { lhs, rhs, to, data_type } => format!("{} = {} * {} ({})", to, lhs, rhs, data_type),
+            IROperation::DIV { lhs, rhs, to, data_type } => format!("{} = {} / {} ({})", to, lhs, rhs, data_type),
+            IROperation::MOD { lhs, rhs, to, data_type } => format!("{} = {} % {} ({})", to, lhs, rhs, data_type),
+            IROperation::SHL { from, from_type, amount, to } => format!("{} = {} << {} ({})", to, from, amount, from_type),
+            IROperation::SHR { from, from_type, amount, to } => format!("{} = {} >> {} ({})", to, from, amount, from_type),
+            IROperation::NEG { from, to, data_type } => format!("{} = -{} ({})", to, from, data_type),
+            IROperation::BitwiseNot { from, to, size } => format!("{} = ~{} ({})", to, from, size),
+            IROperation::BitwiseOp { lhs, rhs, to, size, operation } => format!("{} = {} {} {} ({})", to, lhs, operation, rhs, size),
+            IROperation::Label(label) => format!("{}", label),
+            IROperation::CreateStackFrame => format!("create stack frame and reserve stack space"),
+            IROperation::DestroyStackFrame => format!("destroy stack frame"),
+            IROperation::Return { return_data: None } => format!("return"),
+            IROperation::Return { return_data: Some((return_location, storage)) } => format!("return {}", storage),
+            IROperation::CALL { label, params, return_data } => format!("call {}", label),
+            IROperation::ReadParams { regs, mem } => format!("load params"),
         }
     }
 }

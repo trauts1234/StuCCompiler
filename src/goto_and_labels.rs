@@ -1,7 +1,7 @@
 use colored::Colorize;
 use unwrap_let::unwrap_let;
 
-use crate::{assembly::{assembly::Assembly, comparison::AsmComparison, operation::{AsmOperation, Label}}, ast_metadata::ASTMetadata, debugging::ASTDisplay, generate_ir_traits::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
+use crate::{assembly::{assembly::IRCode, comparison::AsmComparison, operation::{IROperation, Label}}, ast_metadata::ASTMetadata, debugging::ASTDisplay, generate_ir_traits::GenerateIR, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData};
 
 /// A label in the style `label:`
 /// 
@@ -24,10 +24,10 @@ impl CustomLabel {
     }
 }
 impl GenerateIR for CustomLabel {
-    fn generate_ir(&self, asm_data: &crate::asm_gen_data::AsmData, stack_data: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
-        let mut result = Assembly::make_empty();
+    fn generate_ir(&self, asm_data: &crate::asm_gen_data::AsmData, stack_data: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (IRCode, Option<stack_management::stack_item::StackItemKey>) {
+        let mut result = IRCode::make_empty();
 
-        result.add_commented_instruction(AsmOperation::Label(Label::Local(self.0.clone())), format!("custom label {}", self.0));
+        result.add_commented_instruction(IROperation::Label(Label::Local(self.0.clone())), format!("custom label {}", self.0));
 
         (result, None)
     }
@@ -47,11 +47,11 @@ impl Goto {
     }
 }
 impl GenerateIR for Goto {
-    fn generate_ir(&self, asm_data: &crate::asm_gen_data::AsmData, stack_data: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
-        let mut result = Assembly::make_empty();
+    fn generate_ir(&self, asm_data: &crate::asm_gen_data::AsmData, stack_data: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (IRCode, Option<stack_management::stack_item::StackItemKey>) {
+        let mut result = IRCode::make_empty();
 
         result.add_commented_instruction(
-            AsmOperation::JMPCC { label: Label::Local(self.0.clone()), comparison: AsmComparison::ALWAYS },
+            IROperation::JMPCC { label: Label::Local(self.0.clone()), comparison: AsmComparison::ALWAYS },
             format!("goto {}", self.0)
         );
 

@@ -1,4 +1,4 @@
-use crate::{args_handling::location_allocation::{generate_only_return_location, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, comparison::AsmComparison, operand::Storage, operation::{AsmOperation, CalleeReturnData}}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, promote, Expression}, generate_ir_traits::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{generate_only_return_location, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, comparison::AsmComparison, operand::Storage, operation::{IROperation, CalleeReturnData}}, ast_metadata::ASTMetadata, data_type::{base_type::BaseType, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::{self, promote, Expression}, generate_ir_traits::{GenerateIR, GetType}, lexer::{keywords::Keyword, punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, parse_data::ParseData};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -45,8 +45,8 @@ impl ControlFlowChange {
 }
 
 impl GenerateIR for ControlFlowChange {
-    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
-        let mut result = Assembly::make_empty();
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<stack_management::stack_item::StackItemKey>) {
+        let mut result = IRCode::make_empty();
 
         match self {
             ControlFlowChange::RETURN(expression) => {
@@ -71,8 +71,8 @@ impl GenerateIR for ControlFlowChange {
                     });
 
                 //destroy stack frame and return
-                result.add_instruction(AsmOperation::DestroyStackFrame);
-                result.add_instruction(AsmOperation::Return {
+                result.add_instruction(IROperation::DestroyStackFrame);
+                result.add_instruction(IROperation::Return {
                     return_data,
                 });
             },
@@ -80,7 +80,7 @@ impl GenerateIR for ControlFlowChange {
                 let label = asm_data.get_break_label().expect("break statement outside of a loop");
                 //unconditionally jump to the label
                 //signedness does not matter as it unconditionally jumps
-                result.add_instruction(AsmOperation::JMPCC { label: label.clone(), comparison: AsmComparison::ALWAYS});
+                result.add_instruction(IROperation::JMPCC { label: label.clone(), comparison: AsmComparison::ALWAYS});
             },
         }
 

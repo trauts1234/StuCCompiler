@@ -1,6 +1,6 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::Assembly, ast_metadata::ASTMetadata, debugging::ASTDisplay, generate_ir_traits::GenerateIR, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::assembly::IRCode, ast_metadata::ASTMetadata, debugging::ASTDisplay, generate_ir_traits::GenerateIR, initialised_declaration::InitialisedDeclaration, lexer::{token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, parse_data::ParseData, statement::Statement};
 
 /**
  * This represents either a statement or variable creation.
@@ -34,7 +34,7 @@ impl StatementOrDeclaration {
 }
 
 impl GenerateIR for StatementOrDeclaration {
-    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, Option<stack_management::stack_item::StackItemKey>) {
+    fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<stack_management::stack_item::StackItemKey>) {
         match self {
             Self::STATEMENT(statement) => statement.generate_ir(asm_data, stack_data, global_asm_data),
             Self::DECLARATION(decl) => {
@@ -43,7 +43,7 @@ impl GenerateIR for StatementOrDeclaration {
                 let asm = decl
                 .iter()
                 .map(|x| x.generate_ir(asm_data, stack_data, global_asm_data).0)//generate assembly
-                .fold(Assembly::make_empty(), |mut acc, x| {
+                .fold(IRCode::make_empty(), |mut acc, x| {
                     acc.merge(&x);
                     acc
                 });

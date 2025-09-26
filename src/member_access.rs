@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::Assembly, operand::{immediate::ToImmediate, Storage, PTR_SIZE}, operation::AsmOperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GetAddress, GetType}};
+use crate::{asm_gen_data::{AsmData, GetStructUnion, GlobalAsmData}, assembly::{assembly::IRCode, operand::{immediate::ToImmediate, Storage, PTR_SIZE}, operation::IROperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::ASTDisplay, expression::expression::Expression, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GetAddress, GetType}};
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
@@ -26,8 +26,8 @@ impl MemberAccess {
 }
 
 impl GetAddress for MemberAccess {
-    fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (Assembly, stack_management::stack_item::StackItemKey) {
-        let mut result = Assembly::make_empty();
+    fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, stack_management::stack_item::StackItemKey) {
+        let mut result = IRCode::make_empty();
 
         result.add_comment(format!("getting address of member {}", self.member_name));
 
@@ -50,7 +50,7 @@ impl GetAddress for MemberAccess {
 
         //go up by member offset
         let resultant_ptr = stack_data.allocate(PTR_SIZE);
-        result.add_instruction(AsmOperation::ADD {
+        result.add_instruction(IROperation::ADD {
             data_type: ScalarType::Integer(IntegerType::U64),
             lhs: Storage::Stack(base_address_ptr),
             rhs: Storage::Constant(member_offset.as_imm()),

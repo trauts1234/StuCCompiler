@@ -1,5 +1,5 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::Assembly, operand::{ memory_operand::MemoryOperand, register::GPRegister, Storage, STACK_ALIGN}, operation::{AsmOperation, CalleeReturnData, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{ memory_operand::MemoryOperand, register::GPRegister, Storage, STACK_ALIGN}, operation::{IROperation, CalleeReturnData, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -53,8 +53,8 @@ impl FunctionDefinition {
     }
 
     //cannot be GenerateIR as it creates some things like `stack_data`
-    pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> (Assembly, SimpleStackFrame) {
-        let mut result = Assembly::make_empty();
+    pub fn generate_assembly(&self, global_asm_data: &mut GlobalAsmData) -> (IRCode, SimpleStackFrame) {
+        let mut result = IRCode::make_empty();
         //as per SYSV ABI, stack is aligned (once stack frame generated) to 16 bytes
         let mut stack_data = SimpleStackFrame::new(STACK_ALIGN);//stack starts as empty in a function
         let (return_location, args_locations) = generate_param_and_return_locations(self.decl.params.iter().map(|decl| &decl.data_type), &self.get_return_type(), global_asm_data);
@@ -63,9 +63,9 @@ impl FunctionDefinition {
         let asm_data = &AsmData::for_new_function(&global_asm_data, &self.local_scope_data, self.get_return_type(), return_location, &mut stack_data);
 
         //set label as same as function name
-        result.add_instruction(AsmOperation::Label(Label::Global(self.decl.function_name.clone())));
+        result.add_instruction(IROperation::Label(Label::Global(self.decl.function_name.clone())));
         //create stack frame
-        result.add_commented_instruction(AsmOperation::CreateStackFrame, "create stack frame");
+        result.add_commented_instruction(IROperation::CreateStackFrame, "create stack frame");
 
         let (code_for_body, _) = self.code.generate_ir(asm_data, &mut stack_data, global_asm_data);//calculate stack needed for function, while generating asm
 
@@ -94,7 +94,7 @@ impl FunctionDefinition {
             }
         }
 
-        result.add_instruction(AsmOperation::ReadParams { regs: reg_args, mem: mem_args });
+        result.add_instruction(IROperation::ReadParams { regs: reg_args, mem: mem_args });
 
         // //go through register args first, as they are very likely to be clobbered if I wait too long...
         // for (eight_byte_locations, param_size, param_end_location, param_idx) in reg_args {
@@ -146,17 +146,17 @@ impl FunctionDefinition {
         result.merge(&code_for_body);
         
         //destroy stack frame and return
-        result.add_instruction(AsmOperation::DestroyStackFrame);
+        result.add_instruction(IROperation::DestroyStackFrame);
         if self.get_name() == "main" {
             //main automatically returns 0
-            result.add_instruction(AsmOperation::Return{
+            result.add_instruction(IROperation::Return{
                 return_data: Some((
                     CalleeReturnData::InRegs(vec![EightByteLocation::GP(GPRegister::acc())]),
                     Storage::Constant(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I32 })
                 ))
             });
         } else {
-            result.add_instruction(AsmOperation::Return{ return_data: None });
+            result.add_instruction(IROperation::Return{ return_data: None });
         }
 
         return (result, stack_data);
