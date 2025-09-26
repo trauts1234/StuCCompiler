@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
-use crate::{assembly::comparison::ComparisonKind, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor};
+use crate::{assembly::{assembly::IRCode, comparison::ComparisonKind, operand::Storage, operation::IROperation}, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::GenerateIR};
 
 #[derive(Debug, Clone)]
 pub enum NumberLiteral {
@@ -195,6 +195,18 @@ impl NumberLiteral {
             data: self.cmp(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I64 }, &ComparisonKind::EQ) as i128,
             data_type: IntegerType::_BOOL
         }
+    }
+}
+
+impl GenerateIR for NumberLiteral {
+    fn generate_ir(&self, asm_data: &crate::asm_gen_data::AsmData, stack_data: &mut stack_management::simple_stack_frame::SimpleStackFrame, global_asm_data: &crate::asm_gen_data::GlobalAsmData) -> (crate::assembly::assembly::IRCode, Option<stack_management::stack_item::StackItemKey>) {
+        let mut result = IRCode::make_empty();
+        let size = self.get_data_type().memory_size();
+        let allocation = stack_data.allocate(size);
+
+        result.add_instruction(IROperation::MOV { from: Storage::Constant(self.clone()), to: Storage::Stack(allocation), size });
+
+        (result, Some(allocation))
     }
 }
 

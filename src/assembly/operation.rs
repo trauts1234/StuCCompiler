@@ -159,146 +159,146 @@ impl IROperation {
         let mut result = RawAssembly::default();
         match self {
             IROperation::MOV { to, from, size } => {
-                        result.add_comment(format!("moving {} bytes", size.size_bytes()));
-                        //loop through each eightbyte(or smaller)
-                        for i in (0..size.size_bytes()).step_by(8) {
-                            let offset = MemorySize::from_bytes(i);//find the offset into `from` and `to` that I am copying
-                            let remaining_bytes = *size - offset;//find the number of bytes left to copy
-                            let best_reg_size = best_reg_size(remaining_bytes);//find the biggest register size to move the next part of the data
-                            let cx_name = GPRegister::_CX.generate_name(best_reg_size);//to store the bytes temporarily
+                result.add_comment(format!("moving {} bytes", size.size_bytes()));
+                //loop through each eightbyte(or smaller)
+                for i in (0..size.size_bytes()).step_by(8) {
+                    let offset = MemorySize::from_bytes(i);//find the offset into `from` and `to` that I am copying
+                    let remaining_bytes = *size - offset;//find the number of bytes left to copy
+                    let best_reg_size = best_reg_size(remaining_bytes);//find the biggest register size to move the next part of the data
+                    let cx_name = GPRegister::_CX.generate_name(best_reg_size);//to store the bytes temporarily
 
-                            //point to the start of the source
-                            result.add(put_pointer_in_rax(from, stack));
-                            //put the next bytes from the correct part of the source in RCX
-                            result.add(format!("mov {}, [rax+{}]", cx_name, offset.size_bytes()));
-                            //point to the start of the destination
-                            result.add(put_pointer_in_rax(to, stack));
-                            //store the next few bytes from RCX
-                            result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
-                        }
-                    },
+                    //point to the start of the source
+                    result.add(put_pointer_in_rax(from, stack));
+                    //put the next bytes from the correct part of the source in RCX
+                    result.add(format!("mov {}, [rax+{}]", cx_name, offset.size_bytes()));
+                    //point to the start of the destination
+                    result.add(put_pointer_in_rax(to, stack));
+                    //store the next few bytes from RCX
+                    result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
+                }
+            },
             IROperation::LEA { from, to } => {
-                        //generate address, and put in rcx
-                        result.add(put_pointer_in_rax(from, stack));
-                        result.add(format!("mov rcx, rax"));
-                        //get destination, and store result
-                        result.add(put_pointer_in_rax(to, stack));
-                        result.add(format!("mov [rax], rcx"));
-                    },
+                //generate address, and put in rcx
+                result.add(put_pointer_in_rax(from, stack));
+                result.add(format!("mov rcx, rax"));
+                //get destination, and store result
+                result.add(put_pointer_in_rax(to, stack));
+                result.add(format!("mov [rax], rcx"));
+            },
             IROperation::CMP { rhs, data_type, lhs } => {
-                        match data_type {
-                            ScalarType::Float(float_type) => {
-                                result.add(put_rhs_xmm0_lhs_xmm1(lhs, rhs, float_type, stack));
-                                //compare
-                                result.add(match float_type {
-                                    FloatType::F32 => "ucomiss xmm1, xmm0",
-                                    FloatType::F64 => "ucomisd xmm1, xmm0",
-                                }.to_string());
-                            },
-                            ScalarType::Integer(integer_type) => {
-                                result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
-                                //compare
-                                result.add(format!("cmp rax, rcx"));
-                            },
-                        }
+                match data_type {
+                    ScalarType::Float(float_type) => {
+                        result.add(put_rhs_xmm0_lhs_xmm1(lhs, rhs, float_type, stack));
+                        //compare
+                        result.add(match float_type {
+                            FloatType::F32 => "ucomiss xmm1, xmm0",
+                            FloatType::F64 => "ucomisd xmm1, xmm0",
+                        }.to_string());
                     },
+                    ScalarType::Integer(integer_type) => {
+                        result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                        //compare
+                        result.add(format!("cmp rax, rcx"));
+                    },
+                }
+            },
             IROperation::SETCC { comparison, to, data_type } => {
-                        let reg_name = GPRegister::acc().generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
+                let reg_name = GPRegister::acc().generate_name(MemorySize::from_bytes(1));//setting 1 byte boolean
 
-                        let comparison_instr = match comparison {
-                            AsmComparison::NE => "setne",
-                            AsmComparison::EQ => "sete",
-                            AsmComparison::ALWAYS => panic!(),//return format!("mov al, 1"),//for set always, there is no command, so quickly return a mov command
-                            AsmComparison::LE {signed} => if *signed {"setle"} else {"setbe"},
-                            AsmComparison::GE {signed} => if *signed {"setge"} else {"setae"},
-                            AsmComparison::L {signed} => if *signed {"setl"} else {"setb"},
-                            AsmComparison::G {signed} => if *signed {"setg"} else {"seta"},
-                        };
+                let comparison_instr = match comparison {
+                    AsmComparison::NE => "setne",
+                    AsmComparison::EQ => "sete",
+                    AsmComparison::ALWAYS => panic!(),//return format!("mov al, 1"),//for set always, there is no command, so quickly return a mov command
+                    AsmComparison::LE {signed} => if *signed {"setle"} else {"setbe"},
+                    AsmComparison::GE {signed} => if *signed {"setge"} else {"setae"},
+                    AsmComparison::L {signed} => if *signed {"setl"} else {"setb"},
+                    AsmComparison::G {signed} => if *signed {"setg"} else {"seta"},
+                };
 
-                        result.add(format!("{} al", comparison_instr));
-                    },
+                result.add(format!("{} al", comparison_instr));
+            },
             IROperation::JMPCC { label, comparison } => {
-                        let comparison_instr = match comparison {
-                            AsmComparison::NE => "jne",
-                            AsmComparison::EQ => "je",
-                            AsmComparison::ALWAYS => "jmp",
-                            AsmComparison::LE {signed}  => if *signed {"jle"} else {"jbe"},
-                            AsmComparison::GE {signed}  => if *signed {"jge"} else {"jae"},
-                            AsmComparison::L {signed}  => if *signed {"jl"} else {"jb"},
-                            AsmComparison::G {signed}  => if *signed {"jg"} else {"ja"},
-                        };
-                
-                        result.add(format!("{} {}", comparison_instr, label));
-                    },
+                let comparison_instr = match comparison {
+                    AsmComparison::NE => "jne",
+                    AsmComparison::EQ => "je",
+                    AsmComparison::ALWAYS => "jmp",
+                    AsmComparison::LE {signed}  => if *signed {"jle"} else {"jbe"},
+                    AsmComparison::GE {signed}  => if *signed {"jge"} else {"jae"},
+                    AsmComparison::L {signed}  => if *signed {"jl"} else {"jb"},
+                    AsmComparison::G {signed}  => if *signed {"jg"} else {"ja"},
+                };
+        
+                result.add(format!("{} {}", comparison_instr, label));
+            },
             IROperation::ADD { data_type, lhs, rhs, to } => {
-                        match data_type {
-                            ScalarType::Float(float_type) => {todo!()},
-                            ScalarType::Integer(integer_type) => {
-                                let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
-                                result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
-                                //sum and put the result in rcx
-                                result.add(format!("add rcx, rax"));
-                                //point to the destination
-                                result.add(put_pointer_in_rax(to, stack));
-                                //truncate and store
-                                result.add(format!("mov [rax], {}", truncated_rcx));
-                            },
-                        }
+                match data_type {
+                    ScalarType::Float(float_type) => {todo!()},
+                    ScalarType::Integer(integer_type) => {
+                        let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
+                        result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                        //sum and put the result in rcx
+                        result.add(format!("add rcx, rax"));
+                        //point to the destination
+                        result.add(put_pointer_in_rax(to, stack));
+                        //truncate and store
+                        result.add(format!("mov [rax], {}", truncated_rcx));
                     },
+                }
+            },
             IROperation::SUB { data_type, lhs, rhs, to } => match data_type {
-                        ScalarType::Float(float_type) => {todo!()},
-                        ScalarType::Integer(integer_type) => {
-                            let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
-                            result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
-                            //find the difference and put the result in rcx
-                            result.add(format!("sub rcx, rax"));
-                            //point to the destination
-                            result.add(put_pointer_in_rax(to, stack));
-                            //truncate and store
-                            result.add(format!("mov [rax], {}", truncated_rcx));
-                        },
-                    }
+                ScalarType::Float(float_type) => {todo!()},
+                ScalarType::Integer(integer_type) => {
+                    let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
+                    result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                    //find the difference and put the result in rcx
+                    result.add(format!("sub rcx, rax"));
+                    //point to the destination
+                    result.add(put_pointer_in_rax(to, stack));
+                    //truncate and store
+                    result.add(format!("mov [rax], {}", truncated_rcx));
+                },
+            }
             IROperation::NEG { data_type, from, to } => match data_type {
-                        ScalarType::Float(float_type) => todo!(),
-                        ScalarType::Integer(integer_type) => {
-                            let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
-                            //get value
-                            result.add(put_value_in_rax(from, integer_type, stack));
-                            //negate and put in rcx
-                            result.add("neg rax".to_string());
-                            result.add("mov rcx, rax".to_string());
-                            //truncate and store
-                            result.add(put_pointer_in_rax(to, stack));
-                            result.add(format!("mov [rax], {}", truncated_rcx));
-                        },
-                    },
+                ScalarType::Float(float_type) => todo!(),
+                ScalarType::Integer(integer_type) => {
+                    let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
+                    //get value
+                    result.add(put_value_in_rax(from, integer_type, stack));
+                    //negate and put in rcx
+                    result.add("neg rax".to_string());
+                    result.add("mov rcx, rax".to_string());
+                    //truncate and store
+                    result.add(put_pointer_in_rax(to, stack));
+                    result.add(format!("mov [rax], {}", truncated_rcx));
+                },
+            },
             IROperation::CreateStackFrame => {
-                        result.add(format!("push rbp\nmov rbp, rsp\nsub rsp, {}", stack.stack_size().size_bytes()));
-                    },
+                result.add(format!("push rbp\nmov rbp, rsp\nsub rsp, {}", stack.stack_size().size_bytes()));
+            },
             IROperation::DestroyStackFrame => {
-                        result.add("mov rsp, rbp\npop rbp".to_string());
-                    },
+                result.add("mov rsp, rbp\npop rbp".to_string());
+            },
             IROperation::Return{ return_data } => {
-                        todo!()
-                    },
+                todo!()
+            },
             IROperation::Label(label) => {
-                        result.add(format!("{}:", label));
-                    },
+                result.add(format!("{}:", label));
+            },
             IROperation::BLANK => {},
             IROperation::MUL { data_type, lhs, rhs, to } => match data_type {
-                        ScalarType::Float(float_type) => todo!(),
-                        ScalarType::Integer(integer_type) => {
-                            let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
-                            result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
-                            //multiply using the correct signedness and put the result in rcx
-                            result.add(if integer_type.is_unsigned() {"mul rcx"} else {"imul rcx"}.to_string());
-                            result.add("mov rcx, rax".to_string());
-                            //point to the destination
-                            result.add(put_pointer_in_rax(to, stack));
-                            //truncate and store
-                            result.add(format!("mov [rax], {}", truncated_rcx));
-                        },
-                    },
+                ScalarType::Float(float_type) => todo!(),
+                ScalarType::Integer(integer_type) => {
+                    let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
+                    result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                    //multiply using the correct signedness and put the result in rcx
+                    result.add(if integer_type.is_unsigned() {"mul rcx"} else {"imul rcx"}.to_string());
+                    result.add("mov rcx, rax".to_string());
+                    //point to the destination
+                    result.add(put_pointer_in_rax(to, stack));
+                    //truncate and store
+                    result.add(format!("mov [rax], {}", truncated_rcx));
+                },
+            },
             IROperation::DIV { data_type, lhs, rhs, to } => todo!(),
             IROperation::BitwiseOp { operation, lhs, rhs, to, size } => todo!(),
             IROperation::CALL { label, params, return_data } => todo!(),
@@ -307,7 +307,29 @@ impl IROperation {
             IROperation::BitwiseNot{ from, to, size } => todo!(),
             IROperation::CAST { from_type, to_type, from, to } => todo!(),
             IROperation::MOD { lhs, rhs, to, data_type } => todo!(),
-            IROperation::ReadParams { regs, mem } => todo!(),
+            IROperation::ReadParams { regs, mem } => {
+                for ReadParamFromReg { eightbyte_locations, param_size, param_destination } in regs {
+                    for eightbyte in eightbyte_locations {
+                        match eightbyte {
+                            //this one is special, since almost all function clobber rax, so I need to do some magic
+                            EightByteLocation::GP(GPRegister::_AX) => panic!("magic not implemented - perhaps use some fancy instruction like 'pop [rax]'"),
+
+                            EightByteLocation::GP(gp_register) => {
+                                assert!(param_size.size_bytes().is_power_of_two());//can do some clever bit-shifting here, to turn a 3 byte store into a 2 byte and 1 byte store, but this is not implemented yet
+                                let sized_register = gp_register.generate_name(*param_size);
+                                result.add(put_pointer_in_rax(&Storage::Stack(param_destination.clone()), stack));
+                                result.add(format!("mov [rax], {}", sized_register));
+                            }
+
+                            EightByteLocation::XMM(xmm_register) => todo!()
+                        }
+                    }
+                }
+
+                for ReadParamFromMem { param_size, param_destination } in mem {
+                    todo!();//keep track of stack offsets and things
+                }
+            },
         }
 
         result

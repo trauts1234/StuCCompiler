@@ -62,12 +62,40 @@ impl Expression {
 
 impl GenerateIR for Expression {
     fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<StackItemKey>) {
-        todo!()
+        let mut result = IRCode::make_empty();
+
+        match self {
+            Expression::NUMBERLITERAL(number_literal) => number_literal.generate_ir(asm_data, stack_data, global_asm_data),
+            Expression::VARIABLE(minimal_data_variable) => todo!(),
+            Expression::STRUCTMEMBERACCESS(member_access) => todo!(),
+            Expression::STRINGLITERAL(string_literal) => todo!(),
+            Expression::ARRAYLITERAL(array_initialisation) => todo!(),
+            Expression::FUNCCALL(function_call) => function_call.generate_ir(asm_data, stack_data, global_asm_data),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.generate_ir(asm_data, stack_data, global_asm_data),
+            Expression::UNARYSUFFIX(unary_postfix_expression) => unary_postfix_expression.generate_ir(asm_data, stack_data, global_asm_data),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.generate_ir(asm_data, stack_data, global_asm_data),
+            Expression::TERNARYEXPRESSION(ternary_expr) => todo!(),
+            Expression::CAST(cast_expression) => todo!(),
+            Expression::SIZEOF(sizeof_expr) => todo!(),
+        }
     }
 }
 impl GetType for Expression {
     fn get_type(&self, asm_data: &AsmData) -> DataType {
-        todo!()
+        match self {
+            Expression::NUMBERLITERAL(number_literal) => DataType::RAW(BaseType::Scalar(number_literal.get_data_type())),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.get_type(asm_data),
+            Expression::STRUCTMEMBERACCESS(member_access) => member_access.get_type(asm_data),
+            Expression::STRINGLITERAL(string_literal) => string_literal.get_type(asm_data),
+            Expression::ARRAYLITERAL(array_initialisation) => array_initialisation.get_type(asm_data),
+            Expression::FUNCCALL(function_call) => function_call.get_type(asm_data),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.get_type(asm_data),
+            Expression::UNARYSUFFIX(unary_postfix_expression) => unary_postfix_expression.get_type(asm_data),
+            Expression::BINARYEXPRESSION(binary_expression) => binary_expression.get_type(asm_data),
+            Expression::TERNARYEXPRESSION(ternary_expr) => ternary_expr.get_type(asm_data),
+            Expression::CAST(cast_expression) => cast_expression.get_type(asm_data),
+            Expression::SIZEOF(sizeof_expr) => sizeof_expr.get_type(asm_data),
+        }
     }
 }
 impl GetAddress for Expression {

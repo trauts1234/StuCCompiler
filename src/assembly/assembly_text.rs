@@ -8,7 +8,7 @@ pub struct RawAssembly {
 
 impl RawAssembly {
     pub fn add(&mut self, text: String) {
-        assert!(!text.contains("\n"));
+        assert!(!text.ends_with("\n"));
         self.lines.push(text);
     }
     pub fn add_comment<S: AsRef<str>>(&mut self, text: S) {
@@ -19,6 +19,10 @@ impl RawAssembly {
 
 impl Display for RawAssembly {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+        for l in &self.lines {
+            writeln!(f, "{}", l)?;
+        }
+
+        Ok(())
     }
 }

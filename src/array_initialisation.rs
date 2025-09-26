@@ -1,4 +1,4 @@
-use crate::{data_type::recursive_data_type::DataType, debugging::{ASTDisplay, TreeDisplayInfo}, expression::expression::{self, Expression}, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{data_type::recursive_data_type::DataType, debugging::{ASTDisplay, TreeDisplayInfo}, expression::expression::{self, Expression}, generate_ir_traits::GetType, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::{TokenQueue, TokenSearchType}}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 
 #[derive(Clone, Debug)]
 pub struct ArrayInitialisation {
@@ -88,6 +88,12 @@ impl ArrayInitialisation {
             _ => panic!("tried to convert array initialisation to non-array?")
 
         }
+    }
+}
+
+impl GetType for ArrayInitialisation {
+    fn get_type(&self, asm_data: &crate::asm_gen_data::AsmData) -> DataType {
+        todo!()
     }
 }
 
