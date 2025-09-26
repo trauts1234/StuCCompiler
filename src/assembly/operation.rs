@@ -214,7 +214,7 @@ impl IROperation {
                         }.to_string());
                     },
                     ScalarType::Integer(integer_type) => {
-                        result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                        result.merge(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
                         //compare
                         result.add(format!("cmp rax, rcx"));
                     },
@@ -253,7 +253,7 @@ impl IROperation {
                     ScalarType::Float(float_type) => {todo!()},
                     ScalarType::Integer(integer_type) => {
                         let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
-                        result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                        result.merge(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
                         //sum and put the result in rcx
                         result.add(format!("add rcx, rax"));
                         //point to the destination
@@ -267,7 +267,7 @@ impl IROperation {
                 ScalarType::Float(float_type) => {todo!()},
                 ScalarType::Integer(integer_type) => {
                     let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
-                    result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                    result.merge(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
                     //find the difference and put the result in rcx
                     result.add(format!("sub rcx, rax"));
                     //point to the destination
@@ -281,7 +281,7 @@ impl IROperation {
                 ScalarType::Integer(integer_type) => {
                     let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
                     //get value
-                    result.add(put_value_in_rax(from, integer_type, stack));
+                    result.merge(put_value_in_rax(from, integer_type, stack));
                     //negate and put in rcx
                     result.add("neg rax".to_string());
                     result.add("mov rcx, rax".to_string());
@@ -329,7 +329,7 @@ impl IROperation {
                 ScalarType::Float(float_type) => todo!(),
                 ScalarType::Integer(integer_type) => {
                     let truncated_rcx = GPRegister::_CX.generate_name(integer_type.memory_size());
-                    result.add(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
+                    result.merge(put_rhs_ax_lhs_cx(lhs, rhs, integer_type, stack));
                     //multiply using the correct signedness and put the result in rcx
                     result.add(if integer_type.is_unsigned() {"mul rcx"} else {"imul rcx"}.to_string());
                     result.add("mov rcx, rax".to_string());
@@ -383,13 +383,13 @@ impl IROperation {
 /// ### Clobbers
 /// - RAX
 /// - RCX
-fn put_rhs_ax_lhs_cx(lhs:&Storage, rhs:&Storage, integer_type: &IntegerType, stack: &BakedSimpleStackFrame) -> String {
-    let mut result = String::new();
+fn put_rhs_ax_lhs_cx(lhs:&Storage, rhs:&Storage, integer_type: &IntegerType, stack: &BakedSimpleStackFrame) -> RawAssembly {
+    let mut result = RawAssembly::default();
     //put lhs in rcx
-    result += &put_value_in_rax(lhs, integer_type, stack);
-    result += &format!("mov rcx, rax");
+    result.merge(put_value_in_rax(lhs, integer_type, stack));
+    result.add(format!("mov rcx, rax"));
     //put rhs in rax
-    result += &put_value_in_rax(rhs, integer_type, stack);
+    result.merge(put_value_in_rax(rhs, integer_type, stack));
 
     result
 }
@@ -433,9 +433,10 @@ fn put_pointer_in_rax(storage: &Storage, stack: &BakedSimpleStackFrame) -> Strin
 /// 
 /// ### Clobbers
 /// - RAX
-fn put_value_in_rax(storage: &Storage, data_type: &IntegerType, stack: &BakedSimpleStackFrame) -> String {
+fn put_value_in_rax(storage: &Storage, data_type: &IntegerType, stack: &BakedSimpleStackFrame) -> RawAssembly {
+    let mut result = RawAssembly::default();
     let register = GPRegister::_AX.generate_name(data_type.memory_size());
-    let mut result = match storage {
+    result.add(match storage {
         Storage::Stack(stack_item_key) => 
             format!("mov {}, [rbp-{}]", register, stack.get(stack_item_key).offset_from_bp.size_bytes()),
         Storage::StackWithOffset { stack: stack_item_key, offset } => 
@@ -444,15 +445,14 @@ fn put_value_in_rax(storage: &Storage, data_type: &IntegerType, stack: &BakedSim
             format!("mov {}, {}", register, number_literal.generate_nasm_literal()),
         Storage::IndirectAddress(stack_item_key) => 
             format!("mov rax, [rbp-{}]\nmov {}, [rax]", stack.get(stack_item_key).offset_from_bp.size_bytes(), register),
-    };
+    });
 
     //sign extend
-    result += 
-        if data_type.is_unsigned() {
+    result.add(if data_type.is_unsigned() {
             zero_extend(data_type.memory_size())
         } else {
             sign_extend(data_type.memory_size())
-        };
+        }.to_string());
 
     result
 }
@@ -493,7 +493,7 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType, from: &Storage
             let rcx_sized = GPRegister::_CX.generate_name(y.memory_size());
 
             //put lhs extended in rcx
-            result.add(put_value_in_rax(from, x, stack));
+            result.merge(put_value_in_rax(from, x, stack));
             result.add("mov rcx, rax".to_string());
             // truncate and store
             result.add(put_pointer_in_rax(to, stack));
@@ -655,7 +655,7 @@ fn best_reg_size(x: MemorySize) -> MemorySize {
     assert_ne!(x, MemorySize::default());//cannot have a 0 register size
 
     MemorySize::from_bytes(
-        1 << (64 - x.size_bytes().leading_zeros())
+        1 << (63 - x.size_bytes().leading_zeros())
     )
     .min(MemorySize::from_bytes(8))//GP registers are only 8 byte max
 }

@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, comparison::AsmComparison, operand::{immediate::ToImmediate, memory_operand::MemoryOperand, register::GPRegister, PTR_SIZE}, operation::IROperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::Expression, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GenerateIR, GetType}, number_literal::typed_value::NumberLiteral};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::Storage, operation::IROperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::{promote, Expression}, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GenerateIR, GetType}};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
@@ -29,7 +29,30 @@ impl UnaryPrefixExpression {
 
 impl GenerateIR for UnaryPrefixExpression {
     fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<stack_management::stack_item::StackItemKey>) {
-        todo!()
+        let mut result = IRCode::make_empty();
+        unwrap_let!(DataType::RAW(BaseType::Scalar(resultant_type)) = self.get_type(asm_data));
+        let resultant_location = stack_data.allocate(resultant_type.memory_size());
+
+        match self.operator {
+            UnaryPrefixOperator::Reference => todo!(),
+            UnaryPrefixOperator::Dereference => todo!(),
+            UnaryPrefixOperator::Negate => {
+                let (operand_ir, operand_location) = self.operand.generate_ir(asm_data, stack_data, global_asm_data);
+                result.merge(&operand_ir);
+
+                let (promote_instruction, promoted_location) = promote(operand_location.unwrap(), self.operand.get_type(asm_data), DataType::RAW(BaseType::Scalar(resultant_type.clone())), stack_data, asm_data);
+                result.add_instruction(promote_instruction);
+
+                result.add_instruction(IROperation::NEG { from: Storage::Stack(promoted_location), to: Storage::Stack(resultant_location), data_type: resultant_type });
+            },
+            UnaryPrefixOperator::UnaryPlus => todo!(),
+            UnaryPrefixOperator::Decrement => todo!(),
+            UnaryPrefixOperator::Increment => todo!(),
+            UnaryPrefixOperator::BooleanNot => todo!(),
+            UnaryPrefixOperator::BitwiseNot => todo!(),
+        }
+
+        (result, Some(resultant_location))
     }
 }
 

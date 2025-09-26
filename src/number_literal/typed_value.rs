@@ -427,8 +427,8 @@ impl Display for NumberLiteral {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}",
         match self {
-            Self::INTEGER{data,..} => data.to_string().cyan().to_string(),
-            Self::FLOAT{data,..} => format!("{:.10}", data).cyan().to_string()
+            Self::INTEGER{data,..} => data.to_string().to_string(),
+            Self::FLOAT{data,..} => format!("{:.10}", data).to_string()
         })
     }
 }
