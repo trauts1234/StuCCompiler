@@ -107,7 +107,7 @@ impl GetAddress for Expression {
             Expression::STRINGLITERAL(string_literal) => todo!(),
             Expression::ARRAYLITERAL(array_initialisation) => panic!("can't get address of array literal"),
             Expression::FUNCCALL(function_call) => todo!(),
-            Expression::UNARYPREFIX(unary_prefix_expression) => todo!(),
+            Expression::UNARYPREFIX(unary_prefix_expression) => unary_prefix_expression.get_address(asm_data, stack_data, global_asm_data),
             Expression::UNARYSUFFIX(unary_postfix_expression) => todo!(),
             Expression::BINARYEXPRESSION(binary_expression) => panic!("can't get address of binary expression?"),
             Expression::TERNARYEXPRESSION(ternary_expr) => panic!("can't get address of ternary expression"),
@@ -283,6 +283,10 @@ pub fn promote(location: StackItemKey, original: DataType, promoted_type: DataTy
             assert_eq!(element, inner);
             //put the address of the array in the result
             IROperation::LEA { from: Storage::Stack(location), to: Storage::Stack(result) }
+        }
+
+        (DataType::POINTER(_), DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64)))) => {
+            IROperation::MOV { from: Storage::Stack(location), to: Storage::Stack(result), size: PTR_SIZE }
         }
 
         (l, r) => panic!("can't promote {} to {}", l, r)

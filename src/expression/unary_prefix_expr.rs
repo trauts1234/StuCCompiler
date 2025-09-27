@@ -36,16 +36,26 @@ impl GenerateIR for UnaryPrefixExpression {
         match self.operator {
             UnaryPrefixOperator::Reference => {
                 //generate location
-                let (operand_ir, operand_location) = self.operand.get_address(asm_data, stack_data, global_asm_data);
+                let (operand_ir, operand_ptr_location) = self.operand.get_address(asm_data, stack_data, global_asm_data);
                 result.merge(&operand_ir);
                 //put the pointer in the destination
                 result.add_instruction(IROperation::MOV{
-                    from: Storage::Stack(operand_location),
+                    from: Storage::Stack(operand_ptr_location),
                     to: Storage::Stack(resultant_location),
                     size: PTR_SIZE,
                 });
             },
-            UnaryPrefixOperator::Dereference => todo!(),
+            UnaryPrefixOperator::Dereference => {
+                //generate the pointer
+                let (operand_ir, operand_location) = self.operand.generate_ir(asm_data, stack_data, global_asm_data);
+                result.merge(&operand_ir);
+                //move the data pointed at to the result
+                result.add_instruction(IROperation::MOV {
+                    from: Storage::IndirectAddress(operand_location.unwrap()),
+                    to: Storage::Stack(resultant_location),
+                    size: resultant_type.memory_size(asm_data),
+                });
+            },
             UnaryPrefixOperator::Negate => {
                 
                 let (operand_ir, operand_location) = self.operand.generate_ir(asm_data, stack_data, global_asm_data);
@@ -76,6 +86,20 @@ impl GetType for UnaryPrefixExpression {
             UnaryPrefixOperator::Dereference => operand_type.remove_outer_modifier(),
             UnaryPrefixOperator::UnaryPlus | UnaryPrefixOperator::Negate | UnaryPrefixOperator::Increment | UnaryPrefixOperator::Decrement | UnaryPrefixOperator::BitwiseNot => calculate_unary_type_arithmetic(&operand_type),//-x may promote x to a bigger type
             UnaryPrefixOperator::BooleanNot => DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::_BOOL))),
+        }
+    }
+}
+
+impl GetAddress for UnaryPrefixExpression {
+    fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, stack_management::stack_item::StackItemKey) {
+        match &self.operator {
+            UnaryPrefixOperator::Dereference => {
+                //address of a dereference cancels out
+                let (operand_ir, operand_location) = self.operand.generate_ir(asm_data, stack_data, global_asm_data);
+                (operand_ir, operand_location.unwrap())
+            },
+
+            x => panic!("can't get the address of {:?}", x)
         }
     }
 }
