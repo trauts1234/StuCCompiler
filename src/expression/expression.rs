@@ -272,27 +272,36 @@ pub fn try_consume_whole_expr(tokens_queue: &TokenQueue, previous_queue_idx: &To
 pub fn promote(location: StackItemKey, original: DataType, promoted_type: DataType, stack_data: &mut SimpleStackFrame, struct_info: &dyn GetStructUnion) -> (IROperation, StackItemKey) {
     let result = stack_data.allocate(promoted_type.memory_size(struct_info));
 
-    let op = match (original, promoted_type) {
-        (l, r) if l == r => IROperation::MOV { from: Storage::Stack(location), to: Storage::Stack(result), size: l.memory_size(struct_info) },
+    //special case - cast anything to itself, just bitwise move the data
+    if original == promoted_type {
+        return (
+            IROperation::MOV { from: Storage::Stack(location), to: Storage::Stack(result), size: original.memory_size(struct_info)},
+            result
+        );
+    }
 
-        (DataType::RAW(BaseType::Scalar(from_type)), DataType::RAW(BaseType::Scalar(to_type))) =>
-            IROperation::CAST { from: Storage::Stack(location), from_type, to: Storage::Stack(result), to_type },
-
-        (DataType::UNKNOWNSIZEARRAY { element }, DataType::POINTER(inner)) | 
-        (DataType::ARRAY { size:_, element }, DataType::POINTER(inner)) => {
-            assert_eq!(element, inner);
+    //special case - casting an array, just get the address as it decays to pointer
+    match original {
+        //cast array to pointer
+        DataType::UNKNOWNSIZEARRAY {..} | 
+        DataType::ARRAY {..} => {
+            //ensure I am casting to a pointer or u64
+            assert!(matches!(promoted_type, DataType::POINTER(_) | DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64)))));
             //put the address of the array in the result
-            IROperation::LEA { from: Storage::Stack(location), to: Storage::Stack(result) }
+            return (
+                IROperation::LEA { from: Storage::Stack(location), to: Storage::Stack(result) },
+                result
+            );
         }
 
-        (DataType::POINTER(_), DataType::RAW(BaseType::Scalar(ScalarType::Integer(IntegerType::U64)))) => {
-            IROperation::MOV { from: Storage::Stack(location), to: Storage::Stack(result), size: PTR_SIZE }
-        }
+        _ => {}
+    }
 
-        (l, r) => panic!("can't promote {} to {}", l, r)
-    };
+    //special cases handled, assume scalars and continue
+    let from_type = original.decay_to_primative();
+    let to_type = promoted_type.decay_to_primative();
 
-    (op, result)
+    (IROperation::CAST { from: Storage::Stack(location), from_type, to: Storage::Stack(result), to_type }, result)
 }
 
 /// Returns assembly to handle the assignment and a copy of the data assigned (rhs value promoted to lhs type)

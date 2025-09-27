@@ -98,52 +98,7 @@ impl GenerateIR for BinaryExpression {
         //use these as lhs and rhs, as they have correct promotions (or correctly have no promotion)
         let (lhs_promoted, rhs_promoted) = match &self.operator {
             BinaryExpressionOperator::Add |
-            BinaryExpressionOperator::Subtract => {
-                //convert pointers to u64
-                let promoted_type = promoted_type.decay_to_primative();
-                //cast to promoted type
-                let (promote_lhs_op, lhs_promoted) = promote(lhs_result.unwrap(), lhs_type.clone(), DataType::RAW(BaseType::Scalar(promoted_type.clone())), stack_data, asm_data);
-                let (promote_rhs_op, rhs_promoted) = promote(rhs_result.unwrap(), rhs_type.clone(), DataType::RAW(BaseType::Scalar(promoted_type.clone())), stack_data, asm_data);
-                result.add_instruction(promote_lhs_op);
-                result.add_instruction(promote_rhs_op);
-
-                //in case of pointer, scale the other one
-                match (&lhs_type, &rhs_type) {
-                    //pointer - pointer -> no scaling
-                    (DataType::POINTER(_), DataType::POINTER(_)) |
-                    // scalar +- scalar -> no scaling
-                    (DataType::RAW(BaseType::Scalar(_)), DataType::RAW(BaseType::Scalar(_)))
-                        => {},
-
-                    //pointer +- scalar
-                    (DataType::POINTER(l_inner), DataType::RAW(BaseType::Scalar(_))) => {
-                        assert_eq!(promoted_type, ScalarType::Integer(IntegerType::U64));//can only +- u64 to pointer
-                        //scale rhs by size of lhs elements
-                        result.add_instruction(IROperation::MUL{
-                            lhs: Storage::Stack(rhs_promoted),
-                            rhs: Storage::Constant(l_inner.memory_size(asm_data).as_imm()),
-                            to: Storage::Stack(rhs_promoted),
-                            data_type: ScalarType::Integer(IntegerType::U64),
-                        });
-                    }
-
-                    //scalar +- pointer
-                    (DataType::RAW(BaseType::Scalar(_)), DataType::POINTER(r_inner)) => {
-                        assert_eq!(promoted_type, ScalarType::Integer(IntegerType::U64));//can only +- u64 to pointer
-                        //scale lhs by size of rhs elements
-                        result.add_instruction(IROperation::MUL{
-                            lhs: Storage::Stack(rhs_promoted),
-                            rhs: Storage::Constant(r_inner.memory_size(asm_data).as_imm()),
-                            to: Storage::Stack(rhs_promoted),
-                            data_type: ScalarType::Integer(IntegerType::U64),
-                        });
-                    }
-
-                    _ => panic!()
-                }
-
-                (lhs_promoted, rhs_promoted)
-            }
+            BinaryExpressionOperator::Subtract |
 
             BinaryExpressionOperator::Multiply |
             BinaryExpressionOperator::Divide |
