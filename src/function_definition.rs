@@ -1,6 +1,6 @@
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{ memory_operand::MemoryOperand, register::GPRegister, Storage, STACK_ALIGN}, operation::{IROperation, CalleeReturnData, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{ register::GPRegister, Storage, STACK_ALIGN}, operation::{IROperation, CalleeReturnData, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -85,7 +85,7 @@ impl FunctionDefinition {
             let param_size = param.data_type.memory_size(asm_data);//get size of param
 
             let param_start_location = args_locations[param_idx].clone();
-            unwrap_let!(MemoryOperand::SubFromBP(param_destination) = asm_data.get_variable(&param.name).location);//get the location of where the param should *end up* since it gets moved to a new location
+            unwrap_let!(Storage::Stack(param_destination) = asm_data.get_variable(&param.name).location);//get the location of where the param should *end up* since it gets moved to a new location
 
             match param_start_location {
                 AllocatedLocation::Regs(eightbyte_locations) => 

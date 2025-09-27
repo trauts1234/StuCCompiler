@@ -66,7 +66,7 @@ impl GenerateIR for Expression {
 
         match self {
             Expression::NUMBERLITERAL(number_literal) => number_literal.generate_ir(asm_data, stack_data, global_asm_data),
-            Expression::VARIABLE(minimal_data_variable) => todo!(),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.generate_ir(asm_data, stack_data, global_asm_data),
             Expression::STRUCTMEMBERACCESS(member_access) => todo!(),
             Expression::STRINGLITERAL(string_literal) => todo!(),
             Expression::ARRAYLITERAL(array_initialisation) => todo!(),
@@ -100,7 +100,20 @@ impl GetType for Expression {
 }
 impl GetAddress for Expression {
     fn get_address(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, StackItemKey) {
-        todo!()
+        match self {
+            Expression::NUMBERLITERAL(number_literal) => panic!("can't get address of number"),
+            Expression::VARIABLE(minimal_data_variable) => minimal_data_variable.get_address(asm_data, stack_data, global_asm_data),
+            Expression::STRUCTMEMBERACCESS(member_access) => todo!(),
+            Expression::STRINGLITERAL(string_literal) => todo!(),
+            Expression::ARRAYLITERAL(array_initialisation) => panic!("can't get address of array literal"),
+            Expression::FUNCCALL(function_call) => todo!(),
+            Expression::UNARYPREFIX(unary_prefix_expression) => todo!(),
+            Expression::UNARYSUFFIX(unary_postfix_expression) => todo!(),
+            Expression::BINARYEXPRESSION(binary_expression) => panic!("can't get address of binary expression?"),
+            Expression::TERNARYEXPRESSION(ternary_expr) => panic!("can't get address of ternary expression"),
+            Expression::CAST(cast_expression) => panic!("can't get address of a cast"),
+            Expression::SIZEOF(sizeof_expr) => panic!("can't get address of sizeof expression"),
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 use stack_management::simple_stack_frame::SimpleStackFrame;
 
-use crate::{args_handling::location_allocation::{ReturnLocation}, assembly::{operand::memory_operand::MemoryOperand, operation::Label}, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::{StructDefinition, StructIdentifier}, union_definition::{UnionDefinition, UnionIdentifier}};
+use crate::{args_handling::location_allocation::ReturnLocation, assembly::{operand::Storage, operation::Label}, data_type::recursive_data_type::DataType, function_declaration::FunctionDeclaration, parse_data::ParseData, struct_definition::{StructDefinition, StructIdentifier}, union_definition::{UnionDefinition, UnionIdentifier}};
 
 pub trait GetStructUnion {
     fn get_struct(&self, name: &StructIdentifier) -> &StructDefinition;
@@ -10,7 +10,7 @@ pub trait GetStructUnion {
 #[derive(Clone)]
 pub struct AddressedDeclaration {
     pub(crate) data_type: DataType,
-    pub(crate) location: MemoryOperand
+    pub(crate) location: Storage
 }
 
 #[derive(Clone)]
@@ -85,9 +85,9 @@ impl AsmData {
         for (name, var_type) in local_variables {
             let var_size = var_type.memory_size(&result);
 
-            let var_address_offset = stack_data.allocate(var_size);//increase stack pointer to store extra variable
+            let var_address_offset = stack_data.allocate(var_size);//store extra variable
 
-            let decl = AddressedDeclaration { data_type: var_type.clone(), location: MemoryOperand::SubFromBP(var_address_offset.clone()) };//then generate address, as to not overwrite the stack frame
+            let decl = AddressedDeclaration { data_type: var_type.clone(), location: Storage::Stack(var_address_offset.clone()) };
 
             result.variables.push((name, decl));
         }
@@ -110,9 +110,9 @@ impl AsmData {
         for (name, var_type) in local_variables {
             let var_size = var_type.memory_size(&result);
 
-            let var_address_offset = stack_data.allocate(var_size);//increase stack pointer to store extra variable
+            let var_address_offset = stack_data.allocate(var_size);//store extra variable
 
-            let decl = AddressedDeclaration { data_type: var_type.clone(), location: MemoryOperand::SubFromBP(var_address_offset.clone()) };//then generate address, as to not overwrite the stack frame
+            let decl = AddressedDeclaration { data_type: var_type.clone(), location: Storage::Stack(var_address_offset.clone()) };
 
             result.variables.push((name, decl));
         }
@@ -187,5 +187,6 @@ impl GetStructUnion for GlobalAsmData {
  */
 fn generate_global_variable_decl(data: &(String, DataType)) -> (String, AddressedDeclaration) {
     let (var_name, var_type) = data;
-    (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: MemoryOperand::LabelAccess(var_name.to_string()) })
+    panic!()
+    // (var_name.to_string(), AddressedDeclaration{ data_type: var_type.clone(), location: Storage(var_name.to_string()) })
 }

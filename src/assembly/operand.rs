@@ -1,8 +1,7 @@
-pub mod memory_operand;
 pub mod register;
 pub mod immediate;
 
-use std::fmt::Display;
+use std::fmt::Debug;
 
 use colored::Colorize;
 use memory_size::MemorySize;
@@ -25,7 +24,7 @@ pub enum Storage {
     IndirectAddress(StackItemKey),
 }
 
-impl Display for Storage {
+impl Debug for Storage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
             Storage::Stack(stack_item_key)=>format!("[{:?}]",stack_item_key),
