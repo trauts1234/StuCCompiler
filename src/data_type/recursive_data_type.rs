@@ -34,6 +34,7 @@ impl DataType
     pub fn decay(&self) -> Self {
         match self {
             Self::ARRAY { size:_, element } => DataType::POINTER(element.clone()),
+            Self::UNKNOWNSIZEARRAY { element } => DataType::POINTER(element.clone()),
             _ => self.clone()
         }
     }

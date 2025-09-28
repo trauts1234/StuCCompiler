@@ -60,6 +60,8 @@ impl GenerateIR for ControlFlowChange {
                         ReturnLocation::InRegs(eight_byte_locations) => CalleeReturnData::InRegs{ regs_used: eight_byte_locations },
                             ReturnLocation::HiddenPointer => todo!(),
                         };
+
+                        result.add_comment(format!("returning {} from function", return_type));
                         //generate the return value
                         let (expr_asm, expr_location) = expr.generate_ir(asm_data, stack_data, global_asm_data);
                         result.merge(&expr_asm);

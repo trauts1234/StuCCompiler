@@ -171,11 +171,11 @@ impl IROperation {
                             let cx_name = GPRegister::_CX.generate_name(best_reg_size);//to store the bytes temporarily
 
                             //point to the start of the source
-                            result.add(put_pointer_in_rax(from, stack));
+                            result.merge(put_pointer_in_rax(from, stack));
                             //put the next bytes from the correct part of the source in RCX
                             result.add(format!("mov {}, [rax+{}]", cx_name, offset.size_bytes()));
                             //point to the start of the destination
-                            result.add(put_pointer_in_rax(to, stack));
+                            result.merge(put_pointer_in_rax(to, stack));
                             //store the next few bytes from RCX
                             result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
                         }
@@ -185,22 +185,19 @@ impl IROperation {
                         let cx_name = GPRegister::_CX.generate_name(number_literal.get_data_type().memory_size());
 
                         result.add_comment(format!("moving literal {}", number_literal));
-                        //put destination pointer in rax
-                        result.add(put_pointer_in_rax(to, stack));
-                        //put value in rcx
-                        result.add(format!("mov rcx, {}", number_literal.generate_nasm_literal()));
-                        //truncate and store
-                        result.add(format!("mov [rax], {}", cx_name));
+                        result.merge(put_pointer_in_rax(to, stack));
+                        result.add_commented(&format!("mov rcx, {}", number_literal.generate_nasm_literal()), "put value in rcx");
+                        result.add_commented(&format!("mov [rax], {}", cx_name), "truncate and store");
                     },
                 }
                 
             },
             IROperation::LEA { from, to } => {
                 //generate address, and put in rcx
-                result.add(put_pointer_in_rax(from, stack));
+                result.merge(put_pointer_in_rax(from, stack));
                 result.add(format!("mov rcx, rax"));
                 //get destination, and store result
-                result.add(put_pointer_in_rax(to, stack));
+                result.merge(put_pointer_in_rax(to, stack));
                 result.add(format!("mov [rax], rcx"));
             },
             IROperation::CMP { rhs, data_type, lhs } => {
@@ -257,7 +254,7 @@ impl IROperation {
                         //sum and put the result in rcx
                         result.add(format!("add rcx, rax"));
                         //point to the destination
-                        result.add(put_pointer_in_rax(to, stack));
+                        result.merge(put_pointer_in_rax(to, stack));
                         //truncate and store
                         result.add(format!("mov [rax], {}", truncated_rcx));
                     },
@@ -271,7 +268,7 @@ impl IROperation {
                     //find the difference and put the result in rcx
                     result.add("sub rax, rcx\nmov rcx, rax".to_string());
                     //point to the destination
-                    result.add(put_pointer_in_rax(to, stack));
+                    result.merge(put_pointer_in_rax(to, stack));
                     //truncate and store
                     result.add(format!("mov [rax], {}", truncated_rcx));
                 },
@@ -286,7 +283,7 @@ impl IROperation {
                     result.add("neg rax".to_string());
                     result.add("mov rcx, rax".to_string());
                     //truncate and store
-                    result.add(put_pointer_in_rax(to, stack));
+                    result.merge(put_pointer_in_rax(to, stack));
                     result.add(format!("mov [rax], {}", truncated_rcx));
                 },
             },
@@ -334,7 +331,7 @@ impl IROperation {
                     result.add(if integer_type.is_unsigned() {"mul rcx"} else {"imul rcx"}.to_string());
                     result.add("mov rcx, rax".to_string());
                     //point to the destination
-                    result.add(put_pointer_in_rax(to, stack));
+                    result.merge(put_pointer_in_rax(to, stack));
                     //truncate and store
                     result.add(format!("mov [rax], {}", truncated_rcx));
                 },
@@ -348,7 +345,7 @@ impl IROperation {
                     result.add(if integer_type.is_unsigned() {"mov rdx, 0\ndiv rcx"} else {"cqo\nidiv rcx"}.to_string());
                     result.add("mov rcx, rax".to_string());
                     //point to the destination
-                    result.add(put_pointer_in_rax(to, stack));
+                    result.merge(put_pointer_in_rax(to, stack));
                     //truncate and store
                     result.add(format!("mov [rax], {}", truncated_rcx));
                 },
@@ -372,7 +369,7 @@ impl IROperation {
                             EightByteLocation::GP(gp_register) => {
                                 assert!(param_size.size_bytes().is_power_of_two());//can do some clever bit-shifting here, to turn a 3 byte store into a 2 byte and 1 byte store, but this is not implemented yet
                                 let sized_register = gp_register.generate_name(*param_size);
-                                result.add(put_pointer_in_rax(&Storage::Stack(param_destination.clone()), stack));
+                                result.merge(put_pointer_in_rax(&Storage::Stack(param_destination.clone()), stack));
                                 result.add(format!("mov [rax], {}", sized_register));
                             }
 
@@ -430,8 +427,11 @@ fn put_rhs_xmm0_lhs_xmm1(lhs:&Storage, rhs:&Storage, float_type: &FloatType, sta
 /// - RAX
 /// ### Panics
 /// if storage is a constant value, as this doesn't have an address
-fn put_pointer_in_rax(storage: &Storage, stack: &BakedSimpleStackFrame) -> String {
-    match storage {
+fn put_pointer_in_rax(storage: &Storage, stack: &BakedSimpleStackFrame) -> RawAssembly {
+    let mut result = RawAssembly::default();
+    result.add_comment(format!("put pointer {:?} in rax", storage));
+    
+    result.add(match storage {
         Storage::Stack(stack_item_key) => 
             format!("lea rax, [rbp-{}]", stack.get(stack_item_key).offset_from_bp.size_bytes()),
         Storage::StackWithOffset { stack: stack_item_key, offset } => 
@@ -439,7 +439,9 @@ fn put_pointer_in_rax(storage: &Storage, stack: &BakedSimpleStackFrame) -> Strin
         Storage::Constant(_) => panic!(),
         Storage::IndirectAddress(stack_item_key) => 
             format!("mov rax, [rbp-{}]", stack.get(stack_item_key).offset_from_bp.size_bytes()),
-    }
+    });
+
+    result
 }
 
 /// Puts `storage` in rax, sign or zero extending to 64 bit
@@ -509,7 +511,7 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType, from: &Storage
             result.merge(put_value_in_rax(from, x, stack));
             result.add("mov rcx, rax".to_string());
             // truncate and store
-            result.add(put_pointer_in_rax(to, stack));
+            result.merge(put_pointer_in_rax(to, stack));
             result.add(format!("mov [rax], {}", rcx_sized));
 
             result

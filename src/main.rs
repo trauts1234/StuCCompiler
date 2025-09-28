@@ -48,9 +48,8 @@ fn main() {
 
     let matches = command!()
         .arg(
-            Arg::new("link with libc")
-            .short('l')
-            .long("do-linking")
+            Arg::new("no libc")
+            .long("no-libc")
             .action(ArgAction::SetTrue)
         )
         .arg(
@@ -72,10 +71,11 @@ fn main() {
         )
         .get_matches();
 
-    let do_linking = matches.get_flag("link with libc");
+    let do_linking = !matches.get_flag("no libc");
     let output_path = PathBuf::from(matches.get_one::<String>("output file").unwrap());
     let input_path = PathBuf::from(matches.get_one::<String>("inputs").unwrap());
     let debug_out_path = matches.get_one::<String>("debug info").map(|x| PathBuf::from(x));
+
 
     compile::compile(&input_path, &output_path, &[], do_linking, debug_out_path).unwrap();
 }

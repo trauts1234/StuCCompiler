@@ -62,7 +62,6 @@ impl Expression {
 
 impl GenerateIR for Expression {
     fn generate_ir(&self, asm_data: &AsmData, stack_data: &mut SimpleStackFrame, global_asm_data: &GlobalAsmData) -> (IRCode, Option<StackItemKey>) {
-        let mut result = IRCode::make_empty();
 
         match self {
             Expression::NUMBERLITERAL(number_literal) => number_literal.generate_ir(asm_data, stack_data, global_asm_data),

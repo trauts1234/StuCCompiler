@@ -28,8 +28,12 @@ impl GetAddress for MinimalDataVariable {
         let ptr = stack_data.allocate(PTR_SIZE);
         let mut result = IRCode::make_empty();
 
+        let location = asm_data.get_variable(&self.name).location.clone();
+
+        println!("var {} at {:?}", self.name, location);
+
         result.add_instruction(IROperation::LEA {
-            from: asm_data.get_variable(&self.name).location.clone(),
+            from: location,
             to: Storage::Stack(ptr),
         });
 
@@ -42,11 +46,16 @@ impl GenerateIR for MinimalDataVariable {
         let var_result = stack_data.allocate(var_size);
         let mut result = IRCode::make_empty();
 
-        result.add_instruction(IROperation::MOV {
-            from: asm_data.get_variable(&self.name).location.clone(),
+        let var_data = &asm_data.get_variable(&self.name);
+        if matches!(var_data.data_type, DataType::ARRAY {..} | DataType::UNKNOWNSIZEARRAY {..}) {
+            panic!("not allowed to clone array")
+        }
+
+        result.add_commented_instruction(IROperation::MOV {
+            from: var_data.location.clone(),
             to: Storage::Stack(var_result),
             size: var_size,
-        });
+        }, format!("cloning var {}", self.name));
 
         (result, Some(var_result))
     }

@@ -15,6 +15,11 @@ impl RawAssembly {
         assert!(!text.as_ref().contains("\n"));
         self.lines.push(format!("; {}", text.as_ref()));
     }
+    pub fn add_commented(&mut self, text: &str, comment: &str) {
+        assert!(!text.contains("\n"));
+        assert!(!comment.contains("\n"));
+        self.lines.push(format!("{} ; {}", text, comment))
+    }
     pub fn merge(&mut self, other: Self) {
         self.lines.extend(other.lines);
     }

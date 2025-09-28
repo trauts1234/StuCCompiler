@@ -73,9 +73,10 @@ impl GenerateIR for BinaryExpression {
         let lhs_type = self.lhs.get_type(asm_data);
         let rhs_type = self.rhs.get_type(asm_data);
 
-        result.add_comment("generating lhs and rhs of binary expression");
+        result.add_comment("generating lhs of binary expression");
         let (lhs_asm, lhs_result) = self.lhs.generate_ir(asm_data, stack_data, global_asm_data);
         result.merge(&lhs_asm);
+        result.add_comment("generating rhs of binary expression");
         let (rhs_asm, rhs_result) = self.rhs.generate_ir(asm_data, stack_data, global_asm_data);
         result.merge(&rhs_asm);
         
