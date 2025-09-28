@@ -14,7 +14,7 @@ memory_size = "*"
 colored = "*"
 logos = "*"
 stack_management = {path="../stack_management"}
-clap = "4.5.48"
+clap = {version = "4.5.48", features = ["cargo"]}
 
 [dependencies.uuid]
 version = "1.17.0"

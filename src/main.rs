@@ -1,4 +1,6 @@
-use std::{env, path::PathBuf};
+use std::{env, path::{Path, PathBuf}};
+
+use clap::{arg, command, Arg, ArgAction};
 
 mod compound_statement;
 mod statement;
@@ -43,20 +45,37 @@ pub mod union_definition;
 pub mod generate_ir_traits;
 
 fn main() {
-    let mut input_path = PathBuf::from("test.c");
-    let mut output_path = PathBuf::from("a.out");
-    let mut do_linking = true;
 
-    let args_vec = env::args().collect::<Vec<String>>();
-    let mut args = args_vec.iter().skip(1);
+    let matches = command!()
+        .arg(
+            Arg::new("link with libc")
+            .short('l')
+            .long("do-linking")
+            .action(ArgAction::SetTrue)
+        )
+        .arg(
+            Arg::new("output file")
+            .short('o')
+            .long("output")
+            .default_value("a.out")
+        )
+        .arg(
+            Arg::new("debug info")
+            .short('d')
+            .long("debug-info")
+        )
+        .arg(
+            Arg::new("inputs")
+            .help("C source files")
+            .default_value("test.c")
+            .num_args(1)
+        )
+        .get_matches();
 
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "-c" => {do_linking = false},
-            "-o" => {output_path = PathBuf::from(args.next().unwrap())},
-            x => {input_path = PathBuf::from(x)}
-        }
-    }
+    let do_linking = matches.get_flag("link with libc");
+    let output_path = PathBuf::from(matches.get_one::<String>("output file").unwrap());
+    let input_path = PathBuf::from(matches.get_one::<String>("inputs").unwrap());
+    let debug_out_path = matches.get_one::<String>("debug info").map(|x| PathBuf::from(x));
 
-    compile::compile(&input_path, &output_path, &[], do_linking).unwrap();
+    compile::compile(&input_path, &output_path, &[], do_linking, debug_out_path).unwrap();
 }

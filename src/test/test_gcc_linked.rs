@@ -42,7 +42,7 @@ fn test_linked_with_gcc() {
         //compile my part of the test
         let filename = test_folder.join("main.c");
         let output_filename = test_folder.join("test_output.out");
-        compile::compile(&filename, &output_filename, &[&gcc_object], true).unwrap();//compile, and link with gcc's code
+        compile::compile(&filename, &output_filename, &[&gcc_object], true, None).unwrap();//compile, and link with gcc's code
 
         //test the code
 

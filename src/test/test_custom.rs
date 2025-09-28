@@ -29,7 +29,7 @@ fn test_all() {
     for testfile in test_cases {
         let filename = test_folder.join(testfile.filename.clone());
         let output_filename = test_folder.join("test_output.out");
-        compile::compile(&filename, &output_filename, &[], true).unwrap();
+        compile::compile(&filename, &output_filename, &[], true, None).unwrap();
 
         let fixed_args  = testfile.args.or(Some(Vec::new())).unwrap();
 

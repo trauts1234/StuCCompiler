@@ -1,9 +1,9 @@
-use std::{path::Path, process::Command};
+use std::{path::{Path, PathBuf}, process::Command};
 
 use crate::{compilation_error::CompilationError, debugging::{ASTDisplay, IRDisplay, TreeDisplayInfo}, translation_unit::TranslationUnit};
 
 
-pub fn compile(input_path: &Path, output_name: &Path, link_with: &[&Path], do_linking: bool) -> Result<(),CompilationError> {
+pub fn compile(input_path: &Path, output_name: &Path, link_with: &[&Path], do_linking: bool, debug_json_output: Option<PathBuf>) -> Result<(),CompilationError> {
     println!("compiling {:?}", input_path.to_str());
     let assembly_filename = output_name.with_extension("asm");
     let object_filename = output_name.with_extension("o");

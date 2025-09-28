@@ -19,7 +19,7 @@ fn test_all() {
         let expected_stdout = fs::read_to_string(expected_output_path).unwrap();
         let output_filename = test_folder.join("test_output.out");
 
-        compile::compile(&c_file_path, &output_filename, &[], true).unwrap();
+        compile::compile(&c_file_path, &output_filename, &[], true, None).unwrap();
 
         let binary_process = Command::new(output_filename)
             .stdout(Stdio::piped())

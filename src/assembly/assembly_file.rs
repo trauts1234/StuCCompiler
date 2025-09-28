@@ -1,5 +1,4 @@
 
-use memory_size::MemorySize;
 use stack_management::{baked_stack_frame::BakedSimpleStackFrame, simple_stack_frame::SimpleStackFrame};
 
 use crate::assembly::operand::STACK_ALIGN;

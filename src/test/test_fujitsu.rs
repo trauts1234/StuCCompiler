@@ -57,7 +57,7 @@ fn test_all() {
                 Err(_) => None
             };
 
-            compile::compile(&c_file_path, &output_filename, &[], true).unwrap();
+            compile::compile(&c_file_path, &output_filename, &[], true, None).unwrap();
     
             let binary_process = Command::new(&output_filename)
                 .stdout(Stdio::piped())
