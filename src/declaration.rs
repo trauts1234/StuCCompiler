@@ -48,7 +48,8 @@ impl GenerateIR for MinimalDataVariable {
 
         let var_data = &asm_data.get_variable(&self.name);
         if matches!(var_data.data_type, DataType::ARRAY {..} | DataType::UNKNOWNSIZEARRAY {..}) {
-            panic!("not allowed to clone array")
+            let (ir, dest) = self.get_address(asm_data, stack_data, global_asm_data);
+            return (ir, Some(dest));//array decays to pointer
         }
 
         result.add_commented_instruction(IROperation::MOV {

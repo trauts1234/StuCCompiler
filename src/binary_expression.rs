@@ -70,8 +70,8 @@ impl GenerateIR for BinaryExpression {
         }
 
         //todo maybe decay these?
-        let lhs_type = self.lhs.get_type(asm_data);
-        let rhs_type = self.rhs.get_type(asm_data);
+        let lhs_type = self.lhs.get_type(asm_data).decay();
+        let rhs_type = self.rhs.get_type(asm_data).decay();
 
         result.add_comment("generating lhs of binary expression");
         let (lhs_asm, lhs_result) = self.lhs.generate_ir(asm_data, stack_data, global_asm_data);
