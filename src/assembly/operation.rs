@@ -1,7 +1,10 @@
+use core::num;
 use std::fmt::Display;
 use crate::{args_handling::location_allocation::{AllocatedLocation, EightByteLocation, ReturnLocation}, assembly::{assembly_file::AssemblyFile, assembly_text::RawAssembly, comparison::AsmComparison, operand::{register::{GPRegister, MMRegister}, Storage}}, data_type::{base_type::{BaseType, FloatType, IntegerType, ScalarType}, recursive_data_type::DataType}, debugging::IRDisplay};
+use itertools::{Either, Itertools};
 use memory_size::MemorySize;
 use stack_management::{baked_stack_frame::BakedSimpleStackFrame, stack_item::StackItemKey};
+use unwrap_let::unwrap_let;
 
 #[derive(Clone)]
 pub enum IROperation {
@@ -157,40 +160,7 @@ impl IROperation {
         let mut result = RawAssembly::default();
         match self {
             IROperation::MOV { to, from, size } => {
-                match from {
-                    //data comes from a memory address
-                    Storage::Stack(_) |
-                    Storage::StackWithOffset {..} |
-                    Storage::IndirectAddress(_) => {
-                        result.add_comment(format!("moving {} bytes", size.size_bytes()));
-                        //loop through each eightbyte(or smaller)
-                        for i in (0..size.size_bytes()).step_by(8) {
-                            let offset = MemorySize::from_bytes(i);//find the offset into `from` and `to` that I am copying
-                            let remaining_bytes = *size - offset;//find the number of bytes left to copy
-                            let best_reg_size = best_reg_size(remaining_bytes);//find the biggest register size to move the next part of the data
-                            let cx_name = GPRegister::_CX.generate_name(best_reg_size);//to store the bytes temporarily
-
-                            //point to the start of the source
-                            result.merge(put_pointer_in_rax(from, stack));
-                            //put the next bytes from the correct part of the source in RCX
-                            result.add(format!("mov {}, [rax+{}]", cx_name, offset.size_bytes()));
-                            //point to the start of the destination
-                            result.merge(put_pointer_in_rax(to, stack));
-                            //store the next few bytes from RCX
-                            result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
-                        }
-                    }
-
-                    Storage::Constant(number_literal) => {
-                        let cx_name = GPRegister::_CX.generate_name(number_literal.get_data_type().memory_size());
-
-                        result.add_comment(format!("moving literal {}", number_literal));
-                        result.merge(put_pointer_in_rax(to, stack));
-                        result.add_commented(&format!("mov rcx, {}", number_literal.generate_nasm_literal()), "put value in rcx");
-                        result.add_commented(&format!("mov [rax], {}", cx_name), "truncate and store");
-                    },
-                }
-                
+                result = instruction_mov(from, to, *size, stack);
             },
             IROperation::LEA { from, to } => {
                 //generate address, and put in rcx
@@ -351,7 +321,81 @@ impl IROperation {
                 },
             },
             IROperation::BitwiseOp { operation, lhs, rhs, to, size } => todo!(),
-            IROperation::CALL { label, params, return_data } => todo!(),
+            IROperation::CALL { label, params, return_data } => {
+
+                let mut extra_stack = MemorySize::new();
+                //split reg and mem args
+                let (reg_args, mem_args): (Vec<_>, Vec<_>) = 
+                    params.iter()
+                    .partition_map(|CallerParamData { data, data_size, location }| {
+                        match location {
+                            AllocatedLocation::Regs(eight_byte_locations) => Either::Left((data, data_size, eight_byte_locations)),
+                            AllocatedLocation::Memory => {
+                                let aligned_up_size = data_size.align_up(&MemorySize::from_bytes(8));
+                                extra_stack += aligned_up_size;//allocate room
+
+                                Either::Right((data, data_size, extra_stack))
+                            },
+                        }
+                    });
+                
+                result.add_comment("putting memory args in the right place");
+                for (data, data_size, extra_stack) in mem_args {
+                    todo!()
+                }
+                result.add_comment("putting register args in the right place");
+                for(data, data_size, registers) in reg_args {
+                    for (i, reg) in registers.iter().enumerate() {
+                        assert_ne!(*reg, EightByteLocation::GP(GPRegister::_AX));//accumulator gets clobbered tons, don't use it please
+
+                        let offset = MemorySize::from_bytes((8*i).try_into().unwrap());
+
+                        match reg {
+                            EightByteLocation::GP(gpregister) => {
+                                //TODO n byte integer type
+                                let t = match data_size.size_bytes() {
+                                    1 => IntegerType::U8,
+                                    2 => IntegerType::U16,
+                                    4 => IntegerType::U32,
+                                    8 => IntegerType::U64,
+                                    _ => panic!(),
+                                };
+                                let from = match data.clone() {
+                                    Storage::Stack(stack_item_key) => Storage::StackWithOffset { stack: stack_item_key, offset },
+                                    Storage::StackWithOffset { stack, offset: off } => Storage::StackWithOffset { stack: stack, offset: off + offset },
+                                    Storage::Constant(number_literal) => {
+                                        assert!(offset == MemorySize::default());
+                                        Storage::Constant(number_literal)
+                                    },
+                                    Storage::IndirectAddress(stack_item_key) => todo!(),
+                                };
+                                //put and zero extend number in rax
+                                result.merge(put_value_in_rax(&from, &t, stack));
+                                
+                                let sized_dest = gpregister.generate_name(MemorySize::from_bytes(8));
+                                result.add_commented(&format!("mov {}, rax", sized_dest), "dumping value in register");
+                            },
+                            EightByteLocation::XMM(mmregister) => todo!(),
+                        }
+                    }
+                }
+
+                if let Some(CallerReturnData{ return_location_info: ReturnLocation::HiddenPointer, return_location, return_location_size }) = return_data {
+                    todo!("put in first reg spot (hidden pointer)");
+                }
+
+                result.add(format!("call {}", label));
+
+                match return_data {
+                    Some(CallerReturnData { return_location_info: ReturnLocation::HiddenPointer, return_location, return_location_size }) => {},//result is already in the hidden pointer location
+                    Some(CallerReturnData { return_location_info: ReturnLocation::InRegs(regs), return_location, return_location_size }) => {
+                        unwrap_let!([EightByteLocation::GP(gpregister)] = &regs[..]);
+
+                        result.add_commented(&format!("mov [rbp-{}], {}", stack.get(return_location).offset_from_bp.size_bytes(), gpregister.generate_name(MemorySize::from_bytes(8))), "dumping return value from register");
+                    },
+                    None => {},
+                }
+            },
             IROperation::SHL { amount, from, from_type, to } => todo!(),
             IROperation::SHR { amount, from, from_type, to } => todo!(),
             IROperation::BitwiseNot{ from, to, size } => todo!(),
@@ -519,6 +563,45 @@ fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType, from: &Storage
 
         _ => todo!()
     }
+}
+
+fn instruction_mov(from: &Storage, to: &Storage, size: MemorySize, stack: &BakedSimpleStackFrame) -> RawAssembly {
+    let mut result = RawAssembly::default();
+    match from {
+        //data comes from a memory address
+        Storage::Stack(_) |
+        Storage::StackWithOffset {..} |
+        Storage::IndirectAddress(_) => {
+            result.add_comment(format!("moving {} bytes", size.size_bytes()));
+            //loop through each eightbyte(or smaller)
+            for i in (0..size.size_bytes()).step_by(8) {
+                let offset = MemorySize::from_bytes(i);//find the offset into `from` and `to` that I am copying
+                let remaining_bytes = size - offset;//find the number of bytes left to copy
+                let best_reg_size = best_reg_size(remaining_bytes);//find the biggest register size to move the next part of the data
+                let cx_name = GPRegister::_CX.generate_name(best_reg_size);//to store the bytes temporarily
+
+                //point to the start of the source
+                result.merge(put_pointer_in_rax(from, stack));
+                //put the next bytes from the correct part of the source in RCX
+                result.add(format!("mov {}, [rax+{}]", cx_name, offset.size_bytes()));
+                //point to the start of the destination
+                result.merge(put_pointer_in_rax(to, stack));
+                //store the next few bytes from RCX
+                result.add(format!("mov [rax+{}], {}", offset.size_bytes(), cx_name));
+            }
+        }
+
+        Storage::Constant(number_literal) => {
+            let cx_name = GPRegister::_CX.generate_name(number_literal.get_data_type().memory_size());
+
+            result.add_comment(format!("moving literal {}", number_literal));
+            result.merge(put_pointer_in_rax(to, stack));
+            result.add_commented(&format!("mov rcx, {}", number_literal.generate_nasm_literal()), "put value in rcx");
+            result.add_commented(&format!("mov [rax], {}", cx_name), "truncate and store");
+        },
+    }
+
+    result
 }
 
 // fn instruction_cast(from_type: &ScalarType, to_type: &ScalarType) -> String {

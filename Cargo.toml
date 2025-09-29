@@ -13,6 +13,7 @@ unwrap_let = "*"
 memory_size = "*"
 colored = "*"
 logos = "*"
+itertools = "0.14.0"
 stack_management = {path="../stack_management"}
 clap = {version = "4.5.48", features = ["cargo"]}
 
