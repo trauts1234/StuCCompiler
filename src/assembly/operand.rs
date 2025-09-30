@@ -35,3 +35,64 @@ impl Debug for Storage {
     }
 }
 
+impl Into<IROperand> for Storage {
+    fn into(self) -> IROperand {
+        match self {
+            Storage::Stack(stack_item_key) => IROperand::Memory(IRMemOperand::Stack { base: stack_item_key}),
+            Storage::StackWithOffset { stack, offset } => IROperand::Memory(IRMemOperand::OffsetAddress { base: Box::new(IRMemOperand::Stack { base: stack}), displacement: offset }),
+            Storage::Constant(number_literal) => IROperand::Constant(number_literal),
+            Storage::IndirectAddress(stack_item_key) => IROperand::Memory(IRMemOperand::IndirectAddress { pointer_location: Box::new(IRMemOperand::Stack { base: stack_item_key})}),
+        }
+    }
+}
+impl TryInto<IRMemOperand> for Storage {
+    type Error = ();
+
+    fn try_into(self) -> Result<IRMemOperand, Self::Error> {
+        match self {
+            Storage::Stack(stack_item_key) => Ok(IRMemOperand::Stack { base: stack_item_key}),
+            Storage::StackWithOffset { stack, offset } => Ok(IRMemOperand::OffsetAddress { base: Box::new(IRMemOperand::Stack { base: stack}), displacement: offset }),
+            Storage::Constant(_) => Err(()),
+            Storage::IndirectAddress(stack_item_key) => Ok(IRMemOperand::IndirectAddress { pointer_location: Box::new(IRMemOperand::Stack { base: stack_item_key})}),
+        }
+    }
+}
+
+/// Operand for the IR that relates to a location in memory
+#[derive(Clone)]
+pub enum IRMemOperand {
+    Stack {base: StackItemKey},
+    IndirectAddress{ pointer_location: Box<IRMemOperand>},
+    OffsetAddress {
+        /// Not a pointer. This is the actual location
+        base: Box<IRMemOperand>,
+        displacement: MemorySize
+    },
+    //TODO label access (no displacement?)
+}
+
+/// Operand for the IR that relates to something with value
+#[derive(Clone)]
+pub enum IROperand {
+    Memory(IRMemOperand),
+    Constant(NumberLiteral),
+}
+
+impl Debug for IRMemOperand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stack { base } => write!(f, "{:?}", base),
+            Self::IndirectAddress { pointer_location} => write!(f, "[{:?}]", pointer_location),
+            Self::OffsetAddress { base, displacement } => write!(f, "[{} + &{:?}]", displacement.size_bytes(), base)
+        }
+    }
+}
+
+impl Debug for IROperand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Memory(arg0) => write!(f, "{:?}", arg0),
+            Self::Constant(arg0) => write!(f, "{:?}", arg0),
+        }
+    }
+}

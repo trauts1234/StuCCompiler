@@ -1,4 +1,4 @@
-use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{Storage, PTR_SIZE}, operation::IROperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::{promote, Expression}, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GenerateIR, GetAddress, GetType}};
+use crate::{asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{IRMemOperand, IROperand, Storage, PTR_SIZE}, operation::IROperation}, data_type::{base_type::{BaseType, IntegerType, ScalarType}, recursive_data_type::{calculate_unary_type_arithmetic, DataType}, type_modifier::DeclModifier}, debugging::ASTDisplay, expression::{expression::{promote, Expression}, unary_prefix_operator::UnaryPrefixOperator}, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GenerateIR, GetAddress, GetType}};
 use colored::Colorize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
 use unwrap_let::unwrap_let;
@@ -40,8 +40,8 @@ impl GenerateIR for UnaryPrefixExpression {
                 result.merge(&operand_ir);
                 //put the pointer in the destination
                 result.add_instruction(IROperation::MOV{
-                    from: Storage::Stack(operand_ptr_location),
-                    to: Storage::Stack(resultant_location),
+                    from: IROperand::Memory(IRMemOperand::Stack { base: operand_ptr_location }),
+                    to: IRMemOperand::Stack { base: resultant_location },
                     size: PTR_SIZE,
                 });
             },
@@ -51,8 +51,8 @@ impl GenerateIR for UnaryPrefixExpression {
                 result.merge(&operand_ir);
                 //move the data pointed at to the result
                 result.add_instruction(IROperation::MOV {
-                    from: Storage::IndirectAddress(operand_location.unwrap()),
-                    to: Storage::Stack(resultant_location),
+                    from: IROperand::Memory(IRMemOperand::IndirectAddress { pointer_location: Box::new(IRMemOperand::Stack { base: operand_location.unwrap() }) }),
+                    to: IRMemOperand::Stack { base: resultant_location },
                     size: resultant_type.memory_size(asm_data),
                 });
             },

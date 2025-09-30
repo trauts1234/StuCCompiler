@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use colored::Colorize;
 
-use crate::{assembly::{assembly::IRCode, operand::{Storage, PTR_SIZE}, operation::IROperation}, data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GenerateIR, GetAddress, GetType}};
+use crate::{assembly::{assembly::IRCode, operand::{IRMemOperand, Storage, PTR_SIZE}, operation::IROperation}, data_type::recursive_data_type::DataType, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::{GenerateIR, GetAddress, GetType}};
 
 #[derive(Clone, Debug)]
 /**
@@ -33,8 +33,8 @@ impl GetAddress for MinimalDataVariable {
         println!("var {} at {:?}", self.name, location);
 
         result.add_instruction(IROperation::LEA {
-            from: location,
-            to: Storage::Stack(ptr),
+            from: location.try_into().unwrap(),
+            to: IRMemOperand::Stack { base: ptr },
         });
 
         (result, ptr)
@@ -53,8 +53,8 @@ impl GenerateIR for MinimalDataVariable {
         }
 
         result.add_commented_instruction(IROperation::MOV {
-            from: var_data.location.clone(),
-            to: Storage::Stack(var_result),
+            from: var_data.location.clone().into(),
+            to: IRMemOperand::Stack { base: var_result },
             size: var_size,
         }, format!("cloning var {}", self.name));
 

@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Display, i128, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Rem, Shl, Shr, Sub}};
 use colored::Colorize;
-use crate::{assembly::{assembly::IRCode, comparison::ComparisonKind, operand::Storage, operation::IROperation}, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::GenerateIR};
+use crate::{assembly::{assembly::IRCode, comparison::ComparisonKind, operand::{IRMemOperand, IROperand, Storage}, operation::IROperation}, data_type::{base_type::{FloatType, IntegerType, ScalarType}, recursive_data_type::{calculate_promoted_type, calculate_unary_type}}, expression_visitors::expr_visitor::ExprVisitor, generate_ir_traits::GenerateIR};
 
 #[derive(Debug, Clone)]
 pub enum NumberLiteral {
@@ -204,7 +204,7 @@ impl GenerateIR for NumberLiteral {
         let size = self.get_data_type().memory_size();
         let allocation = stack_data.allocate(size);
 
-        result.add_instruction(IROperation::MOV { from: Storage::Constant(self.clone()), to: Storage::Stack(allocation), size });
+        result.add_instruction(IROperation::MOV { from: IROperand::Constant(self.clone()), to: IRMemOperand::Stack { base: allocation }, size});
 
         (result, Some(allocation))
     }

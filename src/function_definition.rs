@@ -1,6 +1,6 @@
 use memory_size::MemorySize;
 use stack_management::simple_stack_frame::SimpleStackFrame;
-use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{ register::GPRegister, Storage, STACK_ALIGN}, operation::{IROperation, CalleeReturnData, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
+use crate::{args_handling::location_allocation::{generate_param_and_return_locations, AllocatedLocation, EightByteLocation, ReturnLocation}, asm_gen_data::{AsmData, GlobalAsmData}, assembly::{assembly::IRCode, operand::{ register::GPRegister, IRMemOperand, IROperand, Storage, STACK_ALIGN}, operation::{CalleeReturnData, IROperation, Label, ReadParamFromMem, ReadParamFromReg}}, ast_metadata::ASTMetadata, compound_statement::ScopeStatements, data_type::{base_type::{BaseType, IntegerType}, recursive_data_type::DataType}, debugging::ASTDisplay, function_declaration::{consume_decl_only, FunctionDeclaration}, generate_ir_traits::GenerateIR, lexer::{punctuator::Punctuator, token::Token, token_savepoint::TokenQueueSlice, token_walk::TokenQueue}, number_literal::typed_value::NumberLiteral, parse_data::ParseData};
 use unwrap_let::unwrap_let;
 
 /**
@@ -153,8 +153,8 @@ impl FunctionDefinition {
             let zero = stack_data.allocate(zero_size);
             //put 0 on a stack variable
             result.add_instruction(IROperation::MOV {
-                from: Storage::Constant(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I32 }),
-                to: Storage::Stack(zero),
+                from: IROperand::Constant(NumberLiteral::INTEGER { data: 0, data_type: IntegerType::I32 }),
+                to: IRMemOperand::Stack { base: zero },
                 size: zero_size
             });
             //return it
